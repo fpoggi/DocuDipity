@@ -1,6 +1,10 @@
 # DocuDipity
 
-[DocuDipity](http://eelst.cs.unibo.it/docudipity/), an interactive web-based tool we developed to support the exploration and analysis of heterogeneous document collections. Some documents are preloaded and a drop-down list at the top of the page let the user select the document to focus on. Moreover, two buttons allows to browse the document list quickly and to open the related XML source in a new tab, respectively. 
+## Digital and Semantic Publishing Lab (DASPLab)
+
+### DISI - University of Bologna
+
+[DocuDipity](http://eelst.cs.unibo.it/docudipity/) is an interactive web-based tool aimed at supporting the exploration and analysis of heterogeneous document collections. Some documents are preloaded and a drop-down list at the top of the page let the user select the document to focus on. Moreover, two buttons allows to browse the document list quickly and to open the related XML source in a new tab, respectively. 
 
 It is worth noting that DocuDipity is a general tool that can work on any XML document, without requiring any background information about the format documents are written in. In fact, DocuDipity engine is based on the structural pattern theory [1]. By leveraging the pattern identification algorithm described in [2], DocuDipity is able to extract relevant information about the structure of the set of documents provided as input, and use it (a) to visualise the documents and (b) to provide an analysis framework to inspect their content easily.
 
