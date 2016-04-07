@@ -8,7 +8,7 @@
 
 It is worth noting that DocuDipity is a general tool that can work on any XML document, without requiring any background information about the format documents are written in. In fact, DocuDipity engine is based on the structural pattern theory [1]. By leveraging the pattern identification algorithm described in [2], DocuDipity is able to extract relevant information about the structure of the set of documents provided as input, and use it (a) to visualise the documents and (b) to provide an analysis framework to inspect their content easily.
 
-The DocuDipity interface is composed by three parts, as shown in Fig. 1. On the right side, the content of the
+The DocuDipity interface is composed by three parts, as shown in ![FIGURE](https://github.com/fpoggi/DocuDipity/blob/master/documentation/images/DocuDipity1.png). On the right side, the content of the
 document is displayed as an hypertext; on the left side, a zoomable view based on the SunBurst technique [] pro-
 vides an overview of the whole document structure; in the bottom, the user can write JavaScript and CSS codes to de-
 fine customized patterns and interactively evaluating them on-the-fly.
