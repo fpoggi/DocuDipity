@@ -10,7 +10,7 @@ It is worth noting that DocuDipity is a general tool that can work on any XML do
 
 ![An overview of DocuDipity](https://raw.githubusercontent.com/fpoggi/DocuDipity/master/documentation/images/DocuDipity1.png)
 
-The DocuDipity interface is composed by three parts, as shown in the previous picture. On the right side, the content of the document is displayed as an hypertext; on the left side, a zoomable view based on the SunBurst technique [] pro-
+The DocuDipity interface is composed by three parts, as shown in the previous picture. On the right side, the content of the document is displayed as an hypertext; on the left side, a zoomable view based on the SunBurst technique [3] pro-
 vides an overview of the whole document structure; in the bottom, the user can write JavaScript and CSS codes to de-
 fine customized patterns and interactively evaluating them on-the-fly.
 
