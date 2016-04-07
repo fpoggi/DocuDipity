@@ -1,0 +1,900 @@
+<?xml version="1.0" encoding="UTF-8"?><article xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink" xml:id="Bal2010Lewi0417" version="5.0-subset Balisage-1.2"><title>gXML, a New Approach to Cultivating XML Trees in Java</title><info><confgroup><conftitle>Balisage: The Markup Conference 2010</conftitle><confdates>August 3 - 6, 2010</confdates></confgroup><abstract><para>A number of issues facing the use of XML tree models in Java
+                are enumerated: multiplicity, interoperability, variability,
+                and weight.  The gXML API, following the <emphasis>Handle/Body</emphasis>
+                design pattern and conforming to the XQuery Data Model specification
+                <xref linkend="XDM"/>, is
+                proposed as a solution to these problems, and as a platform for
+                advancing the state of the art for XML in Java.  gXML is not
+                a new tree model, but a unified API and model following a
+                rigorous, external specification, which can be used with any
+                tree model for which a "bridge" has been developed.  Applications
+                and processors targeting the gXML API may then use any supported
+                tree model, as appropriate for the task.</para></abstract><author><personname><firstname>Amelia</firstname><othername>A.</othername><surname>Lewis</surname></personname><personblurb><para>Amelia Lewis is a senior architect with the TIBCO/Extensibility
+                division of TIBCO Software Inc.  Her primary focus, since 2000,
+                has been XML technologies, inside and outside TIBCO.  She has
+                been active in a variety of XML-related specifications efforts
+                and developer-oriented XML mailing lists; she has extensive
+                experience with implementation of a variety of XML technologies,
+                using most of the tree models mentioned in this paper.</para></personblurb><affiliation><jobtitle>Senior Architect</jobtitle><orgname>TIBCO Software Inc.</orgname></affiliation><email>alewis@tibco.com</email></author><author><personname><firstname>Eric</firstname><othername>E.</othername><surname>Johnson</surname></personname><personblurb><para>Eric Johnson is a principal architect at TIBCO Software Inc. Eric joined TIBCO
+                in 2000, a part of TIBCO's acquisition of Extensibility, an XML tools company.
+                While Eric now works in a variety of areas, including governance, build
+                architecture, and various standards including SOAP/JMS, SCA, and OSGi, he has
+                also maintained a strong interest in improving the core technologies that
+                TIBCO uses, especially those related to XML.</para></personblurb><affiliation><jobtitle>Principal Architect</jobtitle><orgname>TIBCO Software Inc.</orgname></affiliation><email>eric@tibco.com</email></author><legalnotice><para>Copyright © 2010 TIBCO Software Inc.  All rights reserved.</para></legalnotice><keywordset role="author"><keyword>XQuery Data Model</keyword><keyword>Handle/Body design pattern</keyword><keyword>Document Object Model</keyword><keyword>DOM</keyword><keyword>JDOM</keyword><keyword>DOM4J</keyword><keyword>AxiOM</keyword><keyword>XOM</keyword><keyword>XPath</keyword><keyword>XML Infoset</keyword></keywordset></info><note xml:id="acknowledgements"><title>Acknowledgements</title><para>This paper describes concepts and source code originally
+        developed by David G. Holmes, formerly of TIBCO Software Inc., without
+        whose innovation and energy neither the paper nor the material that it
+        describes would be possible.  David was the senior architect responsible
+        for driving the development (over several iterations) of the gXML
+        code base, and the original advocate of opening the source.</para></note><section xml:id="introduction"><title>The Problem(s) with XML Tree APIs in Java</title><para>Java was one of the first major programming languages with support for
+XML. It was one of the targets for the Interface Definition Language modules
+that were developed as the basis of the Document Object Model <xref linkend="DOM"/>. Early adoption helped to prove the capabilities of both XML
+and of Java, but as might be expected, early adoption also has its drawbacks.
+A number of developers using XML in Java have noted these problems. For
+instance, Dennis Sosnoski compared a number of tree models in a two-part
+investigation in 2001 and 2002 (see "XML and Java technologies: Document
+models, Part 1: Performance" <xref linkend="DMPerf"/> and "XML and Java
+technologies: Java Document Model Usage" <xref linkend="DMUse"/>). More
+recently, Elliotte Harold documented "What's Wrong with XML APIs" <xref linkend="WhatsWrong"/> as part of the development of the XOM <xref linkend="XOM"/> API. This analysis falls into that tradition, though it does not agree
+wholly with the previous analyses. We identify four classes of problem with
+existing tree model APIs.</para><para>The first problem is <emphasis>multiplicity</emphasis>. For a variety of
+reasons, Java developers have not, on the whole, been enthusiastic partisans
+of the DOM. Alternatives were proposed early; Xalan <xref linkend="Xalan"/>,
+one of the major early XSLT processors, defined its own internal XML tree
+model (the Data Table Model <xref linkend="XalanDTM"/>) in preference to
+using the DOM. At present, there are at least five well-known tree models for
+XML in Java: DOM <xref linkend="DOM"/>, JDOM <xref linkend="JDOM"/>, DOM4J
+<xref linkend="DOM4J"/>, XOM <xref linkend="XOM"/>, and AxiOM <xref linkend="AxiOM"/>, as well as an unknown number of proprietary APIs to the
+same purpose (the authors of this paper know of at least six such private
+APIs). Applications and processors written for one of these models are
+generally not usable with other models.</para><para>The second problem is <emphasis>interoperability</emphasis>. The first
+tree model to appear on the scene has had a first mover advantage. Subsequent
+tree model designs have intended to address the shortcomings of the DOM, but
+not to interoperate with it (note that both DOM4J and AxiOM later added
+optional DOM interface implementations to address this
+problem—accepting the disadvantages of the DOM in order to achieve
+compatibility in this mode). Knowledge of the tricks and optimizations
+appropriate to one model do not transfer to other tree models. Though the
+successor models have all positioned themselves as better solutions than the
+DOM, they have not been adopted as widely. This is most likely due to the
+DOM's first mover advantage, and the consequent network effect: although other
+models may have technical advantages that make them more suitable than the DOM
+for a given application, in order to use those new models efficiently within
+the JVM, all parts of the application need to use the same tree model.
+Developers must solve a cruel equation in which the marginal benefits of
+switching from the DOM are typically low, whereas the marginal costs are
+always high. The alternatives seem to be to write multiple code paths to
+achieve the same purpose (with different tree models), or to wrap each node of
+each tree model in an application-specific abstraction. Some projects, such as
+Woden <xref linkend="Woden"/> and Jaxen <xref linkend="Jaxen"/>, have taken one
+or the other of these approaches in preference to adopting the DOM as the sole
+programming model.</para><para>The DOM, as the first XML tree model for Java, established the universe of
+discussion for design of tree models. Development of the DOM preceded the
+<emphasis>Namespaces in XML</emphasis> <xref linkend="XMLNS"/> and
+<emphasis>XML Infoset</emphasis> <xref linkend="Infoset"/> specifications.
+For backward compatibility, the DOM could never enforce these specifications,
+though it could enable them. Further development of the DOM may be
+characterized as too closely approaching the <emphasis>Lava Flow</emphasis>
+<xref linkend="LavaFlow"/> anti-pattern. Indeed, the DOM exposes fifteen
+"basic" abstractions (node types), compared to eleven in the Infoset, and
+seven in the XDM. Successor APIs have generally targeted the Infoset, but with
+widely varying interpretations. This is the problem of <emphasis>
+variability</emphasis>. Each model exposes different property sets. The
+boundaries between lexical, syntactic, and semantic are drawn at different
+points. One consequence of this variability is that it is difficult or awkward
+to add support for specifications "higher in the stack." For instance, XPath
+1.0 <xref linkend="XPath1"/> and XSLT 1.0 <xref linkend="XSLT1"/> work
+perfectly adequately as external tools (one per tree model, or by generalizing
+the concept of "Node" to "Object"), and some models have built-in support (at
+least for XPath). XML Schema support (see <xref linkend="WXS1"/> and <xref linkend="WXS2"/>) is rarely found—a DOM Level 3 module supports it,
+but in a fashion that is not noted for ease of use, and the module is not
+widely implemented. Similar situations exist for specifications such as XQuery
+1.0, XPath 2.0, and XSLT 2.0. Even SOAP/XMLP is arguably under-supported.
+AxiOM, after all, is an entire XML tree model built largely so that the SOAP
+abstractions could be represented cleanly as extensions.</para><para>Finally, the problem of <emphasis>weight</emphasis> plagues most of
+these tree models. The DOM itself is notoriously heavyweight, typically occupying
+<link xlink:href="http://www.cafeconleche.org/books/xmljava/chapters/ch09s05.html" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">three to ten times the space</link>, in memory, that the—already
+verbose—XML occupies as a character stream, according to Harold's
+<emphasis>Processing XML with Java</emphasis> <xref linkend="XMLInJava"/>.
+Sucessor models have done better in this area. Dennis Sosnoski's evaluation,
+"Document Models Part 1: Performance" <xref linkend="DMPerf"/>, though dated,
+provides an excellent illustration of this problem. A large part of the
+problem lies in the unrestricted mutability of these models. All of the
+prominent XML tree models for Java must restrict programming to serial,
+synchronous access. A mutable tree model is effectively a mutable collection,
+so any changes made to it by a single writer may have disastrous effects upon
+multiple readers. Issues of weight cannot easily be addressed by storing the
+bulk of the document on disk, or by concurrent processing, because the
+document may be modified during processing.</para><para>There are alternatives: applications and processors with higher
+performance requirements are often written to abstractions that do not model
+XML as a tree, such as SAX, StAX, or XML data binding (in its various
+flavors). Sosnoski's article discusses some of these alternatives; Harold's
+presentation also notes both advantages and disadvantages. The chief drawback
+to these approaches is that they expose paradigms which are not as easily or
+intuitively understood as the tree model, which are more of a challenge for
+some developers. A tree model is preferred. A single model for navigation and
+interrogation seems best. To date, attempts to create this single model have
+proven suboptimal in most environments.</para></section><section xml:id="gxml-overview"><title>gXML Design Considerations</title><para>gXML is a new API for analyzing, creating, and manipulating XML in Java.
+It embodies the XQuery Data Model, and is consequently a tree-oriented API,
+but it does not introduce a new tree model comparable to existing models.
+Instead, it is intended to run over existing tree models, and to permit the
+introduction of new, specialized models optimized for a particular purpose.
+Its design rests on four pillars: the <emphasis>Handle/Body</emphasis> design
+pattern, Java generics, the XQuery Data Model, and immutability for XML
+processing as a paradigm.  These four principles answer the four problems
+outlined above.</para><section xml:id="gxml-handle-body"><title>The Handle/Body Pattern</title><para>gXML makes extensive use of the <emphasis>Handle/Body</emphasis> pattern
+(called the <emphasis>Bridge</emphasis> pattern in <emphasis>Design
+Patterns</emphasis> <xref linkend="GOF"/>). This pattern provides a
+well-defined set of operations over an abstraction (the handle), which may
+then be adapted to specific implementations (the body). For gXML, the primary
+"handles" are the Model or Cursor, the Processing Context, the Node Factory in
+the mutable API, and the type (Meta) and typed-value (Atom) Bridges in the
+schema-aware API.</para><para>When presenting gXML to a new audience, one of the most common stumbling
+points is the distinction between <emphasis>Handle/Body</emphasis> and
+<emphasis>Wrapper</emphasis> (called <emphasis>Facade</emphasis> in
+<emphasis>Design Patterns</emphasis>). gXML <emphasis>does not</emphasis> wrap
+every node in the tree. Applications and processors are presented with one new
+abstraction, represented by a single instance (a
+<emphasis>Singleton</emphasis> for model, or a single instance per tree for
+cursor). gXML adds very little weight to the existing tree model, compared to
+the significant additional weight added by the necessity to wrap every node in
+a tree. Although there is a cost (in memory and performance) to using the
+handles rather than directly manipulating the bodies, the benefits (in
+flexibility and capability) are more nearly commensurate: in exchange for a
+memory/performance impact measured in low single-digit percentages (for most tree
+model APIs), an application or processor gains the ability to manipulate all
+supported tree model APIs (currently three; more are anticipated).</para><para>There are a number of attractive consequences of using
+this design pattern. First, since applications and processors need not write
+separate code paths for different tree models, these models can be injected
+very late, even at runtime. That suggests that they can be compared, based on
+the application's or processor's requirements, and the tree model best suited
+to the problem at hand preferred. It also suggests that application and
+processor developers might have a sounder foundation to suggest improvements
+to developers of the models. Second, by bringing peace to these warring
+models, by allowing developers to choose a model based on technical merits
+<emphasis>without</emphasis> considering the importance of the network effect
+for the DOM, gXML also enables the creation of "niche" tree models for XML, models
+designed and optimized for particular use cases. In other words, by always
+using these handles for access, special-purpose bodies become more practical.
+These topics will be revisited in <xref linkend="advancing-the-state-of-the-art"/>, below.</para><para>gXML's use of the <emphasis>Handle/Body</emphasis> pattern for XML tree
+models might be compared to the similar pattern used for database drivers in
+the Java Database Connection (JDBC) API. Each bridge may be viewed as
+equivalent to a vendor-specific driver.</para></section><section xml:id="gxml-in"><title>The 'G' in 'XML'</title><para>gXML makes extensive use of Java generics. First, it defines two common
+parameters, N and A. N is the "node" handle; A is the "atom" or "atomic value"
+handle. Furthermore, gXML makes extensive use of Java's built-in generics;
+APIs that accept or return collections typically use <code>Iterable</code> in
+their signatures (as opposed to counts, specialized objects with
+pseudo-iterators, single-use iterators, or arrays).</para><para>The use of generics is the primary answer, in gXML, to the problem of
+interoperability. By defining these parameters, particularly the &lt;N&gt;ode
+handle, each of the tree models can be viewed and manipulated through the lens
+of the XQuery Data Model. One notable consequence is that the enormous network
+effect created by the existence of parsers, processors, and applications that
+understand no model but the DOM, regardless of its fitness for their domain of
+operation, no longer matters to developers of gXML-based processors and
+applications. gXML includes a DOM bridge; it is thereby able to leverage that
+network effect. Every bridge added, adds to the network effect—though
+not, as a rule, for a single document: conversion from model to model remains
+expensive.</para></section><section xml:id="gxml-xdm"><title>The XQuery Data Model</title><para>Perhaps the most important driver for the development of gXML was the
+desire to have a Java API that embodied the XQuery Data Model.  The XDM is
+more rigorous than its predecessor, the XML Infoset specification (which
+was driven in part from a need to model existing APIs, including DOM, SAX,
+XPath, and Namespaces in XML).  It is conceptually complete, and defined in
+a context that permits type definition, navigation operations, and more
+advanced functions.  This rigorous, well-defined specification was adopted
+as the basis for the API, and represents gXML's answer to the problem of
+variability.  Is a property or concept in the XDM specification?  Then it
+should be in the gXML API.  If it is not in the specification, then either
+it should not be exposed in the API, or it should be compatible with the
+well-specified API. For instance, the entire mutable API was added as an
+extension; XQuery does not define operations that modify trees.</para><para>Another important reason to adopt the XQuery Data Model is that it
+provides the first well-integrated access to XML Schema information
+(one might argue that XQuery and XSLT2 provide the "missing language" for
+the XML Schema type system).  A great deal of XML processing has no need to
+concern itself with validation, typing, and particularly with the post-Schema
+validation infoset; those applications and processors that need it, however,
+need it very badly.  gXML defines a common model for XML Schema, compatible
+with the XDM's definition and use of XML Schema types and typed values, as a
+standard extension.</para><para>gXML is not the only model to provide support for XML Schema, but the
+schema-aware extensions in gXML can be implemented for any tree model, and are
+exposed via APIs that are clearly related to (usually extensions of) the core
+gXML APIs. In other words, by addressing the problem of variability via
+adherence to and conformance with the XQuery Data Model Specification, gXML
+enables the development of a "next wave" of XML processing technologies, based
+on XPath 2.0, XSLT 2.0, and XQuery 1.0 (including the new generation of
+XQuery-conformant databases).</para></section><section xml:id="gxml-immutable"><title>The Immutable Approach</title><para>In the experience of the developers of gXML, most of the nodes in any
+given XML instance document are never modified. These nodes need not be
+mutable—but because some nodes are modified in the common paradigm of
+XML processing, all nodes must be defined to be mutable. The core gXML API
+dispenses with mutability. Instead, it promotes a paradigm in which a received
+or generated XML document is an input, and the XML supplied to other processes
+(in the same VM, on the same machine, or somewhere else on the network) is a
+transformation of the input. This approach addresses the problem of weight. In
+combination with the enabling of custom, potentially domain-specific XML tree
+models accessed via a gXML bridge, the immutable paradigm (over an immutable
+tree model) can achieve optimizations not possible for a tree model in which
+the existence of mutability militates against caching, compaction, and
+deferred loading. It is not possible, at this point, to quantify the potential
+performance benefits rigorously because the pure-immutable model remains
+hypothetical (other priorities have taken precedence). Here we
+speculate.</para><para>Such a hypothetical immutable model would not need to guard against
+modification of a document in one thread while another thread reads it.  It
+would provide guarantees that would permit processing of large documents to
+be parallelized; an immutable, late-loading model might be able to provide
+access to XML documents of a size infeasible for mutable models.  A certain
+number of these optimizations are available even for bridges over mutable
+models; if the convention encourages immutability, then processors can define
+their operations only when the convention is adhered to, warning users that
+breaking the convention may lead to undefined (and incorrect) results.</para><para>Immutability enables performance enhancements—for instance,
+models in memory which occupy a fraction of the size of the XML as a character
+stream rather than a multiple of its size; concurrent processing of XML
+documents; storage of the bulk of a document on disk with indexing and a very
+light footprint in memory. We've noticed unanticipated potential as well: if
+there is no requirement to modify the document in memory, then a gXML bridge
+may reasonably be defined over any structured hierarchical data format
+analagous to XML: JSON, CSV, a file system, a MIME multipart message. Perhaps
+more strikingly, immutable models can potentially cross the VM boundary, via
+JNI to other languages, into hardware accelerators, and so on.</para></section></section><section xml:id="gxml-apis"><title>The gXML Core</title><para>The gXML API is designed for rapid understanding.  The core API can be
+described as a collection of five interfaces. In practice, more interfaces
+are available, but understanding these five is necessary and sufficient to
+understand and use the gXML base API.  These abstractions adhere to the
+design principle of immutability, and do not introduce any dependency upon
+XML Schema.</para><para>The core API is completed with two extensions.  The mutable extension
+adds mutability by adding methods to the base interfaces, or by adding new
+interfaces.  The schema-aware extension adds schema awareness, again by adding
+methods to base interfaces, or by adding new interfaces; the schema-aware
+extension also introduces the "atom" parameter.</para><section xml:id="api-base"><title>Untyped, Immutable</title><para>The heart of the gXML API is an abstraction called <xref linkend="Model"/>. <code>Model</code> is stateless; each bridge implements it. The methods on
+<code>Model</code> permit interrogation of XQuery Data Model properties
+(<code>getNamespaceURI(N)</code>, <code>getLocalName(N)</code>,
+<code>getStringValue(N)</code>, <code>getNodeKind(N)</code>, etc.), and
+provide XQuery/XPath navigation (child, descendant, ancestor, sibling,
+attribute, namespace axes). Since this abstraction is stateless, each method's
+first parameter is a context node, the node for which information is
+requested, or from which navigation begins. The XQuery Data Model defines
+seven node types: <code>Document</code>, <code>Element</code>,
+<code>Text</code>, <code>Attribute</code>, <code>Namespace</code>,
+<code>Comment</code>, and <code>ProcessingInstruction</code>. Returns from
+each method vary by node type, in conformance with the Data Model
+specification, but the API does not distinguish node types (the argument or
+return value is &lt;N&gt;, not &lt;? extends N&gt;). The <xref linkend="gxml-code"/> documents this interface.</para><para>For convenience, a very similar API, with minimal (positional) state is
+also defined: <code>Cursor</code>. <code>Cursor</code> provides a common
+idiom, maintaining its positional state within the target tree, which is
+frequently encountered in processing XML. Where <code>Model</code>'s
+navigation APIs typically return a node (<code>N getFirstChildElement(N
+context)</code>), <code>Cursor</code>'s corresponding APIs return true or
+false and change the <code>Cursor</code>'s state (<code>boolean
+moveToFirstChildElement()</code>). Where <code>Model</code>'s property
+accessors require a context node (<code>String getStringValue(N
+context)</code>), <code>Cursor</code>'s use its current state (<code>String
+getStringValue()</code>). The design intent is that anything that may be
+accomplished with a <code>Model</code> may also be accomplished with a
+<code>Cursor</code>. Note that <code>Cursor</code> is not forward-only.</para><para>When processing XML, some applications can make use of gXML with nothing
+more than <code>Model</code> or <code>Cursor</code>. More advanced uses might
+need the third primary abstraction in the core gXML API, the
+<code>ProcessingContext</code>. A processing context is precisely what it
+claims to be: a specialized (for the target tree model), stateful abstraction
+which provides uniform access to the collection of abstractions which together
+make up a bridge. <code>Model</code>, <code>Cursor</code>, and
+<code>ProcessingContext</code> are all parameterized only by &lt;N&gt;ode. The
+<code>TypedContext</code> extension introduces the &lt;A&gt;tom parameter.</para><para><code>ProcessingContext</code> provides <code>Model&lt;N&gt;
+getModel()</code> and <code>Cursor&lt;N&gt; newCursor(N context)</code> methods,
+an accessor for the (singleton) <code>Model</code> and a factory for the
+<code>Cursor</code>. Several additional accessors, functions, and factory
+methods are available from the context: it is the source for the mutable and
+typed context extensions (<code>getMutableContext()</code> and
+<code>getTypedContext()</code>), and for <code>DocumentHandler</code> and
+<code>FragmentBuilder</code>; it can report whether candidate objects are
+compatible with the bridge's specialization of &lt;N&gt;ode; it includes a
+mechanism to permit feature-based extension. For greatest generality,
+applications should access a bridge via its processing context. An optional
+<code>ProcessingContextFactory</code> interface is also included in the API,
+but experience suggests that provision of instances of the factory is an
+impediment to the target design pattern, dependency injection. That is,
+applications ought to instantiate the factory interface themselves, consistent
+with the injection mechanism or API which they use.</para><para>The processing context provides access to <code>DocumentHandler</code>,
+which in turn provides methods to parse from and serialize to streams, readers
+and writers. <code>ProcessingContext</code> is also a factory for
+<code>FragmentBuilder</code>, which <emphasis>is-a</emphasis>
+<code>ContentHandler</code> (for the XDM, not the SAX interface of the same
+name) and <emphasis>is-a</emphasis> <code>NodeSource</code>.
+<code>FragmentBuilder</code> is used to programmatically build trees or tree
+fragments in memory, parallel to parsing a document into memory via the
+document handler's various parse methods. <code>Model</code> and
+<code>Cursor</code> also accept a <code>ContentHandler</code> argument to
+stream or write themselves. In short, these abstractions provide a range
+of input/output operations for XML using a particular bridge. </para><para>These five abstractions make up the core of the gXML API. There are
+other, supporting abstractions, some of which become more significant in
+particular contexts. An untyped, immutable bridge implementation (minimally)
+provides implementations for these five abstractions over a given tree
+model.</para></section><section xml:id="api-mutable"><title>Mutability</title><para>gXML provides two standard extensions in the core
+<code>ProcessingContext</code> to permit bridges to signal support for
+optional functionality. The first extension permits mutability. Immutability
+provides important benefits for XML processing, but all currently-available
+tree models are mutable, and nearly all processors and applications expect
+mutability. To ease migration, <code>ProcessingContext</code> provides a
+method, <code>getMutableContext()</code> which permits the bridge to signal
+that it supports mutability, by returning an implementation of the
+<code>MutableContext</code> extension. A mutable context, in turn, provides
+access to <code>MutableModel</code> and <code>MutableCursor</code>, each of
+which extend the corresponding immutable interfaces (adding methods to add and
+remove nodes, and to change the content of a document or element node), and also
+provides access to a <code>NodeFactory</code> implementation which permits the
+creation of nodes in memory, independent of any tree (within the limits of the
+underlying tree model).</para><para><emphasis>Nota bene</emphasis>: the mutable interfaces, unlike other
+abstractions in gXML, are not attempts to implement a portion of the XQuery
+Data Model in Java. The XQuery Data Model (and, in fact, XQuery 1.0, XSLT 2.0,
+and XPath 2.0) do not provide specification of property mutators.
+Consequently, this portion of the API has been designed to be roughly
+compatible with the XDM, as an extension, and to be roughly compatible with
+the corresponding mutable APIs in dominant tree models. However, once XQuery
+produces its "update" mechanism, this portion of the API is unlikely to prove
+conformant.</para></section><section xml:id="api-sa"><title>Schema Awareness</title><para>The <code>TypedContext</code> extension parallels the
+<code>MutableContext</code> extension. It provides the XDM-defined
+schema-aware properties and manipulations. Most notably, the typed context
+introduces an additional parameter, the &lt;A&gt;tom handle. The base and mutable
+interfaces deal only with string values for text node and attribute content
+(in XDM terms, actually <emphasis>untyped atomic</emphasis>). The XQuery Data
+Model defines the concept of "atom", which corresponds to a typed value or
+list of typed values. Atoms are inherently sequences of atoms (a single atom
+is a one-element list); "sequence" is also introduced in the schema-aware API,
+but unlike atom, is not represented by an independent common parameter.</para><para><code>TypedContext</code> is more complex than
+<code>MutableContext</code>. As a mutable context provides access to mutable
+models and cursors, a typed context provides an accessor for a
+<code>TypedModel</code> and is a factory for <code>TypedCursor</code>, which
+are extensions of the base <code>Model</code> and <code>Cursor</code>, adding
+methods to access the type-name and typed-value properties. As the base
+processing context can identify &lt;N&gt;odes, so the typed context can identify
+&lt;A&gt;toms. <code>TypedContext</code> enhances the base
+<code>FragmentBuilder</code> as a type- and atom-aware
+<code>SequenceBuilder</code>. To handle typed values,
+<code>TypedContext</code> provides an accessor for the
+<code>AtomBridge</code>, which in turn provides facilities to create, compile,
+cast, convert (to Java native types), and query atoms, in a fashion consistent
+with the XDM.</para><para><code>TypedContext</code> also provides access to the
+<code>MetaBridge</code>, which primarily serves to map the names of types to
+their corresponding implmentations in the (included) XML Schema model.
+<code>TypedContext</code> makes use of this bridge itself, because it extends
+the core schema model interface, <code>SmSchema</code>. <code>SmSchema</code>
+permits definition and declaration of custom types, registry of types, and
+lookup of types. In other words, the typed context provides a cache of types
+(supplied via parsing of schemas or programmatically) which are being used in
+the processing of a collection of XML documents. This is actually the origin
+of the concept and term "processing context," though it now exists for the
+untyped API as well.</para></section></section><section xml:id="gxml-bridges"><title>Building Bridges with gXML</title><para>For greatest utility, gXML ought to have bridges on every tree model for
+XML in Java. The authors have not been able to accomplish this themselves, but
+can demonstrate that creating additional bridges is a straightforward
+task.</para><para>The three bridges included in the gXML source tree provide examples of
+the finished product. The development process is easily described. Note,
+however, that most tree models present unique challenges when adapted to the
+XQuery Data Model; our experience suggests that most development time is
+consumed by handling these impedance mismatches.</para><section xml:id="gxml-base"><title>Untyped, Immutable</title><para>What needs to be done to create a new base bridge (untyped, immutable)
+for an as-yet unsupported tree model? There are five steps:</para><orderedlist><listitem><para>Implement <code>ProcessingContext</code> and <code>Model</code>.
+Decide what the &lt;N&gt; (node) abstraction must be.</para><para>For instance: the DOM defines &lt;N&gt; as
+<code>Node</code>. AxiOM defines it as <code>Object</code>
+(AxiOM does not have a single base interface that marks all node types).  The Cx bridge
+proof-of-concept uses <code>XmlNode</code>.</para></listitem><listitem><para>Use the <code>bridgekit</code> module to get a simple,
+generic implementation of <code>Cursor</code> (over the custom <code>Model</code>).</para><para>The <code>bridgekit</code> module is a collection of utilities intended
+to help bridge developers.  It includes, for instance, an implementation of the XML
+Schema model (<code>SmSchema</code>) and the <code>XmlAtom</code> typed-value implementation,
+as well as the <code>CursorOnModel</code> helper used here.</para></listitem><listitem><para>Implement <code>FragmentBuilder</code>.</para><para>The <code>FragmentBuilder</code> interface has five methods for creating
+Text, Attribute, Namespace, Comment, and Processing Instruction node types, and an
+additional two each (start and end) for the container node types, Element and Document.</para></listitem><listitem><para>Use the generic implementation of <code>DocumentHandler</code>
+from the <code>input-output</code> processor.</para><para>The generic <code>DocumentHandler</code> in the <code>input-output</code>
+module is not terribly mature or robust, but can do the job for an initial implementation.</para></listitem><listitem><para>Use the <code>bridgetest</code> module to verify equivalence with
+existing bridges.</para><para>The <code>bridgetest</code> module is designed to make implementation
+easy; enabling each test requires only that the bridge implement the single abstract
+method, which returns the bridge's implementation of <code>ProcessingContext</code> (from
+which all other abstractions can be reached).  Adding a test implementation is thus mostly
+a mechanical task.</para></listitem></orderedlist><para>This is all that's required. For this minimum,
+<code>getMutableContext()</code> and <code>getTypedContext()</code> (on
+<code>ProcessingContext</code>) should both return null, indicating no
+support.</para></section><section xml:id="gxml-mutable"><title>Mutability</title><para>To add support for mutability:</para><orderedlist><listitem><para>Implement <code>MutableContext</code> and return it from
+<code>ProcessingContext</code> instead of null.</para><para><code>MutableModel</code> provides access the <code>NodeFactory</code>,
+        <code>MutableModel</code>, and <code>MutableCursor</code> implementations.</para></listitem><listitem><para>Implement <code>MutableModel</code> as an extension of the
+base <code>Model</code> from above.</para><para><code>MutableModel</code> adds methods to set attributes and namespaces,
+        to add, remove, and replace children.</para></listitem><listitem><para>Use the <code>bridgekit</code> module to base the bridge's
+<code>MutableCursor</code> on its <code>MutableModel</code>.</para><para>The <code>bridgekit</code> implementations are reasonable starting
+        points, though optimization is likely to require a custom implementation.</para></listitem><listitem><para>Implement <code>NodeFactory</code>.</para><para><code>NodeFactory</code> contains methods to create each node type,
+        where <code>MutableModel</code> establishes the relationships between nodes.</para></listitem><listitem><para>Add tests from the <code>bridgetest</code> module.</para><para>In this case, there's only one, at present.</para></listitem></orderedlist><para>This is admittedly easier to describe than to accomplish.  Approaches
+to mutability among tree models vary <emphasis>much</emphasis> more widely
+than approaches to navigation and analysis.</para><para>On the other hand, gXML's approach to mutability is more restricted than
+most current tree APIs. The gXML mutable API does <emphasis>not</emphasis>
+support changing the value of a text or attribute node, for instance. Leaf
+nodes remain immutable; container nodes (document and element) are mutable in
+content (contained nodes) only.</para></section><section xml:id="gxml-sa"><title>Schema Awareness</title><para>To add support for schema-awareness:</para><orderedlist><listitem><para>Implement <code>TypedContext</code> and return it from
+<code>ProcessingContext</code> instead of null; note that <code>TypedContext</code>
+<emphasis>is-a</emphasis> <code>SmSchema</code>. Decide what the &lt;A&gt; (atom)
+abstraction must be.</para><para>Current implementations all define &lt;A&gt; as <code>XmlAtom</code>.
+This is not required.</para></listitem><listitem><para>Implement <code>TypedModel</code> as an extension of the
+base <code>Model</code> from above.</para><para>The <code>TypedModel</code> interface adds only five methods to
+<code>Model</code>, all related to the introduction of type names and typed values.
+Actually ensuring that the type annotations and typed values are associated with the
+nodes in the tree is one of the most challenging tasks in implementation.</para></listitem><listitem><para>Use the <code>bridgekit</code> module to base the bridge's
+<code>TypedCursor</code> on its <code>TypedModel</code>.</para><para><code>CursorOnTypedModel</code> extends <code>CursorOnModel</code>
+as expected.</para></listitem><listitem><para>Implement or reuse from the <code>bridgekit</code> module
+an <code>AtomBridge</code> (typed value support).</para><para>If the chosen &lt;A&gt;tom is <code>XmlAtom</code>, the <code>XmlAtomBridge</code>
+already exists.</para></listitem><listitem><para>Implement or reuse from the <code>bridgekit</code> module a
+<code>MetaBridge</code> (type support).</para><para>Again, if the &lt;A&gt;tom is <code>XmlAtom</code>, a <code>MetaBridge</code>
+exists in the <code>bridgekit</code>.</para></listitem><listitem><para>Implement <code>SequenceBuilder</code> as an extension of
+the <code>FragmentBuilder</code> from above.</para><para><code>SequenceBuilder</code> adds overrides for the <code>attribute()</code>, 
+<code>startElement()</code>, and <code>text()</code> methods (adding type names and
+typed values), plus methods to create an atom and to start and end a sequence.</para></listitem><listitem><para>Add the typed tests from the <code>bridgetest</code> module.</para><para>As with the standard tests, these are easy to implement, following the
+same pattern.</para></listitem></orderedlist><para>For schema awareness, the most straightforward approach is going to be
+reusing the generic implementations found in the <code>bridgekit</code>
+module, but better results may be achieved by customizing the code. This is an
+area requiring further experience before establishing guidelines for best
+practices.</para></section><section xml:id="gxml-using"><title>Bridge Traffic</title><para>Using bridges is a little less amenable to slideshow style lists, but
+the principles remain straightforward. When using gXML, it is important to
+understand "dependency inversion": bridges should be injected, if at all
+possible, rather than directly instantiated. It is possible to design an
+application or processor that can react to input by directly instantiating the
+needed bridge, but it's best to reduce the number of places that contain
+reference to the tree model packages to as few as possible. One class is
+ideal; it is then responsible for providing a processing context for a given
+bridge on demand.</para><para>Most applications will spend most of their time with the
+<code>Model</code> or <code>Cursor</code>) interfaces, which
+permit navigation and interrogation. Methods provide access to names, values,
+and other characteristics (XQuery Data Model properties) of the node, and
+permit navigation in a variety of ways to target nodes.  An appendix shows
+the content of the <xref linkend="Model"/> interface.
+<code>FragmentBuilder</code> (for construction in memory) and
+<code>DocumentHandler</code> (for parsing and serializing) are likely to be
+important. Existing applications or developers wedded to the concept of
+mutability are likely to make use of the APIs in the mutable model (or cursor)
+and the <code>NodeFactory</code>. Applications or processors needing W3C XML
+Schema support (common inside the enterprise, for instance) are likely to make
+extensive use of <code>TypedContext</code>, particularly as a schema cache and
+for access to typed models and cursors.</para><para>At present, gXML has bridges, in varying states of maturity, for the DOM
+(level 3 support currently required), for AxiOM (LLOM only; support for typed
+context rather weak), and for a reference bridge called Cx (a clean, if naive,
+reimplementation of the XQuery Data Model from scratch, and a gXML bridge over
+that implementation). The DOM was chosen because of its ubiquity; AxiOM because
+the web services area is a target for gXML proselytizers; Cx exists primarily
+to demonstrate that the shared idiosyncracies of DOM and AxiOM (there are a
+few) are not fundamental to gXML.</para></section></section><section xml:id="gxml-processing"><title>Processing XML with gXML</title><para>gXML provides an extensive API for bridges, which not only provides the
+entry point for applications and processors, but also makes the development of
+new bridges easy to describe. In sharp contrast, no interface, no contract, is
+specified for XML processors designed for use with gXML. While some processors
+might reasonably be defined to have a method with the signature: <code>N
+process(N, Model&lt;N&gt;)</code>, for others this is entirely inappropriate.
+Even for processors that might reasonably "process" a node, their function is
+more clearly expressed if they "transform" or "extract" or "enhance", or
+otherwise mark their "processing" by its specific name, not the more general
+one.</para><para>So, what is a gXML processor? As the gXML team uses the term, a
+processor is a code library that performs some specific, well-described
+function over XML. Most processors can be described with a single word or
+phrase: "serializer," "parser," "converter," "validator," "transformer,"
+"signer," and so on. A processor is distinguished from an "application," which
+may create (generate), destroy (consume), modify, and otherwise manipulate XML
+in multiple steps. Where a processor contributes special functionality to the
+performance of a goal, the application oversees and orchestrates achievement
+of the goal from receipt to completion. To further distinguish, a bridge
+provides the abstraction over which the applications and processors operate,
+including the model, input/output, and a context that associates related
+tree-specific functions.</para><section xml:id="stateful-processing"><title>Stateful</title><para>gXML processors may be divided, for purposes of discussion, into two
+classes: stateful and stateless. Here, "state" refers to the processor's need
+to maintain state in the form of any of the parameters specialized by a
+particular bridge implementation (&lt;N&gt; and &lt;A&gt;), disregarding maintenance
+of state unrelated to gXML parameters. A stateful processor is ideally written
+generically, but certain of its component classes will themselves be
+parameterized with one or both of the node and atom handles. Consequently, at
+instantiation, a given instance of a processor is tied, <emphasis>ipso
+facto</emphasis>, to a particular bridge implementation. Like
+<code>java.util.List&lt;QName&gt;</code>, a generic processor taking only &lt;N&gt;
+as a parameter would have to be specialized as
+<code>GenericProcessor&lt;Node&gt;</code> for use with the DOM bridge; the same
+class would be separately instantiated for use with the Cx bridge as
+<code>GenericProcessor&lt;XmlNode&gt;</code>. Stateful processors typically
+contain one or more member fields whose type is specified as a parameter (or
+which is a parameterized class, such as an instance of
+<code>Cursor&lt;N&gt;</code> or <code>Bookmark&lt;N&gt;</code>).</para><para>For example, an input-output module is included in the gXML source tree.
+This module includes a stateful processor implementing
+<code>DocumentHandler&lt;N&gt;</code>. This <code>DocumentHandler</code> contains
+a member field which is a <code>FragmentBuilder&lt;N&gt;</code> supplied by the
+bridge's <code>ProcessingContext</code>. This is a good example of the
+stateful style: at instantiation, each
+<code>DefaultDocumentHandler&lt;N&gt;</code> is specialized for the bridge's
+definition of &lt;N&gt;, associating this handler instance with a particular
+bridge (in fact, associating it with a single instance of the bridge's
+implementation of <code>ProcessingContext</code>). This processor's "process"
+methods are defined by the <code>DocumentHandler</code> interface, found in
+the core API.</para></section><section xml:id="stateless-processing"><title>Stateless</title><para>An alternate style of implementation is the stateless processor. If no class
+in the processor needs to retain state typed as or with a gXML parameter, then the
+processor may be used by declaring the necessary parameters on a method, and
+supplying the necessary disambiguation as arguments to the method. For
+instance, a stateless processor might expose the method:</para><programlisting xml:space="preserve">
+    &lt;N&gt; N nearestAncestor(Iterable&lt;N&gt; context, Model&lt;N&gt; model)
+</programlisting><para>The arguments to the method are both parameterized: the context provides
+a collection of nodes; the model provides the tool to interrogate each of the
+nodes in the supplied context (this hypothetical example finds the nearest
+common ancestor of all the nodes supplied in the list, or <code>null</code> if
+no such common ancestor exists).</para><para>An extremely simple example of a stateless processor may be found in the
+<code>convert</code> module, in the gXML source tree. It's so simple that it's debatable
+whether it's a processor, or simply an instantiation of an idiom.
+<code>StaticConverter</code> has a single, static method, with the
+signature:</para><programlisting xml:space="preserve">
+    &lt;Nsrc, Ntrg&gt; Ntrg convert(Cursor&lt;Nsrc&gt; cursor, FragmentBuilder&lt;Ntrg&gt; builder)
+</programlisting><para>It does what it says on the tin: using the supplied <code>Cursor</code>
+and <code>FragmentBuilder</code>, from one or two different bridges, it
+converts from one tree model representation to another (strictly speaking,
+this is a transforming copy, rather than a conversion; also, if the
+<code>Cursor</code> and <code>FragmentBuilder</code> are supplied by the same bridge,
+this is simply a copy).</para><para>A more complex example may be found in the same module: <code>Converter</code> mixes
+the stateful and stateless styles.  It is instantiated with a (source)
+processing context; it is then able, on request, to convert to any supplied
+target processing context—retaining type information, if possible (if
+both source and target bridges advertise themselves as schema-aware, it uses
+<code>SequenceBuilder</code> and the <code>TypedModel</code>'s atom-aware
+<code>stream()</code> method in preference to the untyped <code>FragmentBuilder</code>
+and <code>Model</code>).</para></section><section xml:id="other-processing" xreflabel="Refactoring Processors"><title>Developing and Refactoring</title><para>The gXML source tree contains, in addition to the processors mentioned
+above, an XPath 1.0 processor, a schema parser, and a schema validator. The
+XPath processor is stateless; the schema processors (unsurprisingly) stateful.
+Processors for XPath 2.0, XSLT 2.0, and XQuery 1.0 have also been explored,
+although this code is not included in the distribution.</para><para>During the development of the API, in early 2009, the Apache Woden
+project (1.0M8) was refactored as a proof of concept. This effort was based on an
+earlier revision of the API; the refactoring was extensive, taking advantage
+of the immutable paradigm. Woden was chosen as an example because it contained
+an example of multi-tree abstraction: wrapper classes permit Woden to
+parse and analyze WSDL supplied either as AxiOM or as DOM trees. The project
+required about a month, but the result seemed a dramatic validation of of gXML
+principles and design: the lines of code (LOC) count was reduced by about 15%,
+inconsistencies in the handling of DOM versus AxiOM were eliminated, and
+supported models grew from two to five (including DOM, AxiOM, the Cx reference
+model, a proprietary internal model, and an experimental model based on EXI).
+There is no guarantee of such an LOC count reduction, of course; results will
+depend upon the original source.</para><para>As part of the preparation for release as open source, a similar effort
+was undertaken to refactor the Apache XML Security project in early 2010. This
+was a more cautious effort, adopting as a guideline that no externally used API
+should change. Instead, the existing interfaces were enhanced with a gXML code
+path. In addition to preservation of backward compatibility in the API, this
+refactoring did not attempt a wholesale restatement of the security problem in
+immutable context, but relied extensively upon <code>MutableContext</code> and
+the capabilities supported therein. This effort is ongoing, and does not
+appear to promise a reduction in code size, given its goals. It has provided
+the team with an excellent test case for the mutable APIs (and even
+demonstrated missing XDM-defined functionality in the core APIs) which have
+been used to improve both areas. Nonetheless, it appears to validate the
+concept of cautious, compatibility-maintaining refactoring; the refactored
+API appears able to pass the same tests that the original DOM-based API passed.</para><para>The experience from these (and other) proofs of concept, refactoring
+existing XML processors and developing new processors, leads to some tentative
+conclusions about the efforts involved and the possible development patterns.
+We note that because all current tree models incorporate mutability without
+questioning its utility, most processors approach problems of XML manipulation
+as a tree mutation.</para><section xml:id="ProcessorNew"><title>New Development</title><para>The time required for development of a new processor varies depending
+upon the complexity of the processing. In our experience, adopting the
+immutable paradigm can actually simplify development, though it requires an
+effort to state the problem as a transformation rather than as a mutation.
+Processors developed for gXML take no more, and often less time to develop
+(and debug) than processors over a single tree model. When designed for
+immutability, the resulting processor often shows excellent performance
+characteristics, without requiring significant attention to this area.</para><para>Examples are included in the distribution, in the <code>processor</code>
+module and its children: <code>input-output</code>, <code>convert</code>,
+<code>w3c.xs</code> (schema parsing), and <code>w3c.xs.validation</code>.</para></section><section xml:id="ProcessorOldMutable"><title>Refactoring: Processing Mutable Trees</title><para>Existing processors—such as the Apache XML Security
+example—that have already released are apt to wish to maintain existing
+customer bases. The approach to take, in this case, seems to be to produce an
+extended, parallel API: where the existing API takes a <code>Node</code>,
+provide an override that accepts (for example) <code>N, Model&lt;N&gt;</code>, or
+(if changing the state of the supplied argument is acceptable)
+<code>Cursor&lt;N&gt;</code>.  Then change the original DOM-based function so that
+it merely calls the new gXML-based method.  This approach increases the size
+of the code base, but preserves the logic of the API, validation via the
+existing test suite, and compatibility with existing clients.</para><para>Firm estimates depend upon the size and complexity of the code base,
+but experience seems to demonstrate that once the principles are understood,
+much of the refactoring proceeds in a nearly mechanical fashion. The primary
+advantage to this form of refactoring is the addition of support for all
+defined gXML bridges (or all bridges that support mutability); this in turn
+may permit customers to choose models better suited for a particular problem
+domain.  In the XML Security case, the refactoring produces the ability to
+use the processor with AxiOM (in the current state of the art; potentially
+with other tree models as those are developed as well).</para></section><section xml:id="ProcessorOldImmutable"><title>Refactoring: Processing Immutable Trees</title><para>Refactoring an XML processor for immutable operation is more
+challenging. The general principle is that instead of considering the problem
+as one of modifying a tree, the problem is stated as a transforming copy. The
+XML document is an input; other inputs guide the processing; the output is a
+new XML document (the original is then typically discarded, or sometimes
+archived). Our experience addressed Apache Woden, in part because the project
+was then recently graduated from incubation (that is, it had just made a
+public 1.0 release), so preservation of API compatibility was deemed less
+critical; widespread adoption had not yet occurred. Another example is the
+<code>xpath.impl</code> processor, based on the <code>xpath</code> API module;
+these modules were both created by refactoring a portion of James Clark's and
+Bill Lindsey's <code>XT</code> <xref linkend="XT"/>. XPath has no need for
+mutability, obviously; stating the XPath processing problem in immutable
+context is trivial.</para><para>This approach typically changes the logic of processing as well as
+changing the public API; developers may find that the code that "enhances"
+(mutates) a tree with information must be localized. That is, instead of
+receiving, analyzing, modifying, analyzing further, etc., the process is
+receiving, analyzing, generating/transforming, analyzing further. Creation of
+new documents is potentially expensive; this is apt to lead developers to
+minimize occurrences of the event. Awareness of this issue, in our experience,
+led to code that was more straightforward, easier to understand, and better
+encapsulated. Note
+also that a refactoring of a publicly released API might proceed first by
+preserving API compatibility, and later providing an alternate, transformative
+code path that parallels the modification path.</para></section></section></section><section xml:id="advancing-the-state-of-the-art" xreflabel="Advancing the State of the Art"><title>Advancing the State of the Art</title><para>The gXML team believes that this API presents an exciting opportunity to
+change the paradigms for XML processing in Java, and to enable a host of
+additional opportunities for advancing the state of the art. We have discussed
+the API, bridges, and processors in some detail, above. Now, let's examine the
+further opportunities that gXML enables.</para><para>Because gXML encourages the practice of dependency inversion, of
+injecting a particular tree model (bridge) at runtime, it effectively
+bypasses—even leverages, by inclusion of a bridge for the DOM in the
+distribution—the DOM network effect that has presented Java developers
+of XML processors and applications with a Hobson's choice: choose a tree model
+which is technically superior or less awkward to program against but lose
+interoperability with the vast majority of existing processors and
+applications, or choose the DOM with its peculiarities and quirks and
+limitations but gain interoperability with the wider XML ecosystem. Developers
+of alternative Java XML tree models will (we hope) welcome this, and
+contribute bridges. Moreover, by permitting this late binding of the tree
+model, gXML enables use-case specific comparisons of models to each other.
+This capability for comparison, without losing interoperability, may lead to
+wider adoption of one or more of the successor models, in one application
+domain or across domains. Further, given the ability to compare two models in
+such a way, application and processor developers can provide clear test cases
+demonstrating issues, which developers of the tree model may find more
+compelling, more deserving of attention, than is currently the case when any
+comparison must first develop a custom framework/harness.</para><para>By enabling injection of the model, gXML also potentially permits the
+development of domain-specific tree models, optimized for particular use
+cases. Such "niche" models are actively discouraged in the current state of
+the art: they lead in the direction of private code, difficult to learn and
+difficult to maintain. AxiOM provides an example of a domain-specific model
+that has survived the process of marginalization; one might argue that it has
+done so in part through its strong association with the high-profile project
+Apache Axis 2. Other domains such as strongly typed XML, large XML
+processing, and XML in constrained memory environments come to mind as
+potential targets. Customization and optimization are possible both for the
+underlying tree model, and for the bridge implementation. There is no
+restriction against implementing multiple bridges for a single underlying tree
+model—since the pattern is injection, two significantly different
+bridge implementations over the same underlying tree model may be used by a
+single application. Here again, there are significant opportunities for domain
+optimization, in this case by optimizing the bridge implementation rather than
+changing the underlying tree model.</para><para>gXML's championing of the immutable paradigm for XML processing carries
+powerful potentials for performance enhancements. We cannot, at this point,
+quantify these benefits (they may even be chimerical), but we have seen
+immutability adopted in other areas specifically in order to improve
+performance. Immutability provides guarantees that enable concurrent
+processing, an increasingly common requirement for applications and processors
+that must scale to handle large volumes of traffic. With a custom tree model
+(even an immutable implementation of the DOM, potentially), the notorious
+impact of XML on memory can potentially be reduced. For applications and
+processors that already address multiple tree models, significant reductions
+in code size may accompany improved performance and consistency. Our
+experience suggests that restating problems as transformation rather than
+mutation tends to lead to cleaner, better-encapsulated, and typically more
+performant code.</para><para>One particular area in which gXML holds enormous promise is in the
+processing of "large XML". This is, in a way, the same problem as processing
+XML with "constrained memory;" whether one identifies the XML as too-large, or
+memory as too-small, the problem is the same. How can XML be processed if it
+is too large to fit at once into memory? The obvious answer is a custom tree
+model, but this answer immediately presents the developer with the DOM "Hobson's
+choice" outlined above. gXML removes that issue; a processor or application
+programmed against the gXML API can inject a simple, mature tree model for
+most processing, or a custom, stored-to-disk, low-memory tree model when the
+size of the target document exceeds a specified threshold.</para><para>Developers of technologies that compete with XML as descriptions of
+structured, hierarchical data may have no interest in presenting their formats
+as XML (may even resent the suggestion), but there are advantages to doing so:
+the XML programming environment is a large one, populated with numerous
+processors and applications. A bridge over other such data
+formats—JSON, for a high-profile example—could provide that
+format with the capabilities of the entire suite of XML tools (with the
+reservation that there is apt to be an impedance mismatch of some degree, that
+the bridge will attempt to minimize). This is most interesting when gXML is
+used with the immutable paradigm; modifying these alternative structured
+hierarchical data formats as well as analyzing them is a more difficult
+problem and likely to have a higher degree of impedance mismatch.</para><para>Again particularly with respect to immutable processing, gXML offers an
+opportunity to pass XML across the virtual machine/Java Native Interface
+boundary. The XQuery Data Model defines the operations and properties that are
+possible with (g)XML; there is no impediment to producing a
+specification-compliant API in other languages, whether they are hosted in the
+VM (Scala, Jython) or outside it (C++, Perl, Lua). This in turn suggests
+possibilities for enabling most-efficient processing, for enabling scripting
+in domain-specific languages, and so on.</para><para>Perhaps most significantly, from the point of view of the gXML
+development team: in recent years a number of new specifications have appeared
+that offer exciting opportunities for advancing the state of the art of XML
+processing. In Java, adoption of these technologies—XQuery, XSLT2, XML
+databases—has been slowed by the lack of support in dominant models,
+and the limited extensibility possible. Even XML Schema has seen relatively
+little adoption/development outside the enterprise; gXML includes a schema
+model to address that issue. More importantly, the XQuery Data Model seems to
+offer a well-thought foundation for the next ten years of development in
+XML-related technologies. gXML proposes to embody that model for Java, while
+providing compatibility with the existing tree models, enabling a unification
+of processing while promoting differentiation, specialization, and
+customization of models.</para></section><section xml:id="conclusion"><title>gXML Solution(s)</title><para>We submit that gXML addresses the problems that its design set out to
+address, and that have plagued a large population of developers. It resolves
+the problem of multiple, competing tree models in Java, leverages the network
+effect of the dominant Java tree model for XML (and in fact shares that
+network effect with any other tree model over which a gXML bridge is
+available), and permits comparison of and late (even runtime) selection of a
+model best suited to the task. In the process, it begins to resolve the
+problems of interoperability. It is based on a well-defined, rigorous
+specification (the XQuery Data Model), which appears to be the best foundation
+for the next generation of XML technologies. It introduces and promotes the
+immutable paradigm for XML processing, and permits or encourages the
+development of models able to fulfill the promise of that paradigm.</para><para>gXML represents about five man-years of development, in its current
+state. Its corporate sponsor has contributed it to open source because its
+value can be directly correlated with its adoption. More bridges: more value
+(to the contributing corporation and to everyone using gXML). More processors:
+more value. For more code, though, we need help. Get involved! Try the code.
+Our experience has been that it has immediate benefits, even for isolated
+applications and processors. See a bug? Contribute a patch! Intrigued by the
+promise gXML offers? Become a committer!</para><para>Based on the previous ten years, introduction of so significant a shift
+in APIs and paradigms in the Java world will need to last at least ten years.
+The APIs developed ten years ago, viewed in hindsight, show what seem to be
+obvious lacunae or missed focus. Are there such gaps and blind spots in gXML?
+Take a look; if we're missing something, tell us now, and help us to address
+it.</para><para>Interested in the opportunities, but not in refining the core APIs? Want
+to provide an XQuery Data Model over a different, currently unsupported tree
+model (even over a non-XML structured data model)? Write a bridge. Our
+experience suggests that investment for a new bridge is about one
+programmer-month, for complete, but unoptimized functionality. Refinements
+depend upon the underlying tree model; those that are closer in concept to the
+XQuery Data Model tend to be easier to improve, while those further away
+(particularly if they don't conform to XML Infoset) provide more challenges.
+If developers involved in JDOM, DOM4J, or XOM are reading this, we hope to
+have intrigued you enough that you'll contribute (or provide independently) a
+bridge implementation for those models. What about a bridge for JSON? CSV?
+Could the new, XQuery-conformant crop of XML databases expose programming
+interfaces as bridges or as processors?</para><para>Interested in a particular application of XML? Can it be conceived as an
+XML processor? Development investment for a gXML processor varies pretty
+widely, depending upon the complexity of the processing to be done. For
+instance, the schema validation module included in the gXML source represents
+perhaps six months of work; the conversion processor (because it really does
+nothing more than embody an idiom already supported in the gXML core APIs)
+required no more than a week. XQuery or XSLT 2.0 processors would represent
+significant time investments. The field is vast, though, so it is impossible
+to characterize (either in time or complexity) everything in it.</para><para>Are we missing an obvious opportunity? Tell us about it. Or ... do it,
+and show us up. Our primary hope, in releasing the code and this paper, is to
+generate some excitement about the possibilities we believe to be inherent in
+the gXML refactoring of XML in Java. Get excited; this could change the
+game.</para></section><appendix xml:id="gxml-code"><title>gXML: Source</title><para>As previously noted, the core of the gXML paradigm is an abstraction
+called <code>Model</code>.  Because this is an example of the <emphasis>Handle/Body</emphasis>
+design pattern (and is stateless), only one instance of <code>Model</code> is
+needed for navigation and investigation for any and all instances of the
+XML tree model for which the particular <code>Model</code> is specialized.
+Consequently, it seems worthwhile to show the content of the <code>Model</code>
+abstraction.  Comments have been removed.</para><para><code>Model</code> is composed from three interfaces, reflecting three different
+forms of information that might be obtained from an XQuery Data Model: <code>NodeInformer</code>
+reports information about the content/state of a particular node in context; <code>NodeNavigator</code>
+permits one to obtain a different node given a particular starting node; <code>AxisNavigator</code>
+supplies iteration over the standard XPath/XQuery axes, starting from a particular origin node.</para><programlisting xml:id="Model" xreflabel="Model" xml:space="preserve">
+public interface Model&lt;N&gt;
+    extends Comparator&lt;N&gt;, NodeInformer&lt;N&gt;, NodeNavigator&lt;N&gt;, AxisNavigator&lt;N&gt; {
+    void stream(N node, boolean copyNamespaces, ContentHandler handler) throws GxmlException;
+}
+
+public interface NodeInformer&lt;N&gt; {
+    Iterable&lt;QName&gt; getAttributeNames(N node, boolean orderCanonical);
+
+    String getAttributeStringValue(N parent, String namespaceURI, String localName);
+
+    URI getBaseURI(N node);
+
+    URI getDocumentURI(N node);
+
+    String getLocalName(N node);
+
+    Iterable&lt;NamespaceBinding&gt; getNamespaceBindings(N node);
+
+    String getNamespaceForPrefix(N node, String prefix);
+    
+    Iterable&lt;String&gt; getNamespaceNames(N node, boolean orderCanonical);
+
+    String getNamespaceURI(N node);
+
+    Object getNodeId(N node);
+
+    NodeKind getNodeKind(N node);
+
+    String getPrefix(N node);
+
+    String getStringValue(N node);
+
+    boolean hasAttributes(N node);
+
+    boolean hasChildren(N node);
+
+    boolean hasNamespaces(N node);
+
+    boolean hasNextSibling(N node);
+
+    boolean hasParent(N node);
+
+    boolean hasPreviousSibling(N node);
+
+    boolean isAttribute(N node);
+
+    boolean isElement(N node);
+
+    boolean isId(N node);
+
+    boolean isIdRefs(N node);
+
+    boolean isNamespace(N node);
+
+    boolean isText(N node);
+
+    boolean matches(N node, NodeKind nodeKind, String namespaceURI, String localName);
+
+    boolean matches(N node, String namespaceURI, String localName);
+}
+
+public interface NodeNavigator&lt;N&gt; {
+    N getAttribute(N node, String namespaceURI, String localName);
+
+    N getElementById(N context, String id);
+
+    N getFirstChild(N origin);
+
+    N getFirstChildElement(N node);
+
+    N getFirstChildElementByName(N node, String namespaceURI, String localName);
+
+    N getLastChild(N node);
+
+    N getNextSibling(N node);
+
+    N getNextSiblingElement(N node);
+
+    N getNextSiblingElementByName(N node, String namespaceURI, String localName);
+
+    N getParent(N origin);
+
+    N getPreviousSibling(N node);
+
+    N getRoot(N node);
+}
+
+public interface AxisNavigator&lt;N&gt; {
+    Iterable&lt;N&gt; getAncestorAxis(N node);
+
+    Iterable&lt;N&gt; getAncestorOrSelfAxis(N node);
+
+    Iterable&lt;N&gt; getAttributeAxis(N node, boolean inherit);
+
+    Iterable&lt;N&gt; getChildAxis(N node);
+
+    Iterable&lt;N&gt; getChildElements(N node);
+
+    Iterable&lt;N&gt; getChildElementsByName(N node, String namespaceURI, String localName);
+
+    Iterable&lt;N&gt; getDescendantAxis(N node);
+
+    Iterable&lt;N&gt; getDescendantOrSelfAxis(N node);
+
+    Iterable&lt;N&gt; getFollowingAxis(N node);
+
+    Iterable&lt;N&gt; getFollowingSiblingAxis(N node);
+
+    Iterable&lt;N&gt; getNamespaceAxis(N node, boolean inherit);
+
+    Iterable&lt;N&gt; getPrecedingAxis(N node);
+
+    Iterable&lt;N&gt; getPrecedingSiblingAxis(N node);
+}
+</programlisting></appendix><bibliography><title>References</title><bibliomixed xml:id="AxiOM"><emphasis>Axiom 1.2.8 API</emphasis>
+    <link xlink:href="http://ws.apache.org/commons/axiom/apidocs/index.html" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://ws.apache.org/commons/axiom/apidocs/index.html</link></bibliomixed><bibliomixed xml:id="LavaFlow">Brown W., R. Malveau, H. McCormick, T. Mowbray, and S. W. Thomas.
+  <emphasis>Lava Flow anti-pattern</emphasis> (Dec. 1999)
+    <link xlink:href="http://www.antipatterns.com/lavaflow.htm" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.antipatterns.com/lavaflow.htm</link></bibliomixed><bibliomixed xml:id="DOM"><emphasis>Document Object Model Technical Reports</emphasis>
+    <link xlink:href="http://www.w3.org/DOM/DOMTR" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/DOM/DOMTR</link></bibliomixed><bibliomixed xml:id="DOM4J"><emphasis>DOM4J Introduction</emphasis>
+    <link xlink:href="http://dom4j.sourceforge.net/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://dom4j.sourceforge.net/</link></bibliomixed><bibliomixed xml:id="XML">
+    <emphasis>Extensible Markup Language (XML) 1.0 (Fifth Edition)</emphasis>
+    <link xlink:href="http://www.w3.org/TR/xml/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/xml/</link></bibliomixed><bibliomixed xml:id="GOF">Gamma, E., R. Helm, R. Johnson, and J. Vlissides.
+    <emphasis>Design Patterns: Elements of Reusable Object-Oriented Software</emphasis>
+    Addison-Wesley, 1995.</bibliomixed><bibliomixed xml:id="XMLInJava">Harold, E. <emphasis>Processing XML with Java</emphasis>
+    <link xlink:href="http://www.cafeconleche.org/books/xmljava/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.cafeconleche.org/books/xmljava/</link></bibliomixed><bibliomixed xml:id="WhatsWrong">Harold, E.  "What's Wrong with XML APIs (and how to fix them)"
+    <link xlink:href="http://www.xom.nu/whatswrong/whatswrong.html" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.xom.nu/whatswrong/whatswrong.html</link></bibliomixed><bibliomixed xml:id="Jaxen"><emphasis>Jaxen</emphasis>
+    <link xlink:href="http://jaxen.org/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://jaxen.org/</link></bibliomixed><bibliomixed xml:id="JDOM"><emphasis>JDOM v1.1.1 API Specification</emphasis>
+    <link xlink:href="http://www.jdom.org/docs/apidocs/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.jdom.org/docs/apidocs/</link></bibliomixed><bibliomixed xml:id="XMLNS"><emphasis>Namespaces in XML 1.0 (Second Edition)</emphasis>
+    <link xlink:href="http://www.w3.org/TR/xml-names" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/xml-names</link></bibliomixed><bibliomixed xml:id="DMPerf">Sosnoski, D. "XML and Java technologies: Document models, Part 1: Performance"
+    <link xlink:href="http://www.ibm.com/developerworks/xml/library/x-injava/index.html" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.ibm.com/developerworks/xml/library/x-injava/index.html</link></bibliomixed><bibliomixed xml:id="DMUse">Sosnoski, D.  "XML and Java technologies: Java document model usage"
+    <link xlink:href="http://www.ibm.com/developerworks/xml/library/x-injava2/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.ibm.com/developerworks/xml/library/x-injava2/</link></bibliomixed><bibliomixed xml:id="Woden"><emphasis>Welcome to Woden</emphasis>
+    <link xlink:href="http://ws.apache.org/woden/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://ws.apache.org/woden/</link></bibliomixed><bibliomixed xml:id="Xalan"><emphasis>Xalan-Java</emphasis>
+    <link xlink:href="http://xml.apache.org/xalan-j/index.html" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://xml.apache.org/xalan-j/index.html</link></bibliomixed><bibliomixed xml:id="XalanDTM"><emphasis>XalanDTM</emphasis>
+    <link xlink:href="http://xml.apache.org/xalan-j/dtm.html" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://xml.apache.org/xalan-j/dtm.html</link></bibliomixed><bibliomixed xml:id="Infoset"><emphasis>XML Information Set (Second Edition)</emphasis>
+    <link xlink:href="http://www.w3.org/TR/xml-infoset" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/xml-infoset</link></bibliomixed><bibliomixed xml:id="XPath1"><emphasis>XML Path Language (XPath), Version 1.0</emphasis>
+    <link xlink:href="http://www.w3.org/TR/xpath/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/xpath/</link></bibliomixed><bibliomixed xml:id="WXS1"><emphasis>XML Schema Part 1: Structures Second Edition</emphasis>
+    <link xlink:href="http://www.w3.org/TR/xmlschema-1/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/xmlschema-1/</link></bibliomixed><bibliomixed xml:id="WXS2"><emphasis>XML Schema Part 2: Datatypes Second Edition</emphasis>
+    <link xlink:href="http://www.w3.org/TR/xmlschema-2/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/xmlschema-2/</link></bibliomixed><bibliomixed xml:id="XOM"><emphasis>XOM 1.2.5</emphasis>
+    <link xlink:href="http://www.xom.nu/apidocs/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.xom.nu/apidocs/</link></bibliomixed><bibliomixed xml:id="XDM"><emphasis>XQuery 1.0 and XPath 2.0 Data Model (XDM)</emphasis>
+    <link xlink:href="http://www.w3.org/TR/xpath-datamodel/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/xpath-datamodel/</link></bibliomixed><bibliomixed xml:id="XSLT1"><emphasis>XSL Transformations (XSLT), Version 1.0</emphasis>
+    <link xlink:href="http://www.w3.org/TR/xslt" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/xslt</link></bibliomixed><bibliomixed xml:id="XT"><emphasis>XT</emphasis>
+    <link xlink:href="http://www.blnz.com/xt/index.html" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.blnz.com/xt/index.html</link></bibliomixed></bibliography></article>

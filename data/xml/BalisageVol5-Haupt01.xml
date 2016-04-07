@@ -1,0 +1,578 @@
+<?xml version="1.0" encoding="UTF-8"?><article xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink" version="5.0-subset Balisage-1.2"><title>Automatic upconversion using XSLT 2.0 and XProc: A real world example</title><info><confgroup><conftitle>Balisage: The Markup Conference 2010</conftitle><confdates>August 3 - 6, 2010</confdates></confgroup><abstract><para>All too much of the data on the Web appears in unstructured presentation-centric formatting
+    that isn't suited for structured searching and retrieval. Upconversion to a more data-centric
+    information storage format offers a potential for many new uses of the data. The starting point
+    of our work is a collection of HTML documents containing video game reviews. Our goal is to
+    describe a target XML format that supports certain elements and attributes containing
+    information that we consider valuable. Furthermore, the conversion process itself should be
+    carried out automatically by means of an XProc pipeline. We conclude our paper with a
+    demonstration of typical benefits of the highly structured data that results from our
+    conversions.</para></abstract><author><personname><firstname>Stefanie</firstname><surname>Haupt</surname></personname><personblurb><para>Stefanie Haupt is currently finishing her education for an M.A. degree in Literary
+     Criticism, Text Technology, and Sociology at Bielefeld University. Her main research interest
+     focuses on markup and schema languages, with emphasis on XML databases and querying.</para></personblurb></author><author><personname><firstname>Maik</firstname><surname>Stührenberg</surname></personname><personblurb><para>Maik Stührenberg studied Computational Linguistics at Bielefeld University. After working
+     for four years as research assistant at Giessen University in different text-technological
+     projects, he is now a Ph. D. student and research assistant at Bielefeld University. His main
+     research interests include XML schema languages and specifications for structuring and querying
+     multi-dimensional annotated data.</para></personblurb></author><legalnotice><para>Copyright © 2010 by the authors.  Used with
+permission.</para></legalnotice></info><section xml:id="Introduction"><title>Introduction</title><para> Vast collections of information are stored in HTML files distributed over millions of Web
+   pages through the Internet. Among these quite valuable data can often be found; however, HTML
+   does not offer a large pool of semantically motivated elements or attributes for annotating
+   arbitrary data, since the language was originally created for hypertexts. Although CSS
+   microformats <xref linkend="bibSuda2006"/> may be used to add semantic value to structuring
+   elements (e.g. <code>div</code> and <code>span</code>), most information is buried underneath a
+   "tag soup" of <code>td</code>, <code>p</code> or <code>div</code> elements that allow no
+   inference about their content. In contrast, we can have information that is highly structured in
+   terms of very specialized XML markup using a document grammar (DTD <xref linkend="bibSGML"/>,
+    <xref linkend="bibXML1.0"/>, XSD <xref linkend="bibW3C.XMLSchemaPrimer"/> or RELAX NG <xref linkend="bibRelaxNG"/>) that allows for easy retrieving of very specific information. A real
+   world example where the origin of our data is a collection of (sometimes even invalid) HTML 4.01
+    <xref linkend="bibHTML4.01"/> Web pages storing documents of video game reviews is a good
+   candidate for demonstrating how value can be added through better markup. Our goal is to
+   transform these into fully structured and valid XML instance documents that allow different
+   queries about the information. Since we are confronted with several hundred reviews, an automated
+   conversion process is valuable. As an additional goal, we would like to stay in the realm of XML
+   techniques; for example, we would like to avoid using non-XML-aware software such as
+   general-purpose scripting languages (e.g. Perl, Python). </para></section><section xml:id="data"><title>The data</title><section><title>Information content</title><para>Video games are a part of today's culture and are available in a huge variety in terms of
+    supported game system, genre and — of course — quality. Finding a game that fits both one's
+    hardware requirements and favored genre is a relatively easy task to accomplish, but basing the
+    decision to buy a specific game only on the text written on the back of its case is daring at
+    least. Impartial (more or less) reviews of video games may help to clarify if the money is well
+    spent in the long run by providing rating systems for features such as graphics, sound,
+    atmosphere or overall score (usually higher scores are better). The team of the German <emphasis role="ital">Mag'64</emphasis> Web site <footnote><para><link xlink:href="http://www.mag64.de/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest"/>, for the
+      current site.</para></footnote> has tested video games for over eight years, gathering over 1500 reviews, each
+    consisting of a single HTML Web page. Each document contains information about the game being
+    tested, the review, including a general judgement, and images and screenshots. This information
+    is quite valuable since among the provided items are general ones such as the title, system, or
+    publisher, but in addition more specific items such as number of players, genre, age rating and
+    difficulty. The review consists of running text' while the final verdict and pros and cons are
+    summarized in a tabular view. The data we have to deal with consists generally of two types of
+    reviews, which we call "Type A" and "Type B". Type A was used during the years 2001 through
+    2004, while Type B was introduced in the Autumn of 2004.</para></section><section><title>Technical analysis</title><para>From a technical point of view the data is stored in HTML Web pages. Because HTML's
+    original task is to structure hypertexts, it lacks specific elements and attributes for
+    annotating the information we are interested in. Furthermore, the markup of our test data is
+    very focussed on presentation, that is, general HTML elements such as <code>div</code>,
+     <code>p</code>, <code>td</code> are used for physically structuring the information according
+    to a given layout. While the two review types, A and B, do not differ regarding their
+    information content, there are differences in the markup techniques used.</para><section><title>Type A</title><para>The Type A review was originally used as part of an HTML frameset. While one frame
+     contained a menu for navigating through the whole service, the second frame stored a single
+     review in the form of a HTML Page. This page lacks an HTML Doctype declaration, and typical
+     copy and paste errors can be found, including end tags without preceding start tags, wrong
+     attributes, etc. The <code>img</code> element for embedded graphics lacks the required
+      <code>alt</code> attribute. <footnote><para>Although the <code>alt</code> attribute has been marked as optional in <xref linkend="bibHTML3.2"/>, <xref linkend="bibHTML4.01"/> introduced in 1999 and <xref linkend="bibHTML.ISO"/>, requires its use.</para></footnote> Furthermore, no information about the character encoding is given, which leads to
+     encoding errors since German umlauts and other special characters were used. </para><para><xref linkend="fig.html.start"/> shows an excerpt of an Type A review.</para><figure xml:id="fig.html.start"><title>Type A beginning of document</title><programlisting xml:space="preserve">&lt;html&gt;
+&lt;head&gt;
+&lt;title&gt;Mag64&lt;/title&gt;
+&lt;/head&gt;
+&lt;body bgcolor="#FFFFFF" text="#000000" link="#0000FF" 
+vlink="#990099" alink="#FF0000" leftmargin="2" topmargin="2" 
+marginwidth="2" marginheight="2"&gt;&lt;a name="page_top"&gt;
+&lt;table width="98%" border="0" cellspacing="5" cellpadding="0" 
+height="170" align="center"&gt;
+  &lt;tr&gt;
+    &lt;td width="35%" align="left" valign="top"&gt;
+    &lt;img src="ray3logo.jpg"&gt;
+    &lt;/td&gt;
+    &lt;td width="33%" align="left" valign="top" bgcolor="#CCCCCC"&gt;
+      &lt;p&gt;&lt;font face="Arial, Helvetica, sans-serif" size="3"&gt;&lt;u&gt;
+      &lt;font face="Arial, Helvetica, sans-serif" size="3"&gt;SYSTEM:
+      &lt;/font&gt;
+      &lt;/u&gt;&lt;font face="Arial, Helvetica, sans-serif" size="3"&gt;
+        &amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;
+        &amp;nbsp;&amp;nbsp;&lt;i&gt;GCN - PAL&lt;/i&gt;&lt;/font&gt;&lt;u&gt;&lt;br&gt;
+        ENTWICKLER:&lt;/u&gt; &lt;i&gt;Ubi Soft&lt;/i&gt;&lt;/font&gt;&lt;br&gt;
+        &lt;u&gt;&lt;font face="Arial, Helvetica, sans-serif" size="3"&gt;
+        GENRE:&lt;/font&gt;&lt;/u&gt;&lt;font face="Arial, Helvetica, sans-serif" 
+        size="3"&gt;
+        &amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;
+        &amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&lt;i&gt;Jump'n Run&lt;/i&gt;&lt;/font&gt;
+        &lt;font face="Arial, Helvetica, sans-serif" size="3"&gt;&lt;i&gt;&lt;br&gt;
+        &lt;/i&gt;&lt;/font&gt;&lt;u&gt;&lt;font face="Arial, Helvetica, sans-serif" 
+        size="3"&gt;SPIELER:&lt;/font&gt;&lt;/u&gt;&lt;font face="Arial, Helvetica, 
+        sans-serif" size="3"&gt;
+        &amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;
+        &amp;nbsp;&lt;i&gt;1-4 Spieler&lt;/i&gt;&lt;/font&gt;&lt;br&gt;</programlisting></figure><para>This markup we have to deal with is very presentation-focussed: semantic markup such as
+      <code>h1</code> or <code>h2</code> that could be used for structuring the text is not used at
+     all. The title of the game can only be found in the running text or in the graphic image
+     referred by the <code>img</code> element — and sometimes in external cheats or tricks documents
+     that are referred to from the review page (the term "CHEATS: JA" in <xref linkend="fig.head"/>). All useful information is buried deep inside HTML's <code>table</code> elements, and the
+     page lacks any <code>meta</code> elements for storing additional information. Spacing between
+     different parts of the text was introduced by using HTML's &amp;nbsp; entity, while the whole
+     markup is layout oriented, using <code>font</code>, <code>i</code> and <code>u</code> elements.
+     Sometimes font elements with identical formatting options are embedded into each other
+     resulting in a tag soup. Emphases are arranged solely by selecting "size 3" fonts.</para><para>The running text of the review is distributed among different <code>table</code> elements,
+     establishing a print-like layout. Each review begins with two blocks containing
+     meta-information, such as system, genre, number of players, etc. </para><figure xml:id="fig.head"><title>Typical view of the beginning of a Type A document</title><mediaobject><imageobject><imagedata width="70%" fileref="../../../vol5/graphics/Haupt01/Haupt01-001.png" format="png"/></imageobject></mediaobject></figure><para>The Type A review ends with a tabular overview, consisting of the "pros" and "cons" of the
+     game.</para></section><section><title>Type B</title><para>The Type B reviews were established in the Autumn of 2004, coinciding with the release of
+     the <trademark class="registered">Nintendo DS</trademark> handheld console. Since this
+     videogame console introduced some features that were unknown before (e.g. split-screen and the
+     stylus input device), a new HTML template for reviewing video games was adapted. As a new
+     meta-information item, an age rating was added, and the running text was subdivided by
+     headings.</para><para>Most of the HTML pages contain a doctype declaration (incorrect for HTML 4.01), a
+     reference to an externally declared CSS stylesheet and information about the character encoding
+     (ISO-8859-1 — although the specified encoding is sometimes not correct, since some documents
+     are encoded using the Windows-1252 charset or even UTF-8). In addition to the external CSS
+     file, local formatting using attributes such as <code>marginwidth</code>, <code>bg-color</code>
+     or <code>border</code> can still be found. In general, the HTML pages are not valid according
+     to the W3C validation service. <xref linkend="exstylesheet"/> shows the mixture of different
+     formatting options used. </para><para>
+     <figure xml:id="exstylesheet"><title>Type B beginning of document</title><programlisting xml:space="preserve">&lt;!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Strict//EN"
+ "http://www.w3.org/TR/html4/strict.dtd"&gt;
+&lt;html&gt;&lt;head&gt;&lt;title&gt;NDS 7 Wonders of the Ancient World&lt;/title&gt;
+&lt;meta http-equiv="Content-Type" content="text/html; 
+charset=iso-8859-1"&gt;
+&lt;link rel="stylesheet" href="http://www.mag64.de/test.css" 
+type="text/css"&gt;&lt;/head&gt;
+&lt;body marginwidth="0" marginheight="0" leftmargin="0" 
+topmargin="0" bgcolor="#CCCCCC"&gt;
+&lt;table width="710" border="0" cellpadding="0" cellspacing="0" 
+bgcolor="#CCCCCC"&gt;</programlisting></figure></para><para>A positive difference from the Type A is the fact that the title of the game appears
+     (together with the platform it was released for) in HTML's <code>title</code> element.
+     Important information such as price or age rating are hidden inside a single <code>div</code>
+     element (<xref linkend="exstrings"/>), divided by line breaks.</para><para>
+     <figure xml:id="exstrings"><title>Hidden information</title><programlisting xml:space="preserve">&lt;td width="226" valign="top" style="background-image:url (http://www.mag64.de/tr1.jpg)"&gt;
+&lt;div style="padding-left: 20px;padding-top: 23px"&gt;
+SPRACHH&amp;Uuml;RDE: Keine&lt;br&gt;
+MIKRO SUPPORT: Nein&lt;br&gt;
+ALTERSFREIGABE: &lt;a href="http://www.pegi.info" 
+target="_blank"&gt;3+&lt;/a&gt;&lt;br&gt;
+TERMIN: Erh&amp;auml;ltlich&lt;br&gt;
+VIRTUAL SURROUND: Nein&lt;br&gt;
+PREIS: ca.20 Euro&lt;br&gt;
+KOMPLETTL&amp;Ouml;SUNG: Nein&lt;br&gt;
+CHEATS / TIPPS: Nein&lt;br&gt;
+LESERMEINUNGEN: Nein&lt;/td&gt;</programlisting></figure>
+    </para><para>In contrast to the Type A reviews, subheadings are included; however, these are not marked
+     up by HTML's inherent <code>h1</code> through <code>h6</code> elements but by using formatting
+     elements such as <code>b</code> and <code>font</code>.</para><para>Both review types show HTML's inherent lack of support for highly structured data.
+     Although our example application deals with document-centric texts, the data under observation
+     contains important information that should be marked up explicitly.</para></section></section></section><section xml:id="dataInXML"><title>Highly structured data</title><para> Our goal is to create an XML markup language capable of structuring the video game reviews
+   of both Type A and B that have been discussed. This format should be used as representation
+   format for the output of the conversion process that will be presented in the <xref linkend="conversion"/> and could be used as a storage format for future review applications.
+   Since we have already stated the input documents are often invalid (sometimes even not
+   well-formed) and important information is buried inside HTML <code>table</code> elements, having
+   a document grammar for both validating the conversion process's output format and providing
+   explicit markup of the important information is quite important for us. For these reasons, the
+   use of a capable of full text search engine was not taken into account. We have chosen XML schema
+   in favor of XML DTD because of its datatype library and especially for its support of
+   user-defined simple and complexTypes <xref linkend="bibWalmsley2002"/>. A RELAX NG schema (in
+   combination with the XML schema datatype library) would have been another option, however, the
+   broader support for XML schema supplied by the XSLT processor used during the conversion process
+   tipped the scales for us (<xref linkend="fig.xsd.game"/>).</para><figure xml:id="fig.xsd.game"><title>Game centered structure</title><mediaobject><imageobject><imagedata fileref="../../../vol5/graphics/Haupt01/Haupt01-002.png" format="png"/></imageobject></mediaobject></figure><para>Each game can be identified by a unique <code>xml:id</code> attribute, further optional
+   attributes correspond to <code>genre</code> and <code>subgenre</code>, supporting an enumerated
+   list of possible values which should help avoiding typical errors such as typos. Children of the
+    <code>game</code> element are the <code>title</code> and <code>platforms</code> elements, the
+   latter consisting of at least either one <code>handheldGameConsole</code> or
+    <code>videoGameConsole</code>, allowing to combine reviews of the same video game released on
+   multiple platforms <footnote><para>The optional merging of different game instances can be carried out by an XQuery
+     script.</para></footnote>. Both elements are derived by extension of the globally declared complexType
+    <code>consoleType</code>, sharing common information present in stationary and handheld game
+   consoles (see <xref linkend="fig.consoleType"/> for a graphical overview of the shared
+   information).</para><figure xml:id="fig.consoleType"><title>A closer look at the complexType <code>consoleType</code></title><mediaobject><imageobject><imagedata fileref="../../../vol5/graphics/Haupt01/Haupt01-003.png" format="png"/></imageobject></mediaobject></figure><para>The <code>release</code> element stores information about the date of release (using an
+    <code>xs:date</code> Type Attribute), the different languages and price. Children of the
+    <code>languages</code> element are <code>spoken</code>, <code>text</code> and
+    <code>handbook</code> elements, depicting information about the parts of the game that have been
+   translated. The <code>price</code> element has a <code>currency</code> attribute that uses an
+   enumerated list of possible values according to <xref linkend="bibISO4217"/>.</para><para>An optional <code>image</code> element can be used to represent box pictures or screenshots
+   of the game reviewed.</para><para>As mentioned above, the <code>handheldGameConsole</code> and <code>videoGameConsole</code>
+   elements are derived from the complexType <code>consoleType</code> by extension. Although the
+   additional elements <code>techSpecs</code> and <code>saving</code> use the same names, their
+   content models are different with respect to the video game console, since, for example, the
+   requirements for storing save games are different between handheld and stationary consoles. Only
+   the <code>videoGameConsole</code> element allows for the <code>compatibleInputDevices</code>
+   child element. Most of these elements use enumerated lists to eliminate possible typos and to
+   ease the acquisition of new reviews.</para><para>The main part of the review is stored underneath the <code>review</code> element that
+   consists of the <code>mainText</code> and <code>conclusion</code> elements and further optional
+   screenshots and that has a <code>date</code> attribute and an <code>author</code> attribute
+   group. The running text is subdivided into optional headers and paragraphs, allowing a fine
+   grained division of text parts and representing both review types.</para><para>The <code>conclusion</code> element is used to store both further text (e.g. in a form of a
+   final verdict similar to the Type B reviews) and the tabular-like lists of pros and cons,
+   followed by the final <code>score</code> element. Scoring can be expressed either via numeric
+   values (using the <code>percent</code> child element with its attributes <code>graphics</code>,
+    <code>sound</code> (optional), <code>multiplayer</code> (optional) and <code>overall</code>) or
+   through text, since both variants can be found in our sample data.</para><para>This grammar can not only be used to store the information coded in both review types but
+   also is highly flexible for future extensions. Possible future extensions of the schema may
+   include XSD 1.1 assertions, for example, to ensure that multiplayer scoring information is only
+   allowed when the maximum number of players is greater than "1".</para></section><section xml:id="conversion"><title>Upconversion</title><para>Our upconversion process begins in the typical manner by using XSLT 2.0 / XPath 2.0 <xref linkend="bibKay2008"/>. Because it requires multiple steps and must be applied to many files, we
+   have encapsulated it in XProc.</para><section><title>XSLT 2.0 benefits</title><para>In his paper "Up-conversion using XSLT 2.0" Michael Kay points out the great advances XSLT
+    made when shifting to XSLT 2.0, and he provides a real-world example that makes heavy use of the
+    new features. The key features which produce benefit for upconversion are in short
+    schema-awareness, support for regular expression processing, better manipulation of strings, and
+    advanced grouping possibilities. So tasks that formerly were often solved by using a general
+    purpose scripting language like Perl or Python, by loading XML modules can be done equally well
+    or better with XSLT 2.0 [See <xref linkend="bibKay2004"/> for an elaborated example]. Our
+    upconversion of the reviews mostly makes use of regular expression processing and string
+    manipulation. </para><para>The documents are preprocessed into well formed XML using HTML Tidy. <footnote><para><link xlink:href="http://tidy.sourceforge.net" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://tidy.sourceforge.net</link> for further details.</para></footnote> For the upconversion, both functions as well as named templates are used widely. The
+    following snippet demonstrates the massive clean-up the stylesheet performs. It is taken from
+    the extensive <code>main</code> template, which uses a variable to hold the string with
+    information about the genre of the reviewed game (<xref linkend="fig.xslt.genretemp"/>). This
+    string is checked for both Type A and Type B data equally but it is applied differently with
+    respect to the structure. <figure xml:id="fig.xslt.genretemp"><title>Extracting information</title><programlisting xml:space="preserve">&lt;xsl:variable name="genreTemp"&gt;
+ &lt;xsl:choose&gt;
+  &lt;!-- new type --&gt;
+  &lt;xsl:when test="/descendant::table[3]/descendant::td[2]/descendant::div[contains(.,'GEN')]"&gt;
+   &lt;xsl:analyze-string select="/descendant::table[3]/descendant::td[2]/descendant::div[contains(.,'GEN')]" 
+      regex="GENRE:\s(.*)\sSPIEL"&gt; 
+    &lt;xsl:matching-substring&gt; 
+     &lt;xsl:value-of select="regex-group(1)"/&gt; 
+    &lt;/xsl:matching-substring&gt;  
+   &lt;/xsl:analyze-string&gt;     
+  &lt;/xsl:when&gt;
+  &lt;!-- old type --&gt;
+   &lt;xsl:otherwise&gt;
+    &lt;xsl:value-of select="/descendant::table[1]/descendant::font[contains(.,'GEN')]/following::i[1]"/&gt;
+   &lt;/xsl:otherwise&gt;
+ &lt;/xsl:choose&gt;
+&lt;/xsl:variable&gt;</programlisting></figure> This variable is then checked against regular expressions to assign the respective
+    value from the defined enumerated list. <xref linkend="fig.xslt.genrechoose"/> demonstrates the
+    assignment of some genres and a sub genre, implemented using case differentiation that takes
+    advantage of the order of the test expressions. <figure xml:id="fig.xslt.genrechoose"><title>Structuring information</title><programlisting xml:space="preserve">&lt;xsl:when test="matches($genreTemp, 'A[\w\.\s]*Adv')"&gt;
+ &lt;xsl:attribute name="genre"&gt;Action-Adventure&lt;/xsl:attribute&gt;
+&lt;/xsl:when&gt;
+&lt;!-- [...] --&gt;
+&lt;xsl:when test="matches ($genreTemp, '[sS]port|[bB]all|board|Golf|Box|[hH]ock|[tT]enn|Wrest')"&gt;
+ &lt;xsl:attribute name="genre"&gt;Sport&lt;/xsl:attribute&gt;
+&lt;/xsl:when&gt;
+&lt;xsl:when test="matches($genreTemp, '[Aa]ction|Hack|[sS]hoot|Ego|Prüg|FPS')"&gt;
+ &lt;xsl:attribute name="genre"&gt;Action&lt;/xsl:attribute&gt; 
+  &lt;xsl:choose&gt;
+   &lt;xsl:when test="matches($genreTemp, 'Ego|FPS')"&gt;
+    &lt;xsl:attribute name="subgenre"&gt;First Person Action&lt;/xsl:attribute&gt;
+   &lt;/xsl:when&gt;
+   &lt;!-- [...] --&gt;</programlisting></figure> Because the data varies a lot throughout the transformation, many case
+    differentiations are used. To find the title of some documents information stored into external
+    documents has to be taken into account. In <xref linkend="fig.xslt.title"/>, a linked "cheats"
+    or "tips" document is accessed to extract the game title that is hidden in the backlink to the
+    review document. <figure xml:id="fig.xslt.title"><title>Extracting the game title from an external document</title><programlisting xml:space="preserve">&lt;xsl:when test="/descendant::table[2]/descendant::td[1]/div[1]/
+ descendant::a[doc-available(concat($filepath,(replace
+ (attribute::href, '-i.htm', '-t.xml'))))]"&gt;
+ &lt;xsl:variable name="doc" select="concat($filepath,replace
+  (/descendant::table[2]/descendant::td[1]/div[1]/descendant::a/
+  attribute::href, '-i.htm', '-t.xml'))"/&gt;
+ &lt;xsl:value-of select="document($doc,.)/descendant::table[1]/descendant::a[1]"/&gt;
+&lt;/xsl:when&gt;</programlisting></figure> Throughout the transformation many more requirements are met in carrying out the
+    upconversion. The examples above are simply illustrative of the process without going into
+    complete detail. </para></section><section xml:id="pipelining"><title>Pipelining with XProc</title><para>XProc a new standard for automating processes like ours through an XML pipeline has been
+    developed by the W3 working group <xref linkend="bibW3C.XProc2010"/>. It has reached the status
+    of W3C Recommendation on 11 May 2010 after being advanced to Proposed Recommendation in March
+    2010. The specification had been downgraded from Candidate Recommendation to Working Draft again
+    in January to solve some issues. It has reached a fairly stable level now, and a book on XProc
+    by Norman Walsh is in progress.<footnote><para><link xlink:href="http://norman.walsh.name/2010/04/12/xprocbook" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://norman.walsh.name/2010/04/12/xprocbook</link> and <link xlink:href="http://xprocbook.com/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://xprocbook.com/</link>.</para></footnote> For our desired all-in-one XML solution, XProc is first choice to handle the
+    pipeline.</para><para>The pipeline should process the documents that are stored locally in the filesystem
+    recursively (<xref linkend="fig.filesystem"/>). There are documents other than game reviews
+    (e.g. cheats and tricks), and we need some of them to extract the titles of games, but most of
+    these documents are discarded. One problem here is that while we can say from the filename what
+    is most likely <emphasis>not</emphasis> a test, but not what actually is. <figure xml:id="fig.filesystem"><title>An overview of the filesystem</title><mediaobject><imageobject><imagedata fileref="../../../vol5/graphics/Haupt01/Haupt01-004.png"/></imageobject></mediaobject></figure> The pipeline will apply the following tasks to each HTML document: <itemizedlist><listitem><para>Use HTML Tidy to transform the HTML input into well-formed XML</para></listitem><listitem><para>Apply the XSLT script to the output of the former task using an XSLT 2.0
+       processor</para></listitem><listitem><para>Validate the output files according to the XML schema</para></listitem><listitem><para>Separate valid from invalid documents</para></listitem><listitem><para>Provide a log of valid documents</para></listitem></itemizedlist> XProc suits these needs well, and, as an XML language, ensures perfect XML
+    compatibility. For processing we use XML Calabash version 0.9.21.<footnote><para><link xlink:href="http://xmlcalabash.com/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://xmlcalabash.com/</link> for further details.</para></footnote> As another option, Calumet 1.0.11,<footnote><para><link xlink:href="https://community.emc.com/community/edn/xmltech" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">https://community.emc.com/community/edn/xmltech</link> for further details.</para></footnote> was taken into account, but since Calumet currently does not support XPath 2.0, we
+    stick to XML Calabash. We prepared the documents so the encoding of the files is either
+    ISO-8859-1 or UTF-8 and the special characters are masked as numeric entities for the moment.
+    Otherwise there would be encoding errors in the result XML documents. Since the pipeline shall
+    take HTML documents as input and shall process all of them in sequential order some preparatory
+    steps are used to make the documents accessible inside the XML pipeline. <xref linkend="fig.pipelinepreparations"/> provides a simplified overview of the first steps of the
+     pipeline.<figure xml:id="fig.pipelinepreparations"><title>Preparatory steps</title><mediaobject><imageobject><imagedata fileref="../../../vol5/graphics/Haupt01/Haupt01-005.png"/></imageobject></mediaobject></figure> We chose <code>p:declare-step</code> as root element for good control of input and
+    output ports. Both are set to allow any number of documents. Since parameters are to be used for
+    XSLT transformation, we need the optional input port "parameters" - because it is the only
+    parameter port in the pipeline it is primary by default. The source directory HTML is bound to a
+    variable and made accessible for the step <code>p:directory-list</code>, which here returns the
+    system-folders in c-namespace (<xref linkend="fig.pipeline.c.start"/>). <figure xml:id="fig.pipeline.c.start"><title>Setting the basics</title><programlisting xml:space="preserve">&lt;?xml version="1.0"?&gt;
+&lt;p:declare-step xmlns:p="http://www.w3.org/ns/xproc" xmlns:c="http://www.w3.org/ns/xproc-step"
+  name="main" version="1.0"&gt;
+ &lt;p:input port="parameters" kind="parameter"/&gt; 
+ &lt;p:input port="source" sequence="true"/&gt;
+ &lt;p:output port="result" sequence="true"&gt;
+  &lt;p:pipe port="result" step="loglast"/&gt;
+ &lt;/p:output&gt;
+ &lt;p:variable name="input" select="'HTML'"/&gt; 
+ &lt;p:directory-list name="directories"&gt;
+  &lt;p:with-option name="path" select="$input"/&gt;  
+ &lt;/p:directory-list&gt;</programlisting></figure> To advance deeper into the structure we use nested <code>p:for-each</code> loops; of
+    course, the output port needs to be set to accept sequences. Next we list the subdirectories,
+    consisting mainly of game-folders (<xref linkend="fig.pipeline.c.loop"/>). <figure xml:id="fig.pipeline.c.loop"><title>The main loop</title><programlisting xml:space="preserve">&lt;p:for-each name="directoryloop"&gt;  
+ &lt;p:output port="result" sequence="true"/&gt;
+ &lt;p:iteration-source select="/c:directory/c:directory"/&gt;  
+ &lt;p:variable name="dirpath"
+  select="concat($input,'/', c:directory/@name)"/&gt;  
+ &lt;p:directory-list name="subdirectories"&gt;
+  &lt;p:with-option name="path" select="$dirpath"/&gt;
+ &lt;/p:directory-list&gt;</programlisting></figure> Now we loop over the game-folders (not shown due to space restrictions) and prepare
+    the files for accessibility. First we add the base-uri to get the complete filepath using
+     <code>p:make-absolute-uris</code>. Then we add slashes using <code>p:string-replace</code> to
+    ensure accordance to the file protocol. To make sure the file is accessible for the
+     <code>p:http-request</code> step we rename the element <code>c:file</code> to
+     <code>c:request</code>.<footnote><para>We will need <code>p:http-request</code>, although we work on the filesystem. This is
+      because <code>p:data</code>, which one could expect here, is not a step and therefore does not
+      accept options.</para></footnote> Furthermore, we need to add the proper attributes for the
+     <code>p:http-request</code> step to work. Since there is no server involved and we do not want
+    to work with binary data, we need to add the attribute <code>override-content-type</code> and
+    attach the value <code>text/html</code> (<xref linkend="fig.pipeline.c.HTMLpreparations"/>).
+     <figure xml:id="fig.pipeline.c.HTMLpreparations"><title>Preparing to process HTML</title><programlisting xml:space="preserve">&lt;p:make-absolute-uris match="c:file/@name"&gt;
+ &lt;p:with-option name="base-uri" select="concat($subdirpath, '/', c:directory/@name)"/&gt;
+&lt;/p:make-absolute-uris&gt;
+&lt;p:string-replace match="c:file/@name" replace="replace(., 'file:', 'file://')" name="replace"/&gt;
+&lt;p:rename match="c:file" new-name="c:request"/&gt;
+&lt;p:rename match="@name" new-name="href"/&gt;
+&lt;p:add-attribute match="c:request" attribute-name="method" attribute-value="get"/&gt;
+&lt;p:add-attribute match="c:request" attribute-name="override-content-type" attribute-value="text/html"/&gt;</programlisting></figure> Now we can process the HTML documents in sequence. We use a filter to exclude
+    documents which are not reviews and will not help us to find game titles (<xref linkend="fig.pipeline.c.filter"/>). These documents may be reader reviews that follow no
+    certain structure, hardware reviews, or other texts. Files that may help us to find missing game
+    titles contain these abbreviations: <code>opt|chea|tipp|herz|guid|pass</code>. <figure xml:id="fig.pipeline.c.filter"><title>Filtering documents not needed</title><programlisting xml:space="preserve">&lt;p:filter name="filter" select="//c:request[matches(@href, '-i.htm')] 
+  except //c:request[matches(@href, 'les[0-9]|hardware|wifi|wiiware|leser|preview|xpl|wer\.')]"/&gt;
+&lt;p:for-each name="fileloop"&gt;
+ &lt;p:output port="result" sequence="true"/&gt;</programlisting></figure> For the filtered documents, the second and, therefore, the main part of the pipeline
+    is initiated (<xref linkend="fig.pipeline.main.part"/>). If something goes wrong during the
+    upconversion, we want to be able to check in which step and what the reason may be, so each of
+    the main steps has its output stored apart from each other. We nest <code>try-catch</code>
+    clauses to ensure the flow of the pipeline. <figure xml:id="fig.pipeline.main.part"><title>An overview of the main steps</title><mediaobject><imageobject><imagedata fileref="../../../vol5/graphics/Haupt01/Haupt01-006.png"/></imageobject></mediaobject></figure> The variable <code>file</code> holds the URI of each file. It will be available
+    throughout the loop and not only serve to get each file but to store each file in its given
+    folder. So first we convert these files that pass the filter through HTML Tidy via
+     <code>p:exec</code>, which can take non-XML input and provides safety (<xref linkend="fig.pipeline.c.exec"/>). We could use <code>p:unescape-markup</code> in conjunction
+    with Tagsoup 1.2<footnote><para><link xlink:href="http://ccil.org/~cowan/XML/tagsoup/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://ccil.org/~cowan/XML/tagsoup/</link> for
+      further details.</para></footnote> or HTML Tidy as an alternative solution here, but as XML Calabash so far only
+    implemented Tagsoup for reading HTML and the results from HTML Tidy and Tagsoup differ slightly,
+    we stick to <code>p:exec</code>. Calumet supports both HTML Tidy and Tagsoup for this step, but
+    as we are using XPath 2.0 we cannot use this option. We set <code>source-is-xml</code> to false
+    and <code>result-is-xml</code> to true. By default, result lines are wrapped, and the output of
+    this step is also wrapped to ensure wellformed XML documents on the output port. We negate
+     <code>wrap-result-lines</code> and unwrap the output of the step. (Note that the arguments for
+    HTML Tidy need to be in a single line.) <figure xml:id="fig.pipeline.c.exec"><title>Using <code>p:exec</code> to do a first cleanup </title><programlisting xml:space="preserve">&lt;p:variable name="file" select="c:request/@href"/&gt;    
+&lt;p:http-request/&gt;
+&lt;p:exec command="/usr/bin/tidy" source-is-xml="false" result-is-xml="true" wrap-result-lines="false"&gt;
+ &lt;p:with-option name="args" select=
+  "'--quiet yes --show-warnings no --output-xml yes --bare yes --doctype omit 
+  --numeric-entities yes --char-encoding utf8'"/&gt;
+&lt;/p:exec&gt;
+&lt;p:unwrap match="c:result"/&gt;</programlisting></figure>
+   </para><para> The output of this step is saved to folder "Tidied" as "filename.xml" and chained to the
+    next step <code>p:xslt</code>. As a precaution, this step along with the connected saving
+    procedure is encapsulated into a try group. If any of this fails, we record the tidied file to
+    the folder "Transform-failed". The <code>p:xslt</code> step takes three input ports, one for the
+    stylesheet, one for the XML document and one for parameters (<xref linkend="fig.pipeline.c.xslt"/>). The filepath needs to be provided to the stylesheet to ensure reaching the documents that
+    will be consulted for missing titles. The filename and system folder are processed inside the
+    transformation as well. </para><figure xml:id="fig.pipeline.c.xslt"><title>Transformation using parameters</title><programlisting xml:space="preserve">&lt;p:xslt name="transform"&gt;
+ &lt;p:input port="source"&gt;
+  &lt;p:pipe port="result" step="tidy"/&gt;
+ &lt;/p:input&gt;
+ &lt;p:input port="stylesheet"&gt;
+  &lt;p:document href="test2xml.xsl"/&gt;
+ &lt;/p:input&gt;
+ &lt;p:with-param name="xpr.platform" select="tokenize($file, '/')[last()-2]"&gt;
+  &lt;p:pipe port="parameters" step="main"/&gt;
+ &lt;/p:with-param&gt;
+ &lt;p:with-param name="xpr.filename" select="substring-before(tokenize($file, '/')[last()], '-i.htm')"&gt;
+  &lt;p:pipe port="parameters" step="main"/&gt;
+ &lt;/p:with-param&gt;
+ &lt;p:with-param name="xpr.filepath" select="$file"&gt;
+  &lt;p:pipe port="parameters" step="main"/&gt;
+ &lt;/p:with-param&gt;
+&lt;/p:xslt&gt;</programlisting></figure><para> If the transformation and the saving process can be executed successfully, the output of
+    this step serves as input for <code>p:validate-with-xml-schema</code> (<xref linkend="fig.pipeline.c.validation"/>). Depending on the output of this step, the documents are
+    saved separately. Valid documents can be found in the 'Schema-Valid' folder and the invalid in
+    the 'Schema-Invalid' folder. (During the programming of the XSLT-Transformation, invalid
+    documents give hints for expressions in need of improvement.) <figure xml:id="fig.pipeline.c.validation"><title>Schema validation of transformation result</title><programlisting xml:space="preserve">&lt;p:try&gt;
+ &lt;p:group&gt;            
+  &lt;p:validate-with-xml-schema mode="strict" name="validate"&gt;      
+   &lt;p:input port="source"&gt;
+    &lt;p:pipe port="result" step="transform"/&gt;
+   &lt;/p:input&gt;
+   &lt;p:input port="schema"&gt;
+    &lt;p:document href="Struktur.xsd"/&gt;
+   &lt;/p:input&gt;        
+  &lt;/p:validate-with-xml-schema&gt;        
+  &lt;p:store name="storeValid"&gt;&lt;!-- [...] --&gt;&lt;/p:store&gt; 
+  &lt;p:identity&gt;
+   &lt;p:input port="source"&gt;&lt;p:pipe step="storeValid" port="result"/&gt;&lt;/p:input&gt;
+  &lt;/p:identity&gt; 
+ &lt;/p:group&gt;       
+ &lt;p:catch&gt;
+  &lt;p:identity&gt;
+   &lt;p:input port="source"&gt;&lt;p:pipe step="transform" port="result"/&gt;&lt;/p:input&gt;
+  &lt;/p:identity&gt;        
+  &lt;p:store name="storeInvalid"&gt;&lt;!-- [...] --&gt;&lt;/p:store&gt;
+ &lt;/p:catch&gt;
+&lt;/p:try&gt;</programlisting></figure> The last steps of the pipeline follow after the loops and take the result of the loop
+    started in <xref linkend="fig.pipeline.c.loop"/>. Here we create an XML document which takes the
+     <code>c:result</code> elements returned by the step <code>directoryloop</code> and lists them
+    for an overview (<xref linkend="pipeline.c.logvalid"/>). <figure xml:id="pipeline.c.logvalid"><title>Logging the valid files</title><programlisting xml:space="preserve">&lt;p:documentation&gt;Wrap result for info.&lt;/p:documentation&gt;
+&lt;p:wrap-sequence wrapper="directoryloop"/&gt;
+&lt;p:store name="loglast"&gt;
+ &lt;p:with-option name="href" select="'file:///home/user/loglaststep.xml'"/&gt;
+ &lt;p:with-option name="encoding" select="'UTF-8'"/&gt;
+ &lt;p:with-option name="omit-xml-declaration" select="'false'"/&gt;
+ &lt;p:with-option name="indent" select="'true'"/&gt;
+&lt;/p:store&gt;</programlisting></figure>
+   </para><para>This pipeline takes approximately half an hour to process the data, and is relatively
+    independent of CPU speed on an average actual system. It results in 1573 schema-valid files.
+   </para></section><section><title>The result of the upconversion process</title><para>
+    <xref linkend="fig.instance"/> shows an excerpt of an instance coded in the target output format
+    according to the XML schema. The critical information is marked up with the help of appropriate
+    elements or attributes. Conversions of a game (i.e., the release on different platforms) are
+    supported, as well, by separating the general information such as title and genre from the
+    platform for which the review is written. The verdict contains the list of "pro" and "con" items
+    and the score (depending on the input review type, subdivided into single figures for game
+    graphics, sound, multiplayer and overall) in a highly-structured form that allows easy access to
+    relevant criteria.</para><figure xml:id="fig.instance"><title>The result of the upconversion</title><programlisting xml:space="preserve">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;game xml:id="d1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+ xsi:noNamespaceSchemaLocation="Struktur.xsd" genre="Jump 'n' Run"&gt;
+ &lt;title abbreviation="rayman3"&gt;Rayman3 Hoodlum Havoc&lt;/title&gt;
+ &lt;platforms&gt;
+  &lt;videoGameConsole type="GCN"&gt;
+   &lt;developer&gt;Ubi Soft&lt;/developer&gt;
+   &lt;difficulty min="1" max="6"/&gt;
+   &lt;release&gt;
+    &lt;languages&gt;
+     &lt;spoken xml:lang="de"/&gt;
+    &lt;/languages&gt;
+    &lt;price currency="EUR"&gt;60&lt;/price&gt;
+   &lt;/release&gt;
+   &lt;player min="1" max="4"/&gt;
+   &lt;techSpecs&gt;
+    &lt;item&gt;PAL&lt;/item&gt;
+    &lt;item&gt;GCN-GBA-Link&lt;/item&gt;
+   &lt;/techSpecs&gt;
+   &lt;saving mode="Memorycard" blocks="8"/&gt;
+   &lt;compatibleInputDevices&gt;
+    &lt;item&gt;Gamecube Controller&lt;/item&gt;
+    &lt;item&gt;GBA&lt;/item&gt;
+   &lt;/compatibleInputDevices&gt;
+   &lt;review date="2003-02-24" authorFirstname="Matthias"
+    authorLastname="Engert"&gt;
+    &lt;mainText&gt;
+     &lt;paragraph&gt;Bisher hat uns Ubi Soft ja (...)&lt;/paragraph&gt;
+     &lt;paragraph&gt;Durch den Score werden (...)&lt;/paragraph&gt;
+     &lt;paragraph&gt;(...)&lt;/paragraph&gt;
+    &lt;/mainText&gt;
+    &lt;conclusion&gt;
+     &lt;pro&gt;
+      &lt;item&gt;Unterhaltsames Gameplay&lt;/item&gt;
+     &lt;/pro&gt;
+     &lt;contra&gt;
+      &lt;item&gt;Ende wird zu schnell erreicht&lt;/item&gt;
+     &lt;/contra&gt;
+     &lt;score&gt;
+      &lt;percent graphics="85" sound="85" multiplayer="82"
+       overall="82"/&gt;
+     &lt;/score&gt;
+    &lt;/conclusion&gt;
+   &lt;/review&gt;
+  &lt;/videoGameConsole&gt;
+ &lt;/platforms&gt;
+&lt;/game&gt;</programlisting></figure></section></section><section xml:id="benefits"><title>Benefits of highly structured data — searching for the game according to your
+   flavour</title><para>The result instances of the automatic upconversion process discussed in the <xref linkend="conversion"/> contains highly structured information. All relevant and important data
+   that was formerly hidden inside HTML's <code>table</code> element or as part of the running text
+   can be accessed via XPath or XQuery expressions <xref linkend="bibChamberlin2004"/>, allowing for
+   easy retrieval of reviews of games of certain types or according to certain criteria such as
+   genre, price, and score. While the original structure of the <emphasis role="ital">Mag'64</emphasis> Web site offered access to the review based on either the video game system
+   or the name of the game, a full-text search engine was not implemented. We have <!--deployed-->
+   developed some sample XQuery queries that allow for a different kind of retrieval of game
+   reviews.</para><section><title>Alternative access to the reviews</title><para>The query <code>genres.xq</code> uses two parameters, genre and platform, to search for
+    games of a certain genre on a specific platform by using a collection of all valid XML instance
+    documents. <xref linkend="genres.xq.result"/> shows the output of the <code>genres.xq</code>
+    with the value "Wii" for the platform parameter and the value "Puzzle"
+    supplied for the genre paramater. Since this query was originally developed as a alternative
+    access mechanism, the information returned is very sparse. However, in combination with
+    <!--an--> (X)HTML output containing hyperlinks to the respective review page, it would be
+    sufficient.</para><figure xml:id="genres.xq.result"><title>Result example for <code>genres.xq</code></title><programlisting xml:space="preserve">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;games on="Wii" type="Puzzle"&gt;
+ &lt;instance score="85" abbreviation="pqwii"&gt;Puzzle Quest: Challenge of the Warlords&lt;/instance&gt;
+ &lt;instance score="80" abbreviation="jewel"&gt;Jewel Master: Cradle of Rom&lt;/instance&gt;
+ &lt;instance score="79" abbreviation="phwwii"&gt;Professor Heinz Wolff's Gravity&lt;/instance&gt;
+ &lt;instance score="76" abbreviation="bbawii"&gt;Big Brain Academy &lt;/instance&gt;
+ &lt;instance score="50" abbreviation="jengawii"&gt;Jenga World Tour &lt;/instance&gt;
+&lt;/games&gt;</programlisting></figure></section><section><title>Finding a game according to specific features</title><para>Sometimes a user searches for games that support certain technical features, such as online
+    content, multiplayer, etc. The <code>techspecs.xq</code> query uses the parameter platform and
+    techspec to retrieve only the reviews of games that include the provided feature. <xref linkend="techspecs.xq.result"/> shows an example result.</para><figure xml:id="techspecs.xq.result"><title>Result example for <code>techspecs.xq</code></title><programlisting xml:space="preserve">&lt;games on="NDS" featuring="Online"&gt;
+ &lt;instance score="92" abbreviation="suik"&gt;Suikoden Tierkreis &lt;/instance&gt;
+ &lt;instance score="90" abbreviation="layton"&gt;Professor Layton und das geheimnisvolle Dorf&lt;/instance&gt;
+ &lt;instance score="89" abbreviation="fesd"&gt;Fire Emblem : Shadow Dragon&lt;/instance&gt;
+ &lt;instance score="88" abbreviation="cpor"&gt;Castlevania: Portrait of Ruin&lt;/instance&gt;(...)
+&lt;/games&gt;</programlisting></figure></section><section><title>A more elaborated example: a wish list</title><para>Kids love video games these days, and often they leave their parents behind when it comes
+    to choosing the right game for a present. We will demonstrate the benefits of highly structured
+    data in this example. Consider a seven-year-old child with a <trademark class="registered">Nintendo DS</trademark> who wants to get a racing game for his system. The parents might agree
+    but formula additional constraints: the game to be bought should have a score of at least 70%
+    and should be appropriate for kids of his age. Furthermore, the difficulty should not be too
+    high.</para><para>For this query different parameters have to be taken into account: the platform, the genre,
+    age rating, score, and difficulty. The <code>shoppingList.xq</code> query provides all these
+    parameters (<xref linkend="shoppinglist.xq.xq"/>). Using Saxon as XQuery processor with the
+    following call results in the output shown in <xref linkend="shoppinglist.xq.result"/>.</para><figure xml:id="shoppinglist.xq.xq"><title>Query for a shopping list</title><programlisting xml:space="preserve">XQuery.sh shoppingList.xq age=7 platform=NDS score=70 genre=Rennspiel maxDifficulty=7</programlisting></figure><figure xml:id="shoppinglist.xq.result"><title>Result example for <code>shoppinglist.xq</code></title><programlisting xml:space="preserve">&lt;games maxAgeRating="7" on="NDS" maxDifficulty="7" type="Rennspiel" scoreAtLeast="70"&gt;
+ &lt;instance ageRating="3" score="82" maxDifficulty="7" abbreviation="augt2" minDifficulty="1"&gt;
+  &lt;title&gt;Asphalt Urban GT 2&lt;/title&gt;
+  &lt;notes&gt;
+   &lt;pro&gt;62 Meisterschaften&lt;/pro&gt;
+   &lt;pro&gt;Für Fans von Arcade Steuerung&lt;/pro&gt;
+   &lt;pro&gt;Sehr gute Framerate/Technik&lt;/pro&gt;
+   &lt;pro&gt;Fahrzeugmodelle/Anzahl&lt;/pro&gt;
+   &lt;pro&gt;Grafische Präsentation&lt;/pro&gt;
+   &lt;pro&gt;Verschiedene Rennmodi&lt;/pro&gt;
+   &lt;pro&gt;Werkstatt Feature&lt;/pro&gt;
+   &lt;pro&gt;Gamespeed/Straßenverkehr&lt;/pro&gt;
+   &lt;pro&gt;Motorrad Inhalte&lt;/pro&gt;
+   &lt;contra&gt;Leichter als der Vorgänger&lt;/contra&gt;
+   &lt;contra&gt;Polizei in den Meisterschaften&lt;/contra&gt;
+   &lt;contra&gt;Kein 1C Multiplayer&lt;/contra&gt;
+  &lt;/notes&gt;
+ &lt;/instance&gt;
+ &lt;instance ageRating="3" score="77" maxDifficulty="7" abbreviation="cnr" minDifficulty="1"&gt;
+  &lt;title&gt;Cartoon Network Racing&lt;/title&gt;
+  &lt;notes&gt;
+   &lt;pro&gt;Gute Grundsteuerung&lt;/pro&gt;
+   &lt;pro&gt;Umfangreich duch 4 Cups&lt;/pro&gt;
+   &lt;pro&gt;Steigende Gegner KI&lt;/pro&gt;
+   &lt;pro&gt;Lange Strecken&lt;/pro&gt;
+   &lt;pro&gt;11 gelungene Strecken&lt;/pro&gt;
+   &lt;pro&gt;Gelungene Items&lt;/pro&gt;
+   &lt;pro&gt;Viele Belohnungen&lt;/pro&gt;
+   &lt;pro&gt;Kart Curling Minispiel&lt;/pro&gt;
+   &lt;contra&gt;Kurventechnik per R-Taste&lt;/contra&gt;
+   &lt;contra&gt;5 der 16 Strecken&lt;/contra&gt;
+   &lt;contra&gt;Single Card MP&lt;/contra&gt;
+   &lt;contra&gt;Zu abruptes Bremsen bei Crashs&lt;/contra&gt;
+  &lt;/notes&gt;
+ &lt;/instance&gt;
+&lt;/games&gt;</programlisting></figure><para>The results are sorted according to the score in descending order (with 100 representing
+    the best value). Each <code>instance</code> element contains the age rating, score, and
+    information about the difficulty, encoded in attribute values. Child elements are the title and
+    the review notes, consisting of the "pros" and "cons" of the game. The <code>notes</code>
+    element, in particular, may contain information that is subjective; it may occur that our
+    example parents will judge a certain feature higher or lower than the reviewer did (or even
+    think of a "con" as a "pro").</para></section></section><section xml:id="conclusion"><title>Conclusion</title><para>The results of our work are of many kinds: first, the newly introduced features such as
+   regular expressions and string manipulations qualify XSLT 2.0 as a full-fledged conversion tool
+   for transforming weak structured data into a highly structured format. Second, if a
+   transformation process has to be carried out multiple times and if other processing is involved,
+   automation by using the XProc pipelining language is highly recommended. Both the XProc
+   specification and the supporting software tools are ready for a productive environment.
+   Furthermore, the output of the upconversion clearly shows a high potential in terms of
+   flexibility and of the ability to retrieve certain information, as shown by our example
+   applications using XQuery.</para><para>We are certain that minor problems such as the one caused by the character encoding will be
+   fixed during the ongoing development of XProc software. From our point of view, future
+   modifications could result in a XSD 1.1 compatible XML schema supporting more video game systems
+   or textual content that is not review related, such as cheats, hints, or walk-throughs. Both the
+   XSLT script and the XQuery queries could be modified in how they interact with each other. For
+   example, the distinction of different cases that is carried out by the XSLT script could be
+   reformulated as pipeline step, allowing for a more maintainable XSLT script.</para><para>In general, the realization of the pipeline and query system as a Web service in conjunction
+   with a native XML database would result in an alternative search and retrieval mechanism that
+   would indeed <emphasis role="ital">search for the game according to your
+   flavour.</emphasis></para></section><bibliography><title>Literature</title><bibliomixed xml:id="bibChamberlin2004" xreflabel="Chamberlin et al. (2004)"> Chamberlin, D., D.
+   Draper, M. F. Fernández, M. Kay, J. Robie, M. Rys, J. Siméon, J. Tivy, and P. Wadler, <emphasis role="ital">XQuery from the Experts: A Guide to the W3C XML Query Language.</emphasis> Pearson
+   Education. Addison-Wesley, Boston, 2004.</bibliomixed><bibliomixed xml:id="bibHTML3.2" xreflabel="HTML 3.2 Reference Specification"> Raggett, D.
+    <emphasis role="ital">HTML 3.2 Reference Specification.</emphasis> W3C Recommendation. <link xlink:href="http://www.w3.org/TR/REC-html32" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/REC-html32</link>, 1997. </bibliomixed><bibliomixed xml:id="bibHTML4.01" xreflabel="HTML 4.01"> Raggett, D., A. L. Hors, and I. Jacobs,
+    <emphasis role="ital">HTML 4.01 Specification.</emphasis> W3C Recommendation 24 December 1999,
+   World Wide Web Consortium. <link xlink:href="http://www.w3.org/TR/1999/REC-html401-19991224" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/1999/REC-html401-19991224</link>, 1999. </bibliomixed><bibliomixed xml:id="bibHTML.ISO" xreflabel="HTML (ISO), ISO/IEC    15445:2000"><emphasis role="ital">Information technology — Document description and processing languages — HyperText
+    Markup Language (HTML).</emphasis> ISO/IEC 15445:2000, International standard, International
+   Organization for Standardization, Geneva, 2000.</bibliomixed><bibliomixed xml:id="bibISO4217" xreflabel="ISO Country Codes, ISO 4217:2008">
+   <emphasis role="ital">Codes for the representation of currencies and funds.</emphasis> ISO
+   4217:2008, International standard, International Organization for Standardization, Geneva,
+   2008.</bibliomixed><bibliomixed xml:id="bibKay2004" xreflabel="Kay (2004)"> Kay, M. "Up-conversion using XSLT 2.0."
+    <link xlink:href="http://www.saxonica.com/papers/ideadb-1.1/mhk-paper.xml" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.saxonica.com/papers/ideadb-1.1/mhk-paper.xml</link>, 2004. </bibliomixed><bibliomixed xml:id="bibKay2008" xreflabel="Kay (2008)"> Kay, M. <emphasis role="ital">XSLT 2.0
+    and XPath 2.0 Programmer’s Reference.</emphasis> Wiley Publishing, Indianapolis, 4th edition,
+   2008.</bibliomixed><bibliomixed xml:id="bibRelaxNG" xreflabel="RelaxNG, ISO/IEC 19757-2:2003)"><emphasis role="ital">Information technology - Document Schema Definition Language (DSDL) — Part 2:
+    Regular-grammar-based validation — RELAX NG.</emphasis> ISO/IEC 19757-2:2003, International
+   standard, International Organization for Standardization, Geneva, 2003. </bibliomixed><bibliomixed xml:id="bibSGML" xreflabel="SGML, ISO 8879:1986">
+   <emphasis role="ital">Information Processing — Text and Office Information Systems — Standard
+    Generalized Markup Language.</emphasis> International standard, International Organization for
+   Standardization, Geneva 1986.</bibliomixed><bibliomixed xml:id="bibSuda2006" xreflabel="Suda (2006)"> Suda, B. <emphasis role="ital">Using
+    microformats.</emphasis> O'Reilly, Sebastopol, CA, USA, (2006).</bibliomixed><bibliomixed xml:id="bibWalmsley2002" xreflabel="Walmsley (2002)"> Walmsley, P. <emphasis role="ital">Definitive XML Schema.</emphasis> Prentice Hall PTR, Upper Saddle River, NJ, USA,
+   2002.</bibliomixed><bibliomixed xml:id="bibXML1.0" xreflabel="XML 1.0"> Bray, T., J. Paoli, and C. M.
+   Sperberg-McQueen, <emphasis role="ital">Extensible Markup Language (XML) 1.0.</emphasis> W3C
+   Recommendation 10 February 1998. World Wide Web Consortium. <link xlink:href="http://www.w3.org/TR/1998/REC-xml-19980210" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/1998/REC-xml-19980210</link>, 1998. </bibliomixed><bibliomixed xml:id="bibW3C.XMLSchemaPrimer" xreflabel="XML Schema Part 0: Primer"> Fallside, D.
+   C., and P. Walmsley, <emphasis role="ital">XML Schema Part 0: Primer Second Edition</emphasis>.
+   W3C Recommendation 28 October 2004, World Wide Web Consortium. <link xlink:href="http://www.w3.org/TR/2004/REC-xmlschema-0-20041028/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/2004/REC-xmlschema-0-20041028/</link>, 2004. </bibliomixed><bibliomixed xml:id="bibW3C.XProc2010" xreflabel="XProc"> Walsh, N., A. Milowski, and H. S.
+   Thompson, <emphasis role="ital">XProc: An XML Pipeline Language.</emphasis> W3C Recommendation 11
+   May 2010, World Wide Web Consortium. <link xlink:href="http://www.w3.org/TR/2010/REC-xproc-20100511/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/2010/REC-xproc-20100511/</link>, 2010.</bibliomixed></bibliography></article>

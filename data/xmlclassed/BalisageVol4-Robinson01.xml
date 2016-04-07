@@ -1,0 +1,839 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?><classedDocument><article xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink" class="po-hcontainer e0 e0" version="5.0-subset Balisage-1.2"><title class="po-block e1 e1"><textual class="po-textual">Performance of XML-based applications: a case-study</textual></title><info class="po-record e2 e2"><confgroup class="po-record e3 e3"><conftitle class="po-field e4 e4"><textual class="po-textual">International Symposium on Processing XML Efficiently: Overcoming Limits on Space, Time, or Bandwidth</textual></conftitle><confdates class="po-field e5 e5"><textual class="po-textual">August 10, 2009</textual></confdates></confgroup><abstract class="po-container e6 e6"><para class="po-block e7 e7"><textual class="po-textual">HighWire Press is the online publishing operation of the Stanford University Libraries,
+        and currently hosts online journals for over 140 separate publishers. HighWire has developed
+        and deployed a new XML-based publishing platform, codenamed H2O, and is in the process of
+        migrating all of its publishers to this new platform.</textual></para><para class="po-block e8 e8"><textual class="po-textual">This paper describes four XML-based systems developed for our new H2O platform, and
+        describes some of the performance characteristics of each. We describe some limitations
+        encountered with these systems, and conclude with thoughts about our experience migrating to
+        an XML-based platform.</textual></para></abstract><author class="po-record e9 e9"><personname class="po-record e10 e10"><firstname class="po-field e11 e11"><textual class="po-textual">James</textual></firstname><othername class="po-field e12 e12"><textual class="po-textual">A.</textual></othername><surname class="po-field e13 e13"><textual class="po-textual">Robinson</textual></surname></personname><personblurb class="po-container e14 e14"><para class="po-block e15 e15"><textual class="po-textual">Jim Robinson has been a systems developer at Stanford University HighWire Press for
+          over ten years. He's been interested in XML-based technology since 2005.</textual></para></personblurb><affiliation class="po-record e16 e16"><jobtitle class="po-field e17 e17"><textual class="po-textual">Information Systems Specialist</textual></jobtitle><orgname class="po-block e18 e18"><textual class="po-textual">Stanford University HighWire Press</textual></orgname></affiliation><email class="po-field e19 e19"><textual class="po-textual">jim.robinson@stanford.edu</textual></email></author><legalnotice class="po-container e20 e20"><para class="po-block e21 e21"><textual class="po-textual">Copyright © 2009 by the Board of Trustees of the Leland Stanford Junior
+        University. Used by permission.</textual></para></legalnotice><keywordset class="po-table e22 e22" role="author"><keyword class="po-field e23 e23"><textual class="po-textual">XML</textual></keyword><keyword class="po-field e24 e24"><textual class="po-textual">XSLT</textual></keyword><keyword class="po-field e25 e25"><textual class="po-textual">XQuery</textual></keyword><keyword class="po-field e26 e26"><textual class="po-textual">Atom Publishing Protocol</textual></keyword><keyword class="po-field e27 e27"><textual class="po-textual">publishing platform</textual></keyword><keyword class="po-field e28 e28"><textual class="po-textual">performance case-study</textual></keyword></keywordset></info><section class="po-hcontainer e29 e29"><title class="po-block e30 e30"><textual class="po-textual">Introduction</textual></title><para class="po-block e31 e31"><textual class="po-textual">In late 2006 HighWire had started internal discussions over whether or not we needed to
+      implement a radical overhaul of our publishing, parsing and content delivery system. We wanted
+      the system to be much more flexible when it came to incorporating new data, sharing data
+      between systems, and delivering new features.</textual></para><para class="po-block e32 e32"><textual class="po-textual">At that time our system, which had been built up over the past decade, followed a fairly
+      traditional model consisting of a display layer, a business logic layer, and a
+      metadata/storage layer. Specifically, our original system could be described as a combination
+      of:</textual></para><itemizedlist class="po-table e33 e33"><listitem class="po-container e34 e34"><para class="po-block e35 e35"><textual class="po-textual">Perl and Nsgmls based tools to process data supplied by file providers.</textual></para></listitem><listitem class="po-container e36 e36"><para class="po-block e37 e37"><textual class="po-textual">NFS servers to hold derivatives (e.g., SHTML or similar files).</textual></para></listitem><listitem class="po-container e38 e38"><para class="po-block e39 e39"><textual class="po-textual">Relational database servers, accessed via SQL, to hold metadata.</textual></para></listitem><listitem class="po-container e40 e40"><para class="po-block e41 e41"><textual class="po-textual">Java Mediators talking to the NFS and database servers.</textual></para></listitem><listitem class="po-container e42 e42"><para class="po-block e43 e43"><textual class="po-textual">Java Servlets with a custom templating language similar to JSP, named DTL, to build
+          pages for the browser.</textual></para></listitem></itemizedlist><para class="po-block e44 e44"><textual class="po-textual">While this system has served us well, and continues to do so, there were some basic
+      problems we were finding difficult to overcome:</textual></para><itemizedlist class="po-table e45 e45"><listitem class="po-container e46 e46"><para class="po-block e47 e47"><textual class="po-textual">The translation from the relational databases model into Java Objects, and then into
+          DTL objects for use in the final display layer, often forced the writing of new
+          application features to become a senior developer task. In order to handle new metadata,
+          the developer had to determine whether or not the existing relational tables were flexible
+          enough for the new data, or whether new tables were needed. Next would be the job of
+          extending, or creating, appropriate stored procedures to access the new metadata. Finally,
+          work would be needed in the Java layer to add object mapping support, including routines
+          to map the metadata into DTL.</textual></para></listitem><listitem class="po-container e48 e48"><para class="po-block e49 e49"><textual class="po-textual">Beyond the problem of mapping new metadata from the relational layer of the system to
+          the DTL layer, the introduction of completely new models was daunting. The original
+          database had been built to support journals whose primary components were modeled as
+          issues with articles, and articles with figures and tables. The original design of the
+          system had intended that we support new models by creating new relational tables, or
+          entire databases, and then building new Java mediators to handle the translation from the
+          database to the display layer. Unfortunately, the reality was that it was more difficult
+          than we would have liked to support customers who wanted different, non-traditional (to
+          us), models.</textual></para></listitem><listitem class="po-container e50 e50"><para class="po-block e51 e51"><textual class="po-textual">The original system hadn't been built with either XML or Unicode in mind. Much of the
+          core system had been developed in the late 1990s, around the same time XML 1.0 was
+          published, and before it was widely adopted. By the same token, the DTL system was
+          developed before Unicode was supported in mainstream browsers. These shortcomings meant it
+          was very difficult for us to properly ingest XML and produce valid XHTML with Unicode
+          support on the display side. Attempting to add Unicode support alone was a daunting task,
+          as it required careful vetting of all code which worked at the character level, beginning
+          with the Perl system, moving through to the database systems and filesystems, and ending
+          in the Java layers.</textual></para></listitem></itemizedlist><para class="po-block e52 e52"><textual class="po-textual">What we decided to build:</textual></para><itemizedlist class="po-table e53 e53"><listitem class="po-container e54 e54"><para class="po-block e55 e55"><textual class="po-textual">An end-to-end XML-based system. We would accept incoming XML, transform it into
+          different XML representations, store it as XML, query it as XML, and generate XML for the
+          end user.</textual></para></listitem><listitem class="po-container e56 e56"><para class="po-block e57 e57"><textual class="po-textual">We would encode certain types of oft-used relationship data up front, trying as much
+          as possible to compute it only once.</textual></para></listitem><listitem class="po-container e58 e58"><para class="po-block e59 e59"><textual class="po-textual">We decided to build everything following a RESTful [</textual><xref class="po-milestone e60 e60" linkend="fielding"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">] model,
+          with the idea that using a simple set of operators (GET/HEAD, POST, PUT, and DELETE),
+          using unique URIs (vs. SOAP documents submitted to a single URI shared by all resources),
+          and embedding hyperlink metadata into our documents would make it easier to spin off new
+          services.</textual></para></listitem></itemizedlist><para class="po-block e61 e61"><textual class="po-textual">After about six months of discussions and prototyping, we had an outline of what we would
+      be building and which new software technologies we would be using. By January of 2007 we had
+      built a demonstration system which made use of XSLT and XQuery to transform incoming XML into
+      metadata and XHTML, and to deliver dynamically built XHTML pages.</textual></para><para class="po-block e62 e62"><textual class="po-textual">After about fifteen months of work following this prototyping, HighWire had a beta site
+      operating, and was ready to announce its new platform, dubbed H2O. In the first week of July
+      of 2008 we launched our first migrated site, Proceedings of the National Academy of Sciences
+      of the United States of America (PNAS). Since that time we've launched 57 additional sites,
+      consisting of a mixture of new launches and migrations.</textual></para><para class="po-block e63 e63"><textual class="po-textual">There are three primary tiers of XML-based technology in the H2O system:</textual></para><itemizedlist class="po-table e64 e64"><listitem class="po-container e65 e65"><para class="po-block e66 e66"><textual class="po-textual">Firenze, a HighWire-developed XSLT 2.0 pipeline execution system used to build both
+          front-end sites and back-end data services.</textual></para></listitem><listitem class="po-container e67 e67"><para class="po-block e68 e68"><textual class="po-textual">Schema, Addressing, and Storage System (SASS), a data store implementing an internally
+          developed protocol, the HighWire Publishing Protocol (HPP) built on top of the Atom
+          Publishing Protocol (APP) [</textual><xref class="po-milestone e69 e69" linkend="atompub"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">] and Atom Syndication Format (ASF)
+            [</textual><xref class="po-milestone e70 e70" linkend="atom"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">]. SASS is used to manage and serve content, implemented in two
+          different technologies: XSLT 2.0 using Saxon-SA (read-only) and XQuery using MarkLogic
+          Server 3.x (read/write).</textual></para></listitem><listitem class="po-container e71 e71"><para class="po-block e72 e72"><textual class="po-textual">Babel XSLT, a HighWire-developed vector processing engine which we use to drive XSLT
+          2.0 transformations.</textual></para></listitem></itemizedlist><para class="po-block e73 e73"><textual class="po-textual">In this paper we'll discuss how these systems work, and will examine their different
+      performance characteristics.</textual></para></section><section class="po-hcontainer e74 e74"><title class="po-block e75 e75"><textual class="po-textual">Firenze</textual></title><para class="po-block e76 e76"><textual class="po-textual">The first layer of the H2O system we'll describe is the Firenze application framework. The
+      Firenze framework, written in 87,000 lines of code across 526 Java classes, is the core piece
+      of technology we run that services all dynamic page generation requests in our public-facing
+      H2O web servers. All of the dynamically generated content served by the public-facing sites
+      flows through this framework.</textual></para><para class="po-block e77 e77"><textual class="po-textual">The bulk of Firenze is a vendor-agnostic set of classes which rely on various public
+      standard APIs, e.g., the Java Servlet API, JAXP, and HTTP handlers. An additional set of
+      classes are then needed to provide a vendor-specific service-provider to execute XSLT
+      Transformations, and to provide custom URI Resolver implementations. We've written about 30
+      additional Java classes which use Saxon-SA 9.x to implement this service-provider
+      functionality. The original implementation of Firenze used Saxon-SA 8.x APIs directly, but in
+      a subsequent rewrite we decided that we would benefit from abstracting the smaller
+      vendor-specific parts away from the larger, more general, framework.</textual></para><para class="po-block e78 e78"><textual class="po-textual">A Firenze application pushes an incoming request through four basic stages to produce an
+      outgoing response:</textual><orderedlist class="po-table e79 e79"><listitem class="po-container e80 e80"><para class="po-block e81 e81"><textual class="po-textual">It transforms an incoming HTTP request from the Java Servlet API into an XML
+            representation, </textual><code class="po-atom e82 e82"><textual class="po-textual">req:request</textual></code><textual class="po-textual">, based on an internal schema.</textual></para></listitem><listitem class="po-container e83 e83"><para class="po-block e84 e84"><textual class="po-textual">Firenze pushes the </textual><code class="po-atom e85 e85"><textual class="po-textual">req:request</textual></code><textual class="po-textual"> through zero or more Filters which may
+            amend the </textual><code class="po-atom e86 e86"><textual class="po-textual">req:request</textual></code><textual class="po-textual"> document, adding or removing data from the
+            body.</textual></para></listitem><listitem class="po-container e87 e87"><para class="po-block e88 e88"><textual class="po-textual">Next, Firenze pushes the amended </textual><code class="po-atom e89 e89"><textual class="po-textual">req:request</textual></code><textual class="po-textual"> through a chain of one or
+            more XSLT Templates to produce an XML response representation,
+            </textual><code class="po-atom e90 e90"><textual class="po-textual">rsp:response</textual></code><textual class="po-textual">, which is also based on an internal schema.</textual></para></listitem><listitem class="po-container e91 e91"><para class="po-block e92 e92"><textual class="po-textual">Finally, Firenze transforms the </textual><code class="po-atom e93 e93"><textual class="po-textual">rsp:response</textual></code><textual class="po-textual"> into appropriate calls
+            against the Java Servlet API to output an HTTP response to the client</textual></para></listitem></orderedlist></para><para class="po-block e94 e94"><textual class="po-textual">The process of pushing these documents through the pipeline is handled via SAX2 events,
+      implemented by various event-handlers. As each event-handler is invoked it has a chance to
+      operate on parts of the </textual><code class="po-atom e95 e95"><textual class="po-textual">req:request</textual></code><textual class="po-textual"> or </textual><code class="po-atom e96 e96"><textual class="po-textual">rsp:response</textual></code><textual class="po-textual"> as the documents
+      flow through the pipeline. Once each handler completes its area of responsibility it is
+      removed from the execution stack, thereby reducing the number of SAX2 events fired across the
+      length of the pipeline. </textual><figure class="po-container e97 e97" floatstyle="1" xml:id="firenze-pipeline-1" xreflabel="Firenze Application Pipeline"><mediaobject class="po-container e98 e98"><imageobject class="po-container e99 e99"><imagedata class="po-meta e100 e100" fileref="../../../vol4/graphics/Robinson01/Robinson01-001.png" format="png" width="90%"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></imagedata></imageobject></mediaobject><note class="po-container e101 e101"><para class="po-block e102 e102"><textual class="po-textual">From Time 1 through Time 5, various handlers for Filters and Transforms complete
+            their tasks and are removed from the pipeline, reducing the number of SAX2 events which
+            have to be fired.</textual></para></note></figure></para><para class="po-block e103 e103"><textual class="po-textual">The demarcation of responsibilities between Filters and Templates is fuzzy: both may amend
+        </textual><code class="po-atom e104 e104"><textual class="po-textual">req:request</textual></code><textual class="po-textual"> documents in any fashion, and the decision whether to make the
+      process a specific Filter or part of the Template chain is up to the author. The Template
+      pipeline is then responsible for transforming the </textual><code class="po-atom e105 e105"><textual class="po-textual">req:request</textual></code><textual class="po-textual"> into a final
+        </textual><code class="po-atom e106 e106"><textual class="po-textual">rsp:response</textual></code><textual class="po-textual"> document. It may be interesting to note that almost all of the
+      Filters we've implemented are XSLT stylesheets. Only a few of the Filters have been
+      implemented directly in Java.</textual></para><para class="po-block e107 e107"><textual class="po-textual">As an example of a pipeline operation, a request flowing through the pipeline might start
+      its life as a </textual><code class="po-atom e108 e108"><textual class="po-textual">req:request</textual></code><textual class="po-textual"> document as built via the Java Servlet API: </textual><programlisting class="po-block e109 e109" xml:space="preserve"><textual class="po-textual">
+&lt;req:request
+  xmlns:req="http://schema.highwire.org/Service/Request"
+  xmlns:ctx="http://schema.highwire.org/Service/Context"
+  xmlns:msg="http://schema.highwire.org/Service/Message"
+ id="SltVIKtCeVIAAFFBoFQAAAT@"
+ protocol="HTTP/1.1"
+ client-host="171.66.232.30"
+ server-host="www.pnas.org"
+ server-port="80"
+ method="GET"
+ secure="false"
+ path="/content/106/27/10877.full"
+ service-path="/content"
+ extra-path="/106/27/10877.full"
+ xml:base="http://www.pnas.org/content/106/27/10877.full"&gt;
+  &lt;ctx:context server-info="Apache Tomcat/5.5.23" resource-root="jndi:/localhost/pnas/"&gt;
+     &lt;ctx:attribute
+       name="org.highwire.firenze.pipeline.cache"&gt;org.highwire.firenze.resolver.CachingOutputURIResolver@43861b3&lt;/ctx:attribute&gt;
+     &lt;ctx:attribute
+       name="org.apache.catalina.WELCOME_FILES"&gt;index.html, index.htm, index.jsp&lt;/ctx:attribute&gt;
+     &lt;ctx:attribute
+       name="org.apache.catalina.jsp_classpath"&gt;...&lt;/ctx:attribute&gt;
+      ...
+  &lt;/ctx:context&gt;
+  &lt;msg:header
+    name="host"&gt;www.pnas.org&lt;/msg:header&gt;
+  &lt;msg:header
+    name="user-agent"&gt;Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10.5; en-US; rv:1.9.0.11) Gecko/2009060214 Firefox/3.0.11&lt;/msg:header&gt;
+  &lt;msg:header
+    name="accept"&gt;text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8&lt;/msg:header&gt;
+  &lt;msg:header
+    name="accept-language"&gt;en-us,en;q=0.5&lt;/msg:header&gt;
+  &lt;msg:header
+    name="accept-encoding"&gt;gzip,deflate&lt;/msg:header&gt;
+  &lt;msg:header
+    name="accept-charset"&gt;ISO-8859-1,utf-8;q=0.7,*;q=0.7&lt;/msg:header&gt;
+  &lt;msg:header
+    name="keep-alive"&gt;300&lt;/msg:header&gt;
+  &lt;msg:header
+    name="connection"&gt;keep-alive&lt;/msg:header&gt;
+&lt;/req:request&gt;
+</textual></programlisting></para><para class="po-block e110 e110"><textual class="po-textual">The initial </textual><code class="po-atom e111 e111"><textual class="po-textual">req:request</textual></code><textual class="po-textual"> document describe the HTTP request in its entirety.
+      The first Filter handler which processes this </textual><code class="po-atom e112 e112"><textual class="po-textual">req:request</textual></code><textual class="po-textual"> may then, for example,
+      add additional information about the resource being requested, shown here as an additional
+        </textual><code class="po-atom e113 e113"><textual class="po-textual">msg:attribute</textual></code><textual class="po-textual"> element added to the end of the </textual><code class="po-atom e114 e114"><textual class="po-textual">req:request</textual></code><textual class="po-textual">
+      document: </textual><programlisting class="po-block e115 e115" xml:space="preserve"><textual class="po-textual">
+&lt;req:request
+  xmlns:req="http://schema.highwire.org/Service/Request"
+  xmlns:ctx="http://schema.highwire.org/Service/Context"
+  xmlns:msg="http://schema.highwire.org/Service/Message" ...&gt;
+  ...
+  &lt;msg:header name="keep-alive"&gt;300&lt;/msg:header&gt;
+  &lt;msg:header name="connection"&gt;keep-alive&lt;/msg:header&gt;
+  &lt;msg:attribute xmlns:msg="http://schema.highwire.org/Service/Message" name="content-peek"&gt;
+   &lt;content-response xmlns=""&gt;
+     &lt;content-request&gt;
+        &lt;corpus code="pnas"&gt;&lt;/corpus&gt;
+        &lt;content collection="/"&gt;
+           &lt;resource id="106/27/10877" specifiers="full" /&gt;
+        &lt;/content&gt;
+     &lt;/content-request&gt;
+     &lt;sdp:variant-info xmlns:sdp="http://xslt.highwire.org/Service/SASS/DataProvisioning"
+                       xmlns:c="http://schema.highwire.org/Compound"
+                       href="http://sass.highwire.org/pnas/106/27/10877.full"
+                       c:role="http://schema.highwire.org/variant/full-text"&gt;
+        &lt;sdp:role-selector&gt;full&lt;/sdp:role-selector&gt;
+        &lt;view xmlns="http://schema.highwire.org/Site" name="full-text" alias="full"
+              legacy-name="full"
+              display-name="Full Text"
+              variant-role="full-text"
+              variant-short-role="full"
+              type="application/xhtml+xml" /&gt;
+        &lt;sdp:entry&gt;http://sass.highwire.org/pnas/106/27/10877.atom&lt;/sdp:entry&gt;
+     &lt;/sdp:variant-info&gt;
+     &lt;content-ref xmlns:xlink="http://www.w3.org/1999/xlink" type="atom:entry" xlink:type="simple"
+                  xlink:href="http://sass.highwire.org/pnas/106/27/10877.atom?with-ancestors=yes" /&gt;
+   &lt;/content-response&gt;
+  &lt;/msg:attribute&gt;
+&lt;/req:request&gt;
+</textual></programlisting></para><para class="po-block e116 e116"><textual class="po-textual">The </textual><code class="po-atom e117 e117"><textual class="po-textual">msg:attribute</textual></code><textual class="po-textual"> element in this case, given a name
+        </textual><code class="po-atom e118 e118"><textual class="po-textual">content-peek</textual></code><textual class="po-textual">, provides detailed information about how to retrieve the requested
+      resource from the central data store, in this case via the URL
+        </textual><code class="po-atom e119 e119"><textual class="po-textual">http://sass.highwire.org/pnas/106/27/10877.atom?with-ancestors=yes</textual></code><textual class="po-textual">. A second
+      Filter may then consume this msg:attribute and use it to fill in the contents of that URL, in
+      this case a full text article with metadata about its ancestry (the issue it is in, its
+      volume, etc.) expanded in-line, by adding another msg:attribute to the end of the
+        </textual><code class="po-atom e120 e120"><textual class="po-textual">req:request</textual></code><textual class="po-textual"> document: </textual><programlisting class="po-block e121 e121" xml:space="preserve"><textual class="po-textual">
+  &lt;req:request
+    xmlns:req="http://schema.highwire.org/Service/Request"
+    xmlns:ctx="http://schema.highwire.org/Service/Context"
+    xmlns:msg="http://schema.highwire.org/Service/Message" ...&gt;
+    ...
+            &lt;content-ref
+               xmlns:xlink="http://www.w3.org/1999/xlink"
+               type="atom:entry" xlink:type="simple"
+               xlink:href="http://sass.highwire.org/pnas/106/27/10877.atom?with-ancestors=yes" /&gt;
+         &lt;/content-response&gt;
+      &lt;/msg:attribute&gt;
+      &lt;msg:attribute xmlns:msg="http://schema.highwire.org/Service/Message" name="contents"&gt;
+         &lt;atom:entry xmlns:atom="http://www.w3.org/2005/Atom"
+                     xmlns:nlm="http://schema.highwire.org/NLM/Journal"
+                     xml:base="http://sass.highwire.org/pnas/106/27/10877.atom?with-ancestors=yes"
+                     nlm:article-type="article-commentary"&gt;
+            &lt;c:parent xmlns:c="http://schema.highwire.org/Compound" xml:base="/pnas/106/27.atom"&gt;
+               &lt;c:parent xml:base="/pnas/106.atom"&gt;
+                  &lt;c:parent xml:base="/pnas.atom"&gt;
+                     &lt;c:parent xml:base="/svc.atom"&gt;
+                        &lt;atom:category
+                          scheme="http://schema.highwire.org/Publishing#role"
+                            term="http://schema.highwire.org/Publishing/Service" /&gt;
+                        &lt;atom:id&gt;http://atom.highwire.org/&lt;/atom:id&gt;
+                        &lt;atom:title&gt;HighWire Atom Store&lt;/atom:title&gt;
+                        &lt;atom:author&gt;
+              ...
+            &lt;/c:parent&gt;
+            &lt;atom:category
+              scheme="http://schema.highwire.org/Publishing#role"
+                term="http://schema.highwire.org/Journal/Article" /&gt;
+            &lt;atom:category
+              scheme="http://schema.highwire.org/Journal/Article#has-earlier-version"
+                term="yes" /&gt;
+            &lt;atom:id&gt;tag:pnas@highwire.org,2009-07-02:0905722106&lt;/atom:id&gt;
+            &lt;atom:title&gt;Should Social Security numbers be replaced by modern,
+              more secure identifiers?&lt;/atom:title&gt;
+            ...
+       &lt;/atom:entry&gt;
+    &lt;/msg:attribute&gt;
+  &lt;/req:request&gt;
+</textual></programlisting></para><para class="po-block e122 e122"><textual class="po-textual">In this fashion, Filters and Templates aggregate data from multiple sources until enough
+      information has been accumulated to produce the final response. It is probably obvious that
+      the amount of data produced within the pipeline over the lifetime of a request may greatly
+      exceed the final size of the response document sent to the client. For the example above, the
+      final </textual><code class="po-atom e123 e123"><textual class="po-textual">req:request</textual></code><textual class="po-textual"> document produced by the pipeline exceeds 375 kilobytes of
+      serialized XML, while the final XHTML document sent to the user is a mere 60 kilobytes.</textual></para><para class="po-block e124 e124"><textual class="po-textual">The public-facing H2O sites run almost entirely off of Firenze, executing a codebase
+      consisting of a little under 50,000 lines of XSLT 2.0 code (including comments and
+      whitespace), spread across a set of 160 stylesheets. This codebase is maintained under a
+      shared repository, with each site then applying overriding stylesheets for any site-specific
+      functionality. Currently each site has between 10 and 23 site-specific stylesheets, though
+      some of these only consist of a single include statement referencing a shared stylesheet. When
+      a context is deployed, a copy of the shared and local stylesheets are pushed out to its Tomcat
+      server, and the context compiles and caches a private set of Templates objects for execution.
+      This means that the shared development model for stylesheets doesn't get carried all the way
+      through to the runtime, and each site must allocate memory to compile and store a private copy
+      of all the stylesheets.</textual></para><para class="po-block e125 e125"><textual class="po-textual">Firenze implements two levels of caching. The first is context-wide caching. Each
+      context-wide cache records all retrieved documents, e.g., JAXP Source and Templates objects,
+      as well as any documents generated and cached on-the-fly by the pipeline. These cached items
+      are available for any subsequent requests that execute in the context. Each context-wide cache
+      may have a specific cache-retention policy and algorithm associated with it, as well as its
+      own implementation of a backing store. Currently a memory-based store is used, but we are in
+      the processing of implementing a disk-based store as well (our intent is to create a two-tier
+      memory and disk cache).</textual></para><para class="po-block e126 e126"><textual class="po-textual">Each context-wide cache then serves as a provider for request-specific caches. These
+      request-specific caches store items in memory for the duration of a given request. The
+      request-specific caches were originally developed to fulfill a contract implied by the XSLT
+      specification, which requires that a document, once read via functions like </textual><code class="po-atom e127 e127"><textual class="po-textual">doc</textual></code><textual class="po-textual">
+      or </textual><code class="po-atom e128 e128"><textual class="po-textual">doc-available</textual></code><textual class="po-textual">, remain immutable for the duration of the transformation. We've
+      extended this policy to require that any document read during the execution of a pipeline
+      remain unchanged for the duration of that request.</textual></para><para class="po-block e129 e129"><textual class="po-textual">Currently the sites implement a very straightforward context-wide caching policy. Any
+      Templates object survives for the lifetime of the context, while most Source objects will
+      survive for a lifetime of 30 minutes, or until the cache size has reached a 1,000 item size
+      limit. Once the cache has reached its size limit, the addition of any new entries force the
+      oldest Source objects to be evicted. In some cases we fine-tune the policy for Source objects,
+      ensuring they will survive for the lifetime of the context, or by increasing or decreasing the
+      size of the cache. This level of caching has proved to be sufficient, if not ideal, for our
+      current level of traffic. The default cache policy is most effective for the scenario of a
+      user who is looking at an abstract and then the full text of the article, or the scenario of a
+      user scanning the abstracts of an Issue in sequential order, clicking from one abstract to the
+      next within a fairly short period of time.</textual></para><para class="po-block e130 e130"><textual class="po-textual">To determine the response times for requests handled by Firenze, we examined 78 days'
+      worth of Apache access logs, consisting of 727 million requests. These requests cover all
+      types of requests, meaning it includes static file requests as well as dynamic page requests.
+      We found that 214 million requests were dynamic, meaning that Firenze would have handled them.
+      Examining the response times for those Firenze requests, we found the following response
+      times: </textual><table class="po-container e131 e131"><caption class="po-container e132 e132"><para class="po-block e133 e133"><textual class="po-textual">Response Times for Firenze requests</textual></para></caption><thead class="po-container e134 e134"><tr class="po-table e135 e135"><th class="po-field e136 e136"><textual class="po-textual">Seconds</textual></th><th class="po-field e137 e137"><textual class="po-textual">Percent</textual></th></tr></thead><tbody class="po-table e138 e138"><tr class="po-table e139 e139"><td align="right" class="po-block e140 e140"><textual class="po-textual">&lt; 1</textual></td><td align="right" class="po-block e141 e141"><textual class="po-textual">84%</textual></td></tr><tr class="po-table e142 e142"><td align="right" class="po-block e143 e143"><textual class="po-textual">1 - 2</textual></td><td align="right" class="po-block e144 e144"><textual class="po-textual">8%</textual></td></tr><tr class="po-table e145 e145"><td align="right" class="po-block e146 e146"><textual class="po-textual">2 - 3</textual></td><td align="right" class="po-block e147 e147"><textual class="po-textual">3%</textual></td></tr><tr class="po-table e148 e148"><td align="right" class="po-block e149 e149"><textual class="po-textual">3 - 4</textual></td><td align="right" class="po-block e150 e150"><textual class="po-textual">2%</textual></td></tr><tr class="po-table e151 e151"><td align="right" class="po-block e152 e152"><textual class="po-textual">&gt; 4</textual></td><td align="right" class="po-block e153 e153"><textual class="po-textual">3%</textual></td></tr></tbody></table></para><para class="po-block e154 e154"><textual class="po-textual">This means that 92% of Firenze requests took less than 2 seconds to complete, 5% took from
+      2 to 4 seconds to complete, and 3% took more than 4 seconds to complete. Our performance goal
+      is to be able to serve all dynamic page requests, and any associated static content, within
+      1.5 seconds, so we have not yet met our performance goals.</textual></para><para class="po-block e155 e155"><textual class="po-textual">We've been hosting sets of 15 to 20 sites per load-balanced cluster, with each cluster
+      consisting of either two or five servers. Each server has 32 gigabytes of memory and between
+      four and eight CPU cores operating between 2.3 and 2.5 GHz. CPU on the clusters is not heavily
+      taxed; we routinely record only 15% to 25% CPU usage per server, even during peak traffic
+      periods.</textual></para><para class="po-block e156 e156"><textual class="po-textual">By far the least efficient part of the Firenze system we've seen is its memory footprint.
+      What we've seen is that each 32-gigabyte server may use 9 gigabytes of memory during the
+      lowest traffic periods, up to 15 gigabytes of memory in normal traffic periods, and 30
+      gigabytes during very high traffic periods. During normal traffic periods, memory use can
+      cycle between 9 and 15 gigabytes within the space of a minute, with all the activity occurring
+      in the Eden and Survivor spaces of the JVM. The need to allocate between one and two gigabytes
+      of memory per site is a serious impediment to packing enough sites onto a machine to fully
+      utilize the CPUs.</textual></para><para class="po-block e157 e157"><textual class="po-textual">In order to improve the response time of the Firenze layer, we are currently building
+      Cache-Channel [</textual><xref class="po-milestone e158 e158" linkend="cc"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">] support into Firenze, and are building a disk-based cache
+      implementation. The disk-based cache will allow us to store dynamically generated components
+      of pages for a longer period of time, and will be paired with the in-memory caches to take
+      advantage of optimized Source representations.</textual></para><para class="po-block e159 e159"><textual class="po-textual">We also plan to implement an Adaptive Replacement Cache (ARC) [</textual><xref class="po-milestone e160 e160" linkend="arc"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">]
+      algorithm to replace the Least Recently Used (LRU) algorithm currently used by the in-memory
+      cache. The HighWire sites receive a steady stream of traffic from indexing web-crawlers, and
+      we've found that these crawlers tend to push highly-used resources out of cache when they
+      start crawling large amounts of archival content.</textual></para></section><section class="po-hcontainer e161 e161"><title class="po-block e162 e162"><textual class="po-textual">SASS</textual></title><para class="po-block e163 e163"><textual class="po-textual">Firenze can be thought of as a framework designed to aggregate data from multiple sources,
+      and then to manipulate that aggregate data into a final form. We currently aggregate data from
+      many different services, gathering information for access control, running search requests,
+      gathering reference data, etc. One of the primary services that the sites use is the Schema,
+      Addressing, and Storage System (SASS). A SASS service is a data store that provides a unified
+      view of metadata and content for publications we host.</textual></para><para class="po-block e164 e164"><textual class="po-textual">One of the first decisions we needed to make when we were building the replacement system
+      was how we would store metadata and related resources. Early on we mocked up a file-system
+      based set of XML files along with an XQuery prototype that combined these files dynamically,
+      feeding the combined resources to an XSLT-based display layer. These experiments proved to us
+      that the fairly simple concept of using a hierarchy of XML files could actually provide enough
+      flexibility and functionality for our needs. We decided we could replace some of the
+      relational databases of our original system with a hierarchy of XML files. Our implementation
+      of this, SASS, is the result of that decision.</textual></para><para class="po-block e165 e165"><textual class="po-textual">A SASS service uses an HTTP-based protocol we've defined, named HighWire Publishing
+      Protocol (HPP), to handle requests. HPP is built on top of the Atom Publishing Protocol (APP),
+      which specifies much of the basic functionality we needed for a database system:</textual><itemizedlist class="po-table e166 e166"><listitem class="po-container e167 e167"><para class="po-block e168 e168"><textual class="po-textual">It specifies how resources are created, retrieved, updated, and deleted.</textual></para></listitem><listitem class="po-container e169 e169"><para class="po-block e170 e170"><textual class="po-textual">It specifies the format of introspection documents, which provide configuration
+            information.</textual></para></listitem><listitem class="po-container e171 e171"><para class="po-block e172 e172"><textual class="po-textual">It specifies the output format for an aggregation of resources, using feeds of
+            entries.</textual></para></listitem><listitem class="po-container e173 e173"><para class="po-block e174 e174"><textual class="po-textual">It offers a flexible data model, allowing foreign namespaced elements and
+            attributes.</textual></para></listitem></itemizedlist></para><para class="po-block e175 e175"><textual class="po-textual">After examining APP in detail, we decided we needed a little more functionality, and we
+      concluded that we would adopt APP and then extend it in three ways. Our extensions give us the
+      ability to:</textual><itemizedlist class="po-table e176 e176"><listitem class="po-container e177 e177"><para class="po-block e178 e178"><textual class="po-textual">Add Atom entries with hierarchical parent/child relationships.</textual></para></listitem><listitem class="po-container e179 e179"><para class="po-block e180 e180"><textual class="po-textual">Create multiple alternative representations of an Atom entry, called variants.</textual></para></listitem><listitem class="po-container e181 e181"><para class="po-block e182 e182"><textual class="po-textual">Create relationship links between Atom entries.</textual></para></listitem></itemizedlist></para><para class="po-block e183 e183"><textual class="po-textual">As with APP, we have defined a form of XML-based introspection document, similar to an APP
+      Service Document. These introspection documents define which collections exist and the types
+      of resources the collections will accept. Because our HPP system allows every single Atom
+      entry to potentially act as a service point to which new resources may be attached, every Atom
+      entry references a unique introspection document. Each introspection document describes which
+      content types and roles may be used for variant representations of the entry, and defines zero
+      or more collections for sub-entries, with constraints regarding the types and roles of
+      resources that may be added to each collection.</textual></para><para class="po-block e184 e184"><textual class="po-textual">Both client and server examine the introspection document, the client being responsible
+      for evaluating which collection should best be used for a new resource it wishes to create,
+      and the server to evaluate whether or not to allow a particular operation. Once the server has
+      decided that a client's request to create a new resource is allowed, it further examines the
+      introspection document to:</textual><itemizedlist class="po-table e185 e185"><listitem class="po-container e186 e186"><para class="po-block e187 e187"><textual class="po-textual">Determine how to name the new resource.</textual></para></listitem><listitem class="po-container e188 e188"><para class="po-block e189 e189"><textual class="po-textual">Determine what, if any, modifications need to be made to the new resource, e.g.,
+            creating server-managed hyperlinks to its parent.</textual></para></listitem><listitem class="po-container e190 e190"><para class="po-block e191 e191"><textual class="po-textual">Determine what other resources might need to be created or modified, e.g., creating
+            reciprocal hyperlinks between resources or creating a new Atom sub-entry for a media
+            resource.</textual></para></listitem></itemizedlist></para><para class="po-block e192 e192"><textual class="po-textual">An example slice of resource paths in our data store shows a top level entry, a journal
+      entry (pnas), a volume (number 106) entry, an issue (number 27) entry and an article (page
+      10879) entry, and a child (Figure 1) of the article.
+      </textual><programlisting class="po-block e193 e193" xml:space="preserve"><textual class="po-textual">
+/svc.atom
+  /pnas.atom
+    /pnas/106.atom
+      /pnas/106/27.atom
+      /pnas/106/27.cover-expansion.html
+      /pnas/106/27.cover.gif
+      /pnas/106/27/local/ed-board.atom
+      /pnas/106/27/local/ed-board.pdf
+      /pnas/106/27/local/masthead.atom
+      /pnas/106/27/local/masthead.pdf
+      /pnas/106/27/focus/e3fd854717680e79.atom
+      /pnas/106/27/focus/528ef4747e7bd83a.atom
+      /pnas/106/27/focus/a596193d15fdf2f0.atom
+      /pnas/106/27/focus/05aacbb50196a10f.atom
+      /pnas/106/27/focus/c1e857a34ad4b0f3.atom
+        /pnas/106/27/10879.atom
+        /pnas/106/27/10879.full.pdf
+        /pnas/106/27/10879.full.html
+        /pnas/106/27/10879.source.xml
+        /pnas/106/27/10879.figures-only.html
+          /pnas/106/27/10879/F1.atom
+          /pnas/106/27/10879/F1.expansion.html
+          /pnas/106/27/10879/F1.small.gif
+          /pnas/106/27/10879/F1.medium.gif
+          /pnas/106/27/10879/F1.large.jpg          
+</textual></programlisting></para><para class="po-block e194 e194"><textual class="po-textual">Examining the extensions of the paths above, you will see a number of media types
+      represented. The </textual><code class="po-atom e195 e195"><textual class="po-textual">.atom</textual></code><textual class="po-textual"> files are metadata resources, while the </textual><code class="po-atom e196 e196"><textual class="po-textual">.xml</textual></code><textual class="po-textual">,
+        </textual><code class="po-atom e197 e197"><textual class="po-textual">.html</textual></code><textual class="po-textual">, </textual><code class="po-atom e198 e198"><textual class="po-textual">.gif</textual></code><textual class="po-textual">, </textual><code class="po-atom e199 e199"><textual class="po-textual">.jpg</textual></code><textual class="po-textual">, and </textual><code class="po-atom e200 e200"><textual class="po-textual">.pdf</textual></code><textual class="po-textual"> files allow
+      us to serve alternative representations (variants) of those resources. SASS therefore provides a
+      unified system for serving metadata paired with an array of alternative
+      representations.</textual></para><para class="po-block e201 e201"><textual class="po-textual">The system is intended to be flexible enough that we can model new relationships
+      relatively quickly, and once those relationships are defined we can immediately start creating
+      and serving the new resources and relationships. As an example, the hierarchy of relationships
+      we originally designed was, in part:</textual><figure class="po-container e202 e202" floatstyle="1" xml:id="sass-model-1" xreflabel="Initial SASS Journal Model"><mediaobject class="po-container e203 e203"><imageobject class="po-container e204 e204"><imagedata class="po-meta e205 e205" fileref="../../../vol4/graphics/Robinson01/Robinson01-002.png" format="png" width="25%"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></imagedata></imageobject></mediaobject></figure></para><para class="po-block e206 e206"><textual class="po-textual">This model allows one or more Journals, each Journal may have one or more Volumes, each
+      Volume may have one or more Issues, etc. When we encountered a journal whose hierarchy didn't
+      match this model, we simply edited the templates for the introspection documents. In this
+      case, we edited it to allow for an Issue to be attached directly to a Journal:</textual><figure class="po-container e207 e207" floatstyle="1" xml:id="sass-model-2" xreflabel="Updated SASS Journal Model"><mediaobject class="po-container e208 e208"><imageobject class="po-container e209 e209"><imagedata class="po-meta e210 e210" fileref="../../../vol4/graphics/Robinson01/Robinson01-003.png" format="png" width="50%"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></imagedata></imageobject></mediaobject></figure></para><para class="po-block e211 e211"><textual class="po-textual">When deciding how to implement SASS, we concluded early-on that we needed to provide both
+      a read-only and a read/write service. The read-only SASS services would be used by the
+      public-facing sites, and the read/write service would be used by our back-end publishing
+      system. Splitting the services this way would allow us to optimize each service for its
+      primary use-case: transactions and complicated searching would be needed in the read/write
+      SASS service, but would not be needed in the read-only SASS service.</textual></para><section class="po-hcontainer e212 e212"><title class="po-block e213 e213"><textual class="po-textual">Read-Only SASS</textual></title><para class="po-block e214 e214"><textual class="po-textual">Based on our early prototyping work, we were confident that we could develop a
+        filesystem-based read-only implementation of the HPP protocol that would serve the needs of
+        the public-facing sites. Currently we've implemented a read-only version of SASS using
+        Firenze.</textual></para><para class="po-block e215 e215"><textual class="po-textual">The description of SASS to this point has only described the basic hierarchical layout
+        of resources. To take advantage of this hierarchy, HPP defines ways to request an aggregated
+        view of the metadata and content representations for a resource. Specifically, a set of
+        parameters may be provided when requesting an Atom entry:</textual><table class="po-container e216 e216"><caption class="po-container e217 e217"><para class="po-block e218 e218"><textual class="po-textual">HPP Expansion Parameters</textual></para></caption><thead class="po-container e219 e219"><tr class="po-table e220 e220"><th class="po-field e221 e221"><textual class="po-textual">Parameter</textual></th><th class="po-field e222 e222"><textual class="po-textual">Example values</textual></th></tr></thead><tbody class="po-table e223 e223"><tr class="po-table e224 e224"><td class="po-block e225 e225"><textual class="po-textual">with-variant</textual></td><td class="po-block e226 e226"><textual class="po-textual">no, yes, 1</textual></td></tr><tr class="po-table e227 e227"><td class="po-block e228 e228"><textual class="po-textual">variant-role</textual></td><td class="po-block e229 e229"><textual class="po-textual">http://schema.highwire.org/variant/abstract,
+                http://schema.highwire.org/variant/full-text, </textual><emphasis class="po-inline e230 e230"><textual class="po-textual">...</textual></emphasis></td></tr><tr class="po-table e231 e231"><td class="po-block e232 e232"><textual class="po-textual">variant-type</textual></td><td class="po-block e233 e233"><textual class="po-textual">application/xhtml+xml, application/pdf, application/*, video/*,
+                  </textual><emphasis class="po-inline e234 e234"><textual class="po-textual">...</textual></emphasis></td></tr><tr class="po-table e235 e235"><td class="po-block e236 e236"><textual class="po-textual">variant-lang</textual></td><td class="po-block e237 e237"><textual class="po-textual">en, fr, de, </textual><emphasis class="po-inline e238 e238"><textual class="po-textual">...</textual></emphasis></td></tr><tr class="po-table e239 e239"><td class="po-block e240 e240"><textual class="po-textual">with-ancestors</textual></td><td class="po-block e241 e241"><textual class="po-textual">no, yes, 1, 2, </textual><emphasis class="po-inline e242 e242"><textual class="po-textual">...</textual></emphasis><textual class="po-textual">, </textual><emphasis class="po-inline e243 e243"><textual class="po-textual">N</textual></emphasis></td></tr><tr class="po-table e244 e244"><td class="po-block e245 e245"><textual class="po-textual">with-ancestors-role</textual></td><td class="po-block e246 e246"><textual class="po-textual">http://schema.highwire.org/Journal/Issue,
+                http://schema.highwire.org/Journal/Volume, </textual><emphasis class="po-inline e247 e247"><textual class="po-textual">...</textual></emphasis></td></tr><tr class="po-table e248 e248"><td class="po-block e249 e249"><textual class="po-textual">with-ancestors-content</textual></td><td class="po-block e250 e250"><textual class="po-textual">alternate, inline, out-of-line</textual></td></tr><tr class="po-table e251 e251"><td class="po-block e252 e252"><textual class="po-textual">with-ancestors-variant</textual></td><td class="po-block e253 e253"><textual class="po-textual">no, yes, 1, 2, </textual><emphasis class="po-inline e254 e254"><textual class="po-textual">...</textual></emphasis><textual class="po-textual">, </textual><emphasis class="po-inline e255 e255"><textual class="po-textual">N</textual></emphasis></td></tr><tr class="po-table e256 e256"><td class="po-block e257 e257"><textual class="po-textual">with-ancestors-variant-role</textual></td><td class="po-block e258 e258"><textual class="po-textual">http://schema.highwire.org/variant/cover,
+                http://schema.highwire.org/variant/manifest, </textual><emphasis class="po-inline e259 e259"><textual class="po-textual">...</textual></emphasis></td></tr><tr class="po-table e260 e260"><td class="po-block e261 e261"><textual class="po-textual">with-ancestors-type</textual></td><td class="po-block e262 e262"><textual class="po-textual">image/gif, image/*, application/xml, text/* </textual><emphasis class="po-inline e263 e263"><textual class="po-textual">...</textual></emphasis></td></tr><tr class="po-table e264 e264"><td class="po-block e265 e265"><textual class="po-textual">with-ancestors-lang</textual></td><td class="po-block e266 e266"><textual class="po-textual">en, fr, de, </textual><emphasis class="po-inline e267 e267"><textual class="po-textual">...</textual></emphasis></td></tr><tr class="po-table e268 e268"><td class="po-block e269 e269"><textual class="po-textual">with-descendants</textual></td><td class="po-block e270 e270"><textual class="po-textual">no, yes, 1, 2, </textual><emphasis class="po-inline e271 e271"><textual class="po-textual">...</textual></emphasis><textual class="po-textual">, </textual><emphasis class="po-inline e272 e272"><textual class="po-textual">N</textual></emphasis></td></tr><tr class="po-table e273 e273"><td class="po-block e274 e274"><textual class="po-textual">with-descendants-role</textual></td><td class="po-block e275 e275"><textual class="po-textual">http://schema.highwire.org/Journal/Article,
+                http://schema.highwire.org/Journal/Fragment, </textual><emphasis class="po-inline e276 e276"><textual class="po-textual">...</textual></emphasis></td></tr><tr class="po-table e277 e277"><td class="po-block e278 e278"><textual class="po-textual">with-descendants-content</textual></td><td class="po-block e279 e279"><textual class="po-textual">alternate, inline, out-of-line</textual></td></tr><tr class="po-table e280 e280"><td class="po-block e281 e281"><textual class="po-textual">with-descendants-variant</textual></td><td class="po-block e282 e282"><textual class="po-textual">no, yes, 1, 2, </textual><emphasis class="po-inline e283 e283"><textual class="po-textual">...</textual></emphasis><textual class="po-textual">, </textual><emphasis class="po-inline e284 e284"><textual class="po-textual">N</textual></emphasis></td></tr><tr class="po-table e285 e285"><td class="po-block e286 e286"><textual class="po-textual">with-descendants-variant-role</textual></td><td class="po-block e287 e287"><textual class="po-textual">http://schema.highwire.org/variant/abstract,
+                http://schema.highwire.org/variant/full-text</textual></td></tr><tr class="po-table e288 e288"><td class="po-block e289 e289"><textual class="po-textual">with-descendants-type</textual></td><td class="po-block e290 e290"><textual class="po-textual">application/xhtml+xml, application/pdf, application/*, video/*,
+                  </textual><emphasis class="po-inline e291 e291"><textual class="po-textual">...</textual></emphasis></td></tr><tr class="po-table e292 e292"><td class="po-block e293 e293"><textual class="po-textual">with-descendants-lang</textual></td><td class="po-block e294 e294"><textual class="po-textual">en, fr, de, </textual><emphasis class="po-inline e295 e295"><textual class="po-textual">...</textual></emphasis></td></tr></tbody></table></para><para class="po-block e296 e296"><textual class="po-textual">These parameters may be combined in variations and some may be repeated. Taken together,
+        the parameters serve as a way to drive the expansion of a resource along its parent, child,
+        and variant axes, returning a compound document consisting of an appropriate slice of the
+        hierarchy. As an example, requesting
+          </textual><code class="po-atom e297 e297"><textual class="po-textual">http://sass.highwire.org/pnas/106/27/10877.atom</textual></code><textual class="po-textual"> will retrieve the Atom entry
+        associated with PNAS Volume 106, Issue 27, Page 10877:</textual><programlisting class="po-block e298 e298" xml:space="preserve"><textual class="po-textual">
+
+  &lt;atom:entry xml:base="http://sass.highwire.org/pnas/106/27/10877.atom"
+    nlm:article-type="article-commentary"  ...&gt;
+     &lt;atom:link rel="http://schema.highwire.org/Compound#parent"
+      href="/pnas/106/27.atom"
+      c:role="http://schema.highwire.org/Journal/Issue"/&gt;
+     &lt;atom:category
+       scheme="http://schema.highwire.org/Publishing#role"
+         term="http://schema.highwire.org/Journal/Article"/&gt;
+     &lt;atom:category
+       scheme="http://schema.highwire.org/Journal/Article#has-earlier-version"
+         term="yes"/&gt;
+     &lt;atom:id&gt;tag:pnas@highwire.org,2009-07-02:0905722106&lt;/atom:id&gt;
+     &lt;atom:title&gt;Should Social Security numbers be replaced by modern, more secure identifiers?&lt;/atom:title&gt;
+     &lt;atom:author nlm:contrib-type="author"&gt;
+       &lt;atom:name&gt;William E. Winkler&lt;/atom:name&gt;
+       &lt;atom:email&gt;william.e.winkler@census.gov&lt;/atom:email&gt;
+       &lt;nlm:name name-style="western" hwp:sortable="Winkler William E."&gt;
+         &lt;nlm:surname&gt;Winkler&lt;/nlm:surname&gt;
+         &lt;nlm:given-names&gt;William E.&lt;/nlm:given-names&gt;
+       &lt;/nlm:name&gt;
+     &lt;/atom:author&gt;
+     ...
+     &lt;atom:link rel="alternate"
+       href="/pnas/106/27/10877.full.pdf"
+       c:role="http://schema.highwire.org/variant/full-text"  type="application/pdf"/&gt;
+     &lt;atom:link rel="http://schema.highwire.org/Publishing#edit-variant"
+       href="/pnas/106/27/10877.full.pdf"
+       c:role="http://schema.highwire.org/variant/full-text"    type="application/pdf"/&gt;
+     &lt;atom:link rel="alternate"
+       href="/pnas/106/27/10877.full.html"
+       c:role="http://schema.highwire.org/variant/full-text" type="application/xhtml+xml"/&gt;
+     &lt;atom:link rel="http://schema.highwire.org/Publishing#edit-variant"
+       href="/pnas/106/27/10877.full.html"
+       c:role="http://schema.highwire.org/variant/full-text"    type="application/xhtml+xml"/&gt;
+     ...
+   &lt;/atom:entry&gt;
+   </textual></programlisting><textual class="po-textual"> while adding the parameter to expand its ancestry axis in full,
+          </textual><code class="po-atom e299 e299"><textual class="po-textual">http://sass.highwire.org/pnas/106/27/10877.atom?with-ancestors=yes</textual></code><textual class="po-textual">,
+        additionally expands the Atom entries for the article's Issue, its Volume, etc:</textual><programlisting class="po-block e300 e300" xml:space="preserve"><textual class="po-textual">
+   &lt;atom:entry xml:base="http://sass.highwire.org/pnas/106/27/10877.atom?with-ancestors=yes"
+     nlm:article-type="article-commentary" ...&gt;
+     &lt;c:parent xml:base="/pnas/106/27.atom"&gt;
+       &lt;c:parent xml:base="/pnas/106.atom"&gt;
+         &lt;c:parent xml:base="/pnas.atom"&gt;
+           &lt;c:parent xml:base="/svc.atom"&gt;
+             &lt;atom:category
+              scheme="http://schema.highwire.org/Publishing#role"
+                term="http://schema.highwire.org/Publishing/Service"/&gt;
+             &lt;atom:id&gt;http://atom.highwire.org/&lt;/atom:id&gt;
+             &lt;atom:title&gt;HighWire Atom Store&lt;/atom:title&gt;
+             ...
+            &lt;/c:parent&gt;
+           &lt;atom:category
+            scheme="http://schema.highwire.org/Publishing#role"
+              term="http://schema.highwire.org/Journal"/&gt;
+           &lt;atom:id&gt;doi:10.1073/pnas&lt;/atom:id&gt;
+           &lt;atom:title&gt;Proceedings of the National Academy of Sciences&lt;/atom:title&gt;
+           &lt;atom:author&gt;
+             &lt;atom:name&gt;National Academy of Sciences&lt;/atom:name&gt;
+           &lt;/atom:author&gt;
+           ...
+         &lt;/c:parent&gt;
+         &lt;atom:category
+          scheme="http://schema.highwire.org/Publishing#role"
+            term="http://schema.highwire.org/Journal/Volume"/&gt;
+         &lt;atom:id&gt;tag:pnas@highwire.org,2009-01-06:106&lt;/atom:id&gt;
+         &lt;atom:title&gt;106&lt;/atom:title&gt;
+         &lt;atom:author nlm:contrib-type="publisher"&gt;
+           &lt;atom:name&gt;National Academy of Sciences&lt;/atom:name&gt;
+         &lt;/atom:author&gt;
+         ...
+       &lt;/c:parent&gt;
+       &lt;atom:category
+        scheme="http://schema.highwire.org/Publishing#role"
+          term="http://schema.highwire.org/Journal/Issue"/&gt;
+       &lt;atom:id&gt;tag:pnas@highwire.org,2009-06-11:106/27&lt;/atom:id&gt;
+       &lt;atom:title&gt;106 (27)&lt;/atom:title&gt;
+       &lt;atom:author nlm:contrib-type="publisher"&gt;
+         &lt;atom:name&gt;National Academy of Sciences&lt;/atom:name&gt;
+       &lt;/atom:author&gt;
+       ...
+     &lt;/c:parent&gt;
+     &lt;atom:category
+      scheme="http://schema.highwire.org/Publishing#role"
+        term="http://schema.highwire.org/Journal/Article"/&gt;
+     &lt;atom:category
+      scheme="http://schema.highwire.org/Journal/Article#has-earlier-version"
+        term="yes"/&gt;
+     &lt;atom:id&gt;tag:pnas@highwire.org,2009-07-02:0905722106&lt;/atom:id&gt;
+     &lt;atom:title&gt;Should Social Security numbers be replaced by modern, more secure identifiers?&lt;/atom:title&gt;
+     &lt;atom:author nlm:contrib-type="author"&gt;
+       &lt;atom:name&gt;William E. Winkler&lt;/atom:name&gt;
+       &lt;atom:email&gt;william.e.winkler@census.gov&lt;/atom:email&gt;
+       &lt;nlm:name name-style="western" hwp:sortable="Winkler William E."&gt;
+         &lt;nlm:surname&gt;Winkler&lt;/nlm:surname&gt;
+         &lt;nlm:given-names&gt;William E.&lt;/nlm:given-names&gt;
+       &lt;/nlm:name&gt;
+     &lt;/atom:author&gt;
+    ...
+    &lt;atom:link rel="alternate"
+      href="/pnas/106/27/10877.full.pdf" type="application/pdf"
+      c:role="http://schema.highwire.org/variant/full-text"/&gt;
+    &lt;atom:link rel="http://schema.highwire.org/Publishing#edit-variant"
+      href="/pnas/106/27/10877.full.pdf"
+      c:role="http://schema.highwire.org/variant/full-text"   type="application/pdf"/&gt;
+    &lt;atom:link rel="alternate"
+      href="/pnas/106/27/10877.full.html"
+      c:role="http://schema.highwire.org/variant/full-text" type="application/xhtml+xml"/&gt;
+    &lt;atom:link rel="http://schema.highwire.org/Publishing#edit-variant"
+      href="/pnas/106/27/10877.full.html"
+      c:role="http://schema.highwire.org/variant/full-text" type="application/xhtml+xml"/&gt;
+    ...
+  &lt;/atom:entry&gt;  
+</textual></programlisting></para><para class="po-block e301 e301"><textual class="po-textual">The difference between the two documents is that the parent link in the entry:</textual><programlisting class="po-block e302 e302" xml:space="preserve"><textual class="po-textual">
+
+     &lt;atom:link rel="http://schema.highwire.org/Compound#parent"
+       href="/pnas/106/27.atom" c:role="http://schema.highwire.org/Journal/Issue"/&gt;
+</textual></programlisting><textual class="po-textual"> has been expanded into an element </textual><programlisting class="po-block e303 e303" xml:space="preserve"><textual class="po-textual">
+     &lt;c:parent xml:base="/pnas/106/27.atom"&gt;...&lt;/c:parent&gt;
+</textual></programlisting></para><para class="po-block e304 e304"><textual class="po-textual">Because the with-ancestors value was </textual><code class="po-atom e305 e305"><textual class="po-textual">yes</textual></code><textual class="po-textual">, each entry has had its parent
+        link expanded into a </textual><code class="po-atom e306 e306"><textual class="po-textual">c:parent</textual></code><textual class="po-textual"> element, pulling in metadata all the way up to
+        the root of the hierarchy.</textual></para><para class="po-block e307 e307"><textual class="po-textual">Likewise, a client may also request </textual><code class="po-atom e308 e308"><textual class="po-textual">with-descendants</textual></code><textual class="po-textual">, and a common request
+        sent by the sites is for a Journal Issue with its ancestors expanded completely, and its
+        descendants expanded to a depth of one. This in effect gives them the metadata for the Issue
+        and its Article children, from which they may do things like build a Table of Contents
+        page.</textual></para><para class="po-block e309 e309"><textual class="po-textual">In effect, these parameters allow us to perform operations somewhat like a join
+        operation in a relational database. If you think of the Atom entries as relational tables,
+        and atom:link elements as foreign keys, we have a limited ability to join documents
+        together on those keys.</textual></para><para class="po-block e310 e310"><textual class="po-textual">The read-only SASS service hosts an Apache front-end, load-balancing requests to a set
+        of four Tomcat servers. Each Tomcat server uses two AMD 1210 cores, 8 gigabytes of memory,
+        and two local SATA disks. Each Tomcat server runs Firenze to execute the read-only SASS
+        service stylesheets. The stylesheets in turn pull data from a service named SASSFS, running
+        on an Apache-only server using four AMD 2218 CPU cores, 32 gigabytes of memory, and 3.7
+        terabytes of FC attached SATA storage. The SASSFS service holds a synchronized clone of the
+        read/write SASS service. The SASSFS system is, in effect, a network-based storage system for
+        SASS, accessed over HTTP instead of a more traditional NFS protocol.</textual></para><para class="po-block e311 e311"><textual class="po-textual">The XSLT implementation of read-only SASS consists just under 5,000 lines of XSLT 2.0
+        code (including whitespace and comments), spread across a set of 13 stylesheets. About 2,000
+        of those lines of code are an interim prototype for disk-based caching.</textual></para><para class="po-block e312 e312"><textual class="po-textual">Our initial version of the read-only SASS service used the default in-memory caching
+        available in Firenze. This default would store the most recent 1,000 resources requested
+        from SASSFS in memory as Source document (the underlying representation being a Saxon
+        TinyTree). This caching proved to be effective, and the service performed very well under
+        high load. While we were satisfied with the performance, we knew that we wanted to implement
+        a more effective caching algorithm for Firenze as a whole, and we decided to use the
+        read-only SASS service as a test-bed for prototyping part of this work.</textual></para><para class="po-block e313 e313"><textual class="po-textual">Because HighWire hosts a great deal of material that does not change very often, we
+        wanted to implement a caching system that could take advantage of the fact that most of our
+        material is for all intents and purposes written once and then read many times. Our research
+        turned up the Cache-Channel specification, describing a method where clients could poll an
+        efficient service to detect when cached items were stale. If we implemented this system, we
+        could cache responses built by the SASS service and, for the most part, never have to update
+        them again. Thus, we could trade disk space for time, allowing us to short circuit almost
+        all processing within the Firenze system when we had a cached response available</textual></para><para class="po-block e314 e314"><textual class="po-textual">To prototype this work, we implemented a set of extensions for Saxon that allowed us to
+        write serialized XML to a local disk partition. When an incoming request could be fulfilled
+        by the cache, we could simply stream the data from disk, bypassing the bulk of the XSLT
+        processing we would otherwise have to perform.</textual></para><para class="po-block e315 e315"><textual class="po-textual">In the XSLT prototype, the </textual><code class="po-atom e316 e316"><textual class="po-textual">req:request</textual></code><textual class="po-textual"> representation of the HTTP request
+        is processed via the following steps:</textual><orderedlist class="po-table e317 e317"><listitem class="po-container e318 e318"><para class="po-block e319 e319"><textual class="po-textual">Examine the HTTP PATH of the </textual><code class="po-atom e320 e320"><textual class="po-textual">req:request</textual></code><textual class="po-textual"> and check that the resource
+              is available on SASSFS; if it is not, return a not-found error code.</textual></para></listitem><listitem class="po-container e321 e321"><para class="po-block e322 e322"><textual class="po-textual">If the media type of the requested resource is not XML, stream the resource from
+              SASSFS to the client.</textual></para></listitem><listitem class="po-container e323 e323"><para class="po-block e324 e324"><textual class="po-textual">If the resource is not in cache, build the response. SASS reads resources from
+              SASSFS, storing the resources in local cache. Using the resources fetched from SASSFS,
+              the SASS service builds an XML </textual><code class="po-atom e325 e325"><textual class="po-textual">rsp:response</textual></code><textual class="po-textual">, and stores that response in
+              cache. Each resource written to the cache is accompanied by a corresponding XML
+              metadata file.</textual></para></listitem><listitem class="po-container e326 e326"><para class="po-block e327 e327"><textual class="po-textual">If the resource was in cache, check the metadata and perform HTTP HEAD requests
+              against SASSFS to see whether or not the item needs to be rebuilt. The rebuild would
+              be needed if any one of the constituent resources on SASSFS have changed. If nothing
+              has changed, stream the response from disk to the client. Otherwise a
+                </textual><code class="po-atom e328 e328"><textual class="po-textual">rsp:response</textual></code><textual class="po-textual"> is built as in step #3.</textual></para></listitem></orderedlist></para><para class="po-block e329 e329"><textual class="po-textual">For the XSLT-based prototype work, we decided not to implement the actual Cache-Channel
+        client or to hook into the in-memory cache of frequently used Source objects. We would
+        tackle these items later, when we implemented the caching logic in Java.</textual></para><para class="po-block e330 e330"><textual class="po-textual">We expected this prototype to be slower than the original implementation, both because
+        Firenze would now need to be parsing XML from disk for every request, instead of simply
+        reusing cached Source objects, and because we would be polling SASSFS to see if a resource
+        had changed.</textual></para><para class="po-block e331 e331"><textual class="po-textual">Our initial analysis of the prototype's performance simply examined the average response
+        time across all requests.  We were very unpleasantly surprised to find that for single Atom
+        entries the average response time jumped from 0.031 seconds to 0.21 seconds. The average
+        response times for compound entries jumped from 0.05 seconds to 0.26 seconds. Looking at
+        those averages, we decided we needed to know whether or not the slowdown was across the
+        board, or whether the averages reflected large outliers.</textual></para><para class="po-block e332 e332"><textual class="po-textual">We examined response times for a day's worth of requests using each of the two caching
+        implementations, and sorted the requests into two categories. One category was for requests
+        that would return a single resource, effectively a transfer of a file from SASSFS to the
+        client via SASS, with some cleanup processing applied. The second category was for requests
+        that returned compound resources. These were resources built by SASS, using component
+        resources fetched from SASSFS. We examined the response time for these requests, and sorted
+        them into percentiles:</textual><table class="po-container e333 e333"><caption class="po-container e334 e334"><para class="po-block e335 e335"><textual class="po-textual">SASS Response Times in Seconds per Cache implementation</textual></para></caption><thead class="po-container e336 e336"><tr class="po-table e337 e337"><th class="po-field e338 e338"><textual class="po-textual"> </textual></th><th class="po-field e339 e339" colspan="2"><textual class="po-textual">Native Firenze Cache</textual></th><th class="po-field e340 e340" colspan="2"><textual class="po-textual">XSLT Prototype Disk Cache</textual></th></tr><tr class="po-table e341 e341"><th class="po-field e342 e342"><textual class="po-textual">Percentile</textual></th><th class="po-field e343 e343"><textual class="po-textual">Single</textual></th><th class="po-field e344 e344"><textual class="po-textual">Compound</textual></th><th class="po-field e345 e345"><textual class="po-textual">Single</textual></th><th class="po-field e346 e346"><textual class="po-textual">Compound</textual></th></tr></thead><tbody class="po-table e347 e347"><tr class="po-table e348 e348"><td align="right" class="po-block e349 e349"><textual class="po-textual">25%</textual></td><td align="right" class="po-block e350 e350"><textual class="po-textual">0.0181</textual></td><td align="right" class="po-block e351 e351"><textual class="po-textual">0.0212</textual></td><td align="right" class="po-block e352 e352"><textual class="po-textual">0.0262</textual></td><td align="right" class="po-block e353 e353"><textual class="po-textual">0.0266</textual></td></tr><tr class="po-table e354 e354"><td align="right" class="po-block e355 e355"><textual class="po-textual">50%</textual></td><td align="right" class="po-block e356 e356"><textual class="po-textual">0.0228</textual></td><td align="right" class="po-block e357 e357"><textual class="po-textual">0.0346</textual></td><td align="right" class="po-block e358 e358"><textual class="po-textual">0.0385</textual></td><td align="right" class="po-block e359 e359"><textual class="po-textual">0.0616</textual></td></tr><tr class="po-table e360 e360"><td align="right" class="po-block e361 e361"><textual class="po-textual">75%</textual></td><td align="right" class="po-block e362 e362"><textual class="po-textual">0.0299</textual></td><td align="right" class="po-block e363 e363"><textual class="po-textual">0.0609</textual></td><td align="right" class="po-block e364 e364"><textual class="po-textual">0.0785</textual></td><td align="right" class="po-block e365 e365"><textual class="po-textual">0.1121</textual></td></tr><tr class="po-table e366 e366"><td align="right" class="po-block e367 e367"><textual class="po-textual">95%</textual></td><td align="right" class="po-block e368 e368"><textual class="po-textual">0.0562</textual></td><td align="right" class="po-block e369 e369"><textual class="po-textual">0.0956</textual></td><td align="right" class="po-block e370 e370"><textual class="po-textual">0.7691</textual></td><td align="right" class="po-block e371 e371"><textual class="po-textual">1.0838</textual></td></tr><tr class="po-table e372 e372"><td align="right" class="po-block e373 e373"><textual class="po-textual">99%</textual></td><td align="right" class="po-block e374 e374"><textual class="po-textual">0.1434</textual></td><td align="right" class="po-block e375 e375"><textual class="po-textual">0.2134</textual></td><td align="right" class="po-block e376 e376"><textual class="po-textual">4.3750</textual></td><td align="right" class="po-block e377 e377"><textual class="po-textual">4.7483</textual></td></tr></tbody></table></para><para class="po-block e378 e378"><textual class="po-textual">This analysis shows that the disk-caching prototype was 1-2.5 times slower than the
+        memory-based cache for about 75% of the requests, but that performance was significantly
+        worse for the remaining 25% of the requests.</textual></para><para class="po-block e379 e379"><textual class="po-textual">What we discovered were two bottlenecks occurring with the prototype. The first, and
+        most significant, bottleneck was the IO subsystem. The hardware on our machines couldn't
+        keep up with the level of read/write activity being asked of them. When measuring the disk
+        activity, we found it was operating at around 700 block writes per second and around 100
+        block reads per second. This level of activity was overwhelming the 7,200 rpm SATA disks
+        used by the servers, causing high IO wait times.</textual></para><para class="po-block e380 e380"><textual class="po-textual">The second bottleneck turned out to be the portion of XSLT code responsible for
+        executing HTTP HEAD requests to determine whether or not a resource had changed. When we
+        profiled the application on a stand-alone machine (eliminating disk contention), we found
+        that the following snippet of code was responsible for 30% of the execution time:</textual><programlisting class="po-block e381 e381" xml:space="preserve"><textual class="po-textual">
+    &lt;xsl:sequence select="
+      some $m in $cache:metadata
+      satisfies cache:is-stale($m)" /&gt;
+</textual></programlisting></para><para class="po-block e382 e382"><textual class="po-textual">The </textual><code class="po-atom e383 e383"><textual class="po-textual">cache:is-stale</textual></code><textual class="po-textual"> function takes as an argument a small XML metadata
+        element storing a URL, a timestamp, and an HTTP ETag value. The function executes an HTTP
+        HEAD request against the URL to determine whether or not the resource has been modified.
+        As Saxon does not take heavy advantage of multi-threading, this XPath expression
+        ends up running serially. Because underlying resources don't change very often, the
+        algorithm usually ends up running through every metadata element only to find nothing has
+        changed.</textual></para><para class="po-block e384 e384"><textual class="po-textual">These discoveries were actually good news to us, as we knew that we could both reduce
+        disk contention and parallelize the check for stale resources when we implemented the code
+        in Java as a native Firenze service. We're in the process of completing this work, and in
+        the meantime we have rolled the XSLT prototype code into active service.</textual></para><para class="po-block e385 e385"><textual class="po-textual">Performance of the prototype has proven to be adequate. Examining 12 days of access logs
+        from read-only SASS, the service is handling an average of 5.9 million requests per day,
+        ranging from a low of 3.3 million requests to a high of 7.8 million requests. On average the
+        service is processing 70 requests per second, writing 3.5 megabytes per second to its
+        clients.</textual></para><para class="po-block e386 e386"><textual class="po-textual">Overall the read-only SASS service is serving an average of 266 gigabytes per day.
+        Because SASS serves both XML markup and binary data, and because binary data may be streamed
+        directly from the SASSFS system without any intermediate processing by SASS, only a subset
+        of those 266 gigabytes is XML processed via Firenze. A breakdown of the two types of content
+        shows we serve an average of 166 gigabytes of XML data per day, and an average of 100
+        gigabytes of binary data:</textual><table class="po-container e387 e387"><caption class="po-container e388 e388"><para class="po-block e389 e389"><textual class="po-textual">Gigabytes served per day by read-only SASS</textual></para></caption><thead class="po-container e390 e390"><tr class="po-table e391 e391"><th class="po-field e392 e392"><textual class="po-textual">Date</textual></th><th class="po-field e393 e393"><textual class="po-textual">XML</textual></th><th class="po-field e394 e394"><textual class="po-textual">Binary</textual></th><th class="po-field e395 e395"><textual class="po-textual">Total</textual></th></tr></thead><tbody class="po-table e396 e396"><tr class="po-table e397 e397"><td align="right" class="po-block e398 e398"><textual class="po-textual">2009-07-01</textual></td><td align="right" class="po-block e399 e399"><textual class="po-textual">193.05</textual></td><td align="right" class="po-block e400 e400"><textual class="po-textual">122.33</textual></td><td align="right" class="po-block e401 e401"><textual class="po-textual">315.38</textual></td></tr><tr class="po-table e402 e402"><td align="right" class="po-block e403 e403"><textual class="po-textual">2009-07-02</textual></td><td align="right" class="po-block e404 e404"><textual class="po-textual">179.54</textual></td><td align="right" class="po-block e405 e405"><textual class="po-textual">114.36</textual></td><td align="right" class="po-block e406 e406"><textual class="po-textual">293.90</textual></td></tr><tr class="po-table e407 e407"><td align="right" class="po-block e408 e408"><textual class="po-textual">2009-07-03</textual></td><td align="right" class="po-block e409 e409"><textual class="po-textual">132.53</textual></td><td align="right" class="po-block e410 e410"><textual class="po-textual">87.73</textual></td><td align="right" class="po-block e411 e411"><textual class="po-textual">220.26</textual></td></tr><tr class="po-table e412 e412"><td align="right" class="po-block e413 e413"><textual class="po-textual">2009-07-04</textual></td><td align="right" class="po-block e414 e414"><textual class="po-textual">88.69</textual></td><td align="right" class="po-block e415 e415"><textual class="po-textual">60.18</textual></td><td align="right" class="po-block e416 e416"><textual class="po-textual">148.87</textual></td></tr><tr class="po-table e417 e417"><td align="right" class="po-block e418 e418"><textual class="po-textual">2009-07-05</textual></td><td align="right" class="po-block e419 e419"><textual class="po-textual">111.07</textual></td><td align="right" class="po-block e420 e420"><textual class="po-textual">69.61</textual></td><td align="right" class="po-block e421 e421"><textual class="po-textual">180.68</textual></td></tr><tr class="po-table e422 e422"><td align="right" class="po-block e423 e423"><textual class="po-textual">2009-07-06</textual></td><td align="right" class="po-block e424 e424"><textual class="po-textual">197.56</textual></td><td align="right" class="po-block e425 e425"><textual class="po-textual">124.15</textual></td><td align="right" class="po-block e426 e426"><textual class="po-textual">321.71</textual></td></tr><tr class="po-table e427 e427"><td align="right" class="po-block e428 e428"><textual class="po-textual">2009-07-07</textual></td><td align="right" class="po-block e429 e429"><textual class="po-textual">221.43</textual></td><td align="right" class="po-block e430 e430"><textual class="po-textual">141.19</textual></td><td align="right" class="po-block e431 e431"><textual class="po-textual">362.61</textual></td></tr><tr class="po-table e432 e432"><td align="right" class="po-block e433 e433"><textual class="po-textual">2009-07-08</textual></td><td align="right" class="po-block e434 e434"><textual class="po-textual">228.73</textual></td><td align="right" class="po-block e435 e435"><textual class="po-textual">142.96</textual></td><td align="right" class="po-block e436 e436"><textual class="po-textual">371.69</textual></td></tr><tr class="po-table e437 e437"><td align="right" class="po-block e438 e438"><textual class="po-textual">2009-07-09</textual></td><td align="right" class="po-block e439 e439"><textual class="po-textual">215.75</textual></td><td align="right" class="po-block e440 e440"><textual class="po-textual">123.90</textual></td><td align="right" class="po-block e441 e441"><textual class="po-textual">339.65</textual></td></tr><tr class="po-table e442 e442"><td align="right" class="po-block e443 e443"><textual class="po-textual">2009-07-10</textual></td><td align="right" class="po-block e444 e444"><textual class="po-textual">178.74</textual></td><td align="right" class="po-block e445 e445"><textual class="po-textual">97.77</textual></td><td align="right" class="po-block e446 e446"><textual class="po-textual">276.51</textual></td></tr><tr class="po-table e447 e447"><td align="right" class="po-block e448 e448"><textual class="po-textual">2009-07-11</textual></td><td align="right" class="po-block e449 e449"><textual class="po-textual">115.11</textual></td><td align="right" class="po-block e450 e450"><textual class="po-textual">48.31</textual></td><td align="right" class="po-block e451 e451"><textual class="po-textual">163.42</textual></td></tr><tr class="po-table e452 e452"><td align="right" class="po-block e453 e453"><textual class="po-textual">2009-07-12</textual></td><td align="right" class="po-block e454 e454"><textual class="po-textual">134.76</textual></td><td align="right" class="po-block e455 e455"><textual class="po-textual">67.93</textual></td><td align="right" class="po-block e456 e456"><textual class="po-textual">202.68</textual></td></tr></tbody></table></para><para class="po-block e457 e457"><textual class="po-textual">It has proven difficult to compare these numbers against our older system because the
+        SASS service combines services that are spread out across multiple database and NFS servers
+        in the older system.</textual></para></section><section class="po-hcontainer e458 e458"><title class="po-block e459 e459"><textual class="po-textual">Read/Write SASS</textual></title><para class="po-block e460 e460"><textual class="po-textual">In order to implement the read/write SASS service, we knew we needed to build a
+        transactional system. We had to be able to know that we could roll back any operation that
+        met with an error condition. In addition, we wanted a system that would allow us to search
+        the XML documents without needing to write custom code or build new indexes for every new
+        query we might come up with.</textual></para><para class="po-block e461 e461"><textual class="po-textual">After exploring the available systems, we decided to license the XML server provided by
+        Mark Logic Corporation. In addition, since both the MarkLogic Server and its underlying
+        XQuery technology were new to us, we contracted with Mark Logic for consultants to work with
+        us to build an implementation of our HPP specification. HighWire staff provided details
+        regarding the specification and Mark Logic consultants wrote an implementation in XQuery.
+        The implementation was written in just under 7,600 lines of XQuery code, spread across 24
+        modules.</textual></para><para class="po-block e462 e462"><textual class="po-textual">We're currently running MarkLogic Server version 3.2, which is a few years old, and
+        which uses a draft version of XQuery. Newer releases of MarkLogic implement the XQuery 1.0
+        specification, and we plan to eventually modify the XQuery implementation to take advantage
+        of the newer releases.</textual></para><para class="po-block e463 e463"><textual class="po-textual">We are currently running the MarkLogic implementation on one dedicated production server
+        using four AMD 2218 CPU cores, 32 gigabytes of memory, and 3.7 terabytes of FC attached SATA
+        storage. This server is currently handling between 7 to 8 million requests per month, and is
+        used as the system of record for our production processing system. The break-down of those
+        requests for the months of April, May, and Jun in 2009 were:</textual><table class="po-container e464 e464"><caption class="po-container e465 e465"><para class="po-block e466 e466"><textual class="po-textual">Number of requests to SASS read/write service</textual></para></caption><thead class="po-container e467 e467"><tr class="po-table e468 e468"><th class="po-field e469 e469"><textual class="po-textual">Type</textual></th><th class="po-field e470 e470"><textual class="po-textual">April</textual></th><th class="po-field e471 e471"><textual class="po-textual">May</textual></th><th class="po-field e472 e472"><textual class="po-textual">Jun</textual></th></tr></thead><tbody class="po-table e473 e473"><tr class="po-table e474 e474"><td class="po-block e475 e475"><textual class="po-textual">GET (non-search)</textual></td><td align="right" class="po-block e476 e476"><textual class="po-textual">7,199,235</textual></td><td align="right" class="po-block e477 e477"><textual class="po-textual">5,852,764</textual></td><td align="right" class="po-block e478 e478"><textual class="po-textual">5,900,093</textual></td></tr><tr class="po-table e479 e479"><td class="po-block e480 e480"><textual class="po-textual">GET (search)</textual></td><td align="right" class="po-block e481 e481"><textual class="po-textual">642,681</textual></td><td align="right" class="po-block e482 e482"><textual class="po-textual">521,106</textual></td><td align="right" class="po-block e483 e483"><textual class="po-textual">751,463</textual></td></tr><tr class="po-table e484 e484"><td class="po-block e485 e485"><textual class="po-textual">GET (report)</textual></td><td align="right" class="po-block e486 e486"><textual class="po-textual">23,308</textual></td><td align="right" class="po-block e487 e487"><textual class="po-textual">10,461</textual></td><td align="right" class="po-block e488 e488"><textual class="po-textual">16,919</textual></td></tr><tr class="po-table e489 e489"><td class="po-block e490 e490"><textual class="po-textual">POST </textual></td><td align="right" class="po-block e491 e491"><textual class="po-textual">1,097,209</textual></td><td align="right" class="po-block e492 e492"><textual class="po-textual">730,489</textual></td><td align="right" class="po-block e493 e493"><textual class="po-textual">913,385</textual></td></tr><tr class="po-table e494 e494"><td class="po-block e495 e495"><textual class="po-textual">PUT </textual></td><td align="right" class="po-block e496 e496"><textual class="po-textual">21,214</textual></td><td align="right" class="po-block e497 e497"><textual class="po-textual">10,284</textual></td><td align="right" class="po-block e498 e498"><textual class="po-textual">26,905</textual></td></tr><tr class="po-table e499 e499"><td class="po-block e500 e500"><textual class="po-textual">DELETE </textual></td><td align="right" class="po-block e501 e501"><textual class="po-textual">9,989</textual></td><td align="right" class="po-block e502 e502"><textual class="po-textual">4,652</textual></td><td align="right" class="po-block e503 e503"><textual class="po-textual">35,143</textual></td></tr><tr class="po-table e504 e504"><th class="po-field e505 e505"><textual class="po-textual">Total Requests</textual></th><td align="right" class="po-block e506 e506"><textual class="po-textual">8,993,636</textual></td><td align="right" class="po-block e507 e507"><textual class="po-textual">7,129,756</textual></td><td align="right" class="po-block e508 e508"><textual class="po-textual">7,643,908</textual></td></tr></tbody></table><orderedlist class="po-table e509 e509"><listitem class="po-container e510 e510"><para class="po-block e511 e511"><textual class="po-textual">GET (non-search) reflects the retrieval of a single Atom entry or variant</textual></para></listitem><listitem class="po-container e512 e512"><para class="po-block e513 e513"><textual class="po-textual">GET (search) reflects the execution of a search</textual></para></listitem><listitem class="po-container e514 e514"><para class="po-block e515 e515"><textual class="po-textual">GET (report) reflects the execution of custom reporting modules we've
+              written</textual></para></listitem></orderedlist></para><para class="po-block e516 e516"><textual class="po-textual">What these numbers translate to is the loading of between 40,000 to 50,000 articles per
+        month, though in our first month of operations, when we were migrating PNAS, we loaded
+        93,829 articles that month alone.</textual></para><para class="po-block e517 e517"><textual class="po-textual">As of Jun 18th 2009, the read/write SASS service held the following counts of resource
+        types (there are others, but these are the ones whose counts may be of general interest):</textual><table class="po-container e518 e518"><caption class="po-container e519 e519"><para class="po-block e520 e520"><textual class="po-textual">read/write SASS service resource counts</textual></para></caption><thead class="po-container e521 e521"><tr class="po-table e522 e522"><th class="po-field e523 e523"><textual class="po-textual">Resource Type</textual></th><th class="po-field e524 e524"><textual class="po-textual">Count</textual></th></tr></thead><tbody class="po-table e525 e525"><tr class="po-table e526 e526"><td class="po-block e527 e527"><textual class="po-textual">Journal/Volume</textual></td><td align="right" class="po-block e528 e528"><textual class="po-textual">2,735</textual></td></tr><tr class="po-table e529 e529"><td class="po-block e530 e530"><textual class="po-textual">Journal/Issue</textual></td><td align="right" class="po-block e531 e531"><textual class="po-textual">17,734</textual></td></tr><tr class="po-table e532 e532"><td class="po-block e533 e533"><textual class="po-textual">Journal/Article</textual></td><td align="right" class="po-block e534 e534"><textual class="po-textual">421,375</textual></td></tr><tr class="po-table e535 e535"><td class="po-block e536 e536"><textual class="po-textual">Journal/Fragment</textual></td><td align="right" class="po-block e537 e537"><textual class="po-textual">485,792</textual></td></tr><tr class="po-table e538 e538"><td class="po-block e539 e539"><textual class="po-textual">Adjunct</textual></td><td align="right" class="po-block e540 e540"><textual class="po-textual">99,121</textual></td></tr><tr class="po-table e541 e541"><td class="po-block e542 e542"><textual class="po-textual">All variants</textual></td><td align="right" class="po-block e543 e543"><textual class="po-textual">3,511,002</textual></td></tr></tbody></table></para><para class="po-block e544 e544"><textual class="po-textual">In the table above, Journal/Volume, Journal/Issue, and Journal/Article resources
+        correspond to the obvious parts of a journal. Journal/Fragment resources indicate resources
+        extracted from an article to create a sub-resource, in this case they are representations of
+        figures and tables. Adjuncts are media resources that provide supplemental data to article
+        (e.g., raw data sets submitted along with an article). All variants consist of alternative
+        representations, including XHTML files, PDFs, images, etc.</textual></para><para class="po-block e545 e545"><textual class="po-textual">In general we've found the performance of MarkLogic to be very good, and have not yet
+        reached the level of use that would require us to add additional servers. When we do reach
+        that point, an important advantage we see in MarkLogic was that we ought be able to increase
+        capacity by simply creating a MarkLogic cluster of multiple servers.</textual></para><para class="po-block e546 e546"><textual class="po-textual">There are two areas where MarkLogic has had some trouble with our particular application:</textual><itemizedlist class="po-table e547 e547"><listitem class="po-container e548 e548"><para class="po-block e549 e549"><textual class="po-textual">Complex DELETE operations are slow</textual></para></listitem><listitem class="po-container e550 e550"><para class="po-block e551 e551"><textual class="po-textual">Some ad-hoc XQuery reporting may be resource intensive depending on the
+              expressions used.</textual></para></listitem></itemizedlist></para><para class="po-block e552 e552"><textual class="po-textual">In MarkLogic, individual delete transactions are very efficient, but to properly
+        implement a DELETE operation in SASS the application executes an expensive traversal
+        algorithm, building a list of resources, including:</textual><orderedlist class="po-table e553 e553"><listitem class="po-container e554 e554"><para class="po-block e555 e555"><textual class="po-textual">Resources that are children of the targeted resource. </textual></para></listitem><listitem class="po-container e556 e556"><para class="po-block e557 e557"><textual class="po-textual">Resources that refer to the resource targeted for deletion or to any of its child
+              resources.</textual></para></listitem></orderedlist><textual class="po-textual">The application then needs to delete all the descendant resources and remove
+        all references to those deleted resources. Deleting a single article could require that the
+        application perform a dozen searches, delete fifty resources, and then update all Atom
+        entries that refer to those deleted resources. This algorithm is costly to execute, and it
+        makes DELETE far slower than the other operations.</textual></para><para class="po-block e558 e558"><textual class="po-textual">For each type of HTTP operation a selection for 5,000 log entries were examined for
+        their execution times:</textual><table class="po-container e559 e559"><caption class="po-container e560 e560"><para class="po-block e561 e561"><textual class="po-textual">Seconds to complete a request</textual></para></caption><thead class="po-container e562 e562"><tr class="po-table e563 e563"><th class="po-field e564 e564" colspan="4"><textual class="po-textual"> </textual></th><th align="center" class="po-field e565 e565" colspan="3"><textual class="po-textual">Percentiles</textual></th></tr><tr class="po-table e566 e566"><th class="po-field e567 e567"><textual class="po-textual">Type</textual></th><th class="po-field e568 e568"><textual class="po-textual">Mean</textual></th><th class="po-field e569 e569"><textual class="po-textual">Minimum</textual></th><th class="po-field e570 e570"><textual class="po-textual">Maximum</textual></th><th class="po-field e571 e571"><textual class="po-textual">50%</textual></th><th class="po-field e572 e572"><textual class="po-textual">75%</textual></th><th class="po-field e573 e573"><textual class="po-textual">99%</textual></th></tr></thead><tbody class="po-table e574 e574"><tr class="po-table e575 e575"><td class="po-block e576 e576"><textual class="po-textual">GET (non-search)</textual></td><td align="right" class="po-block e577 e577"><textual class="po-textual">0.0397</textual></td><td align="right" class="po-block e578 e578"><textual class="po-textual">0.0073</textual></td><td align="right" class="po-block e579 e579"><textual class="po-textual">3.6032</textual></td><td align="right" class="po-block e580 e580"><textual class="po-textual">0.0133</textual></td><td align="right" class="po-block e581 e581"><textual class="po-textual">0.0328</textual></td><td align="right" class="po-block e582 e582"><textual class="po-textual">0.2670</textual></td></tr><tr class="po-table e583 e583"><td class="po-block e584 e584"><textual class="po-textual">GET (search)</textual></td><td align="right" class="po-block e585 e585"><textual class="po-textual">0.4611</textual></td><td align="right" class="po-block e586 e586"><textual class="po-textual">0.0098</textual></td><td align="right" class="po-block e587 e587"><textual class="po-textual">23.9744</textual></td><td align="right" class="po-block e588 e588"><textual class="po-textual">0.2342</textual></td><td align="right" class="po-block e589 e589"><textual class="po-textual">0.3818</textual></td><td align="right" class="po-block e590 e590"><textual class="po-textual">3.9794</textual></td></tr><tr class="po-table e591 e591"><td class="po-block e592 e592"><textual class="po-textual">POST</textual></td><td align="right" class="po-block e593 e593"><textual class="po-textual">0.0775</textual></td><td align="right" class="po-block e594 e594"><textual class="po-textual">0.0259</textual></td><td align="right" class="po-block e595 e595"><textual class="po-textual">0.5822</textual></td><td align="right" class="po-block e596 e596"><textual class="po-textual">0.0592</textual></td><td align="right" class="po-block e597 e597"><textual class="po-textual">0.0977</textual></td><td align="right" class="po-block e598 e598"><textual class="po-textual">0.1750</textual></td></tr><tr class="po-table e599 e599"><td class="po-block e600 e600"><textual class="po-textual">PUT</textual></td><td align="right" class="po-block e601 e601"><textual class="po-textual">0.1304</textual></td><td align="right" class="po-block e602 e602"><textual class="po-textual">0.0159</textual></td><td align="right" class="po-block e603 e603"><textual class="po-textual">4.3666</textual></td><td align="right" class="po-block e604 e604"><textual class="po-textual">0.0897</textual></td><td align="right" class="po-block e605 e605"><textual class="po-textual">0.1487</textual></td><td align="right" class="po-block e606 e606"><textual class="po-textual">0.6931</textual></td></tr><tr class="po-table e607 e607"><td class="po-block e608 e608"><textual class="po-textual">DELETE</textual></td><td align="right" class="po-block e609 e609"><textual class="po-textual">6.1802</textual></td><td align="right" class="po-block e610 e610"><textual class="po-textual">0.0084</textual></td><td align="right" class="po-block e611 e611"><textual class="po-textual">628.9670</textual></td><td align="right" class="po-block e612 e612"><textual class="po-textual">3.4020</textual></td><td align="right" class="po-block e613 e613"><textual class="po-textual">4.1776</textual></td><td align="right" class="po-block e614 e614"><textual class="po-textual">33.2024</textual></td></tr></tbody></table><orderedlist class="po-table e615 e615"><listitem class="po-container e616 e616"><para class="po-block e617 e617"><textual class="po-textual">GET (non-search) reflects the retrieval of a single Atom entry or a variant</textual></para></listitem><listitem class="po-container e618 e618"><para class="po-block e619 e619"><textual class="po-textual">GET (search) reflects the execution of a search</textual></para></listitem></orderedlist></para><para class="po-block e620 e620"><textual class="po-textual">Performance is excellent for the GET (non-search), POST, and PUT operations, and fairly
+        good for GET (search), but DELETE operations are far slower than any other operation. The
+        intrinsic problem with handling a DELETE is the complexity of the algorithm and the number
+        of documents that need to be searched and modified. In theory we ought to be able to
+        optimize how the searches are performed, implementing a more efficient algorithm, thereby
+        speeding up the execution. Because DELETE operations make up such a small number of the
+        requests we execute, we have not yet seriously investigated implementing such an
+        optimization.</textual></para><para class="po-block e621 e621"><textual class="po-textual">The other problem area we've had with MarkLogic is constructing efficient ad-hoc
+        queries. MarkLogic automatically creates indexes for any XML that it stores, and while these
+        indexes cover many types of possible queries, it is possible to construct queries that do
+        not take advantage of these indexes. At various times we want to run ad-hoc reports against
+        the database, and we've found that some of these queries can time out if they are written
+        without applying some knowledge of how the server's query optimizer work. Given the
+        structure of our XML, for some of our ad-hoc queries, a challenge has been that our version
+        of MarkLogic Server will not use an index if the expression is within nested predicates. As
+        an example, if we have an index built on the two attributes </textual><code class="po-atom e622 e622"><textual class="po-textual">@scheme</textual></code><textual class="po-textual"> and
+          </textual><code class="po-atom e623 e623"><textual class="po-textual">@term</textual></code><textual class="po-textual"> for </textual><code class="po-atom e624 e624"><textual class="po-textual">atom:category</textual></code><textual class="po-textual"> in an Atom entry, which together
+        function as a key/value pair:</textual><itemizedlist class="po-table e625 e625"><listitem class="po-container e626 e626"><para class="po-block e627 e627"><textual class="po-textual">
+              </textual><code class="po-atom e628 e628"><textual class="po-textual">/atom:entry/atom:category/@scheme</textual></code><textual class="po-textual">
+            </textual></para></listitem><listitem class="po-container e629 e629"><para class="po-block e630 e630"><textual class="po-textual">
+              </textual><code class="po-atom e631 e631"><textual class="po-textual">/atom:entry/atom:category/@term</textual></code><textual class="po-textual">
+            </textual></para></listitem></itemizedlist><textual class="po-textual"> as well as on the element:</textual><itemizedlist class="po-table e632 e632"><listitem class="po-container e633 e633"><para class="po-block e634 e634"><textual class="po-textual">
+              </textual><code class="po-atom e635 e635"><textual class="po-textual">/atom:entry/nlm:issue-id</textual></code><textual class="po-textual">
+            </textual></para></listitem></itemizedlist><textual class="po-textual"> then if we wanted to find those entries with the values represented by the
+        variables </textual><code class="po-atom e636 e636"><textual class="po-textual">$scheme</textual></code><textual class="po-textual">, </textual><code class="po-atom e637 e637"><textual class="po-textual">$term</textual></code><textual class="po-textual">, and </textual><code class="po-atom e638 e638"><textual class="po-textual">$issue-id</textual></code><textual class="po-textual">, the XPath
+        expression must be written along the lines of
+        </textual><programlisting class="po-block e639 e639" xml:space="preserve"><textual class="po-textual">
+  for $cat in /atom:entry[nlm:issue-id = $issue-id]/atom:category[@scheme eq $scheme and @term eq $term]
+  return $cat/parent::atom:entry
+</textual></programlisting></para><para class="po-block e640 e640"><textual class="po-textual">Writing it in an alternative way, using nested predicates,
+        </textual><programlisting class="po-block e641 e641" xml:space="preserve"><textual class="po-textual">
+  /atom:entry[atom:category[@scheme eq $scheme and @term eq $term] and nlm:issue-id = $issue-id]
+</textual></programlisting><textual class="po-textual">
+        results in the server's not using the </textual><code class="po-atom e642 e642"><textual class="po-textual">@scheme</textual></code><textual class="po-textual"> and </textual><code class="po-atom e643 e643"><textual class="po-textual">@term</textual></code><textual class="po-textual"> indexes,
+        resulting in longer execution times. As more predicates are added to a query, it can become
+        very difficult to figure out how best to structure the query to take full advantage of the
+        indexes.</textual></para><para class="po-block e644 e644"><textual class="po-textual">As an example, the following XQuery expression searches for Atom entries under a
+        specified $journal-root location, and identifies those Atom entries that match particular
+        atom:link and atom:category criteria. The nested predicates listed are required to ensure no
+        false positives are returned:
+        </textual><programlisting class="po-block e645 e645" xml:space="preserve"><textual class="po-textual">
+  xdmp:directory($journal-root, "infinity")/hw:doc
+    /atom:entry
+      [atom:link[@rel eq $hpp:rel.parent and @c:role = $hpp:model.journal]]
+      [atom:category[@scheme eq $hpp:role.scheme and @term eq $hpp:model.adjunct]]
+      [not(atom:link[@rel eq 'related' and @c:role = $hpp:model.adjunct.related])]
+</textual></programlisting></para><para class="po-block e646 e646"><textual class="po-textual">This query takes some 472 seconds to run against a </textual><code class="po-atom e647 e647"><textual class="po-textual">$journal-root</textual></code><textual class="po-textual"> which
+        contains a little over 1.8 million resources. Rewriting the query to first look for one half
+        of the criteria for each nested predicate listed above, thereby allowing the server to use
+        more indexes, reduces the execution time to around 4.6 seconds:
+        </textual><programlisting class="po-block e648 e648" xml:space="preserve"><textual class="po-textual">
+  for $entry in
+    xdmp:directory($journal-root, "infinity")/hw:doc
+      /atom:entry
+        [atom:link/@c:role = $hpp:model.journal]
+        [atom:category/@term = $hpp:model.adjunct]
+        [not(atom:link/@c:role = $hpp:model.adjunct.related)]
+  where
+    $entry/atom:category[@scheme eq $hpp:role.scheme and @term eq $hpp:model.adjunct]
+    and $entry/atom:link[@rel eq $hpp:rel.parent and @c:role = $hpp:model.journal]
+    and not($entry/atom:link[@rel eq 'related' and @c:role = $hpp:model.adjunct.related])
+  return
+    $entry
+</textual></programlisting><textual class="po-textual">Both
+        queries produce the correct results; it's just a matter of how quickly those results are
+        computed. Another way we could improve the performance of this query is to change the
+        structure of our XML to be better aligned with MarkLogic's indexes. For this application,
+        that was not an option.</textual></para><para class="po-block e649 e649"><textual class="po-textual">MarkLogic Server is able to provide detailed information about which parts of a query
+        are using an index, and is able to provide very detailed statistics regarding cache hit
+        rates for a query. Many queries in MarkLogic can be fully evaluated out of the indexes, and
+        these queries are very efficient, usually returning in sub-second time. However, as queries
+        become more complex, the developer needs to understand the impact of the query's conditions
+        and the way they interact with the indexes. MarkLogic provides accurate responses to
+        queries, and as the query is made to make more use of the indexes, response times are
+        typically reduced.</textual></para><para class="po-block e650 e650"><textual class="po-textual">As an example, the following query makes full uses of the indexes to identify those
+        resources that contain a given DOI value $doi, and MarkLogic can return results for this
+        type of query in less than 0.1
+        seconds:</textual><programlisting class="po-block e651 e651" xml:space="preserve"><textual class="po-textual">
+       for $doc in
+         xdmp:directory("/pnas/", "infinity")/hw:doc/
+           atom:entry/nlm:article-id[@pub-id-type eq "doi"][. eq $doi]
+       return
+         base-uri($doc)
+     </textual></programlisting></para></section></section><section class="po-hcontainer e652 e652"><title class="po-block e653 e653"><textual class="po-textual">Babel XSLT</textual></title><para class="po-block e654 e654"><textual class="po-textual">The final component of the XML-based systems used in H2O is the Babel XSLT processing
+      engine. Babel XSLT is a batch processing engine that we use to transform incoming source XML
+      into resources for loading into the read/write SASS service. We've implemented an HPP aware
+      client in XSLT 2.0 (using Java extensions to allow XSLT programs to act as an HTTP client),
+      and we perform the bulk of our content loading using the Babel XSLT engine to POST the content
+      into the read/write SASS service.</textual></para><para class="po-block e655 e655"><textual class="po-textual">Babel XSLT is an HTTP service that accepts XML documents describing a batch operation to
+      perform. A batch consists of an XSLT stylesheet to run, an optional set of XSLT parameters
+      (these parameters may be complex content, meaning they may contain document fragments or node
+      sequences), and one or more input sources to process, along with corresponding output targets.
+      When a batch is submitted, it is queued for processing until the server has free
+      capacity.</textual></para><para class="po-block e656 e656"><textual class="po-textual">Once the server begins processing a batch, it draws from a pool of threads to apply the
+      specified stylesheet to each specified input source in parallel. Upon completion, a batch log
+      report is produced that indicates the start and stop time of each transformation, as well as
+      any </textual><code class="po-atom e657 e657"><textual class="po-textual">xsl:message</textual></code><textual class="po-textual"> log events captured during the execution of the individual
+      transformations. As with the input parameters, the </textual><code class="po-atom e658 e658"><textual class="po-textual">xsl:message</textual></code><textual class="po-textual"> log events may be
+      complex content.</textual></para><para class="po-block e659 e659"><textual class="po-textual">An example batch input </textual><programlisting class="po-block e660 e660" xml:space="preserve"><textual class="po-textual">
+&lt;babel-xsl:batch xmlns:babel-xsl="http://schema.highwire.org/Babel/XSLT/Batch"
+  name="HWX.jmicro_iss_58_4.intake.StyleCheckPMC.runPMCArticleValidator"  
+  stylesheet="stylesheets/third-party/pmc-nlm-style/default/nlm-stylechecker.xsl"&gt;
+  &lt;babel-xsl:transform
+    source="file:/HWE1/process/intake/jmicro/jmicro_iss_58_4/TagTextFiles/StyleCheckPMC/dfp013.xml" 
+    result="file:/HWE1/process/intake/jmicro/jmicro_iss_58_4/TagTextFiles/StyleCheckPMC/dfp013.xml" /&gt;
+  &lt;babel-xsl:transform
+    source="file:/HWE1/process/intake/jmicro/jmicro_iss_58_4/TagTextFiles/StyleCheckPMC/dfp010.xml" 
+    result="file:/HWE1/process/intake/jmicro/jmicro_iss_58_4/TagTextFiles/StyleCheckPMC/dfp010.xml" /&gt;
+  &lt;babel-xsl:transform
+    source="file:/HWE1/process/intake/jmicro/jmicro_iss_58_4/TagTextFiles/StyleCheckPMC/dfp018.xml" 
+    result="file:/HWE1/process/intake/jmicro/jmicro_iss_58_4/TagTextFiles/StyleCheckPMC/dfp018.xml" /&gt;
+  &lt;babel-xsl:transform
+    source="file:/HWE1/process/intake/jmicro/jmicro_iss_58_4/TagTextFiles/StyleCheckPMC/dfp002.xml" 
+    result="file:/HWE1/process/intake/jmicro/jmicro_iss_58_4/TagTextFiles/StyleCheckPMC/dfp002.xml" /&gt;
+  &lt;babel-xsl:transform
+    source="file:/HWE1/process/intake/jmicro/jmicro_iss_58_4/TagTextFiles/StyleCheckPMC/dfp017.xml" 
+    result="file:/HWE1/process/intake/jmicro/jmicro_iss_58_4/TagTextFiles/StyleCheckPMC/dfp017.xml" /&gt;
+&lt;/babel-xsl:batch&gt;
+</textual></programlisting><textual class="po-textual"> would apply the specified stylesheet in to all five
+        </textual><code class="po-atom e661 e661"><textual class="po-textual">babel-xsl:transform/@source</textual></code><textual class="po-textual"> inputs in parallel, producing five result files and
+      a batch log:</textual><programlisting class="po-block e662 e662" xml:space="preserve"><textual class="po-textual">
+&lt;babel-xsl:log xmlns:babel-xsl="http://schema.highwire.org/Babel/XSLT/Batch"
+  name="2009/07/15/09/HWX.jmicro_iss_58_4.intake.StyleCheckPMC.runPMCArticleValidator" 
+  stylesheet="jndi:/localhost/babel-xslt-01/stylesheets/third-party/pmc-nlm-style/default/nlm-stylechecker.xsl"&gt;
+  &lt;babel-xsl:start time="2009-07-15T09:16:23.652-07:00" /&gt;
+  &lt;babel-xsl:transform-start time="2009-07-15T09:16:23.667-07:00" 
+    source="file:/HWE1/process/intake/jmicro/jmicro_iss_58_4/TagTextFiles/StyleCheckPMC/dfp013.xml" /&gt;
+  &lt;babel-xsl:transform-start time="2009-07-15T09:16:23.667-07:00" 
+    source="file:/HWE1/process/intake/jmicro/jmicro_iss_58_4/TagTextFiles/StyleCheckPMC/dfp010.xml" /&gt;
+  &lt;babel-xsl:transform-start time="2009-07-15T09:16:23.667-07:00" 
+    source="file:/HWE1/process/intake/jmicro/jmicro_iss_58_4/TagTextFiles/StyleCheckPMC/dfp018.xml" /&gt;
+  &lt;babel-xsl:transform-start time="2009-07-15T09:16:23.667-07:00" 
+    source="file:/HWE1/process/intake/jmicro/jmicro_iss_58_4/TagTextFiles/StyleCheckPMC/dfp017.xml" /&gt;
+  &lt;babel-xsl:transform-start time="2009-07-15T09:16:23.668-07:00" 
+    source="file:/HWE1/process/intake/jmicro/jmicro_iss_58_4/TagTextFiles/StyleCheckPMC/dfp002.xml" /&gt;
+  &lt;babel-xsl:transform-success time="2009-07-15T09:16:24.406-07:00" 
+    source="file:/HWE1/process/intake/jmicro/jmicro_iss_58_4/TagTextFiles/StyleCheckPMC/dfp018.xml" /&gt;
+  &lt;babel-xsl:transform-success time="2009-07-15T09:16:24.647-07:00" 
+    source="file:/HWE1/process/intake/jmicro/jmicro_iss_58_4/TagTextFiles/StyleCheckPMC/dfp002.xml" /&gt;
+  &lt;babel-xsl:transform-success time="2009-07-15T09:16:24.756-07:00" 
+    source="file:/HWE1/process/intake/jmicro/jmicro_iss_58_4/TagTextFiles/StyleCheckPMC/dfp010.xml" /&gt;
+  &lt;babel-xsl:transform-success time="2009-07-15T09:16:24.769-07:00" 
+    source="file:/HWE1/process/intake/jmicro/jmicro_iss_58_4/TagTextFiles/StyleCheckPMC/dfp013.xml" /&gt;
+  &lt;babel-xsl:transform-success time="2009-07-15T09:16:24.795-07:00" 
+    source="file:/HWE1/process/intake/jmicro/jmicro_iss_58_4/TagTextFiles/StyleCheckPMC/dfp017.xml" /&gt;
+  &lt;babel-xsl:success time="2009-07-15T09:16:24.795-07:00" /&gt;
+&lt;/babel-xsl:log&gt;
+</textual></programlisting></para><para class="po-block e663 e663"><textual class="po-textual">The Babel XSLT service keeps a permanent cache of compiled Templates for the stylesheets
+      it is asked to execute. Because a batch requires the uniform application of any XSLT
+      parameters to every input source in a batch, the server is then able to set up its processing
+      workflow once and then apply that workflow en masse to all the inputs listed in the
+      batch.</textual></para><para class="po-block e664 e664"><textual class="po-textual">We currently use Babel XSLT to produce and, via its HTTP and HPP client extensions, to
+      load and update almost all H2O content. The production process includes tasks such as applying
+      Schematron assertions to produce reports on the content, applying normalization routines to
+      the article source XML, enriching the article source XML to include extra metadata, and
+      converting those article source files into Atom entries and variant representations (e.g.,
+      XHTML). HighWire has written about 48,000 lines of XSLT 2.0 code (including comments and
+      whitespace), spread across 318 stylesheets, to perform this work.</textual></para><para class="po-block e665 e665"><textual class="po-textual">We are currently running Babel XSLT on two servers. Each server uses two AMD 1210 cores, 8
+      gigabytes of memory, and various NFS mounted storage arrays. Across both servers we are
+      executing an average of 3,839 transformations per hour. At peak times we've run anywhere from
+      23,000 to 57,000 transformations in an hour. Transformation execution times range from a low
+      0.20 seconds to a high of 20.0 seconds, with 95% of transformations taking less than 7.0
+      seconds to complete.</textual></para><para class="po-block e666 e666"><textual class="po-textual">The biggest efficiency headache we've encountered with the Babel XSLT service has been
+      related to its memory requirements. A large enough batch job can run into memory limits as it
+      converts the incoming batch into a JDOM object, runs its XSLT transformations, and uses JDOM
+      to produce the batch log report. The Babel XSLT servers have a minimum memory footprint
+      ranging from 200 to 300 megabytes, but can easily use up to 5 gigabytes of memory to process
+      their workloads. In the space of one minute, a server might jump from needing 500 megabytes to
+      needing 2.5 gigabytes of memory.</textual></para><para class="po-block e667 e667"><textual class="po-textual">Currently HighWire uses a Perl-based framework to submit Babel XSLT jobs. The Perl code is
+      responsible for identifying which stylesheet and which input and output files need to be
+      submitted for a given batch, based on the phase of processing in a workflow. The Perl code is
+      responsible for producing a batch, submitting it to the Babel XSLT system, and then examining
+      the batch log report to determine whether or not the job was completed successfully, and to
+      report any messages emitted by the stylesheet.</textual></para></section><section class="po-hcontainer e668 e668"><title class="po-block e669 e669"><textual class="po-textual">Conclusion</textual></title><para class="po-block e670 e670"><textual class="po-textual">By far our most challenging experience has been that of educating everyone within our
+      organization. Our developers are faced with new systems that make use of a bewildering array
+      of specifications and standards, and it has not been easy for everyone involved to come up to
+      speed on everything; our developers have demanded better documentation and clearer
+      explanations of how the new systems work.</textual></para><para class="po-block e671 e671"><textual class="po-textual">In terms of performance, we've found the XML-based technologies to be adequate, if not
+      stellar. When we've needed to improve performance we've applied traditional techniques:</textual><itemizedlist class="po-table e672 e672"><listitem class="po-container e673 e673"><para class="po-block e674 e674"><textual class="po-textual">Don't perform work if you don't need to (e.g., Firenze's ability to remove handlers
+            from the stack when the handler has completed its task).</textual></para></listitem><listitem class="po-container e675 e675"><para class="po-block e676 e676"><textual class="po-textual">Take advantage of optimized representations of your data, if available (e.g., using
+            compiled Templates, making use of optimized Source implementations).</textual></para></listitem><listitem class="po-container e677 e677"><para class="po-block e678 e678"><textual class="po-textual">Develop caching techniques at multiple layers, trading space for time.</textual></para></listitem><listitem class="po-container e679 e679"><para class="po-block e680 e680"><textual class="po-textual">Examine your algorithms to determine if they are the best fit for the
+            application.</textual></para></listitem></itemizedlist></para><para class="po-block e681 e681"><textual class="po-textual">Applying these techniques, the XML-based technologies we've discussed here can be made
+        </textual><emphasis class="po-inline e682 e682"><textual class="po-textual">fast enough</textual></emphasis><textual class="po-textual"> for most of our needs.</textual></para><para class="po-block e683 e683"><textual class="po-textual">The advantages we see to using a unified, RESTful, XML data store paired with high-level
+      declarative programming languages like XSLT and XQuery are:</textual><itemizedlist class="po-table e684 e684"><listitem class="po-container e685 e685"><para class="po-block e686 e686"><textual class="po-textual">It is easier to introduce changes to our data models.</textual></para></listitem><listitem class="po-container e687 e687"><para class="po-block e688 e688"><textual class="po-textual">There's no need to spend time writing code that converts data from one data model
+            into another (e.g., from relational form to an object-oriented form and back).</textual></para></listitem></itemizedlist></para></section><section class="po-hcontainer e689 e689"><title class="po-block e690 e690"><textual class="po-textual">Acknowledgements</textual></title><para class="po-block e691 e691"><textual class="po-textual">I would like to thank Craig Jurney </textual><email class="po-field e692 e692"><textual class="po-textual">cjurney@stanford.edu</textual></email><textual class="po-textual">, the architect and
+      developer of the Firenze system, and Jules Milner-Brage </textual><email class="po-field e693 e693"><textual class="po-textual">jules@adakara.com</textual></email><textual class="po-textual">, the
+      primary architect of the SASS specification and the architect and developer of the Babel XSLT
+      system, for their comments and advice during the preparation of this paper.</textual></para></section><bibliography class="po-hcontainer e694 e694"><title class="po-block e695 e695"><textual class="po-textual">References</textual></title><bibliomixed class="po-block e696 e696" xml:id="fielding" xreflabel="Fielding2000"><textual class="po-textual">Roy Thomas Fielding,
+        </textual><emphasis class="po-inline e697 e697"><textual class="po-textual">Architectural Styles and the Design of Network-based Software
+        Architectures,</textual></emphasis><textual class="po-textual"> Ph.D. Thesis, University of California, Irvine, Irvine,
+      California, 2000. [online]. [cited July 2009].
+        </textual><link class="po-inline e698 e698" xlink:actuate="onRequest" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://www.ics.uci.edu/~fielding/pubs/dissertation/top.htm</textual></link><textual class="po-textual">.</textual></bibliomixed><bibliomixed class="po-block e699 e699" xml:id="atompub" xreflabel="AtomPub2007"><textual class="po-textual">Joe Gregorio, ed. and Bill de
+      Hóra, ed. </textual><emphasis class="po-inline e700 e700"><textual class="po-textual">The Atom Publishing Protocol,</textual></emphasis><textual class="po-textual"> Internet RFC 2053,
+      October 2007. [online]. [cited July 2009].
+      </textual><link class="po-inline e701 e701" xlink:actuate="onRequest" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://tools.ietf.org/html/rfc5023</textual></link><textual class="po-textual">.</textual></bibliomixed><bibliomixed class="po-block e702 e702" xml:id="atom" xreflabel="Atom2005"><textual class="po-textual">M. Nottingham, ed. and R. Sayre, ed.
+        </textual><emphasis class="po-inline e703 e703"><textual class="po-textual">The Atom Syndication Format,</textual></emphasis><textual class="po-textual"> Internet RFC 4287, December 2005 [online].
+      [cited July 2009]. </textual><link class="po-inline e704 e704" xlink:actuate="onRequest" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://tools.ietf.org/html/rfc4287</textual></link><textual class="po-textual">.</textual></bibliomixed><bibliomixed class="po-block e705 e705" xml:id="cc" xreflabel="Nottingham2007"><textual class="po-textual">M. Nottingham, </textual><emphasis class="po-inline e706 e706"><textual class="po-textual">HTTP Cache
+        Channels,</textual></emphasis><textual class="po-textual"> October 2007. [online]. [cited July 2009].
+        </textual><link class="po-inline e707 e707" xlink:actuate="onRequest" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://ietfreport.isoc.org/idref/draft-nottingham-http-cache-channels/</textual></link><textual class="po-textual">.</textual></bibliomixed><bibliomixed class="po-block e708 e708" xml:id="arc" xreflabel="Megiddo2003"><textual class="po-textual">Nimrod Megiddo and Dharmendra S. Modha,
+        </textual><emphasis class="po-inline e709 e709"><textual class="po-textual">ARC: A Self-Tuning, Low Overhead Replacement Cache</textual></emphasis><textual class="po-textual">, USENIX File and
+      Storage Technologies (FAST), March 31, 2003, San Francisco, CA. [online]. [cited July 2009].
+        </textual><link class="po-inline e710 e710" xlink:actuate="onRequest" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://www.almaden.ibm.com/StorageSystems/projects/arc/arcfast.pdf</textual></link><textual class="po-textual">.</textual></bibliomixed></bibliography></article></classedDocument>

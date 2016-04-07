@@ -1,0 +1,1058 @@
+<?xml version="1.0" encoding="UTF-8"?><article xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink" version="5.0-subset Balisage-1.3"><title>Analysing XSLT Streamability</title><info><confgroup><conftitle>Balisage: The Markup Conference 2014</conftitle><confdates>August 5 - 8, 2014</confdates></confgroup><abstract><para>Determining streamability of constructs in XSLT3.0 involves application of a set of
+        rules that appear to be complex. A tool that analyses these rules on a given stylesheet has
+        been developed to help developers understand why sections which were designed with streaming
+        might fail the required conditions. This paper discusses the structure of this analysis
+        tool. The development was funded by Saxonica. </para></abstract><author><personname><firstname>John</firstname><surname>Lumley</surname></personname><personblurb><para>A Cambridge engineer by background, John Lumley created the AI group at Cambridge
+          Consultants in the early 1980s and then joined HPLabs Bristol as one of its founding
+          members. He worked there for 25 years, managing and contributing in a variety of
+          software/systems fields, latterly specialising in XSLT-based document engineering, in
+          which he subsequently gained a PhD. He is currently helping develop the Saxon XSLT
+          processor for Saxonica.</para></personblurb><affiliation><orgname>jωL Research</orgname></affiliation><affiliation><orgname>Saxonica</orgname></affiliation><email>john@jwlresearch.com</email></author><legalnotice><para>Copyright © 2014 jωL Research Ltd. All rights reserved.</para></legalnotice></info><section><title>Introduction</title><para>XSLT has gradually developed over the past decade from a 'browser-based' document
+      transformer/generator into a fully-fledged, industrial scale, functional processing tool,
+      aimed at XML documents. As such its 3.0 version has introduced support for
+        <quote>streaming</quote> processing of very large documents. To do this effectively, the
+      XSLT specification has had to outline a very extensive, very detailed, and ostensibly very
+      complex, set of rules defining the conditions under which a given program can be guaranteed to
+      be processable in a streaming manner.</para><para>This paper describes an interactive static analysis and display tool that can be used to
+      examine the evaluation of these rules on (fragments of) a given XSLT stylesheet, so developers
+      of processes intended for streaming may understand better whether their programs can indeed be
+      processed in a streaming fashion, and if not, perhaps why not. This tool also includes active
+      linking to appropriate sections of the specification to further increase comprehension. </para><para>As the tool was being developed while these rules were being developed, proven and changed
+      by the XSLT Working Group, it was important that the tool itself could be flexible to changes
+      in these rules. [See <xref linkend="type.model"/> for a very good case of this happening.]
+      Accordingly, the tool makes significant use of declarative descriptions of sections of the
+      rules rather than direct code, some defined directly within the tool, some as external data
+      files and some extracted from the specification itself, or other parts of the specification
+      definitional framework. </para><para>This paper is organised as follows: </para><itemizedlist><listitem><para>The model for streaming in XSLT 3.0 is presented and the specification-defined rules
+          are discussed briefly.</para></listitem><listitem><para>The tool is illustrated in action on a simple example taken from the XSLT
+          specification.</para></listitem><listitem><para>The basic overall design is discussed: analysing the streaming properties, displaying
+          the results and delivering the tool as a web service.</para></listitem><listitem><para>XPath expressions embedded in XSLT programs need to be expanded into their parse trees
+          for analysis – the model for doing this is detailed. </para></listitem><listitem><para>The model for evaluating the streamability rules is discussed in some detail, with all
+          the streaming properties being attached to the stylesheet tree as attributive
+          properties.</para></listitem><listitem><para>Interactive display of the results involves serialisation of the annotated result tree
+          as an HTML page, with styling through CSS and interaction through a Saxon-CE supported
+          XSLT2.0 stylesheet. </para></listitem><listitem><para>A final conclusion presents lessons for the development of this type of analysis tool
+          within the XML world.</para></listitem></itemizedlist><para>The entirety of the tool is written in XSLT3.0 and of course is about manipulating
+      XSLT3.0. Thus a reasonable knowledge of XSLT3.0 (or at least 2.0) is assumed on the part of
+      the reader.</para><note><para>This paper discusses interpreting the rules for guaranteed streamability within XSLT,
+        but through the imperfect eyes of the author and the potentially fallible medium of a
+        program that ostensibly follows those rules. In particular the samples and examples in the
+        paper date mainly from the Working Draft specification of December 2013 and several changes
+        have occurred since, especially in a new static type model. <emphasis>The definitive guide
+          is the specification itself, which is, and always will be, the ultimate
+        arbiter</emphasis>. The author assumes no responsibility for errors (positive or negative),
+        omissions and shortcomings. If in doubt read the 20,000 words yourself!</para></note><section><title>Major points</title><para>The development of this tool is based on three major points, which can be relevant to
+        any similar system that needs to analyse properties of an XSLT program:</para><itemizedlist><listitem><para>The entire coding can be, and perhaps is best, written in XSLT3.0</para></listitem><listitem><para>The best data structure to hold a lot of varied information about an XSLT program is
+            the tree that defines the program itself.</para></listitem><listitem><para>Declarative structures (tables, trees, even parts of the specification) can be used
+            effectively to either i) be interpreted to evaluate effect, or even ii) compiled to
+            program sections, or an intermediate computational form such as maps.</para></listitem></itemizedlist></section></section><section><title>Streaming in XSLT3.0</title><para>One of the design goals in updating XSLT from version 2.0 to version 3.0 was support for
+      processing <quote>very large</quote> documents – XML documents whose complete tree
+      descriptions could not fit in memory, and for which processing or generation of output would
+      have to proceed before all input had been read. The full details of the design chosen can be
+      found in the <link xlink:href="http://www.w3.org/TR/xslt-30/#streaming" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Streaming</link> and
+        <link xlink:href="http://www.w3.org/TR/xslt-30/#streamability" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Streamability</link> sections
+      of the XSLT3.0 specification. Two papers on streaming presented at XML Prague 2014 (<xref linkend="Braaksma1"/>, <xref linkend="Kay"/>) give much more detail.</para><para>The basic approach chosen is to declare that a given document should be processed in a
+      streaming manner by using the <code>&lt;xsl:stream
+        href="</code><emphasis><code>doc</code></emphasis><code>"&gt;</code> instruction which
+      processes the (XML) data of the given document according to the instructions supplied as
+      children of the <code>xsl:stream</code> and returns the result. The essential issue is whether
+      the instructions requested as a set can process the document without having to either i)
+      collect and <emphasis>store</emphasis> the whole document to produce the result or ii)
+        <emphasis>back-up</emphasis> to parts of the document <emphasis>before</emphasis> the
+      current context node. </para><para>The model used is to examine two contextual properties of the instructions:
+        <emphasis>posture</emphasis> and <emphasis>sweep</emphasis>, and determine whether the
+      sequence constructor (the sequence of contained instructions) of the <code>xsl:stream</code>
+      has a <code>grounded</code> posture. If so then the processing of the <code>xsl:stream</code>
+      is <emphasis>guaranteed streamable</emphasis> and a compliant streaming XSLT3.0 processor will
+      process the document in a streaming manner. Such analysis is completely static and can be
+      performed either at compile time (which is what a compiler will need to do) or in a separate
+      phase of static analysis and display, which this paper is about.</para><para>Partially quoting <xref linkend="Kay"/>, these two properties are functions of the
+      construct itself (an XSL instruction, an XPath expression term or a function call), the
+      context posture (i.e. the posture generally of the 'parent') and sometimes the data type. They
+      have the following meanings: </para><blockquote><title>The sweep of a construct</title><para>The <emphasis>sweep</emphasis> indicates how much of the input document is needed to
+        evaluate the construct. The values are</para><itemizedlist><listitem><para><emphasis>Motionless</emphasis>: the construct either doesn’t look at the input
+            document at all, or it only needs to look at the place where the input document is
+            currently positioned.</para></listitem><listitem><para><emphasis>Consuming</emphasis>: the construct needs to read everything between the
+            current start tag and the corresponding end tag</para></listitem><listitem><para><emphasis>Free-ranging</emphasis>: the construct potentially needs to read outside
+            the slice of the document represented by the current element and its ancestors.</para></listitem></itemizedlist></blockquote><blockquote><title>The posture of a construct</title><para>The <emphasis>posture</emphasis> is concerned with determining whether an expression
+        returns nodes from the streamed input document, and if so, where these nodes come from.
+        There are five values:</para><itemizedlist><listitem><para><emphasis>Grounded</emphasis>: this means that the expression doesn't return nodes
+            from the streamed input. It either returns atomic values (or function items), or it
+            returns nodes from non-streamed documents only.</para></listitem><listitem><para><emphasis>Striding</emphasis>: this means that the expression returns a set of nodes
+            from the streamed input document, in document order, and that none of these nodes will
+            contain another node in the result (none is an ancestor or descendant of
+            another).</para></listitem><listitem><para><emphasis>Crawling</emphasis>: again, the expression returns a set of nodes from the
+            streamed input document, in document order, but this time some of the nodes may be
+            ancestors or descendants of others.</para></listitem><listitem><para><emphasis>Climbing</emphasis>: The specification assumes that when an input document
+            is streamed, a stack of information is retained containing details of the names and
+            attributes of all ancestor elements of the element at which the stream is currently
+            positioned. Any expression that accesses ancestor nodes or their attributes from this
+            stack has a posture of climbing.</para></listitem><listitem><para><emphasis>Roaming</emphasis> : This indicates that an expression navigates off to
+            parts of the document that aren't accessible when streaming, such as preceding or
+            following siblings.</para></listitem></itemizedlist></blockquote><section><title>Streamability rules</title><para>The specification provides a <emphasis>very</emphasis> detailed and very large set of
+        rules for determining these properties for a given construct in a given situation within an
+        XSLT stylesheet. (To give a sense of the size, the streamability rules take approximately
+        20,000 words of the 160,000 in the specification's main body, and the section on streaming
+        itself another 6000 words.) The detail is necessary to ensure that simple constructs, which
+        at first glance should be streamable, actually are – a highly conservative simpler set of
+        rules would exclude many common cases.</para><note><para>Whilst these rules are intended to be complete, <xref linkend="Braaksma2"/>, presented
+          at XML London , gives a more informal set of guidelines, intended to support designers
+          creating or refactoring their code for streaming.</para></note><para>These rules split into four general categories: i) a set of <emphasis>General
+          Streamability Rules</emphasis> (usually abbreviated to GSR), ii) a set of specific rules
+        for every XSL instruction, iii) rules for each XPath expression term and iv) rules for all
+        built-in XPath functions. Examples of these rules will be given in later sections.</para><para>To analyse the streamability of a given <code>xsl:stream</code> instruction it is
+        (usually) necessary to recursively apply these rules to <emphasis>every</emphasis> construct
+        contained within (every XSL instruction, every XPath term), and in addition any 'external'
+        resources, such as <code>xsl:template</code> or <code>xsl:function</code> (and their
+        definitions) that may be invoked.<footnote><para>Applicable templates must be invoked in a mode that has been declared to be
+            streamable (<code>xsl:mode name=".." streamable="yes"</code>) so the set of templates to
+            be examined is restricted.</para></footnote></para><para>It is anticipated that developers who are designing streamable transformations, will
+        acquire a sense of the spirit of these rules, but to start may have to work through the
+        rules in detail on a given problem. Whilst these calculations can be performed 'by hand', it
+        can be somewhat tortuous, and slow, involving very deep recursions and much scrolling back
+        and forth through the specification<footnote><para>The author was present when the XSLT Working Group analysed 'by hand' (and
+            conference call) the streamability of a 5 instruction stylesheet, with XPath expressions
+            perhaps 4-5 terms deep. They almost managed to complete the process in about 50
+            minutes.</para></footnote>.</para><para>To assist in such early study of streamability, the author has built a tool, funded by
+        Saxonica, to perform such analysis on a given stylesheet and display the results in a form
+        that the intermediate properties and the relevant rules can be explored interactively. The
+        rest of this paper is about the structure of this tool.</para><note><para>The tool is at the time of writing available at <link xlink:href="http://dev.saxonica.com/stream/index.html" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Saxonica Community: Streaming
+            Analysis</link> which is intended only to analyse small single stylesheets (no support
+          for inclusion), or some of the specification and W3C test-case examples. Saxonica Ltd
+          reserves the right to withdraw this service without notice and makes no guarantees as to
+          the veracity of the results. </para></note></section></section><section><title>A Quick Tour</title><para>The tool is controlled by and presents its results as an XHTML web page, which is usually
+      connected to a server providing the analysis operation. It's best to start off with a quick
+      picture of what the tool provides, operating in this case on one of the examples from the
+      specification:</para><figure xml:id="sample-a"><title>Sample stylesheet</title><mediaobject><imageobject><imagedata format="png" fileref="../../../vol13/graphics/Lumley01/Lumley01-001.png"/></imageobject></mediaobject></figure><para>A stylesheet can be uploaded to the analysis tool, or as in this case, a pre-loaded
+      example taken from the specification is selected. A serialised version of the source is
+      displayed, with styling, line-numbering and fold/unfold controls. The
+        <code>xsl:template</code> and <code>xsl:stream</code> have green backgrounds as the analysis
+      has concluded that they are <emphasis>guaranteed streamable</emphasis> – if this were not the
+      case they would have red backgrounds. The implicit sequence constructors have been displayed
+      explicitly. Many of the elements of the serialisation are sensitive to mouse-click...</para><figure xml:id="sample-b"><title>XPath expressions revealed</title><mediaobject><imageobject><imagedata format="png" fileref="../../../vol13/graphics/Lumley01/Lumley01-002.png"/></imageobject></mediaobject></figure><para>By clicking on the two XPath-containing attributes (<code>@match</code> and
+        <code>@select</code> of lines 2 and 5 respectively) we reveal the full trees representing
+      the parsing of these expressions, whose properties will become crucial in determining
+      streamability. By selecting amongst the check-boxes we can then show some of the streaming
+      properties that have been calculated:</para><figure xml:id="sample-c"><title>Streaming properties displayed</title><mediaobject><imageobject><imagedata format="png" fileref="../../../vol13/graphics/Lumley01/Lumley01-003.png"/></imageobject></mediaobject></figure><para>Here we have chosen to display both the <quote>role</quote> of each of the XPath
+      expressions (whose importance will be explained later), and the calculated <emphasis>static
+        type</emphasis> and <emphasis>posture</emphasis> for each element in both XPath expression
+      and XSLT instruction constructs. These are displayed in distinctly shortened and styled forms,
+      as if they were attributive properties of each element.</para><figure xml:id="sample-d"><title>Applied rules identified</title><mediaobject><imageobject><imagedata format="png" fileref="../../../vol13/graphics/Lumley01/Lumley01-004.png"/></imageobject></mediaobject></figure><para>Not only is it useful to display the calculated property, but it is also exceptionally
+      helpful to understand why it has that value. In this case we have displayed the sections of
+      the <quote>General Streamability Rules</quote> that were triggered, if those rules were used
+      on that particular construct. If we click on one of these decorations a subsidiary browser
+      window or tab shows the first section of the rules which were applied:.</para><figure xml:id="sample-e"><title>Applicable general streamability rules</title><mediaobject><imageobject><imagedata format="png" fileref="../../../vol13/graphics/Lumley01/Lumley01-005.png"/></imageobject></mediaobject></figure><para>Here case <code>1.b.iii.A.II</code> was appropriate (the <quote>usage</quote> wasn't
+      modified). Other relevant portions of the specification can be displayed in a similar manner –
+      clicking on the <code>AxisStep</code> element brings up the specification-defined process for
+      determination of the streamability of such an expression:</para><figure xml:id="sample-f"><title>Relevant specification sections linked</title><mediaobject><imageobject><imagedata format="png" fileref="../../../vol13/graphics/Lumley01/Lumley01-006.png"/></imageobject></mediaobject></figure><para>The rest of this paper looks at the details of the design of the tools to achieve these
+      effects.</para></section><section><title>Basic Design</title><para>The tool splits broadly into three sections: i) determining the appropriate streaming
+      properties for all nodes on a stylesheet 'tree', ii) preparing an interactive display of the
+      stylesheet where these properties can be examined and iii) combining these in a web-server
+      such that stylesheets can be uploaded and interactive result web pages returned. With the
+      exception of the web-server package deployment, the analysis tool is built entirely in
+      XSLT3.0, generating an interactive display result which is a combination of (X)HTML, CSS and
+      XSLT2.0 delivered using Saxon-CE. </para><section><title>Determining streaming properties</title><para>To analyse the streaming properties for a given stylesheet, we at least need to
+        recursively descend the stylesheet tree from any <code>xsl:stream</code> instructions, or
+          <code>xsl:template</code> nodes that can be invoked in a streamable mode, and calculate
+        these properties based on a contextual state, the specific construct and most likely the
+        properties of its children, hence the deep recursion. Not only does this process have to
+        involve XSLT instructions, it must also involve XPath expressions contained within various
+        attributes of those instructions, as they are the mechanisms whereby XSLT selects data nodes
+        of interest, and their behaviour in 'moving around' the data tree is critical to
+        streamability. In effect, for purposes of streamability, the XPath expressions (which can be
+        described from their parse trees) are tree-extensions of the main stylesheet, albeit
+        technically anchored through attributes rather than elemental children. </para><para>This process starts by producing a modified version of the XSLT tree, in which
+        additional sub-trees describe these XPath expressions and which has explicit sequence
+        constructors. For example the template:</para><figure xml:id="show-2"><title>Sample XSLT</title><programlisting xml:space="preserve">&lt;xsl:template match="/"&gt;
+  &lt;xsl:stream href="book.xml"&gt;
+    &lt;xsl:for-each select="book"&gt;
+      &lt;xsl:for-each select="chapter"&gt;
+        &lt;xsl:result-document href="chapter{position()}.xml"&gt;
+          &lt;xsl:copy-of select="."/&gt;
+        &lt;/xsl:result-document&gt;
+      &lt;/xsl:for-each&gt;
+    &lt;/xsl:for-each&gt;
+  &lt;/xsl:stream&gt;
+&lt;/xsl:template&gt;</programlisting></figure><para>is transformed into another tree with additional children and attributes:</para><figure xml:id="show-3"><title>Transformed XSLT</title><programlisting xml:space="preserve">&lt;xsl:template match="/" l:no="2" xmlns:xp="http://saxonica.com/xpathParse" xmlns:s="StreamAnalysis"&gt;
+  &lt;xp:AxisStep axis="self" nodeTest="document-node()" s:role="match"/&gt;
+  &lt;s:sequence-constructor&gt;
+    &lt;xsl:stream href="book.xml" l:no="3"&gt;
+      &lt;s:sequence-constructor&gt;
+        &lt;xsl:for-each select="book" l:no="4"&gt;
+          &lt;xp:AxisStep axis="child" nodeTest="element(book)" s:role="select"/&gt;
+          &lt;s:sequence-constructor&gt;
+            &lt;xsl:for-each select="chapter" l:no="5"&gt;
+              &lt;xp:AxisStep axis="child" nodeTest="element(chapter)" s:role="select"/&gt;
+              &lt;s:sequence-constructor&gt;
+                &lt;xsl:result-document href="chapter{position()}.xml" l:no="6"&gt;
+                  &lt;xp:FunctionCall name="position" s:role="AVT.href.1"/&gt;
+                  &lt;s:sequence-constructor&gt;
+                    &lt;xsl:copy-of select="." l:no="7"&gt;
+                      &lt;xp:ContextItemExpr s:role="select"/&gt;
+                    &lt;/xsl:copy-of&gt;
+                  &lt;/s:sequence-constructor&gt;
+                &lt;/xsl:result-document&gt;
+              &lt;/s:sequence-constructor&gt;
+            &lt;/xsl:for-each&gt;
+          &lt;/s:sequence-constructor&gt;
+        &lt;/xsl:for-each&gt;
+      &lt;/s:sequence-constructor&gt;
+    &lt;/xsl:stream&gt;
+  &lt;/s:sequence-constructor&gt;
+&lt;/xsl:template&gt;</programlisting></figure><para>The sequence constructors have been made explicit as <code>s:sequence-constructor</code> children<footnote><para>We could have used <code>xsl:sequence</code> which in XSLT3.0 can contain a sequence
+            constructor (!) but placing it in a separate namespace makes the implementation
+            tidier.</para></footnote>. If, for example, the <code>xsl:for-each select="book"</code> had contained an
+          <code>xsl:sort</code> directive, this would <emphasis>not</emphasis> be contained within
+        the sequence constructor pseudo-child. The XPath expressions contained within attributes
+        have been placed as children in the <code>xp:</code> namespace, each having an attribute
+          (<code>@s:role</code>) describing the role it takes within the containing instruction,
+        using a simple naming scheme for identifying expressions contained within attribute value
+        templates. (The <code>@l:no</code> attributes have been added to denote original source line
+        numbers, for use in eventual display.) </para><para>With the expanded XSLT tree, a top-down analysis of the streamability is performed, by
+        evaluating the extensive rules outlined in the specification over tree nodes and their
+        children. The results are returned as a copy of the input tree decorated with a series of
+        attributes describing the streaming properties of each node. The inner
+          <code>xsl:result-document</code> sub-tree of our example becomes: </para><figure xml:id="show-4"><title>Analysed XSLT</title><programlisting xml:space="preserve">&lt;xsl:result-document id="d7794e12" href="chapter{position()}.xml" l:no="6"
+  s:contextItemType="element(chapter)" s:staticType="item()*" s:usage="transmission"
+  s:contextPosture="striding" s:href="#streamability-xsl-result-document" s:posture="grounded"
+  s:sweep="consuming" s:general="2.d.ii"&gt;
+  &lt;xp:FunctionCall id="d7794e13" name="position" s:role="AVT.href.1"
+    s:contextItemType="element(chapter)" s:staticType="xs:integer" s:contextPosture="striding"
+    s:href="#streamability-fn-position" s:posture="grounded" s:sweep="motionless" s:general="2.a"
+    s:sweepOriginal="motionless" s:generalOperand="1.b.ii"/&gt;
+  &lt;s:sequence-constructor id="d7794e14" s:contextItemType="element(chapter)"
+    s:staticType="element(chapter)" s:usage="absorption" s:href="#classifying-sequence-constructors"
+    s:contextPosture="striding" s:posture="grounded" s:sweep="consuming" s:sweepOriginal="consuming"
+    s:usageOriginal="absorption" s:generalOperand="1.b.ii,1.c.i" s:potentialConsumer=""&gt;
+    &lt;xsl:copy-of id="d7794e15" select="." l:no="7" s:contextItemType="element(chapter)"
+      s:staticType="element(chapter)" s:usage="transmission" s:contextPosture="striding"
+      s:href="#streamability-xsl-copy-of" s:posture="grounded" s:sweep="consuming"
+      s:general="2.d.ii"&gt;
+      &lt;xp:ContextItemExpr id="d7794e16" s:role="select" s:contextItemType="element(chapter)"
+        s:staticType="element(chapter)" s:usage="absorption"
+        s:href="#streamability-of-context-item-expression" s:contextPosture="striding"
+        s:posture="striding" s:sweep="consuming" s:sweepOriginal="motionless"
+        s:usageOriginal="absorption" s:generalOperand="1.b.iii.A.II,1.b.iii.B.2.1,1.c.i"
+        s:potentialConsumer=""/&gt;
+    &lt;/xsl:copy-of&gt;
+  &lt;/s:sequence-constructor&gt;
+&lt;/xsl:result-document&gt;</programlisting></figure><para>(The details of these annotations will be described later.) </para></section><section><title>Displaying the results</title><para>At this point, technically the analysis of the streamability is complete – examining
+        these streaming properties can assess whether an <code>xsl:stream</code> instruction is
+        indeed <emphasis>guaranteed streamable</emphasis>. However to be useful these results should
+        be displayed in a meaningful way, and with some interaction to restrict the almost certain
+        information overload. The basic approach is to convert the result tree into a serialised
+        HTML <code>pre</code>, which is styled through CSS, and where the visibility of various
+        sections can be controlled interactively, in this case using Saxon-CE transforms attached to
+        callbacks. The <code>xp:FunctionCall[@name='position']</code> shown highlighted in <xref linkend="show-4"/> is displayed as a line:</para><figure xml:id="show-5"><title>Displayed analysed expression</title><mediaobject><imageobject><imagedata format="png" fileref="../../../vol13/graphics/Lumley01/Lumley01-007.png"/></imageobject></mediaobject></figure><para>which is actually represented as a structure within <code>pre</code> as<footnote><para>Multi-line expansion and indentation is shown for clarity, but the single line is
+            actually <quote>flat</quote>.</para></footnote>:</para><figure xml:id="show-6"><title>Serialised display of analysed XSLT</title><programlisting xml:space="preserve">&lt;span class="XPtop" role="AVT.href" style="display:inline"&gt;
+  &lt;span class="lineNumber"&gt; &lt;/span&gt;
+  &lt;span class="XPelem"&gt;
+    &lt;a target="_spec" href="XSLT3.0-Spec#streamability-fn-position"&gt;FunctionCall&lt;/a&gt;
+  &lt;/span&gt;
+  &lt;span class="XMLatt"&gt;
+      name=&lt;span class="XMLquot"&gt;"position"&lt;/span&gt;
+  &lt;/span&gt;
+  &lt;span class="stream"&gt;
+    &lt;span class="streamProperty role" type="role" style="display:inline"&gt;
+      &lt;span class="propName"&gt;r:&lt;/span&gt; AVT.href.1
+    &lt;/span&gt;
+    &lt;span class="streamProperty contextItemType" type="contextItemType" style="display:none"&gt;
+      &lt;span class="propName"&gt;ct:&lt;/span&gt; document-node()
+    &lt;/span&gt;
+    &lt;span class="streamProperty staticType" type="staticType" style="display:inline"&gt;
+      &lt;span class="propName"&gt;t:&lt;/span&gt; xs:integer
+    &lt;/span&gt;
+    ...
+    &lt;span class="streamProperty posture" type="posture" style="display:inline"&gt;
+      &lt;span class="propName"&gt;p:&lt;/span&gt; grounded
+    &lt;/span&gt;
+    ...
+    &lt;span class="streamProperty generalOperand" type="generalOperand" style="display:inline"&gt;
+      &lt;a target="_spec" href="XSLT3.0-Spec#gsr-1.b.ii"&gt;
+        &lt;span class="propName"&gt;rule.op:&lt;/span&gt;1.b.ii&lt;/a&gt;
+    &lt;/span&gt;
+  &lt;/span&gt;
+  &gt;
+&lt;/span&gt;</programlisting></figure><para>The <quote>stream</quote> span contains all the streaming properties, each being styled
+        and differentiated via CSS through the <code>@class</code> attribute. Interaction through
+        the tool check-boxes toggles the <code>@style</code> between <code>display:none</code> and
+          <code>display:inline</code>, thus revealing or concealing the properties. The
+          <code>generalOperand</code> class contains a hyperlink to the section of the General
+        Streamability Rules that was used when treating this construct as an operand of its parent.
+        How these decorations are added is described later. </para></section><section><title>Delivering the service</title><para>The analysis tool is an XSLT transform that delivers a modified XSLT tree. The display
+        generator is another transform that takes that tree and delivers an (interactive) HTML page.
+        These could be combined into a single package, but we have chosen to implement this analysis
+        as a web service, permitting stylesheets to be uploaded for examination. To do this we've
+        used the <xref linkend="Servlex"/> webapp package tool . The general architecture of the
+        delivery platform is: </para><figure xml:id="show-7"><title>Streamability analysis as a web service</title><mediaobject><imageobject><imagedata format="png" fileref="../../../vol13/graphics/Lumley01/Lumley01-008.png"/></imageobject></mediaobject></figure><para>Apart from delivery of resource classes (e.g. <code>*.html</code>,<code>*.css</code> and
+          <code>*.js</code>, which includes the Saxon-CE 'compiler'...), three principal messages
+        are processed by the web package:</para><variablelist><varlistentry><term>analyze.html</term><listitem><para>Executes an XSLT transform that generates the main tool page, including collecting
+              all the preloaded examples and forming drop-down selectors to choose them.</para></listitem></varlistentry><varlistentry><term>analyzeStream</term><listitem><para>Is accompanied by the upload of the source stylesheet<footnote><para>At present relative indirect stylesheets (e.g. <code>xsl:include
+                    href="more.xsl"</code>) are not supported, as of course the server cannot
+                  request from the client file system, though 'web-accessible' links could be
+                  followed. A system where all the stylesheets were web-accessible could be
+                  developed easily.</para></footnote>which is processed for analysis followed by serialisation of the result
+              into an interactive web-page, which displays in a frame in the main tool.</para></listitem></varlistentry><varlistentry><term>XSLT3.0-Spec</term><listitem><para>Generates an annotated version of the current W3C specification, mostly in terms
+              of labelling all the cases in the <quote>General Streamability Rules</quote> so they
+              can linked to by fragment identifiers (e.g. <code>#gsr-1.b.iii.A.II</code>). The
+              specification is displayed in a separate tab or window for ease of use. (The annotated
+              specification should be stored in the Servlex web cache, so this regeneration should
+              be infrequent.)</para></listitem></varlistentry></variablelist><para> This delivery mechanism will not be described further in this paper, save that we found
+        Servlex to be an excellent vehicle for constructing such a service.</para></section><section><title>Limitations and assumptions</title><para>The tool assumes of course that the stylesheets are well formed XML, and syntactically
+        correct XSLT, or more correctly only analyses them on the basis that they are syntactically
+        correct. Little error checking is performed.</para></section></section><section><title>Expanding XPath Expressions</title><para>To analyse XSLT streamability it is necessary to examine from where in the XML input tree
+      data is being collected by stylesheet instructions. These operations are obviously described
+      as XPath expressions, which can be highly compound in nature, such as mixing searches along
+      different axes (child, ancestor, following etc.), predicates and a number of built-in
+      functions. Analysis of streamability has to examine the structures of these expressions - the
+      rules are described with reference to the EBNF grammar for XPath, defined in <link xlink:href="http://www.w3.org/TR/xpath-30/#nt-bnf" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">XPath 3.0 Grammar</link>. Thus for our
+      purposes it is most convenient to generate parse result trees corresponding to the XPath
+      expressions contained in attribute values (e.g. <code>@select</code>) or attribute value
+      templates (e.g. <code>href="example{position()}.xml"</code>).</para><para>As the analysis is being performed in an XSLT environment, such parsing can be performed
+      most conveniently with a parser itself written in XSLT. Luckily the <xref linkend="REx"/>
+      parser generator can be configured to generate parsers in several languages, including XSLT,
+      which can both test against a grammar and built a result XML parse tree. REx can indeed
+      generate a working XPath 3.0 parser to run in XSLT. The nub of the expansion is shown in <xref linkend="operand"/> :</para><figure xml:id="operand"><title>Parsing XPath expressions</title><programlisting xml:space="preserve">&lt;xsl:include href="../rex/xpath3.0-parse.xslt"/&gt;
+...
+&lt;xsl:template match="@select|@test|@match|@group-adjacent" mode="operand"&gt;
+  &lt;xsl:variable name="role" select="name(.)"/&gt;
+  &lt;xsl:for-each select="xp:parse.xpath(.)"&gt;
+    &lt;xsl:copy&gt;
+      &lt;xsl:sequence select="@*"/&gt;
+      &lt;xsl:attribute name="s:role" select="$role"/&gt;
+      &lt;xsl:sequence select="*|text()"/&gt;
+    &lt;/xsl:copy&gt;
+  &lt;/xsl:for-each&gt;
+&lt;/xsl:template&gt;
+</programlisting></figure><para><code>xpath3.0-parse.xslt</code> links to the transform that has been generated by REx.
+        <code>xp:parse.xpath()</code> performs some tactical rewriting of an XPath string (see <xref linkend="rewrites"/>), calls the REx-generated parser and does some post-processing
+      (namespace remapping, collapsing of singleton leaf sub-trees, etc...) before returning the
+      completed parse-tree. The <code>operand</code> mode generates a child element containing that
+      XPath parse tree, identified with the role of the expression (in this case the attribute name)
+      - this role will be used in later operations to identify different instruction-specific
+      treatments as far as effect on streaming is concerned. These operands trees are generated from
+      a main template shown in <xref linkend="Expand-constructs"/>, where not only are common XPath
+      carriers (e.g. <code>@select</code>) processed, but also attributes that are identified as
+      containing <emphasis>attribute value templates</emphasis>, using the predicate test function
+        <code>xp:is.AVT()</code>.</para><figure xml:id="Expand-constructs"><title>Expanding constructs</title><programlisting xml:space="preserve">&lt;xsl:template match="xsl:*" mode="xp:P"&gt;
+  &lt;xsl:copy&gt;
+    &lt;xsl:apply-templates select="@*" mode="#current"/&gt;
+    &lt;xsl:call-template name="line-number"/&gt;
+    &lt;xsl:apply-templates select="." mode="xp:implict-select"/&gt;
+    &lt;xsl:apply-templates select="@select,@test,@match,@group-adjacent" mode="operand"/&gt;
+    &lt;xsl:apply-templates select="@*[xp:is.AVT(.)]" mode="operand"/&gt;
+    &lt;xsl:for-each-group select="*|text()[matches(.,'\S+')]"
+      group-adjacent="xp:is.sequence-constructor(.)"&gt;
+      &lt;xsl:choose&gt;
+        &lt;xsl:when test="current-grouping-key()"&gt;
+          &lt;s:sequence-constructor&gt;
+            &lt;xsl:apply-templates select="current-group()" mode="#current"/&gt;
+          &lt;/s:sequence-constructor&gt;
+        &lt;/xsl:when&gt;
+        &lt;xsl:otherwise&gt;
+          &lt;xsl:apply-templates select="current-group()" mode="#current"/&gt;
+        &lt;/xsl:otherwise&gt;
+      &lt;/xsl:choose&gt;
+    &lt;/xsl:for-each-group&gt;
+  &lt;/xsl:copy&gt;
+&lt;/xsl:template&gt;</programlisting></figure><para>As well as generating the operand trees, this template also: </para><itemizedlist><listitem><para>processes instructions that have an implicit selection role, such as
+            <code>xsl:apply-templates[empty(@select)]</code> or <code>xsl:next-match</code> to add
+          the implicit context XPath expression tree,</para></listitem><listitem><para>assigns a line-number-recording attribute, and</para></listitem><listitem><para>collects all the contiguous elements and text nodes of the sequence constructor(s)
+          together under <code>s:sequence-constructor</code> elements. The function
+            <code>xp:is.sequence-constructor()</code> provides a suitable test – elements which are
+          configurations or parameters of the instruction, such as <code>xsl:param</code> or
+            <code>xsl:sort</code>, return <code>false()</code>.</para></listitem></itemizedlist><section><title>Inclusions</title><para>Stylesheets often include resources from other stylesheets, using
+          <code>xsl:include</code> and <code>xsl:import</code> redirection instructions. For
+        purposes of streamability analysis they can both be treated similarly (implicit match
+        priorities are immaterial) and their document bodies are expanded as children of the
+        instruction. As far as this analysis is concerned, templates, functions and variable
+        directly within such inclusions are considered <quote>top-level</quote> to the outer
+        stylesheet. (The web-delivered service cannot process relative inclusions from uploaded
+        stylesheets.) </para></section></section><section><title>Applying Streamability Rules</title><para>With the complete expanded stylesheet we have all the necessary program information to
+      commence the streamability analysis. Whilst the rules are written recursively
+        <quote>top-down</quote>, the author found it helpful to split the process into three
+      sequential phases during which the tree is modified: required functionally equivalent rewrites
+      of some expressions to ensure possible streamability, determination of context focus and
+      construct type, followed by assessment of posture and sweep.</para><section xml:id="rewrites"><title>Preprocessing and rewriting</title><para>There are a number of (equivalence) rewrites defined in the specification that are
+        required to either i) generate a canonical form or ii) make common constructs streamable.
+        Some of these are most conveniently applied as textual rewrites to the original string (e.g.
+          <code>//</code> -&gt; <code>/descendant-or-self::node()/</code> ). Others are best applied as
+        rewrites on the tree, such as <xref linkend="rootNode"/> where the <code>treat as</code>
+        expression, forcing <code>document-node()</code> type, has been parsed to a tree.</para><figure xml:id="rootNode"><title>Root node rewriting</title><programlisting xml:space="preserve">&lt;xsl:template match="PathExpr[Token[1]='/'][count(*) gt 1]"&gt;
+  &lt;RelativePathExpr&gt;  
+    &lt;xsl:apply-templates select="
+      xp:parse.xPath('root(self::node()) treat as document-node()'),
+      tail(*)"/&gt;
+  &lt;/RelativePathExpr&gt;
+&lt;/xsl:template&gt;</programlisting></figure></section><section xml:id="declarative.tables"><title>Declarative tables</title><para>While the tree modifications described in this section are actually carried out by sets
+        of XSLT templates and functions, as much use as possible has been made of declarative tables
+        that define appropriate properties, that the XSLT can interpret to process sections
+        correctly. Using such tables increases flexibility and coherence extensively, collecting all
+        relevant properties together in one place and often making some changes merely altering the
+        value of an attribute.</para><figure xml:id="instructionConstructs"><title>Instruction descriptions</title><programlisting xml:space="preserve">&lt;xsltConstructs&gt;
+      &lt;X:for-each focus-changing="controlling controlled"
+        f-c="select:controlling sequence:controlled"/&gt;
+      &lt;X:iterate focus-changing="controlling controlled"/&gt;
+      &lt;X:result-document staticType="item()*"/&gt;
+      &lt;X:stream focus-changing="controlled" context-posture="striding"/&gt;
+      &lt;X:template focus-changing="controlling controlled" href="#streamable-templates"/&gt;
+      &lt;X:text staticType="text()"/&gt;
+      &lt;X:value-of staticType="text()"/&gt;
+      &lt;X:when href="#streamability-xsl-choose"/&gt;
+      &lt;X:otherwise href="#streamability-xsl-choose"/&gt;
+      &lt;s:sequence-constructor href="#classifying-sequence-constructors"/&gt;
+&lt;/xsltConstructs&gt;</programlisting></figure><para>These descriptions for some XSLT instructions describe i) if they are focus-changing and
+        if so, which of their operands control and are controlled by the change, using an order or
+        simple proforma, ii) a static type for the instruction, if it is independent of that
+        determined from context or children and iii) a hyperlink to the relevant streamability
+        specification section if it is not in the canonical form (e.g.
+          <code>#streambility-of-xsl-copy</code>). This description is used to produce a series of
+        maps relating instruction name to property such as <code>$spec-ref()</code>,
+          <code>$staticTypes()</code> that are used within XSLT processes described later.</para><figure xml:id="expressionConstructs"><title>Expression descriptions</title><programlisting xml:space="preserve">&lt;expressionConstructs href="#classifying-expressions"&gt;
+      &lt;xp:Expr usage="T*"/&gt;
+      &lt;xp:ForExpr usage="N T" href="#streamability-of-for-expressions"/&gt;
+      &lt;xp:SimpleForClause/&gt;
+      &lt;xp:LetExpr usage="N T"/&gt;
+      &lt;xp:QuantifiedExpr staticType="xs:boolean" href="#streamability-of-quantified-expressions"/&gt;
+      &lt;xp:IfExpr usage="if:I then:T else:T" href="#streamability-of-if-expressions"
+        choice-group="then else"/&gt;
+      &lt;xp:OrExpr staticType="xs:boolean" usage="I I"/&gt;
+      &lt;xp:AndExpr staticType="xs:boolean" usage="I I"/&gt;
+      &lt;xp:ComparisonExpr staticType="xs:boolean" usage="A A"/&gt;
+      ...
+      &lt;xp:Root staticType="document-node()"/&gt;
+&lt;/expressionConstructs&gt;</programlisting></figure><para>For XPath expression constructs we also describe the <emphasis>usage</emphasis> using a
+        proforma derived from a table (<link xlink:href="http://www.w3.org/TR/xslt-30/#streaming" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Classifying Expressions</link>) within the specification <footnote><para>It didn't quite appear that the table was itself regular enough to derive this data
+            from it automatically, but perhaps I should have persisted.</para></footnote>, and membership of a <emphasis>choice group</emphasis> of some of the operands.
+        For example, the <code>IfExpr</code> usage is defined to be that the operand having the
+          <code>if</code> role has an <emphasis>inspection</emphasis> usage, and both the
+          <code>then</code> and <code>else</code> operands have <code>transmission</code> usage, as
+        well defining that the <code>then</code> and <code>else</code> operands constitute a
+          <code>choice-group</code> (which effectively means that only <emphasis>one</emphasis> of
+        them, not both, must read the input stream).</para><section xml:id="type.model"><title>Type model</title><para>For some constructs the <emphasis>static type</emphasis> is needed to assess
+          streamability properties. [The most common case is assessing the value of a node which is
+          known to be childless, such as an attribute or a text node - in this case no subtree has
+          to be traversed to derive the complete string value.]</para><para>Initially the analysis model used a type hierarchy, which for streaming could be
+          somewhat coarser than can be strictly assessed - all XSL instructions were assessed as
+          having static type <code>item()*</code>, whereas a finer granularity was available, but
+          not needed, for the streamability analysis. The type hierarchy was defined for the
+          analysis tool by a tree:</para><figure xml:id="types"><title>Type hierarchy</title><programlisting xml:space="preserve">&lt;item&gt;
+  &lt;node&gt;
+    &lt;document-node/&gt;
+    &lt;element/&gt;
+    &lt;attribute childless="true"/&gt;
+    &lt;text childless="true"/&gt;
+    &lt;comment childless="true"/&gt;
+    &lt;processing-instruction childless="true"/&gt;
+    &lt;namespace childless="true"/&gt;
+  &lt;/node&gt;
+  &lt;xs:anyAtomicType&gt;
+    &lt;xs:boolean/&gt;
+    &lt;xs:string/&gt;
+    &lt;xs:anyURI/&gt;
+    &lt;xs:QName/&gt;
+    ...
+    &lt;xs:gMonthDay/&gt;
+    &lt;xs:gDay/&gt;
+    &lt;xs:duration&gt;
+      &lt;xs:dayTimeDuration/&gt;
+      &lt;xs:yearMonthDuration/&gt;
+    &lt;/xs:duration&gt;
+    &lt;xs:double/&gt;
+    &lt;xs:float/&gt;
+    &lt;xs:decimal&gt;
+      &lt;xs:integer/&gt;
+    &lt;/xs:decimal&gt;
+  &lt;/xs:anyAtomicType&gt;
+  &lt;!-- Function and map types --&gt;
+&lt;/item&gt;</programlisting></figure><para>The most common operation required using this type hierarchy was to assess a composite
+          type for a sequence of operands, calculated as the narrowest type in the type hierarchy
+          which is the type or super-type of all members of the sequence. This was most readily
+          assessed using a precomputed map of maps
+            <code>xp:least-common-supertypes($type0)($type1)</code> derived from this tree of types. </para><para>Subsequent detailed study (see note in the next section) revealed that a more general
+          model involving union of types was needed. Thus between the first submission of this paper
+          and the final publication the type model migrated to a <emphasis>U-type</emphasis> where
+          types were classified as a partial union of 28 fundamental types (7 nodal, e.g.
+            <code>element()</code>; 19 primitive atomic, e.g. <code>xs:string</code>;
+            <code>function()</code> and <code>xs:untypedAtomic</code>) A sequence is an instance of
+          a U-type <emphasis>U</emphasis> if every item in the sequence is an instance of one of the
+          fundamental types in <emphasis>U</emphasis>, considered as a set. For example, the
+          sequence <code>(23, "Paris")</code> is an instance of the U-type <code>U{xs:string,
+            xs:decimal, xs:date}</code> because both items in the sequence belong to item types in
+          this U-type. Shorthand forms for common groupings were defined, e.g.
+            <emphasis>U{N}</emphasis> denotes the union of all the node types.</para><para>Luckily the tool could migrate relatively smoothly, by representing a U-type as an
+          order-insensitive sequence of the constituent fundamental types as <code>xs:string*</code>
+          (and stored as an attribute value as a whitespace-separated string, that can easily be
+          tokenised back to a sequence), with a small number of additional helper maps and
+          functions, such as <code>$uTypes('N')</code> and <code>xp:union-type($types as
+            xs:string*)</code>. Some of the special cases for expressions, instructions and
+          functions had to be altered to use these type-determination functions rather than those
+          using the type-hierarchy tree. </para></section></section><section><title>Context focus and type</title><para>Whilst <emphasis>posture</emphasis> and <emphasis>sweep</emphasis> are the main
+        properties to be analysed, two other subsidiary properties need to be assessed:
+          <emphasis>static type</emphasis> and <emphasis>control focus</emphasis>. Whilst this could
+        be achieved contemporary with the posture/sweep analysis, it is somewhat clearer, and
+        certainly easier to debug, to carry this out as a recursive descent/ascent pre-pass. </para><para>Certain instructions and expressions change the context focus for evaluation of their
+        children. For a simple example, <code>xsl:for-each</code> obviously can (and almost
+        invariably does) change the sequence of context nodes for evaluation of its descendant
+        instructions. An <code>xsl:for-each</code> is said to be <emphasis>focus
+        changing</emphasis>, its <code>@select</code> expression (which of course is represented as
+        an expression tree identified <code>@s:role="select"</code>) is said to be
+          <emphasis>focus-controlling</emphasis> and its sequence constructor is
+          <emphasis>focus-controlled</emphasis>. These are identified on the tree through attributes
+          <code>s:focus="change|controlling|controlled"</code> respectively.</para><para>During this pass it is also possibly to analyse static type, propagating a
+          <emphasis>context item type</emphasis> downwards (as a tunneled variable), changing it
+        through focus-changing instructions, where generally the context item type for the
+        controlled children is that of the assessed static type of the controlling (child) operand.
+        For example the sequence constructor of <code>xsl:for-each select="amount"</code> will have
+        a context item type of <code>element(amount)*</code> as that is the assessed static type of
+        the XPath expression tree. The context type is recorded for subsequent display as a
+          <code>@s:contextType</code> attribute.</para><para>When leaves are reached, either it defines its own type (e.g. <code>FunctionCall
+          name="position"</code> has type <code>xs:integer</code>, which can be inferred from the
+        function signature; <code>StringLiteral value="foo"</code> has type <code>xs:string</code>)
+        or its static type is the context type (e.g. <code>ContextItemExpr</code>, aka '.'). On the
+        way back either there are definitive rules provided (e.g. <code>QuantifiedExpr</code> has
+        type <code>xs:boolean</code> and <code>PostfixExpr A[B]</code> has a type which is the type
+        of <code>A</code>), or it has a sequence composite type, or appropriate union type
+        calculated as described above. </para><para>For expressions the specification gives a table of type determination
+          <quote>formulae</quote> (<link xlink:href="http://www.w3.org/TR/xslt-30/#determining-static-type" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Determining the Static
+          Type of a Construct</link>). Whilst the static types defined (e.g. <code>AndExpr</code>
+        has type <code>xs:boolean</code>) are determined from entries in the declarative table of
+          <xref linkend="expressionConstructs"/> , currently most of these cases are defined by
+        pattern-matching templates. </para><note><para>The tool proved to be of some worth in this area when I discovered a test-case that
+          was failing to be streamable, involving the expression <code>xsl:value-of
+            select="head(/BOOKLIST/BOOKS/ITEM[1]/PRICE/ancestor::*/@*)"</code>. The issue was that
+          whilst the static type of <code>head()</code> was <code>item()?</code> the instruction
+          failed streamability (a potentially overlapping sub-tree would have to be traversed to
+          determine the textual value, due to the <code>ancestor::*</code> step.) However if the
+          type of <code>head()</code> is inferred to be the same type as its principal argument, in
+          this case <code>attribute()?</code>, then that is technically a
+            <emphasis>childless-node</emphasis>, whose text value <emphasis>can</emphasis> be
+          retrieved without further movement across the tree. A set of about a dozen functions (e.g.
+            <code>subsequence()</code>) needed such specialist treatment. The XSLT Working Group had
+          to change the type model to encompass unions of fundamental types (see above) and classify
+          functions that used their principal arguments in a <emphasis>transmission</emphasis> usage
+          (such as <code>head()</code> ) to use such unions.</para></note></section><section><title>Resource references</title><para>Whilst most of the assessment is carried out in a recursive tree descent/ascent manner,
+        XSLT (and XPath) constructs can reference non-child resources in three specific ways:
+          <emphasis>variable / param</emphasis> references, <emphasis>function / named
+          template</emphasis> calls and <emphasis>template</emphasis> applications. To complete
+        streaming analysis these references must be examined and require <quote>off-tree</quote>
+        mechanisms. We'll discuss each in term:</para><section><title>Variables</title><para>Variables can be declared both in XSLT (<code>xsl:variable</code> and
+            <code>xsl:param</code>) and in XPath (<code>let $v :=..</code>, <code>for $v in
+            ...</code>) and in both cases the scoping of reference to their
+            <emphasis>value</emphasis> follows the
+            <code>following-sibling::*/descendant-or-self::*</code> compound axis<footnote><para>Within our expanded XSLT trees all references will be through elements such as
+                <code>VarRef</code> - even <emphasis>text-value-templates</emphasis> will have been
+              expanded into element trees.</para></footnote>. Processing such references is most simply achieved by
+            <emphasis>iterating</emphasis> across construct bodies, accumulating maps of processed
+          variables which are tunneled down through to following-siblings and their descendants. For
+          example in assessing static type, sections of the code relating to variables are
+          approximately:</para><figure xml:id="variableTypes"><title>Variables and types</title><programlisting xml:space="preserve">&lt;xsl:template match="xp:*|xsl:*|s:sequence-constructor" mode="s:Type"&gt;
+   &lt;xsl:param name="variables" as="map(xs:string,element())" select="map:new()" tunnel="yes"/&gt;
+   ...
+   &lt;xsl:iterate select="*|text()"&gt;
+     &lt;xsl:param name="variables" select="$variables"/&gt;
+     &lt;xsl:variable name="temp" as="item()*"&gt;
+       &lt;xsl:apply-templates select="." mode="#current"&gt;
+         &lt;xsl:with-param name="variables" select="$variables" tunnel="yes"/
+       &lt;/xsl:apply-templates&gt;
+     &lt;/xsl:variable&gt;
+     &lt;xsl:sequence select="$temp"/&gt;
+     &lt;xsl:if test="self::xsl:variable|self::xsl:param|self::xp:QE.var"&gt;
+       &lt;xsl:next-iteration&gt;
+         &lt;xsl:with-param name="variables" as="map(xs:string,element())"
+             select="map:new(($variables,map:entry(@name,$temp)))"/&gt;
+       &lt;/xsl:next-iteration&gt;
+     &lt;/xsl:if&gt;
+   &lt;/xsl:iterate&gt;
+   ...
+&lt;/xsl:template&gt;
+
+&lt;xsl:template match="xsl:variable|xsl:param" mode="s:staticTypeVal" as="xs:string?" priority="1.5"&gt;
+  &lt;xsl:param name="children" select="()" as="element()*"/&gt;
+  &lt;xsl:value-of select="xp:composite-type-multiple($children/@s:staticType)"/&gt;
+&lt;/xsl:template&gt;
+
+&lt;xsl:template match="xp:VarRef" mode="s:staticTypeVal" as="xs:string"&gt;
+  &lt;xsl:param name="variables" as="map(xs:string,element())" select="map:new()" tunnel="yes"/&gt;
+  &lt;xsl:value-of select="($variables(@name)/@s:staticType,'UNKNOWN VAR/TYPE')[1]"/&gt;
+&lt;/xsl:template&gt;</programlisting></figure><para>In the first template, the iteration across the children using
+            <code>xsl:iterate</code> accumulates a parameter <code>$variables</code> as a map which
+          relates variable name to the in-scope processed variable tree for that name. The tree
+          value will i) be fully decorated with its properties (in this case including
+            <code>@staticType</code> and ii) have had all variables <emphasis>it</emphasis> refers
+          to in its definition interpolated fully as regards streaming properties. Each child in
+          turn is processed with a full current binding of variables passed as a tunneled parameter
+            <code>$variables</code>, which can in turn be updated in scope<footnote><para>Whilst this of course can be processed using a recursive template, using
+                <code>xsl:iterate</code> introduces much more coherence in what is essentially a
+              contained tail-recursive iteration. Using a high-order function such as
+                <code>fold()</code> isn't terribly practical when XSLT instructions predominate.
+              Equally the immutable <code>map()</code> of XSLT3.0 makes tracking variable scoping
+              vastly easier than alternative methods.</para></footnote>.</para><para>The second template assesses the static type of a variable as the composite type of
+            <emphasis>its</emphasis> children, which actually should be null or a singleton - either
+          the <code>@select</code> operand, or a single sequence constructor. The final template
+          shows how the static type is evaluated for a <code>VarRef</code> construct (the only
+          construct within the XPath grammar which actually interpolates variable name references),
+          by lookup in the supplied map. </para></section><section xml:id="functions"><title>Functions</title><para>Built-in and stylesheet functions are global entities, which may be referenced
+          (almost) anywhere within the stylesheet tree. Fortunately the streamability rules only
+          require knowledge of the type of the result and the required type of the arguments to
+          assess the streamability of a call. For built-in functions, the <link xlink:href="http://www.w3.org/TR/xpath-functions-30/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">XPath and XQuery Functions and
+            Operators 3.0</link> specification uses a definitional XML file
+            <code>function-catalog.xml</code> that contains all the data defining each function,
+          such as signatures, and from which the specification is constructed. The specification
+          contains a table in <link xlink:href="http://www.w3.org/TR/xslt-30/#classifying-built-in-functions" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Classifying
+            Calls to Built-In Functions</link> that defines further (usage) properties. By taking a
+          copy of <code>function-catalog.xml</code> and adding some minor annotations, we can
+          construct maps that will both identify type and usage for function calls and their
+          arguments:</para><figure xml:id="functionCatalog"><title>Built-in function catalog</title><programlisting xml:space="preserve">&lt;fos:functions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"&gt;
+  ...
+  &lt;fos:function name="head" diff="add" at="E"&gt;
+    &lt;fos:signatures&gt;
+      &lt;fos:proto name="head" return-type="item()?"&gt;
+        &lt;fos:arg name="arg" type="item()*" usage="transmission"/&gt;
+      &lt;/fos:proto&gt;
+     &lt;/fos:signatures&gt;
+     &lt;fos:properties&gt;
+       &lt;fos:property&gt;deterministic&lt;/fos:property&gt;
+       &lt;fos:property&gt;context-independent&lt;/fos:property&gt;
+       &lt;fos:property&gt;focus-independent&lt;/fos:property&gt;
+     &lt;/fos:properties&gt;
+     ...
+  &lt;/fos:function&gt;
+  ...
+&lt;/fos:functions&gt;
+
+&lt;xsl:variable name="functions" as="map(xs:string,item()*)" use-when="false()"
+    select="map:new(
+    for $f in (doc('function-catalog.xml')//fos:function[not(@prefix='op')]) 
+    return map:entry(
+              $f/(if(@prefix = ('math')) then @prefix||':' else '') || @name,
+              let 
+                $proto := $f/fos:signatures/fos:proto
+              return 
+                map:new((
+                   map:entry('returnType',distinct-values($proto/@return-type)[last()]),
+                   map:entry('args',$proto[last()]/map:new(fos:arg/map:entry(position(),.)))
+                        ))))"/&gt;
+
+&lt;xsl:variable name="default-dot-functions" as="xs:string*"
+    select="map:keys($functions)! .[$functions(.)('args')(1)/@default='.']"/&gt;</programlisting></figure><para>In <xref linkend="functionCatalog"/> we show the entry for <code>head()</code> in
+          which we have added a <code>transmission</code> usage property to its sole argument. The
+          variable <code>$functions</code> has been constructed from that file as a map keyed by the
+          function name, each entry containing a map of some properties of that function,
+            <emphasis>viz.</emphasis> the <code>returnType</code> and a further map containing
+          entries for each argument of the last definition (which is usually the most complete),
+          keyed by position. This map, and others like it are used extensively within the analysis<footnote><para>It is tempting to see whether the table <link xlink:href="http://www.w3.org/TR/xslt-30/#classifying-built-in-functions" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Classifying Calls to Built-In Functions</link> in the specification is regular
+              enough that the usage can be extracted automatically. On the other hand one can argue
+              that fundamental properties of the function, such as usage, belong in the definitive
+              catalog. </para></footnote>: expanding implicit <code>'.'</code> arguments for built-in functions (e.g.
+            <code>name()</code> being equivalent to <code>name(.)</code>) is supported by computing
+          the set of function names for which that is the case as shown
+            <code>$default-dot-functions</code>.</para><para>Stylesheet functions can be analysed as a global set at top level: type signatures can
+          then be recorded as a similar map to that used for built-in functions. Fortunately, and
+          certainly avoiding issues of analysing recursive functions, the return type is generalised
+          as <code>item()*</code>. Similar mechanisms can be used for named templates. </para></section><section><title>Applied templates</title><para><code>xsl:apply-templates</code> invokes pattern-matching processing on each of the
+          members of their selected sequence. As such complete assessment of their return would
+          require some indirect assessment. Fortunately as far as streamability is concerned this is
+          much simpler – the instruction is assumed to generate results of <code>item()*</code>
+          type, and the <emphasis>posture/sweep</emphasis> streamability properties can be
+          determined mostly locally within the <code>xsl:apply-templates</code> instruction itself:
+          other templates that may be triggered only have to be assessed as being in a totally
+          streamable <code>mode-set</code>. </para></section></section><section><title>Assessing sweep and posture</title><para>A similar, though much more complex, recursive descent/ascent process is used to
+        determine the posture and sweep. A <emphasis>context posture</emphasis> is propagated
+        downwards, and alters through focus-changing instructions, with generally the context
+        posture for controlled sub-trees being the assessed <emphasis>posture</emphasis> of the
+        controlling operand. The sweep of each of the construct operands is assessed and the
+        composite sweep and posture is then calculated for the ensemble and becomes the sweep and
+        posture for the construct. As much of the analysis as possible is calculated from definition
+        tables described earlier.</para><para>The properties are represented on the tree as attributes (e.g.
+          <code>s:posture="striding"</code>), so they can be extracted from result through XPath.
+        But to reduce errors through mistyping, a defined set of global variables, each having an
+          <code>attribute()</code> type and suitable name/value can be defined, such as
+          <code>$p.grounded</code> whose value is <code>@s:posture="grounded"</code>. Moreover, the
+        most common 'stream failure' results from <emphasis>roaming</emphasis> posture and
+          <emphasis>free-ranging</emphasis> sweep, so this is abbreviated: <code>$RFR =
+          ($p.roaming,$s.free-ranging)</code>. Using these variables when setting properties reduces
+        typing errors extensively, as the complier will of course complain about undefined
+        variables. </para><para>The generic form of processing is a template of the following canonical
+        structure:</para><figure xml:id="generic.posture.sweep"><title>Generic assessment of posture and sweep</title><programlisting xml:space="preserve">&lt;xsl:template match="<emphasis>construct</emphasis>" mode="addPosture"&gt;
+  &lt;xsl:param name="contextPosture" as="xs:string?" tunnel="yes"/&gt;  
+  &lt;xsl:variable name="children" as="element()*"&gt;
+    &lt;xsl:apply-templates select="*" mode="#current"/&gt;
+  &lt;/xsl:variable&gt;     
+  &lt;xsl:copy&gt;
+    &lt;xsl:call-template name="expr-init"/&gt;
+<emphasis>    Code to decide posture sweep and return:
+    i) suitable @s:posture, @s:sweep
+    ii) $children, in document order, each appropriately decorated.</emphasis>
+&lt;/xsl:template&gt;</programlisting></figure><para>Usually all children are evaluated, sometimes when focus changes, altering the
+          <emphasis>context posture</emphasis> for their evaluation. Then the result is constructed
+        as a copy of the original node, a series of initial attributes (all existing attributes, a
+        hyperlink to the appropriate section of the specification, the context posture etc.) are
+        written on by the template <code>expr-init</code>, followed by the calculated posture and
+        sweep, again as attributes, and finally the evaluated children are added.</para><para>Currently there are 12 primary templates of for assessing <code>xsl:*</code> XSLT
+        instructions and 18 for processing <code>xp:*</code> XPath expression constructs. Many of
+        these make calls on the General Streamability Rules.</para><para>A subsidiary property needed for analysis, <emphasis>usage</emphasis>, described below,
+        is written on to the tree by push-processing in mode <code>addUsage</code>, before the main
+        evaluating is performed, again through mostly push-processing in mode
+          <code>addPosture</code>. </para><section><title>Usage</title><para>Constructs act as <emphasis>operands</emphasis> for their parents (or sometimes
+          ancestors) and as such the parent can use the information from the operand in several
+          ways, described as the <emphasis>usage</emphasis> property, which again partially quoting
+            <xref linkend="Kay"/>, can take the following values:</para><itemizedlist><listitem><para><emphasis>Absorption</emphasis>: the parent expression makes use of information
+              from the entire sub-tree rooted at nodes returned by the operand expression.</para></listitem><listitem><para><emphasis>Inspection</emphasis>: the parent expression makes use of properties of
+              the nodes returned by the operand expression that can be established while positioned
+              at a node's start tag.</para></listitem><listitem><para><emphasis>Transmission</emphasis>: the parent expression returns nodes delivered
+              by the operand expression.</para></listitem><listitem><para><emphasis>Navigation</emphasis>: the parent expression performs arbitrary
+              reordering of the returned nodes, or navigates away from them in arbitrary
+              ways.</para></listitem></itemizedlist><para>As these properties are used quite extensively, the constructs in the tree are
+          decorated with an <code>@s:usage</code> attribute in a single pass before posture and
+          sweep is assessed, by consulting declarations and suitable maps.</para></section><section xml:id="GSR"><title>General Streamability Rules</title><para>Rules for assessing posture and sweep for many of the constructs devolve to some
+          assessment of a set of more general rules with different configured treatments for the
+          individual operands of the construct. For example:</para><blockquote><title>19.8.4.37 Streamability of xsl:value-of</title><para>The posture and sweep of <code>xsl:value-of</code> follow the general streamability
+            rules. The operand roles and their usages are as follows:</para><itemizedlist><listitem><para>The <code>select</code> expression (usage
+                <emphasis>absorption</emphasis>)</para></listitem><listitem><para> The <code>separator</code> attribute value template (usage
+                  <emphasis>absorption</emphasis>)</para></listitem><listitem><para>The contained sequence constructor (usage
+                <emphasis>absorption</emphasis>).</para></listitem></itemizedlist></blockquote><para>The General Streamability Rules, part of which is shown in <xref linkend="sample-e"/>
+          are a nested tree of calculations and decisions, up to six levels deep, with 25 separate
+          steps and cases (many of which are applied iteratively to each operand) and an embedded
+          decision table. To apply these for a given construct we need to i) identify which of the
+          child (or sometimes descendant) constructs have influence and what are their mode of
+            <quote>usage</quote>.</para><para>While expanding XPath expressions the role of a construct was attached to the parse
+          tree as an <code>@s:role</code> attribute, so simple XPath search can extract necessary
+          operands. In this case we have already given every node a unique <code>id</code> so simple
+          maps of <code>id</code> and associated property can be used.</para><para>The GSR are implemented as a single named XSLT template, which has the following
+          features:</para><itemizedlist><listitem><para>The context item is assumed to be the construct element to be assessed.</para></listitem><listitem><para>The following parameters can be supplied, or may be derived:</para><variablelist><varlistentry><term>contextPosture</term><listitem><para>The context posture from the parent</para></listitem></varlistentry><varlistentry><term>operands</term><listitem><para>a set of descendant items that should be considered as operands. These can
+                    be searched for through a push mode <code>GS-find-operands</code>.</para></listitem></varlistentry><varlistentry><term>context-postures</term><listitem><para>A map of operand <code>id</code>s and the associated or required posture for
+                    the operand having that <code>id</code>. (This becomes useful for complex
+                    instructions such as <code>xsl:apply-templates</code> or
+                      <code>xsl:iterate</code> where the operands can include sections of attribute
+                    value templates within child elements, and postures can vary across the set of
+                    operands.)</para></listitem></varlistentry><varlistentry><term>children</term><listitem><para>Possible children of the construct, which will otherwise be evaluated
+                    recursively.</para></listitem></varlistentry></variablelist></listitem></itemizedlist><para>The first action in this template is to assess the sweeps of all the operands,
+          corresponding to step 1 of <link xlink:href="http://www.w3.org/TR/xslt-30/#dt-general-streamability-rules" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">GSR</link>,
+          consisting of some dozen tests and a table lookup for each operand. After such processing
+          each operand element will be decorated with attributes <code>@s:sweep</code> (a possibly
+          adjusted sweep), <code>@s:sweepOriginal</code> (when the sweep was changed by the GSR
+          rules), <code>@s:usageOriginal</code> (when the usage has been altered likewise) and
+            <code>@s:potentialConsumer</code> if the operand is so judged from rule
+          <code>1.c</code>. Parts of the code to do this are:</para><figure xml:id="GSR.code.sweep"><title>Calculating sweep</title><programlisting xml:space="preserve">&lt;xsl:variable name="table.1.b.iii.B" as="map(*)"
+  select="map{
+    'grounded' := map{'absorption':='S',            'inspection':='S', 'transmission':='S', 'navigation':='S'},
+    'climbing' := map{'absorption':='free-ranging', 'inspection':='S', 'transmission':='S', 'navigation':='free-ranging'},
+    'striding' := map{'absorption':='consuming',    'inspection':='S', 'transmission':='S', 'navigation':='free-ranging'},
+    'crawling' := map{'absorption':='free-ranging', 'inspection':='S', 'transmission':='S', 'navigation':='free-ranging'}
+    }"/&gt;
+&lt;xsl:variable name="swept" as="item()*"&gt;
+  &lt;xsl:for-each select="$children/descendant-or-self::*[@id=$operands.id]"&gt;
+    &lt;xsl:variable name="T" select="@s:staticType"/&gt;
+    &lt;xsl:variable name="P" select="@s:posture"/&gt;
+    &lt;xsl:variable name="S" select="@s:sweep"/&gt;
+    &lt;xsl:variable name="U" select="@s:usage"/&gt;
+    &lt;xsl:copy&gt;
+      &lt;xsl:sequence select="@*"/&gt;
+      &lt;xsl:attribute name="s:sweepOriginal" select="@s:sweep" on-empty="()"/&gt;
+      &lt;xsl:attribute name="s:usageOriginal" select="@s:usage" on-empty="()"/&gt;
+      &lt;xsl:variable name="results" as="map(*)*"&gt;
+        &lt;xsl:sequence select="map{'posture':=$P, 'USAGE':=$U}"/&gt;
+        &lt;xsl:choose&gt;
+          &lt;xsl:when test="$S = 'free-ranging' or $P = 'roaming'"&gt;
+            &lt;xsl:sequence select="map{'rule':='1.b.i','sweep':='free-ranging'}"/&gt;
+          &lt;/xsl:when&gt;
+          &lt;xsl:when test="$P = 'grounded'"&gt;
+            &lt;xsl:sequence select="map{'rule':='1.b.ii','sweep':= @s:sweep}"/&gt;
+          &lt;/xsl:when&gt;
+          &lt;xsl:otherwise&gt;
+            &lt;xsl:variable name="childless.absorption" select="$U = 'absorption' and xp:is-childless-type($T)"/&gt;
+            &lt;xsl:variable name="Up" select="if($childless.absorption) then 'inspection' else $U"/&gt;
+            &lt;xsl:sequence select="map{'rule' := '1.b.iii.A.' || (if($childless.absorption) then 'I' else 'II'),
+                                      'usage':= if(empty($Up)) then 'NO USAGE DEFINED' else $Up}"/&gt;
+            &lt;xsl:if test="exists($Up) and exists($P)"&gt;
+               &lt;xsl:sequence select="map{'rule':=string-join(('1.b.iii.B',($P,$Up)!$table.axes(.)!string(.)),'.')}"/&gt;
+               &lt;xsl:if test="map:keys($table.1.b.iii.B) = $P"&gt;
+                 &lt;xsl:variable name="row" select="$table.1.b.iii.B($P)"/&gt;
+                 &lt;xsl:if test="map:keys($row)=$Up"&gt;
+                   &lt;xsl:sequence select="map{
+                      'sweep':= (let $s := $table.1.b.iii.B($P)($Up) return (if($s eq 'S') then @s:sweep else $s))}"/&gt;
+                 &lt;/xsl:if&gt;
+               &lt;/xsl:if&gt;
+             &lt;/xsl:if&gt;
+           &lt;/xsl:otherwise&gt;
+         &lt;/xsl:choose&gt;
+       &lt;/xsl:variable&gt;
+       &lt;xsl:attribute name="s:sweep" select="$results!.('sweep')"/&gt;
+       &lt;xsl:attribute name="s:usage" select="$results!.('usage')" on-empty="()"/&gt;
+       &lt;xsl:attribute name="s:generalOperand" select="$results!.('rule')" separator=","/&gt;
+       &lt;xsl:choose&gt;
+         &lt;xsl:when test="$results!.('sweep')='consuming'"&gt;
+            &lt;xsl:attribute name="s:generalOperand" select="$results!.('rule'),'1.c.i'" separator=","/&gt;
+            &lt;xsl:attribute name="s:potentialConsumer"/&gt;
+         &lt;/xsl:when&gt;
+         &lt;xsl:when test="@s:usage='transmission' and not(@s:posture = 'grounded')"&gt;
+           &lt;xsl:attribute name="s:generalOperand" select="$results!.('rule'),'1.c.ii'" separator=","/&gt;
+           &lt;xsl:attribute name="s:potentialConsumer"/&gt;
+         &lt;/xsl:when&gt;
+       &lt;/xsl:choose&gt;
+       &lt;xsl:sequence select="*|text()"/&gt;
+     &lt;/xsl:copy&gt;
+   &lt;/xsl:for-each&gt;
+&lt;/xsl:variable&gt;</programlisting></figure><para>What <xref linkend="GSR.code.sweep"/> is showing is that the code generally tries to
+          reflect the structure of the rules as laid out in the specification, even using a map to
+          represent table <code>1.b.iii.B</code>, and with the same abbreviations<footnote><para>It would be comparatively trivial to parse that map from an even simpler
+              representation, possibly even from the specification itself.</para></footnote>. Note that the intermediate variable <code>$results</code> computed for each
+          operand is typed as a sequence of <code>item()</code> but is actually a sequence of
+            <code>map()*</code>, which can be used to transmit heterogeneous information, in this
+          case both the properties of direct interest (e.g. <emphasis>sweep</emphasis>) but also the
+          rule-invoked indicators. Using the XPath simple map operator, we can extract multiple
+          values through an expression such as <code>$results!.('rule')</code>.</para><note><para>It would be possible to use the same technique here as is used for posture and sweep
+            attributes described above, i.e. defining variables which are map entries, e.g.
+              <code>$map:p.grounded := map{'posture':='grounded'}</code>, which would reduce the
+            effect of typing errors.</para></note><para>Assessing the posture is handled similarly, checking the conditions of section 2 over
+          the sweep-assessed operands. Finally the posture and sweep of the construct is determined,
+          written onto a copy of the construct element (together with GSR provenance from section 2)
+          and the children are placed in the new parent. </para></section><section><title>Evaluating expressions and instructions</title><para>Most XPath expression terms can be evaluated with the General Streamability Rules,
+          suitable usage having been written onto operands from the maps described in <xref linkend="declarative.tables"/>. Others require more specialist treatment, such as the
+            <code>ForExpr</code> for which the test can be two-stage:</para><figure xml:id="ForExpr"><title>Posture and sweep of the ForExpr</title><programlisting xml:space="preserve">&lt;xsl:choose&gt;
+   &lt;xsl:when test="$children[2]/@s:posture = 'grounded'"&gt;
+      &lt;xsl:call-template name="general-streamability.operands"&gt;
+         &lt;xsl:with-param name="children" as="item()*" select="$children"/&gt;
+      &lt;/xsl:call-template&gt;
+   &lt;/xsl:when&gt;
+   &lt;xsl:otherwise&gt;
+      &lt;xsl:sequence select="$RFR,$children"/&gt;
+   &lt;/xsl:otherwise&gt;
+&lt;/xsl:choose&gt;</programlisting></figure><para>where if the return (the second child) is grounded, the General Streamability Rules
+          apply, otherwise the construct is <code>roaming</code> and
+            <emphasis>free-ranging</emphasis>. The most interesting and perhaps important, are the
+            <code>AxisStep</code> terms, which really define movement around the input tree. The
+          tests (<link xlink:href="http://www.w3.org/TR/xslt-30/#streamability-of-axis-steps" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">19.8.7.7 Streamability of Axis Steps</link>) are a little more complex and involve six
+          cases and a tabular form, relating context posture and the axis of travel. Whilst this
+          could perhaps be interpreted, in the end an extended <code>xsl:choose</code> was the
+          simplest form.</para><para>XSLT instructions tend to be more complex in their streamability than XPath
+          expressions, so while some (e.g. <code>xsl:copy</code>) are analysed completely with the
+          General Streamability Rules, many require specialist templates, especially to handle
+          issues such as instruction configuration elements (e.g. <code>xsl:sort</code>) and
+          determining what are the active operands for streamability. To make these somewhat more
+          coherent, a number of helper functions are used: </para><variablelist><varlistentry><term>xp:AVT()</term><listitem><para>Returns all the nodes of the input that represent <emphasis>attribute value
+                  templates</emphasis> in the instruction.</para></listitem></varlistentry><varlistentry><term>xp:active()</term><listitem><para>Returns all operands of input nodes that are <emphasis>active</emphasis> in
+                creating a sequence (<code>@select</code> or
+                <code>s:sequence-constructor</code>)</para></listitem></varlistentry></variablelist><para>Similarly, some of the common instruction-varying actions can be cast as templates in
+          a specific mode, such as <code>GS-find-operands</code>, which finds the appropriate
+          operands for an instruction for application of General Streamability Rules. For example </para><figure xml:id="find.GSR.operands"><title>Find operands for General Streamability Rules</title><programlisting xml:space="preserve"> &lt;xsl:template match="xsl:apply-templates" mode="GS-find-operands"&gt;
+    &lt;xsl:sequence select="xp:active(.)|
+       xp:active(xsl:with-param)|xp:active(xsl:sort)|xp:AVT(xsl:sort)"/&gt;
+  &lt;/xsl:template&gt;</programlisting></figure><para>where for <code>xsl:apply-templates</code> operands could appear i) as active parts of
+          the instruction itself (in this case <code>@select</code>), ii) within active sections of
+            <code>xsl:param</code> and <code>xsl:sort</code> options (either as <code>@select</code>
+          or sequence constructors) or iii) within <emphasis>attribute value templates</emphasis>
+          within the <code>xsl:sort</code> declarations (typically in attributes such as
+            <code>@order</code>). </para></section><section><title>Evaluating built-in functions</title><para>Calls to built-in functions (mostly from XPath, but a few, such as <code>key()</code>,
+          that are specialist for XSLT) have to be examined in terms of both the streamability
+          properties of their arguments and the use the function makes of the results of those
+          arguments. For most functions this can be expressed as an evaluation of the General
+          Streamability Rules, with suitable <emphasis>usage</emphasis>. In the specification this
+          is described as a list with an entry of each function using a proforma representation,
+          e.g. <quote><code>fn:fold-left(N,A,I)</code></quote> which indicates that the arguments
+          have usage <emphasis>navigation</emphasis>, <emphasis>absorption</emphasis> and
+            <emphasis>inspection</emphasis> respectively. Currently these usages are written onto
+          the arguments of the function definitions in <code>function-catalog.xml</code> whence they
+          are converted into maps as described in <xref linkend="functions"/>, but in theory these
+          properties could be read from the specification itself. For some dozen functions (such as
+            <code>last()</code>) there are specialist rules - these are handled by simple templates: </para><figure xml:id="function.last"><title>Streamability of last()</title><programlisting xml:space="preserve">&lt;xsl:template match="xp:FunctionCall[@name='last']" mode="addPosture"&gt;
+  &lt;xsl:param name="contextPosture" as="xs:string?" tunnel="yes"/&gt;
+  &lt;xsl:copy&gt;
+    &lt;xsl:call-template name="expr-init"/&gt;
+    &lt;xsl:sequence
+      select="if($contextPosture = ('striding','crawling','roaming'))
+       then $RFR else ($p.grounded,$s.motionless)"/&gt;
+    &lt;/xsl:copy&gt;
+&lt;/xsl:template&gt;</programlisting></figure><para>where <code>$RFR</code> denotes <emphasis>roaming</emphasis> and
+            <emphasis>free-ranging</emphasis> as described earlier.</para></section><section><title>Determining <emphasis>guaranteed streamabilty</emphasis></title><para>Finally all the components of a top-level <code>xsl:stream</code> or
+            <code>xsl:template</code> have been evaluated against the rules and any sequence
+          constructor can be examined for a <emphasis>grounded</emphasis> posture and a template
+            <code>@match</code> checked for a <emphasis>motionless</emphasis> sweep. The element is
+          marked <code>@s:streamable</code> with the boolean satisfaction of these conditions,
+          whence the analysis of that sub-tree is complete. Later display can give visual
+          indication. For templates of course they form a modal group which might be invoked by
+          other templates - the mode is marked streamable (in a map) only if i) the mode is declared
+          streamable and ii) all templates within that mode are themselves proven guaranteed streamable<footnote><para>Mutually interacting streamable modes are not supported in this tool.</para></footnote>.</para></section></section></section><section><title>Interactive Display</title><para>Once the analysis has been completed, the result needs to be displayed. As all the
+      information is attached to the expanded XLST/expression tree as namespaced attributes, we
+      could either i) display the original program in some serialised form and arrange some linkage
+      from that serialisation to appropriate points in the 'shadow tree' or ii) display the whole
+      expanded tree including properties as a serialisation and selectively display desired
+      sections. The second appeared to be the simplest route, albeit at the cost of a <emphasis>very
+        large</emphasis> serialised form even for modest programs. </para><section><title>Serialising to HTML</title><para>The tree is serialised to be displayed within a <code>pre</code> section of the web
+        page, by a specialist XSLT-coded serialiser with the following features:</para><itemizedlist><listitem><para>As the tree is well-formed XML, and space is at a premium, indentation is strict and
+            closing tags are omitted.</para></listitem><listitem><para>Line numbering follows the document order of elements in the original XSLT and is
+            displayed at the start of each corresponding line in the serialisation.</para></listitem><listitem><para>A fold/unfold group (as a <code>span</code> containing two span-contained images,
+            only one of which should be visible) follows for any element in the result tree that has
+            children.</para></listitem><listitem><para>The element name and primary attributes are written surrounded by classifying
+              <code>span</code>s - some note of line length is considered and line-breaks can be
+            interpolated. Some names are shortened and the information is attached to the span
+            class, e.g. the <code>xp:</code> prefix dropped from XPath constructs.</para></listitem><listitem><para>The span of elements decorated <code>@s:streamable</code> (i.e.
+              <code>xsl:template</code>, <code>xsl:stream</code>) are classified as
+              <code>xslstreamyes</code> or <code>xslstreamno</code> as appropriate. </para></listitem><listitem><para>All the streaming properties follow, each with an enveloping <code>span</code> and
+            differentiating classes: e.g. <code>class="streamProperty posture"</code>. Name/values
+            for these properties are simplified, e.g. <code>s:posture="grounded"</code> displays as
+              <code>p:grounded</code>. </para></listitem><listitem><para>Specification hyperlinks are cast as <code>a[@href]</code> elements around the
+            appropriate display text. </para></listitem><listitem><para>All the children of an element exist within a <code>span
+              class="XMLBody|XSLBody"</code> on the line following the element head. Thus when
+            folding an element this <code>span</code> is set to <code>style="display:none"</code>.
+            This provides a consistent model for fold/unfold, albeit at the cost of an additional
+            nested <code>span</code> for every element.</para></listitem></itemizedlist><para>The styling is defined by a CSS stylesheet that exploits these classes, starting with
+        the <code>display</code> styling all XPath expansions and streaming properties set to
+          <code>none</code><footnote><para>For large stylesheets 'top-level' constructs (e.g. <code>xsl:template</code>) could
+            of course be defined to display in a folded state. The streamability of such entities
+            would still be visible as red/green backgrounds of course.</para></footnote>.</para></section><section><title>Interactivity</title><para>The selection of stylesheets to analyse and examine is a simple use of forms and server
+        response, piping the serialised response HTML into a given target frame. More interesting is
+        the interaction within the analysed stylesheet. There are four types of interaction, three
+        of which are implemented by triggered templates in a simple Saxon-CE executed XSLT 2.0
+        transform.</para><variablelist><varlistentry><term>Fold/unfold</term><listitem><para>The fold/unfold buttons are intercepted by <code> &lt;xsl:template
+                match="span[@class='folder']/span[@class=('collapse','expand')]"
+                mode="ixsl:onclick"&gt;</code> which arranges to swap the visibility of the
+                <emphasis>collapse</emphasis> and <emphasis>expand</emphasis> buttons, and then
+              proceeds to change the display style of the following <quote>body</quote> span
+                (<code>@class=('XMLBody','XSLBody')</code>) accordingly.</para></listitem></varlistentry><varlistentry><term>Expanding XPath expressions</term><listitem><para> All displays of attributes that contain XPath expressions (and
+                <emphasis>attribute value templates</emphasis> as well) are classed as
+                <code>XPExpr</code>, together with an attribute on the span that identifies the
+                <emphasis>role</emphasis>. <code>&lt;xsl:template match="span[@class='XPExpr']"
+                mode="ixsl:onclick"&gt;</code> when triggered, searches in the following instruction
+              body serialisation for the <code>span</code> that contains the tree for that
+              expression, marked with a <code>@role</code> attribute, and then toggles the state of
+              the display property.</para></listitem></varlistentry><varlistentry><term>Displaying streaming properties</term><listitem><para>Changes in the state of the check-boxes (which are computed as part of the
+              returned HTML for an analysed stylesheet) are recognised by <code>&lt;xsl:template
+                match="input[@class='showType']" mode="ixsl:onclick"&gt;</code>, which then alter the
+              display state of <emphasis>all</emphasis> the effected stream property spans through
+                <code>ixsl:page()//pre//span[@type=$type]</code>, using the
+                <code>ixsl:set-attribute</code> instruction. (This also of course changes display
+              state of properties which are invisible for higher reasons, such as being in a folded
+              structure, but it maintains coherence.)</para></listitem></varlistentry><varlistentry><term>Specification hyper-linking</term><listitem><para>As the result HTML has already been decorated with <code>a[@href]</code> links to
+              the appropriate section anchors in the (modified) specification, these links operate
+              outside the purview of the Saxon-CE based stylesheet. The specification is displayed
+              typically in a separate window or tab<footnote><para>Under some arrangements with all being displayed in a single tab/window, it is
+                  possible to enrich the explanation of application of the General Streamability
+                  Rules, by highlighting all the rules that were relevant to a particular case. This
+                  requires i) <code>div</code> grouping of sections of the specification GSR (which
+                  can be done automatically) and ii) altering the display properties of these
+                    <code>div</code> sections. Unfortunately this appears not to be possible (as one
+                  would wish) between different tabs or windows within a browser....</para></footnote>.</para></listitem></varlistentry></variablelist><para>The point to note here is that <emphasis>all</emphasis> the decisions of <quote>display
+          this line?, wrap onto a new line?</quote> are performed by the browser, requiring a
+        minimalist approach from the analysis tool itself. </para></section></section><section><title>Conclusion</title><para>This paper has described a tool that performs a very detailed and exhaustive analysis of
+      the streaming properties of an XSLT program, and displays the results in a form where a human
+      designer might be able to examine these properties to either i) understand why a program
+      cannot stream or ii) get a better feel for the interaction between XSLT instructions and XPath
+      expressions and streaming behaviour.</para><para>But it could also be considered as an example of analysing a program (or other data
+      structure) for certain properties within an XML-based framework, using a tree-based 'parsing'
+      of the program as the main data structure, adding properties as attributes and processing the
+      tree in a generally top-down recursive manner<footnote><para>A critical requirement might be that referential mechanisms and dependencies (e.g.
+          variables) follow descendant or following-sibling scoping.</para></footnote>. Thus some of the lessons from this tool might be pertinent to other situations,
+      which are normally the province of opaque compilers, such as reachability analysis.</para><section><title>Doing what the compiler (usually) doesn't</title><para>A comformant XSLT compiler supporting streaming of course has to apply these rules to
+        check streamability<footnote><para>Actually they are permitted to extend the cases in which they can stream, but they
+            must support cases which are <emphasis>guaranteed streamable</emphasis> according to the
+            specification rules.</para></footnote> but does not have to explain why a construct cannot be streamed. This tool
+        effectively animates the analysis leaving a trail both of its conclusions, in results and
+        intermediate data, and pointers to the relevant rules that were applied, making it less of a
+        hit-and-miss affair for the designer to acheive his streamability goals. Of course a
+        compiler could do similar (e.g. Saxon has an <code>-explain</code> option that displays the
+        optimised execution plan) but this tool does this independently of any implementation, as
+        the rules are strictly part of the specification. </para></section><section><title>Controlling the volume of displayed data</title><para>One of the problems was the sheer amount of data to be viewed/displayed – some 8-10
+        additional properties, stored as attributes for every construction element, both instruction
+        and XPath expression. One option was to display all the properties for a single given
+        element at a time, perhaps on a status bar, or a popup, but much of the understanding of the
+        streaming rules in action comes from examining the properties of all the operands of a
+        construct as an ensemble, together with the relevant rules. I chose to enable entire classes
+        to be viewed selectively – it certainly permits one to view <quote>reverse-cascades</quote>
+        of usually <code>roaming</code> posture propagating from some errant action.</para><para>Alternatives, that could be programmed relatively easily using more detailed Saxon-CE
+        interaction, could show properties for a small portion of the tree at a time (e.g. selected
+        element, direct children and a limited number of ancestors), or even explore graphical
+        symbology and other shorthand forms.</para></section><section><title>Who &amp; how best to process XSLT?</title><para>The problem involved analysis of a program most of whose components are written in XML.
+        Thus an XSLT enthusiast, such as the author, would reach for that tool as the primary
+        instrument. The fact that the program to be analysed was itself XSLT caused very few
+        problems, and made several areas easier. </para><para>The first issue was how to analyse the XPath expressions. Initially I chose to add an
+        expansion to Saxon to exploit its <code>Expression.explain()</code> method to generate a
+        parse tree, but after some success it became clear that a lot of rewrites that Saxon was
+        doing internally needed to be <quote>undone</quote> or otherwise modified to get to the
+        constructs that streamability required. Then a switch to a parser, written in XSLT and
+        generated by <xref linkend="REx"/>, made the situation much clearer and the whole analysis
+        solution could be written entirely in non-extended XLST 3.0<footnote><para>To be fair, Mike Kay had suggested <xref linkend="REx"/> as a possibility in the
+            initial project outline, but the author had had some experience, before working with
+            Saxonica, on using <code>Expression.explain()</code>, so that was in the first design.
+          </para></footnote>. </para><para>Probably the most useful lesson is that a simple variant of the source XSLT program,
+        held as an XML tree, can act as its own parse tree, which can be traversed, read and
+        decorated entirely by XSLT programs. Of course properties have to be capable of being
+        grounded to effective strings to attach to tree element nodes, which was possible even at a
+        stretch when the type model moved to a union type. With with a suitable system of indexed
+        map structures held within the analyser, and keyed through unique ids, even this restriction
+        might be overcome.</para></section><section><title>A syntactically coherent specification</title><para>Early on in the development it became imperative that there should be some means of
+        finding the correct place in the XSLT specification to examine constructs that were being
+        evaluated, if only for debugging the tool itself. Whilst much of the specification is very
+        richly hyper-linked internally, there was still an enormous amount of scrolling around,
+        losing a place, having to revert to and search through the table of contents (which on the
+        author's browser occupies some 14 <quote>pages</quote>) all the while trying to retain a
+        mental (stack) model in one's head. Could we build a hyperlink from say an
+          <code>xsl:value-of</code> element to the relevant section of the specification?</para><para>Most fortunately, but certainly by design, many of the sections (in this case
+          <code>19.8.4.37</code> of the December 2013 Working Draft) had hyperlink anchors which
+        were extremely coherent, quite fine-grained and followed the scheme
+          <code>#streamability-xsl-</code><emphasis><code>{local-name(.)}</code></emphasis>, in this
+        case <code>#streamability-xsl-value-of</code>. The exceptions (which were often to a parent
+        category) could be handled by attributive declarations in a table, such as shown in <xref linkend="expressionConstructs"/>. In the case of the General Streamability Rules, the
+        combination of nested lists and a table required preprocessing to bury a series of anchor
+        points (and <code>div</code> groupings) to support display.</para><para>Equally, the existence of and access to, even more definitive documents behind the
+        specification, such as <code>function-catalog.xml</code>, meant we could latch onto and use
+        definitive information, avoiding transcription errors and making it possible for the tool to
+        track eventual changes in some cases automatically.</para></section><section><title>Problems</title><para>Apart from the size and apparent complexity of the streamability rules themselves, a
+        small number of other problems appeared including</para><itemizedlist><listitem><para>the size of the resultant fully-serialised output</para></listitem><listitem><para>debugging the tool itself</para></listitem></itemizedlist><para>Whilst the analysis of streamability for a modest stylesheet is relatively quick
+        (seconds or less), the serialisation, and particularly the browser display of that
+        serialisation can be lengthy. A glance at <xref linkend="show-6"/> shows that each streaming
+        property takes about 100 characters to define for display in the current serialised form,
+        which means each construct (instruction, expression term) takes about 1kB to display. (The
+        serialisation of the example in <xref linkend="sample-a"/> is just under 14kB long.) Clearly
+        there could be economies in the terms used (class names are over-generous for example) and
+        some server-performed compression of the results and associated CSS might improve matters by
+        perhaps a factor of three. With some more active participation from the Saxon-CE stylesheet,
+        such as encoding/decoding property values perhaps an order of magnitude could be gained<footnote><para>Technically we might be able to implement the analysis tool in XSLT2.0 and hence
+            consider a total Saxon-CE in-browser solution, but the use of XSLT3.0 facilities
+            (especially mode declarations and maps, as curiously HOFs were confined to a very small
+            number of cases) makes the development very much more straighforward. Of course anyone
+            using streaming must be using XSLT3.0 anyway.</para></footnote>. </para><para>The simplicity of keeping all the analysed data on the XSLT tree and then serialising
+        the whole was very effective in getting the tool developed, but an alternative would be to
+        split off the data just before serialisation and provide that as a separate
+        <code>id</code>-mapped data structure that the Saxon-CE stylesheet would use. </para><para>Unsurprisingly early debugging of the tool wasn't extremely easy, as the sheer volume of
+        data and especially the O(100) different types of instructions and expressions made
+        focussing on a single problem difficult. Building the tools as a number of phases helped
+        (e.g. expanding all the XPath trees, marking the focus control, calculating the static type)
+        so that successive phases could be checked to <quote>mostly</quote> work<footnote><para>The main phases expand / focus control / static type / usage / posture &amp; sweep
+            were pretty separable until the new U-type model introduced <quote>usage-dependent
+              type</quote> to complement the existing <quote>type-dependent usage</quote> . At this
+            point some sections of the type and usage phases had to be merged.</para></footnote>. However once a certain stage was reached a lot of the further development could
+        be carried out merely by altering or expanding tables. </para></section><section><title>Acknowledgements</title><para>Apart from funding the venture, Mike Kay set me a very interesting and what turned out
+        to be a surprisingly complex challenge, but one of XSLT working on XSLT that I very much
+        enjoy. Florent Georges deserves thanks for the excellence of, and excellent support for, the
+        Servlex webapp delivery mechanism which made mounting the tool as a web service
+        comparatively plain (all XML) sailing, with <emphasis>no PHP or Java required</emphasis>!
+        O'Neil Delpratt was his usual cheerful self in helping get the tool installed on Saxonica
+        servers.</para></section><section><title>Quo vadis?</title><para>During the writing of this paper it became clear that more of the tool's behaviour could
+        be derived from direct interpretation of some sections of the specification, thanks mainly
+        to the coherence in its logical structure. This would increase the tolerance of the tool to
+        (modest) changes in the specification. Changes to the serialisation and storage outlined
+        above could be helpful also.</para><para>Whilst the original intention of the tool was to enable a given stylesheet to be
+        analysed, perhaps its future value is really in being able to increase understanding of what
+        the essence of the streamability rules is, by providing a highly detailed
+          <quote>walkthrough</quote> of their application on fragments of XSLT of interest. It might
+        also be interesting to see whether a rudimentary <quote>expert system</quote>, in the form
+        of patterns matching some design metaphors (e.g. adding a <code>copy()</code> action to
+        avoid returning nodes from the input) might be able to suggest alterations that might enable
+        streamability where originially this cannot be guaranteed. </para></section></section><bibliography><title>References</title><bibliomixed xml:id="Braaksma1" xreflabel="Braaksma1">Braaksma, Abel: <quote>XSLT 3.0 Streaming
+        for the masses</quote> [online] XML Prague 2014 proceedings, pp29–80,
+        <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://archive.xmlprague.cz/2014/files/xmlprague-2014-proceedings.pdf</link>
+    </bibliomixed><bibliomixed xml:id="Braaksma2" xreflabel="Braaksma2">Braaksma, Abel: <quote>Streaming Design
+        Patterns or: How I Learned to Stop Worrying and Love the Stream</quote> [online] XML London
+      2014 proceedings, pp24–52,
+        <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://xmllondon.com/2014/xmllondon-2014-proceedings.pdf</link>
+    </bibliomixed><bibliomixed xml:id="Kay" xreflabel="Kay">Kay, Michael: <quote>Streaming in the Saxon XSLT
+        Processor</quote>[online] XML Prague 2014 proceedings, pp81–102
+        <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://archive.xmlprague.cz/2014/files/xmlprague-2014-proceedings.pdf</link>
+    </bibliomixed><bibliomixed xml:id="REx" xreflabel="REx">Rademacher, Gunther: <quote>REx Parser
+        Generator</quote>[online] <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.bottlecaps.de/rex/</link>
+    </bibliomixed><bibliomixed xml:id="Servlex" xreflabel="Servlex">Georges, Florent: <quote>Servlex: (: Web
+        Applications and REST Services Framework for XQuery, XProc and XSLT. :)</quote>[online]
+        <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://serlvex.net</link>
+    </bibliomixed></bibliography></article>

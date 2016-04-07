@@ -1,0 +1,646 @@
+<?xml version="1.0" encoding="UTF-8"?><article xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink" version="5.0-subset Balisage-1.2"><title>A Streaming XSLT Processor</title><info><confgroup><conftitle>Balisage: The Markup Conference 2010</conftitle><confdates>August 3 - 6, 2010</confdates></confgroup><abstract><para>Existing XSLT implementations build a tree representation of the source document in memory, and
+are therefore limited to processing of documents that fit in memory. With many transformations, however,
+there is a direct correspondence between the order of information in the output, and the order of the
+corresponding information in the input. In such cases it ought to be possible to perform the transformation
+without allocating memory to the entire source tree.</para><para>The XSL Working Group within W3C has been working on a new version of the language designed
+    to make streamed implementations feasible, and the author, who is editor of that specification, has
+    at the same time been working on the implementation of streaming in the Saxon XSLT processor. This paper
+    describes how far this work has progressed, and the way in which the implementation is structured.
+    It adopts a chronological approach to the exposition, explaining how the streaming features have gradually
+    developed from small beginnings.</para></abstract><author><personname><firstname>Michael</firstname><surname>Kay</surname></personname><personblurb><para>Michael Kay is the editor of the W3C XSLT specification, and is a member of the XQuery
+and XML Schema Working Groups. He is the developer of the Saxon XSLT, XQuery, and XML Schema processor.
+He is the author of <quote>XSLT Programmer's Reference</quote> (now in its fourth edition) and a contributor
+to many other books.</para><para>He is a member of the Advisory Board for Balisage 2010.  In 2009, he chaired the associated Symposium
+on Processing XML Efficiently.</para></personblurb><affiliation><jobtitle>Director</jobtitle><orgname>Saxonica Limited</orgname></affiliation><email>mike@saxonica.com</email></author><legalnotice><para>Copyright © Michael Kay 2010</para></legalnotice><keywordset role="author"><keyword>XML</keyword><keyword>Streaming</keyword><keyword>Push</keyword><keyword>Program Inversion</keyword></keywordset></info><section><title>Streaming: an Introduction</title><para>The architecture of most XSLT processors is as shown in Figure 1. The XML parser is used
+      to build a tree representation of the source document in memory. XSLT instructions are then
+      executed, which cause the evaluation of XPath expressions, which select nodes from the source
+      tree by navigating around this tree. Because the XPath axes (child, descendant, parent,
+      ancestor, preceding-sibling, and so on) allow navigation around this tree in arbitrary
+      directions, it is necessary for the entire tree to be held in memory for the duration of the
+      transformation. For some XML documents, this is simply not feasible: even sample datasets
+    representing virtual 3D city models run to 44Gbytes in size (<xref linkend="CityGML"/>).</para><figure xml:id="fig1"><title>Fig 1: Architecture of an XSLT Processor</title><mediaobject><imageobject><imagedata fileref="../../../vol5/graphics/Kay01/Kay01-001.png"/></imageobject></mediaobject><caption><para>In this schematic, arrows represent flow of control (not data flow). Thus the two
+          controlling components (outlined bold) are the Parser and the XSLT engine; the parser
+          writes the source tree and the XSLT engine reads it (via the XPath engine). The serializer
+          is invoked by the XSLT engine to process one result tree event at a time, which means that
+          the result tree does not actually need to be materialized in memory.</para></caption></figure><para>By contrast, there is no need to hold the result tree in memory. Although the semantics of
+      the language speak of a result tree, a naive execution of XSLT instructions causes nodes to be
+      written to the result tree in document order, which means that data can be serialized (to
+      lexical XML or HTML) as soon as it is generated. So the result tree is a fiction of the
+      specification, and does not occupy real memory in a typical implementation.</para><para>It has long been recognized that the need to hold the source tree in memory is a serious
+    restriction for many applications. Researchers have made a number of attempts to tackle the problem:</para><orderedlist><listitem><para>Some have concentrated on streaming XPath processors (<xref linkend="Barton2003"/>,
+            <xref linkend="BarYossef2004"/>, <xref linkend="Joshi"/>). The focus here is on
+          rewriting the reverse axes (such as preceding-sibling) in terms of forwards axes. There
+          has been significant progress demonstrated in these projects, though they all leave out
+          some of the most awkward features of the language, such as the <code>last()</code>
+          function. However, streamed evaluation of a single XPath expression during a single pass
+          of a source document does not help much with streamed evaluation of XSLT, since a
+          stylesheet contains many XPath expressions, and the starting point for one is typically
+          dependent on the nodes found by another.</para></listitem><listitem><para>Other projects have concentrated on streamed evaluation of XQuery (<xref linkend="Florescu2003"/>, <xref linkend="Li2005"/>). Again these projects rely heavily
+          on rewriting the execution plan. These results are difficult to translate to XSLT, because
+          XQuery has the luxury of a flow-of-control that is fully statically analyzable (there is
+          no polymorphism or dynamic despatch). In XQuery, the compiler can look at a function call
+          and know which function it is calling; it can therefore determine what navigation is
+          performed by the called function. Template rules in XSLT, by contrast, are fired
+          dynamically based on input data.</para></listitem><listitem><para>Guo et al (<xref linkend="Guo2004"/>) describe an approach to streamed XSLT processing that restricts the supported
+          XSLT constructs to a small core. This core language is DTD-aware, and restricts match patterns to those
+          that can be uniquely ascribed to an element declaration in the DTD grammar. XPath expressions appear only
+          in the <code>xsl:apply-templates</code> instruction, and always select downwards by element name. As a result,
+          the call hierarchy becomes statically tractable, as in the XQuery case.</para></listitem><listitem><para>Zergaoui (<xref linkend="Zergaoui2009"/>) observes that many transformations
+      are intrinsically non-streamable, because the events representing the result tree appear in a different
+      order from the events from the source tree on which they depend. He therefore suggests that pure
+      (zero-memory) streaming is an impractical goal, and that practical engineering solutions should
+      strive rather to minimize the amount of buffering needed, without restricting the expressive
+      capabilities of the transformation language.
+             </para></listitem><listitem><para>Echoing this, Dvorakova (<xref linkend="Dvorakova2008"/>, <xref linkend="Dvorakova2009a"/>,
+            <xref linkend="Dvorakova2009b"/>) and her colleagues describe an approach that supports
+          a rather larger subset of the XSLT language, though it still contains some serious limitations:
+          match patterns in template rules are simple element names, path expressions can select
+          downwards only, recursive structures in the schema are not allowed. Their approach,
+          implemented in the Xord framework, is based on static analysis of the XSLT code in the
+          context of a schema to determine the extent to which streaming can be employed, and the
+          scope of input buffering needed to handle constructs (for example, non-order-preserving
+          constructs) where pure streaming is not possible. (An implicit assumption of their
+          approach, which sadly is not true in real life, is that an element name appearing in the
+          match pattern of a template rule can be used to identify unambiguously a schema definition
+          of the structure of the elements that match this rule.)</para></listitem><listitem><para>Others have adopted the approach that if XSLT cannot be streamed, then a different language
+            is needed. STX <xref linkend="STX"/> is one example of an alternative transformation language, designed explicitly for streaming.
+          Another is the INRIA XStream project (<xref linkend="Frisch2007"/>) (not to be confused with other projects of the same name).
+          STX abandons the attempt to be purely declarative, instead giving the programmer access to mutable
+          variables which can be used to remember data from the input document that might be needed later in the transformation;
+          this means that the responsibility for controlling memory usage rests entirely on the programmer.
+          XStream, by contrast, is a purely functional language that relies heavily on partial evaluation of functions
+          as soon as relevant inputs are available; the buffering of input is thus represented by the pool of partially-evaluated
+          function calls, and the efficiency of the process depends strongly on the programmer having a good
+          understanding of this execution model.
+          </para></listitem></orderedlist><para>What all this activity makes clear is that streaming of the XSLT language as currently defined is seriously
+    difficult; it is unreasonable to treat streaming as a mere optimization that implementors can provide if they
+    choose to apply themselves to the task.</para><para>Since 2007 the W3C XSL Working Group has been working on enhancements to the XSLT language designed
+    to make streaming a feasible proposition. A first working draft of XSLT 2.1 has been published (<xref linkend="Kay2010b"/>), 
+      and an overview
+    of the design approach is available in <xref linkend="Kay2010a"/>.</para><para>This paper describes how streaming is implemented in the Saxon XSLT processor (<xref linkend="Saxonica"/>). This is influenced
+    by the work of the W3C specification, but it is by no means an exact match to the specification in its current form:
+    many features that should be streamable according to the specification are not yet streamable in Saxon, while Saxon
+    succeeds in streaming some constructs that are non-streamable according to XSLT 2.1.</para><para>Streaming facilities in Saxon have been developed over a number of years, and have become
+      gradually more sophisticated in successive releases. In order to aid understanding, the
+      facilities are therefore presented as a narrative, describing enhancements as they were
+      introduced in successive releases. This includes features that have been implemented but not
+      yet released at the time of writing, in what is destined to be Saxon 9.3.</para></section><section><title>Streamed XPath in the Schema Validator</title><para>Since version 8.0, released in June 2004, Saxon has incorporated an XML Schema 1.0
+      processor. This was introduced to underpin the schema-aware capabilities of the (then draft)
+      XSLT 2.0 and XQuery 1.0 specifications, but can also be used as a freestanding validator in
+      its own right.</para><para>XML Schema 1.0 (XSD 1.0) allows uniqueness and referential constraints to be expressed by
+      means of XPath expressions. For example, in a schema describing XSLT stylesheet documents, the
+      constraint that every <code>with-param</code> element within an <code>call-template</code>
+      element must have a distinct value for its <code>name</code> attribute might be expressed as
+      follows:</para><programlisting xml:space="preserve">
+      &lt;xs:element name="call-template" type="call-template-type"&gt;
+        &lt;xs:unique&gt;
+          &lt;xs:selector xpath="xsl:with-param"/&gt;
+          &lt;xs:field xpath="@name"/&gt;
+        &lt;/xs:unique&gt;
+      &lt;/xs:element&gt;
+    </programlisting><para>In this example the two XPath expressions are very simple. XSD 1.0 allows them to be rather
+      more complicated than these examples, but they are still restricted to a very small subset of
+      XPath: downward selection only; no predicates; union operator allowed at the top level only.
+      The specification explicitly states the reason why the subset is so small:</para><blockquote><para>In order to reduce the burden on implementers, in particular implementers of streaming processors, 
+    only restricted subsets of XPath expressions are allowed in {selector} and {fields}. </para></blockquote><para>It was important to the designers of XML Schema 1.0 that a validator should be able to process its input document
+    in a pure streaming manner with no buffering, and a subset of XPath was chosen to make this viable.</para><para>Accordingly, Saxon 8.0 included in its schema processor a streamed implementation of this XPath subset.</para><para>For various reasons, the schema validator in Saxon was implemented as a push pipeline
+      (<xref linkend="Kay2009"/>); the component for evaluating uniqueness and referential constraints
+      forms one of the steps in this pipeline. A SAX XML parser generates a sequence of parsing
+      events (startElement, endElement, etc) which are piped into the validator, which in turn
+      passes them on to the next stage in the process, whatever that might be. Streamed XPath
+      evaluation therefore operates in push mode, and this design choice continues to affect the way
+      the design evolves today. One of the great advantages of a push pipeline is that it is easy to
+      direct parsing events to many different consumers: this is particularly useful with uniqueness
+      constraints because many such constraints can be under evaluation at any one time, scoped to
+      the same or different parent elements.</para><para>The despatching of events to the listeners involved in evaluating a uniqueness constraint is handled by a component
+      called the <code>WatchManager</code>; each of the listening components is called a <code>Watch</code>. For the example
+      constraint given, the process is as follows:</para><orderedlist><listitem><para>When the startElement event for the <code>xsl:call-template</code> element is notified by the
+          parser, the validator for the <code>xsl:call-template</code> element is fired up. This
+          creates a <code>SelectorWatch</code> for the uniqueness constraint. The
+            <code>SelectorWatch</code> maintains a table of key values that have been encountered
+          (initially empty) so that it can check these for uniqueness.</para></listitem><listitem><para>All parsing events are now notified to this <code>SelectorWatch</code>. For each event, it
+          checks whether the ancestor path in the document matches the path given in the
+            <code>xs:selector</code> element. In this case this is simply a test whether the event
+          is a startElement event for an <code>xsl:with-param</code> element. More generally, it is
+          essentially a match of one list of element names against another list of element names,
+          taking account of the fact that the <code>//</code> operator can appear at the start of
+          the path to indicate that it is not anchored to the root <code>xsl:call-template</code>
+          element. When the matching startElement event is encountered, the
+            <code>SelectorWatch</code> instantiates a <code>FieldWatch</code> to process any nodes
+          that match the expression in the <code>xs:field</code> element.</para></listitem><listitem><para>The <code>FieldWatch</code> is now notified of all parsing events, and when the
+            <code>@name</code> attribute is encountered, it informs the owning
+            <code>SelectorWatch</code>, which checks that its value does not conflict with any value
+          previously notified. This process is more complex than might appear, because there can be
+          multiple <code>xs:field</code> elements to define a composite key, and furthermore, the
+          field value can be an element rather than an attribute, in which case it may be necessary
+          to assemble the value from multiple text nodes separated by comments or processing
+          instructions. It is also necessary to check that the <code>FieldWatch</code> fires exactly
+          once. (A simplifying factor, however, is that XSD requires the element to have simple
+          content.) </para></listitem><listitem><para>After detecting a <code>startElement</code> event that matches its path expression, the
+            <code>SelectorWatch</code> must remain alert for further matching events. Before the
+          corresponding <code>endElement</code> event is encountered, another matching
+            <code>startElement</code> might be notified. This cannot happen in the above example.
+          But consider the constraint that within each section of a chapter, the figure numbers must
+          be unique: </para><programlisting xml:space="preserve">
+      &lt;xs:element name="chapter" type="call-template-type"&gt;
+        &lt;xs:unique&gt;
+          &lt;xs:selector xpath=".//section"/&gt;
+          &lt;xs:field xpath=".//figure"/&gt;
+        &lt;/xs:unique&gt;
+      &lt;/xs:element&gt;
+      </programlisting><para>It is entirely possible here for chapters to be nested within chapters, and for
+          sections to be nested within sections. (It is not possible for figures to be nested within
+          figures, however: the node selected by the <code>xs:field</code> element must have simple
+          content.) The <code>WatchManager</code> may therefore be distributing events
+          simultaneously to a large number of <code>Watch</code> instances, even for a single
+          uniqueness constraint; at the same time, of course, other uniqueness constraints may be
+          active on the same elements or on different elements at a different level of the source
+          tree.</para></listitem></orderedlist></section><section><title>Streaming Copy</title><para>The next step in Saxon's journey towards becoming a streaming XSLT processor was to
+      exploit the mechanisms described in the previous section in contexts other than schema
+      validation. This was introduced in Saxon 8.5, released in August 2005, and subsequently
+      extended. The facility used standard XSLT 2.0 syntax, but required the user to write code in a
+      highly stereotyped way for streaming to be possible.</para><section><title>Initial implementation of Streaming Copy</title><para>Typically, the user would write code like this:</para><programlisting xml:space="preserve">
+      
+&lt;xsl:function name="f:customers"&gt;
+  &lt;xsl:copy-of select="doc('customers.xml')/*/customer"
+       saxon:read-once="yes" xmlns:saxon="http://saxon.sf.net/"/&gt;
+&lt;/xsl:function&gt;
+
+&lt;xsl:template name="main"&gt;
+  &lt;xsl:apply-templates select="f:customers()"/&gt;
+&lt;/xsl:template&gt;
+
+    </programlisting><para>Without the processing hint expressed by the <code>saxon:read-once</code> attribute, this
+        code would parse the source document <code>customers.xml</code> and build a tree
+        representation of the document in memory. It would then search the tree for the elements
+        matching the path <code>/*/customer</code>, and for each of these in turn it would create a
+        copy of the subtree rooted at this element, returning it from the function and then applying
+        templates to it.</para><para>It is easy to see that in this operation, building the tree representation of the large
+          <code>customers.xml</code> document is unnecessary; it can be bypassed if the elements
+        matching <code>/*/customer</code> can be recognized in the event stream issuing from the XML
+        parser. Instead of one large tree, the processor can build a series of smaller trees, each
+        representing a single customer record. So long as the size of the customer record is kept
+        within bounds, there is then no limit on the number of customer records present in the input
+        document. This is sometimes referred to as <emphasis>windowing</emphasis> or
+          <emphasis>burst-mode streaming</emphasis>: the source document is processed as a sequence
+        of small trees, rather than as one large tree.</para><para>The use of the <code>xsl:copy-of</code> instruction here is significant. In the implementation, there is no physical
+    copying taking place, because the original whole-document tree is never built. But the result is equivalent to the result
+    of building the whole-document tree and then copying the sequence of subtrees. In particular, the nodes in one subtree
+    are not linked in any way to the nodes in other subtrees; there is no way the application can navigate outside the boundaries
+    of a subtree. Attempting to retrieve the ancestors or siblings of the <code>customer</code> element returns nothing,
+    just as it would with a true subtree copy.</para><para>Saxon implements this construct by reusing the <code>WatchManager</code> machinery
+        described in the previous section. Having analyzed the <code>select</code> attribute of the
+          <code>xsl:copy-of</code> instruction to confirm that it satisfies the constraints on
+        streamable XPath expressions, the document <code>customers.xml</code> is then processed
+        using a SAX parser which sends parsing events to a <code>WatchManager</code> which in this
+        case notifies a new kind of <code>Watch</code>, a <code>CopyWatch</code>, of the start and
+        end of elements matching the path expression; between these start and end events, the
+          <code>CopyWatch</code> is notified of all intermediate events and uses these to build a
+        tree representing the <code>customer</code> element.</para><para>Note again that two elements matching the path can be active at the same time. This cannot happen with the example above, because
+    the path <code>/*/customer</code> has a fixed depth. But change the example to <code>//section</code>, and it is clear that
+    the set of <code>section</code> elements selected by the path can include one section that is a subtree of another. This situation
+    requires some internal buffering: the language semantics require that the sections are delivered in document order, which means that
+    the outermost section must be delivered before its nested sections. The trees representing the nested sections must therefore
+    be held in memory, to be released for processing only when the <code>endElement</code> event for the outermost section is
+    notified. The code is written so that it is always prepared to do this buffering; in practice, it is very rarely needed, and
+    no extra costs are incurred in the case where it is not needed. In some cases it would be possible to determine statically
+    that no buffering will be needed, but this knowledge confers little benefit.</para><para>The reader may be puzzled by the choice of name for the attribute
+          <code>saxon:read-once="yes"</code>. Although the implementation of the
+          <code>xsl:copy-of</code> instruction in streaming mode is very different from the
+        conventional execution plan, the functional behaviour is identical except in one minor
+        detail: there is no longer a guarantee that if the <code>customers.xml</code> file is read
+        more than once within the same transformation, its contents will be the same each time. At
+        the time this feature was first implemented, the XSLT 2.0 conformance rules required
+        implementations to deliver stable results in this situation. The streaming implementation
+        necessarily departed from this rule (the only practical way to enforce the rule is to make
+        an in-memory copy of the tree), so the <code>saxon:read-once</code> attribute was provided
+        as a way for the user to assert that the file would not be read more than once, thus
+        licensing the non-conformance in the case where the assertion was not honoured. In the final
+        version of the XSLT 2.0 specification, there was explicit provision that implementations
+        were allowed to provide a user option to waive the stability requirement for the
+          <code>doc()</code> function, thus making this extension conformant.</para><para>A further complication in the implementation is caused by the fact that the
+          <code>CopyWatch</code> component delivers its results (the sequence of small
+          <code>customer</code> trees) using a push interface (it calls the next component in the
+        pipeline to deliver each one in turn), whereas the <code>xsl:apply-templates</code>
+        instruction that calls the user-defined function expects to use a pull interface (it calls
+        the XPath engine to deliver each one in turn). There is thus a push-pull conflict, which is
+        resolved using the design described in <xref linkend="Kay2009"/> and shown in Figure 2. The push
+        code operates in one thread, writing the sequence of <code>customer</code> trees to a cyclic
+        buffer, which is then read by a parallel thread delivering the trees in response to requests
+        from the <code>xsl:apply-templates</code> instruction.</para><figure><title>Figure 2: Two-thread processing model</title><mediaobject><imageobject><imagedata fileref="../../../vol5/graphics/Kay01/Kay01-002.png"/></imageobject></mediaobject><caption><para>Thread One contains the parser and the push-mode evaluation of the streaming path
+            expression (the WatchManager and CopyWatch). This emits a sequence of small trees (each
+            representing one customer record) to the cyclic butter, from where they are read by the
+            pull-mode XPath engine running in Thread Two. Arrow represent flow of control.</para></caption></figure></section><section><title>Refinements of the Streaming Copy feature</title><para>In releases subsequent to Saxon 8.5, the streaming copy mechanism described in the previous section was enhanced in a number of ways,
+    without changing its fundamentals.</para><para>In Saxon 8.8 (September 2006) two changes were made. Firstly, the set of XPath expressions
+        that could be handled in streaming mode was extended, to include union expressions and
+        simple predicates. Secondly, the need for the two-thread model was eliminated in cases where
+        no further processing of the copied subtrees was required: for example, in a transformation
+        whose output contained these subtrees without modification.</para><para>In Saxon 9.1 (July 2008) the mechanism was extended to XQuery, via a new extension
+        function <code>saxon:stream()</code>, which was also made available in XSLT. This might be
+        regarded as a pseudo-function: the call
+          <code>saxon:stream(doc('customers.xml')/*/customer)</code> delivers a copy of the value of
+        its argument (that is, a sequence of <code>customer</code> subtrees), but it requires its
+        argument to conform to the syntax of streamable path expressions. <footnote><para>Looking at this syntax, one might reasonably ask whether a pull pipeline would not
+            deliver the result with less complexity. For this example, it probably would. The push
+            code was used primarily because it already existed and could be reused. But I think this
+            is no accident: I tend to the view that components implemented with a push model are
+            likely to be reusable in a wider variety of configurations. For more details on push
+            versus pull pipelines, see <xref linkend="Kay2009"/>.</para></footnote></para><para>In Saxon 9.2 (August 2009) a further refinement was introduced to allow the processing of
+        the input stream to terminate prematurely. For example, the query
+          <code>saxon:stream(doc('customers.xml')/*/@version)</code> will return the value of the
+          <code>version</code> attribute from the outermost element of the document, and will read
+        no further once this has been seen. This makes it possible to obtain information from near
+        the start of an XML document in constant time, regardless of the document size, which is
+        especially useful in a pipeline when making decisions on how to route a document for
+        processing based on information in its header. (It's a moot point whether this is consistent
+        with the requirement in the XML 1.0 specification that all well-formedness errors in a
+        document must be reported to the application. But the facility is so useful that we can
+        ignore the standards-lawyers on this one.)</para></section><section><title>Streaming with Retained State</title><para>A limitation of the streaming copy approach as outlined above is that there is no way of
+        using the information in a subtree once the processing of that subtree has finished; so
+        there is no way that the processing of one subtree can influence the processing of
+        subsequent subtrees. (Saxon always had a workaround to this problem, the deprecated
+          <code>saxon:assign</code> instruction which introduces mutable variables to the language;
+        but this plays havoc with optimisation).</para><para>An answer to this problem was found in the form of the <code>xsl:iterate</code>
+        instruction defined in the XSLT 2.1 working draft. This was implemented in Saxon 9.2 in the
+        Saxon namespace (as <code>saxon:iterate</code>), but I will present it using the W3C syntax,
+        which becomes available in Saxon 9.3.</para><para>Consider the problem of processing a sequence of <code>transaction</code> elements, and outputting the
+        same sequence of elements but with an additional attribute holding the running balance on the account, obtained
+        by accumulating the values of all the preceding transactions.</para><para>The classic solution to this would use sibling recursion:</para><programlisting xml:space="preserve">
+        &lt;xsl:template match="transaction"&gt;
+          &lt;xsl:param name="balance" as="xs:decimal"/&gt;
+          &lt;transaction value="{@value}" balance="{$balance + @value}"/&gt;
+          &lt;xsl:apply-templates select="following-sibling::transaction[1]"&gt;
+             &lt;xsl:with-param name="balance" select="$balance + @value"/&gt;
+          &lt;/xsl:apply-templates&gt;
+        &lt;/xsl:template&gt;</programlisting><para>There are a number of difficulties with this approach. Firstly, everyone who has taught
+        XSLT appears to agree that students have considerable difficulty producing the code above as
+        the solution to this exercise, despite its brevity and apparent simplicity. Secondly, it
+        relies rather heavily on the XSLT processor implementing tail call optimization; if you run
+        this on a variety of popular XSLT processors, many of them will run out of stack space after
+        processing 500 or so transactions, showing that they do not implement this optimization.
+        Finally, the analysis needed to demonstrate that a streaming implementation of this code is
+        feasible is far from easy, and one suspects that minor departures from this particular way
+        of writing the code will invalidate any such analysis.</para><para>For all these reasons, XSLT 2.1 introduces a new instruction <code>xsl:iterate</code>, which allows the solution to
+      be expressed as follows:</para><programlisting xml:space="preserve">
+        &lt;xsl:iterate select="transaction"&gt;
+          &lt;xsl:param name="balance" as="xs:decimal" select="0"/&gt;
+          &lt;transaction value="{@value}" balance="{$balance + @value}"/&gt;
+          &lt;xsl:next-iteration&gt;
+             &lt;xsl:with-param name="balance" select="$balance + @value"/&gt;
+          &lt;/xsl:next-iteration&gt;
+        &lt;/xsl:iteration&gt;</programlisting><para>This has the appearance of a simple loop rather than functional recursion; it behaves like
+        the familiar <code>xsl:for-each</code> instruction with the added ability to set a parameter
+        after the processing of one value which is then available for use when processing the next.
+        A key difference compared with the recursive solution is that the set of transactions to be
+        processed is identified in one place, the <code>select</code> attribute of the
+          <code>xsl:iterate</code> instruction, rather than being the product of a sequence of
+        independent calls on <code>following-sibling</code>. A useful consequence of this difference
+        is that termination is guaranteed.</para><para>Another way of looking at <code>xsl:iterate</code> is as syntactic sugar for the
+          <code>foldl</code> higher-order function found in many functional programming languages:
+        this applies a user-supplied function (the body of <code>xsl:iterate</code>) to each item of
+        an input sequence (the value of the <code>select</code> expression), with each iteration
+        delivering an accumulated value of some kind, which is made available as a parameter to the
+        user-supplied function when called to process the next item.</para><para>Saxon 9.2 implements this new instruction (albeit in its own namespace) and allows the
+          <code>select</code> expression to select the stream of subtrees arising from a streaming
+        copy operation: for example <code>&lt;xsl:iterate
+          select="saxon:stream(doc('transactions'xml')/*/transaction"&gt;</code>. By this means,
+        information computed while processing one input transaction can be made available while
+        processing the next. The implementation of <code>xsl:iterate</code> in fact knows nothing
+        about streaming; it is processing the sequence of subtrees just as it would process any
+        other sequence of items.</para></section><section><title>Limitations of Streaming Copy</title><para>The streaming copy feature has enabled many applications to be written using Saxon that
+        would otherwise have been impossible because of the size of the input document. Many of the
+        streaming use cases published by the W3C Working Group (<xref linkend="Cimprich2010"/>) can be implemented using
+        this feature. But despite the various refinements that have been described, there are some
+        serious limitations:</para><itemizedlist><listitem><para>There is no way of getting access to part of the streamed source document other than
+      what is contained in the copied subtrees. This problem can be mitigated by using a union expression to select
+      all the data that is needed. However, the programming then becomes rather complex.</para></listitem><listitem><para>The design pattern works well with "hedge-like" source documents: those where the hierarchy
+            fans out quickly to a large number of small subtrees. But there are many large source
+            documents that do not fit into this pattern - this arises particularly with
+            "document-oriented" XML, but also for example with GML (Geography Markup Language) [gml]
+            where individual geographical features represented in the data stream can each be of
+            considerable size.</para></listitem></itemizedlist><para>These limitations arise because streaming copy treats the input document as a flat
+        sequence of elements, not really as a hierarchy. To address these limitations, it is
+        necessary to restore the ability to process the input tree using recursive descent using
+        template rules. The way in which template rules can be made to work in a streaming manner is
+        the subject of the next section.</para></section></section><section><title>Streaming Templates</title><para>Consider a stylesheet containing the following two rules:</para><programlisting xml:space="preserve">
+      &lt;xsl:template match="*"&gt;
+        &lt;xsl:copy&gt;
+          &lt;xsl:apply-templates/&gt;
+        &lt;/xsl:copy&gt;
+      &lt;/xsl:template&gt;
+      
+      &lt;xsl:template match="note"/&gt;
+      </programlisting><para>This follows a familiar coding pattern: first a generic template which acts as the default processing for all
+    elements in the source document (this example copies the element to the output, sans attributes, and uses the
+    <code>xsl:apply-templates</code> instruction to invoke recursive processing of its children); then one or more templates
+    for specific named elements to process them in a way that differs from the general rule. The effect of this stylesheet
+    is to copy the source document to the result document unchanged except for the loss of all attributes, and of elements
+    named <code>note</code> together with their descendants.</para><para>It is easy to see how this stylesheet could be implemented in a single pass over the
+      source document, without building an in-memory tree. A simple filter can be applied to events
+      emanating from the parser before passing them on to the serializer: all events are passed on
+      unchanged, except for (a) events representing attribute nodes and (b) events that occur
+      between the <code>startElement</code> event and corresponding <code>endElement</code> event
+      for a <code>note</code> element.</para><para>In XSLT 2.1 streamability is a property of a <emphasis role="ital">mode</emphasis> (<xref linkend="Kay2010a"/>). 
+      If a mode is declared to be streamable, then all the template rules in that mode must
+      obey the restrictions placed on streamable templates. The analysis defined in the XSLT 2.1
+      specification to determine streamability is rather complex; the rules currently implemented in
+      Saxon are much simpler (and in most cases, more restrictive), while still allowing a wide
+      class of transformations to be expressed. I will present first the Saxon 9.2 implementation,
+      which is relatively easy to understand, and then the Saxon 9.3 extensions, which add
+      considerable complexity and power.</para><section><title>Streaming Templates in Saxon 9.2</title><para>Saxon 9.2 follows the principle that streamability is a property of a mode, though its
+        restrictions on streamable templates are far more severe than those in the XSLT 2.1 draft.
+        The rules for streamable templates can be summarised (in simplified form) as follows:</para><itemizedlist><listitem><para>The match pattern must contain no predicates.</para></listitem><listitem><para>The template body may contain at most one <emphasis>drill-down construct</emphasis>. This may
+            be an <code>xsl:apply-templates</code> instruction with defaulted <code>select</code>
+            expression, or one of the following expressions or instructions applied to the context
+            node: <code>xsl:copy-of</code>, <code>xsl:value-of</code>, <code>string()</code>,
+              <code>data()</code> (or implicit atomization), or one of a small number of other
+            constructs.</para></listitem><listitem><para>The drill-down construct may have only the following as its containing (ancestor)
+            instructions: <code>xsl:element</code>, literal result elements,
+              <code>xsl:value-of</code>, <code>xsl:attribute</code>, <code>xsl:comment</code>,
+              <code>xsl:processing-instruction</code>, <code>xsl:result-document</code>,
+              <code>xsl:variable</code>, <code>xsl:sequence</code>.</para></listitem><listitem><para>Apart from the drill-down construct and its ancestors, any expression within the template that
+            has a dependency on the context item must fall into one of the following categories: (a)
+            a function (for example, <code>local-name()</code> or <code>exists()</code>) that
+            returns a local property of the node, or of one of its attributes or ancestors, or of an
+            attribute of an ancestor; (b) an expression that returns the string value or typed value
+            of an attribute of the node or an attribute of one of its ancestors.</para></listitem></itemizedlist><para>The effect of these rules is that the stylesheet given above, with the addition of the declaration 
+    <code>&lt;xsl:mode streamable="yes"/&gt;</code><footnote><para>In Saxon 9.2, the element is in the Saxon namespace as <code>saxon:mode</code></para></footnote>,
+    is fully streamable.</para><para>These rules allow a wide variety of transformations to be expressed. However, they impose
+        many arbitrary restrictions. For example, a template cannot contain the instruction
+          <code>&lt;xsl:value-of select=". + 3"/&gt;</code>, because an addition expression
+          (<code>+</code>) is not an acceptable ancestor of the implicit drill-down construct
+          <code>data(.)</code>. To get around this restriction, it is possible to bind a variable to
+        the value of <code>data(.)</code> and then perform the addition using the value of the
+        variable.</para><para>To understand the reason for such arbitrary restrictions, it is necessary to understand
+        something of the architecture of the implementation: whose explanation, indeed, is the main
+        purpose of this paper.</para><para>Traditionally, Saxon constructed the source tree using a push pipeline. XSLT instructions
+        were then interpreted, and by-and-large, they evaluated their XPath subexpressions using a
+        pull pipeline of iterator objects navigating the source tree, and generated output
+        (including temporary trees) by pushing SAX-like events to a serializer or tree builder
+        pipeline. To implement streaming templates, this model has been turned upside-down, almost
+        literally. During streamed evaluation, everything operates in push mode, driven by events
+        coming from the XML parser. In effect, the code implementing a template rule operating in
+        push mode is a Jackson inversion (<xref linkend="Kay2009"/>) of the code used to implement
+        the same template rule in the traditional architecture. This inversion is analogous to
+        rewriting a top-down parser as a bottom-up parser: instead of the application being in
+        control and making <code>getNextInput()</code> calls to the parser, the application becomes
+        event-driven and is called when new input is available. In consequence, the application has
+        to maintain its own stack to represent the current state; it can no longer rely on the call
+        stack maintained by the compiler of the implementation language.</para><para>The inverted code for a template is generated by the XSLT compiler, and consists (in Saxon
+        9.2) of a sequence of pre-descent actions, a drill-down action, and a sequence of
+        post-descent actions. The pre-descent actions generally involve writing
+          <code>startElement</code> events or evaluating complete instructions; the post-descent
+        actions similarly involve either complete instructions or <code>endElement</code> actions.
+        These correspond to the instructions that are permitted as ancestors of the drill-drown
+        construct: mainly instructions such as <code>xsl:element</code>, which are classified as
+          <emphasis role="ital">divisible</emphasis> instructions representing the fact that their
+        push-mode execution can be split into two halves, realised by the entry points
+          <code>processLeft()</code> and <code>processRight()</code>. The drill-down action is one
+        of <code>apply</code>, <code>copy-of</code>, <code>value-of</code>, or <code>skip</code>,
+        and indicates what is to be done with the content of the matched element (the events that
+        occur after the <code>startElement</code> that activates the template rule and before the
+        corresponding <code>endElement</code>). The value <code>skip</code> causes these events to
+        be skipped, and arises when the template rule contains no drill-down construct. The value
+          <code>copy-of</code> indicates that a subtree is to be built from these events;
+          <code>value-of</code> indicates that a string is to be constructed by concatenating the
+        text nodes and ignoring everything else. Finally, the value <code>apply</code> indicates
+        that the events should be matched against template rules for the relevant mode; when a match
+        occurs, the selected template rule will then receive the events until the matching
+          <code>endElement</code> event occurs.</para><para>This is all implemented using the a <code>StreamingDespatcher</code> that despatches events
+        to the relevant template rules. This functions in a very similar way to the
+          <code>WatchManager</code> described earlier, and in the current Saxon 9.3 code base the
+        two despatching classes have been combined into one.</para></section><section><title>Streamable Templates in Saxon 9.3</title><para>Saxon 9.3 (not yet released at the time of submitting this paper) extends streamable templates to handle a much
+      larger subset of the XSLT language, while still falling a little short of the capabilities defined in the XSLT 2.1 draft.</para><para>The first extension is in the area of match patterns for templates. Saxon 9.3 integrates the two concepts of a match pattern
+        and a streamable XPath expression. This makes sense because both are implemented by testing to see whether a given
+        node matches the pattern; the only difference is that with an XSLT match pattern in non-streaming mode, the predicates can
+        contain XPath expressions that perform arbitrary tree navigation. For XSD selector and field expressions, the parsing still
+        artificially restricts the path expression to conform to the XSD-defined XPath subset, but the object that results from the parsing,
+        and that is used at run-time, is a <code>Pattern</code> object equivalent that used when starting from an XSLT match pattern.
+        The pattern used in a streamable template rule can be any XSLT pattern provided it does not contain a predicate that is
+        positional (for example, is numeric or calls <code>position()</code> or <code>last()</code>) or that uses
+        the child, descendant, descendant-or-self, following, following-sibling, preceding, or preceding-sibling axes.</para><para>The body of the template rule is inverted in the same way as with Saxon 9.2, but the
+        rules for what it may contain are less restrictive. There is still a rule that only one
+        downward selection is allowed: more specifically, in the expression tree (abstract syntax
+        tree) representing the body of the template rule, there must be only one leaf node whose
+        path to the root of the expression tree contains a downwards selection. This path through
+        the expression tree is referred to as the <emphasis role="ital">streaming route</emphasis>.
+        This rule is relaxed in the case where the template contains a conditional instruction such
+        as <code>xsl:choose</code>; in this case each branch of the conditional may make downwards
+        selections. Unlike the XSLT 2.1 draft, Saxon does not currently allow a node in the streamed
+        input document to be bound to a variable, or passed as a parameter to another template or
+        function. A further rule is that the template must not return a node in the streamed
+        document (for example, <code>&lt;xsl:sequence select="."/&gt;</code>) - this is because there
+        is no way of analyzing what the caller attempts to do with such a node.</para><para>It is also possible, of course, for the template rule to make no downward selection at all: this results in the subtree
+        below the matched node being skipped.</para><para>All the expressions that appear on the streaming route must be capable of push
+        evaluation, that is, they must have an implementation that is event-driven. Saxon supports
+        push evaluation at two different levels of granularity (<xref linkend="Kay2009"/>),
+        parse-event granularity and item granularity; the corresponding event streams are referred
+        to respectively as decomposed or composed streams. In the first case the expression
+        evaluator is notified every time a parse event occurs (for example, startElement and
+        endElement). In the second case, it is notified only for complete XDM items (nodes or atomic
+        values). The <code>sum()</code> function supports push evaluation at the item level, which
+        means that given the expression <code>sum(.//value)</code>, each descendant
+          <code>value</code> element is assembled as a complete node, which is then atomized, and
+        the resulting atomic values are notified one by one to the sum implementation, which adds
+        each one in turn to the running total. By constrast, the functions <code>count()</code> and
+          <code>exists()</code> have implementations that work at the parse-event level, which means
+        that there is no need to build the nodes being counted as trees in memory: thus
+          <code>count(.//employee)</code> merely tallies the startElement events that match its
+        argument expression <code>.//employee</code> without ever building a tree representation of
+        an <code>employee</code> element.</para><para>A push component that takes a composed stream (XDM items) as input is referred to as a <emphasis role="ital">feed</emphasis>; an evaluator 
+        that works on a decomposed stream (parse events) is referred to as a <emphasis role="ital">watch</emphasis>. This classification
+        is based on the nature of the input stream. Orthogonally, the component may deliver its result as either a composed or
+        decomposed stream: so there are four categories overall: a composing and decomposing Watch, and a composing and decomposing Feed.
+        Examples of the four categories are shown in the table below:
+      </para><table><thead><tr><th>Input/Output</th><th>Composed</th><th>Decomposed</th></tr></thead><tbody><tr><td>Composed</td><td>remove($in, 3)</td><td>&lt;e&gt;{$in}&lt;/e&gt;</td></tr><tr><td>Decomposed</td><td>data($in)</td><td>&lt;xsl:for-each select="$in"/&gt;</td></tr></tbody></table><para>In general, the flow is that decomposed events arrive from the source XML parser. After
+        some processing they are turned into composed items; these are then further processed, and
+        eventually decomposed into events to be sent to the serializer. To make this more concrete
+        consider the streaming template:</para><programlisting xml:space="preserve">
+        &lt;xsl:template match="emp"&gt;
+          &lt;employee name="{@name}" nr="{@empNr}"&gt;
+            &lt;xsl:value-of select="distinct-values(skills/skill)"/&gt;
+          &lt;/employee&gt;
+        &lt;/xsl:template&gt;
+        </programlisting><para>The streaming route here contains a literal result element (<code>employee</code>), the
+          <code>xsl:value-of</code> instruction, the <code>distinct-values()</code> function call,
+        and the path expression <code>skills/skill</code>. It also contains expressions added by the
+        compiler, reflecting the implicit atomization and type checking performed by the
+          <code>distinct-values()</code> function, and the implicit call on
+          <code>string-join()</code> that is performed to insert separator spaces on behalf of the
+          <code>xsl:value-of</code> instruction. The full expression tree is shown in Figure 3, with
+          the streaming route highlighted.</para><figure xml:id="fig03"><title>Figure 3: The expression tree of a template, showing the streaming route</title><mediaobject><imageobject><imagedata fileref="../../../vol5/graphics/Kay01/Kay01-003.png"/></imageobject></mediaobject><caption><para>The expression tree omits some nodes, for example type-checking operators, for clarity. The
+          highlighted "path" node acts as the Watch, looking for events coming from the parser that match the
+          pattern <code>skills/skill</code>. The <code>data()</code> node composes these events into strings
+          representing the typed value of the <code>skill</code> elements; these are fed through the operators
+          found on the streaming route until they reach the <code>&lt;employee&gt;</code> element
+          constructor, which delivers a stream of events representing the newly constructed element. Typically
+          these events go straight to the serializer. The parts of the expression tree that are not on the streaming
+          route (the two attribute constructors) are evaluated in pull-mode as normal.</para></caption></figure><para>The <code>distinct-values()</code> function implicitly atomizes its input. So the first
+        thing that happens to the incoming data is that it is sent to a TypedValueWatch: this takes
+        in a decomposed sequence of events and outputs a composed sequence of atomic values
+        representing the typed values of the <code>skill</code> elements. This is piped into a type
+        checker that checks that the values in this sequence are all strings. The type-checked
+        csequence is then piped into the component that evaluates the <code>distinct-values()</code>
+        function, which again outputs a composed stream (this being identical to its input stream
+        except that values are removed from the stream if they have been encountered before). The
+          <code>xsl:value-of</code> instruction is initially compiled into a pipeline of primitive
+        instructions that first joins adjacent text nodes, then atomizes, then inserts separators
+        between adjacent strings, then converts the resulting string to a text node; in this case
+        the optimizer knows from type analysis that the first two steps are superfluous, so we are
+        left with a pipeline that takes a composed sequence of strings as its input, and produces a
+        composed sequence comprising a single text node as its output. Finally, the component
+        representing the literal result element <code>employee</code> takes this composed input, and
+        produces decomposed output consisting of a startElement event, two attribute events, a text
+        node event, and an endElement event. Typically these events will be sent directly to the
+        serializer.</para><para>An expression, of course, may have more than one sub-expression, and it may be capable
+        of push evaluation in respect of some of those sub-expressions but not others. All
+        expressions support push evaluation in respect of sub-expressions that are singletons
+        (cardinality zero-or-one). Thus, for example, the expression <code>(sum(.//value) +
+          1)</code> is streamable, because although there is no specific support for evaluating the
+        addition in push mode, the system is capable of constructing the two singleton arguments and
+        using the conventional pull-mode addition. Many expressions also benefit from a generic
+        implementation in cases where an argument is a non-singleton sequence. This generic
+        implementation buffers the argument sequence in memory and then uses the pull-mode
+        implementation once the sequence is complete. This of course is not pure streaming, but it
+        provides useful scaffolding to enable less commonly used expressions to appear in a
+        streaming template while awaiting a pure streaming implementation. Currently this mechanism
+        is used for comparison expressions such as <code>.//value = 17</code> (recall that in XPath,
+        this returns true if at least one of the <code>value</code> elements is equal to 17); there
+        is no technical reason that prevents the creation of a pure push-mode implementation of a
+        general comparison expression with respect to either argument, but it has not yet been
+        implemented, and it is not a top priority because in the vast majority of cases the
+        arguments actually turn out to be singletons.</para><para>The compile-time template inversion process operates by means of a recursive walk of the
+        expression tree. At every level there must be at most one branch that performs downward
+        selection; this branch is taken, and by this means the streaming route is identified. The
+        process then attempts to identify the longest suffix of the streaming route that constitutes
+        a streamable pattern. For example, if the body of the template is <code>&lt;xsl:value-of
+          select="sum(.//value) + 1"/&gt;</code>, the streamable pattern is <code>.//value</code>. The
+        immediate parent of this pattern on the streaming route must always be an expression that
+        can be evaluated as a Watch. The number of expressions implemented as a Watch is suprisingly
+        small:</para><itemizedlist><listitem><para><code>TypedValueWatch</code> handles all expressions that use the atomized value of the
+            selected nodes.</para></listitem><listitem><para><code>StringValueWatch</code> handles all expressions that use the string value of the
+            selected nodes.</para></listitem><listitem><para><code>CountWatch</code> handles the <code>count()</code>, <code>exists()</code>, and
+              <code>empty()</code> functions.</para></listitem><listitem><para><code>CopyWatch</code> (the one we met earlier) handles <code>xsl:copy-of</code>.</para></listitem><listitem><para><code>VoidWatch</code> is used for templates or branches of a conditional that make no
+            downwards selection.</para></listitem><listitem><para><code>SimpleContentWatch</code> implements the rules for instructions such as
+              <code>xsl:value-of</code> and <code>xsl:attribute</code>; specifically, it
+            concatenates adjacent text nodes, removes empty text nodes, and reduces all other nodes
+            to string values.</para></listitem><listitem><para><code>ApplyTemplatesWatch</code> is used where the downwards selection appears in the select
+            expression of an <code>xsl:apply-templates</code> instruction, and also supports
+              <code>xsl:apply-imports</code> and <code>xsl:next-match</code>.</para></listitem><listitem><para><code>ForEachWatch</code> is used where the downwards selection appears in the select
+            expression of an <code>xsl:for-each</code> instruction.</para></listitem></itemizedlist><para>Most of these Watch implementations are composing: they emit a sequence of XDM items. 
+        The two exceptions are the <code>ForEachWatch</code> and the <code>ApplyTemplatesWatch</code>, which
+        emit a sequence of parse events.</para><para>We have already seen the <code>CopyWatch</code> earlier in the paper: it is used for a
+        simple streaming copy, as well as for <code>xsl:copy-of</code> instructions appearing within
+        a streaming template. When it receives a startElement event representing an element selected
+        by its controlling pattern (we'll assume to keep things simple that it is watching for
+        elements), it starts building a tree. All subsequent parse events until the matching
+        endElement are directed to this tree builder. When the tree is complete, the node at the
+        root of the tree is emitted to the Feed that implements the parent of the
+          <code>xsl:copy-of</code> instruction, that is, the parent expression in the streaming
+        route through the expression tree. </para><para>The <code>StringValueWatch</code> and <code>TypedValueWatch</code> work in a very
+        similar way, except that instead of building a tree from the incoming events, they construct
+        the string value or typed value of the node by concatenating the values of those events that
+        represent text nodes.</para><para>All these Watch implementations have a complication that has already been mentioned for Streaming Copy: a startElement
+      event for a matching element might be notified while an existing matching element is already being processed; that is, the
+      pattern that the Watch matches may select a node that is a descendant of another matched node. For this reason, the Watch
+      does not actually construct the tree (or string value or typed value) directly; instead it creates an event receiver
+      dedicated to this task, which it passes back to the WatchManager; the WatchManager then notifies all events to all active
+      event receivers to do the necessary work, taking care of deactivating them when needed. When the endElement event occurs,
+      the Watch passes the constructed tree to the next Feed in the streaming route only if the matched element has no matching
+      ancestors; for an inner matched node, the tree is held in a queue until the outer tree is complete, since the outer tree
+      comes first in document order and must therefore be notified to the waiting Feed before the inner trees. This queue
+      again represents a departure from pure streaming; the XSLT 2.1 draft has an open issue on this question.</para><para>The <code>ApplyTemplatesWatch</code> is similarly notified of the startElement event for
+        a node that matches the select expression of the <code>xsl:apply-templates</code>
+        instruction. It responds to this by searching for a matching template rule — this is
+        possible because the constraints on match patterns in a streamable template ensure that the
+        pattern can be evaluated when positioned at the startElement event (the object representing
+        the event, it should be mentioned, provides methods to get local properties of the node such
+        as the name and type annotation, and also to navigate to the node's ancestors and their
+        attributes). Having identified the template to be applied, which because it is in a
+        streaming mode will always have been compiled with template inversion, it then gets the
+        Watch expression identified during the analysis of the called template, and nominates this
+        Watch expression to the WatchManager. All events up to the corresponding endElement will
+        therefore be sent by the WatchManager to the called template, where the same process
+        continues recursively. At the same time, the same events are being sent to the calling
+          <code>ApplyTemplatesWatch</code>, because as with <code>xsl:copy-of</code>, it is entirely
+        possible for the <code>select</code> expression of <code>xsl:apply-templates</code> to
+        select an element that is a descendant of another element already being processed; the
+        results of the processing of such nested elements will again be buffered.</para><para>The <code>ForEachWatch</code> operates in a very similar way to the
+          <code>ApplyTemplatesWatch</code>, except that there is no need to search for a matching
+        template. Rather, the body of the <code>xsl:for-each</code> instruction is compiled directly
+        as an inverted template and is invoked unconditionally for each startElement event matching
+        a selected node.</para><para>A similar streaming implementation has been written for <code>xsl:iterate</code>; none
+        is yet available for <code>xsl:for-each-group</code>, but it is expected that it will follow
+        the same principles.</para></section></section><section><title>Conclusions</title><para>Streaming of XSLT transformations has long been an aspiration, and many partial solutions have
+  been developed over the years. It has proved difficult or impossible to create streaming implementations
+  of the full XSLT language as defined by W3C.</para><para>The draft XSLT 2.1 specification has been developed as a solution to this problem. It
+      defines a subset of the full XSLT language that is intended to be streamable without requiring
+      unknown magic on the part of the implementation, and at the same time it provides extensions
+      to the language (such as <code>xsl:iterate</code>) that make it possible to write powerful
+      transformations without straying from the streamable subset. The design of the language is
+      informed by experience with both XSLT 2.0 and STX, and by a large collection of use cases
+      describing problems that benefit from a streamed implementation.</para><para>Successive releases of Saxon, some predating this work and some influenced by it, have provided partial
+  solutions to the streaming challenge with increasing levels of sophistication. At the time of writing, there are
+  many ideas in the specification that are not yet implemented in Saxon, and there are some features in the Saxon
+  implementation that are not yet reflected in the specification. Nevertheless, development of the language
+  standard and of an industrial implementation are proceeding in parallel, which is always a promising indicator
+  that standards when they arrive will be timely and viable. Both the language and the implementation, however,
+  still need a lot more work.</para><para>Saxon's approach to the problem is based on using a push architecture end-to-end, to eliminate the
+  source tree as an intermediary between push-based XML parsing/validation and pull-based XPath processing.
+  Implementing the entire repertoire of XPath expressions and XSLT instructions in an event-based pipeline
+  is challenging, to say the least. However, enough has been completed to show that the undertaking is viable,
+  and a large enough subset is already available to users to enable some serious large-scale transformation
+  tasks to be performed.</para></section><bibliography><title>Bibliography</title><bibliomixed xml:id="Barton2003" xreflabel="Barton2003">Charles Barton et al.
+    An Algorithm for Streaming XPath Processing with Forward and Backward Axes.
+    In Proc. 19 Int Conf Data Eng, Banagalore, India, 5-8 March 2003. ISBN: 0-7803-7665-X 
+    <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.research.ibm.com/xj/pubs/icde.pdf</link></bibliomixed><bibliomixed xml:id="BarYossef2004" xreflabel="BarYossef2004">Ziv Bar-Yossef, Marcus Fontoura, and Vanja Josifovski.
+    On the Memory Requirements of XPath Evaluation over XML Streams.
+    J Comp Sys Sci Vol 73 Iss 3 pp 391-441, May 2007, ISSN 0022-0000 
+    <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.almaden.ibm.com/cs/people/fontoura/papers/pods2004.pdf</link>.
+    doi: <biblioid class="doi">10.1016/j.jcss.2006.10.002</biblioid>.  
+  </bibliomixed><bibliomixed xml:id="Cimprich2010" xreflabel="Cimprich2010">Petr Cimprich (ed). 
+  Requirements and Use Cases for XSLT 2.1. W3C Working Draft 10 June 2010. 
+    <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/xslt-21-requirements/</link></bibliomixed><bibliomixed xml:id="CityGML" xreflabel="CityGML">Exchange and Storage of Virtual 3D City Models.
+    Thomas H Kolbe (ed). <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.citygml.org/</link>. Retrieved 2010-07-10.</bibliomixed><bibliomixed xml:id="Dvorakova2008" xreflabel="Dvirakova2008">Jana Dvořáková.
+    A Formal Framework for Streaming XML Transformations.
+    PhD Thesis, Comenius University, Bratislava, Slovenia, 2008.
+  </bibliomixed><bibliomixed xml:id="Dvorakova2009a" xreflabel="Dvorakova2009a">Jana Dvořáková.
+    Automatic Streaming Processing of XSLT Transformations Based on Tree Transducers.
+    Informatica: An International Journal of Computing and Informatics, 
+    Special Issue - Intelligent and Distributed Computing, Slovene Society Informatika, 2009   
+  </bibliomixed><bibliomixed xml:id="Dvorakova2009b" xreflabel="Dvorakova2009b">Jana Dvořáková and F Zavoral.
+    Using Input Buffers for Streaming XSLT Processing, 
+    Proceedings of the International Conference on Advances in Databases - GlobeNet/DB 2009, 
+    Gosier, IEEE Computer Society Press, 2009.
+    doi: <biblioid class="doi">10.1109/DBKDA.2009.25</biblioid>.  
+  </bibliomixed><bibliomixed xml:id="Florescu2003" xreflabel="Florescu2003">Daniela Florescu et al.
+    The BEA/XQRL Streaming XQuery Processor. In Proc. 29 VLDB, 2003, Berlin, Germany, pp 997-1008. ISBN:0-12-722442-4
+    <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.vldb.org/conf/2003/papers/S30P01.pdf</link></bibliomixed><bibliomixed xml:id="Frisch2007" xreflabel="Frisch2007">Alain Frisch and Keisuke Nakano. Streaming
+      XML transformations using term rewriting. PLAN-X 2007 Nice, France, 20 Jan 2007 pp 2-13.
+        <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://yquem.inria.fr/~frisch/xstream/long.pdf</link>
+  </bibliomixed><bibliomixed xml:id="GML">OpenGIS Geography Markup Language (GML) Encoding Standard.
+    OGC (Open Geospatial Consortium). <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.opengeospatial.org/standards/gml</link>. Retrieved 2010-07-10.</bibliomixed><bibliomixed xml:id="Guo2004" xreflabel="Guo2004">Zhimao Guo, Min Li, Xiaoling Wang, and Aoying Zhou.
+    Scalable XSLT Evaluation. In Proc 6 Asia-Pacific Web Conf, Hangzhou, China, 14-17 April 2004. ISBN 3-540-21371-6
+    <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://arxiv.org/pdf/cs.DB/0408051</link></bibliomixed><bibliomixed xml:id="Kay2009" xreflabel="Kay2009">Michael Kay.
+    You Pull, I’ll Push: on the Polarity of Pipelines.
+    Presented at Balisage: The Markup Conference 2009, Montréal, Canada, August 11 - 14, 2009.
+    In Proceedings of Balisage: The Markup Conference 2009. Balisage Series on Markup Technologies, vol. 3 (2009).
+    doi: <biblioid class="doi">10.4242/BalisageVol3.Kay01</biblioid>.
+  </bibliomixed><bibliomixed xml:id="Kay2010a" xreflabel="Kay2010a">Michael Kay.
+  Streaming in XSLT 2.1. 
+  Proc XML Prague 2010. 13-14 March 2010, Prague, Czech Rep.
+    <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.xmlprague.cz/2010/files/XMLPrague_2010_Proceedings.pdf</link></bibliomixed><bibliomixed xml:id="Kay2010b" xreflabel="Kay2010b">Michael Kay (ed). XSL Transformations (XSLT) Version 2.1.
+    W3C Working Draft 11 May 2010. <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/xslt-21/</link>. </bibliomixed><bibliomixed xml:id="Li2005" xreflabel="Li2005">Xiaogang Li and Gagan Agrawal.
+    Efficient evaluation of XQuery over streaming data. 
+    In Proc. 31 VLDB, 2005, Trondheim, Norway, pp 265-276. ISBN 1-59593-154-6
+    <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.vldb2005.org/program/paper/wed/p265-li.pdf</link></bibliomixed><bibliomixed xml:id="Joshi" xreflabel="Joshi">Amruta Joshi and Oleg Slezburg.
+    CS276B Project Report: Streaming XPath Engine. Undated. <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www-cs-students.stanford.edu/~amrutaj/work/papers/xpath.pdf</link>
+    Retrieved 2010-04-12</bibliomixed><bibliomixed xml:id="Saxonica" xreflabel="Saxonica">The Saxon XSLT and XQuery Processor.
+    <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.saxonica.com/</link> Retrieved 2010-07-10.</bibliomixed><bibliomixed xml:id="STX" xreflabel="STX">Streaming Transformations for XML (STX).
+    <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://stx.sourceforge.net/</link> Retrieved 2010-07-10. Contains links to articles and presentations by Tobias Trapp,
+    Oliver Becker, and Petr Cimprich.</bibliomixed><bibliomixed xml:id="Zergaoui2009" xreflabel="Zergaoui2009">Mohamed Zergaoui. Memory management in
+      streaming: Buffering, lookahead, or none. Which to choose? Int Symp on Processing XML
+      Efficiently. 10 Aug 2009, Montreal, Canada. Balisage Series on Markup Technologies, vol. 4
+      (2009). doi: <biblioid class="doi">10.4242/BalisageVol4.Zergaoui02</biblioid>.
+        <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.balisage.net/Proceedings/vol4/html/Zergaoui02/BalisageVol4-Zergaoui02.html</link>
+    </bibliomixed></bibliography></article>

@@ -1,0 +1,816 @@
+<?xml version="1.0" encoding="UTF-8"?><article xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink" version="5.0-subset Balisage-1.2"><title>Markup Discontinued</title><subtitle>Discontinuity in TexMecs, Goddag structures, and rabbit/duck grammars</subtitle><info><confgroup><conftitle>Balisage: The Markup Conference 2008</conftitle><confdates>August 12 - 15, 2008</confdates></confgroup><abstract><para>That the textual phenomena of interest for markup are not always
+hierarchically arranged is well known and widely discussed.  Less
+frequently discussed is the fact that they are also not always
+contiguous, so that the units of our analysis cannot always correspond
+to single elements in the document. Various notations for
+discontinuous elements exist,
+but the mapping from those notations to data structures has not been
+well analysed or understood.  And as far as we know, there are
+no standard mechanisms for validating discontinuous elements.
+We propose a data structure (a modification of the Goddag structure) to better
+handle discontinuous elements:  we relax the rule that every
+pair of elements where one contains the other be related by
+a path of parent/child links.  Parent/child links are then not an
+automatic result of containment.  We conclude with a brief
+sketch of the issues involved in extending current validation
+mechanisms to handle discontinuity.
+</para></abstract><author><personname><firstname>C. M.</firstname><surname>Sperberg-McQueen</surname></personname><personblurb><para>C. M. Sperberg-McQueen is a member of the technical staff of the World
+  Wide Web Consortium.  He has served as co-editor of the XML 1.0
+  specification, the Guidelines of the Text Encoding Initiative, and the
+  XML Schema Definition Language (XSDL) 1.1 specification.  He holds a
+  doctorate in comparative literature.
+       </para></personblurb><affiliation><jobtitle>Member of the technical staff</jobtitle><orgname>World Wide Web Consoritum / MIT</orgname></affiliation></author><author><personname><firstname>Claus</firstname><surname>Huitfeldt</surname></personname><personblurb><para>Mag.art. Claus Huitfeldt (born 1957) is Associate Professor (førsteamanuensis) at the Department of Philosophy of the University  of Bergen since 1994.
+       </para><para>
+  He was founding Director (1990-2000) of the Wittgenstein Archives at the University of Bergen, for which he developed the text encoding system MECS as well as the editorial methods for the publication of <emphasis>Wittgenstein's Nachlass — The Bergen Electronic Edition</emphasis>
+(Oxford University Press, 2000).</para><para>
+  He was Research Director (2000-2002) of Aksis (Section for Culture, Language and Information Technology at the Bergen University Research Foundation). In 2003 he returned to his position at the Department of Philosophy, where he teaches modern philosophy and philosophy of language, and also gives frequent courses in text technology at the The Department of Humanistic Informatics.
+       </para><para>
+  He was active in the Text Encoding Initiative (TEI) since 1991, and was centrally involved in the foundation of the TEI Consortium in 2001. The consortium now counts more than 90 member institutions.
+       </para><para>
+  Huitfeldt's research interests are within philosophy of language, philosophy of technology, text theory, editorial philology and markup theory. He is currently leader of the project Markup Languages for Complex Documents (MLCD).</para></personblurb><affiliation><jobtitle>Associate Professor (førsteamanuensis)</jobtitle><orgname>Department of Philophy, University of Bergen</orgname></affiliation></author><legalnotice><para>Copyright © 2008 by the authors.  Used with
+permission.</para></legalnotice></info><para>This paper describes work in progress on the problem of
+discontinuous structures undertaken in the context of the
+project Markup Languages for Complex Documents (MLCD) at the
+University of Bergen.
+The first section describes the problem in
+simple terms.  Subsequent sections describe the problem as it relates
+to other work of the MLCD project:
+the TexMecs notation for marked up documents in serial form, to the
+Goddag data structure, and to validation with rabbit/duck grammars.</para><para>We consider the problem of discontinuity in the light of a recent
+proposal to treat <emphasis>containment</emphasis> and <emphasis>dominance</emphasis>
+as distinct relations. We suggest that this proposal allows a solution
+(or dissolution) of the problem, at least for Goddag structures.  In
+the context of validation, a number of problems remain for future
+work.</para><section xml:id="intro"><title>The problem of discontinuity</title><para>Consider the following familiar passage from Lewis
+Carroll's <emphasis>Alice in Wonderland</emphasis>:<blockquote><para>
+Alice was beginning to get very
+tired of sitting by her sister on the bank,
+and of having nothing to do: once or twice
+she had peeped into the book her sister
+was reading, but it had no pictures or
+conversations in it,
+<quote>and what is the use of a book,</quote>
+thought Alice
+<quote>without pictures or conversation?</quote>
+</para></blockquote></para><para>In its most general form, the problem of discontinuity
+is the question <quote>How can we represent this passage,
+and others like it, in a satisfactory way?</quote>  This
+general problem takes more specific forms in the
+context of specific notations, data structures, and
+validation tools.</para><para>We might mark this up using <emphasis>p</emphasis> (<quote>paragraph</quote>)
+and <emphasis>q</emphasis> (<quote>quotation</quote>, for reported discourse)
+elements in a straightforward way:<programlisting xml:space="preserve">
+&lt;p&gt;
+Alice was beginning to get very
+tired of sitting by her sister on the bank,
+and of having nothing to do: once or twice
+she had peeped into the book her sister
+was reading, but it had no pictures or
+conversations in it,
+&lt;q&gt;and what is the use of a book,&lt;/q&gt;
+thought Alice
+&lt;q&gt;without pictures or conversation?&lt;/q&gt;
+&lt;/p&gt;
+</programlisting></para><para>This encoding satisfactorily distinguishes
+the narrative voice from that of the characters
+(although it does not capture the fact that
+the <emphasis>q</emphasis> elements are to be
+read as uttered by Alice), and it allows a formatting
+application to supply quotation marks in the
+right places.</para><para>It does not, however, capture the
+intuitive sense the reader may have that the
+reported thoughts of Alice form a single continuous
+unitary utterance, nor the interplay and
+alternation between the two voices.  It would be
+desirable if the markup sufficed to allow some
+of the more obviously relevant inferences to
+be drawn, without losing any of the information
+provided in the original simple markup:<itemizedlist><listitem><para>This paragraph contains one (<emphasis>one</emphasis>!)
+quotation from Alice.</para></listitem><listitem><para>The sentence <quote>What is the use of a book,
+without pictures or conversation?</quote> occurs
+in the text (and should in principle be retrievable by a
+phrase search looking for <emphasis>book</emphasis>
+adjacent to <emphasis>without</emphasis>).<footnote><para>
+An anonymous reviewer points out that the XQuery and XPath
+Full Text specification
+[<xref linkend="add-ft"/>]
+provides at least a partial solution to this problem.
+That is, it provides the concept of a full-text window
+which one could use to express the adjacency of
+<emphasis>book</emphasis> and <emphasis>without</emphasis>.
+It does not, as far as we can tell, define a way to
+specify that <emphasis>book</emphasis> should for
+some purposes be treated as adjacent to <emphasis>thought</emphasis>,
+and for other purposes as adjacent to <emphasis>without</emphasis>.
+It is of course not alone in this lack.  (The TauRo system
+now being developed at the Scuola Normale Superiore in Pisa
+is unusual, in our experience, in providing for declarations
+which specify that particular element types (<quote>jump tags</quote>)
+create a context switch for purposes of full-text retrieval
+and proximity measures.  See
+<link xlink:href="http://tauro.signum.sns.it/index.php" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://tauro.signum.sns.it/index.php</link>.)
+</para></footnote>
+
+</para></listitem><listitem><para>That one quotation from Alice is interrupted
+by the narrator's attribution of the thought to
+Alice.</para></listitem></itemizedlist>
+</para><para>
+The problem encountered here is not new; it has
+been recognized for some years.
+We digress briefly here to review some earlier
+approaches to the problem, since they help illuminate
+the issues.</para><para>The 1990 version of the TEI Guidelines
+[<xref linkend="teip1"/>] proposes specialized markup
+for discontinuities in the reporting of direct discourse.
+<quote>Interruptions of the quotation by a narrator may be
+tagged with the tag <code>&lt;in.quot&gt;</code>.</quote>  Using
+this element, the example would read:
+<programlisting xml:space="preserve">
+&lt;p&gt;
+Alice was beginning to get very
+tired ... but it had no pictures or
+conversations in it,
+&lt;q&gt;and what is the use of a book,&lt;in.quot&gt;
+thought Alice
+&lt;/in.quot&gt;without pictures or
+conversation?&lt;/q&gt;
+&lt;/p&gt;
+</programlisting>
+The <emphasis>in.quot</emphasis> element did not survive
+the revision of the <emphasis>Guidelines</emphasis>.  Some readers
+may find it awkward (although this can be debated back and forth)
+because they perceive the attribution <quote>thought Alice</quote>
+as an interruption or suspension of the quotation,
+and not as something embedded within (and thus in some sense
+forming part of)
+the quotation.
+The fact that a formatting application will emit
+a <emphasis>closing</emphasis> quotation mark for the
+<emphasis>start</emphasis>-tag of <emphasis>in.quot</emphasis>,
+and an <emphasis>opening</emphasis> quotation mark for
+its <emphasis>end-</emphasis>tag, may contribute to a feeling
+of unease.
+And <emphasis>in.quot</emphasis>
+does not in any case handle all forms of
+discontinuity.<footnote><para>In verse drama,
+for example, speaker attributions
+interrupt the verse structure and are not generally
+regarded as embedded in the verse; in the latter
+way, they differ from stage directions.</para></footnote>
+</para><para>
+Later versions of the TEI <emphasis>Guidelines</emphasis>
+[<xref linkend="teip3"/>]
+define more powerful methods of encoding discontinuity.
+For certain elements (specifically, verse lines
+and text divisions), a <emphasis>part</emphasis> attribute
+is defined, which takes the values
+<code>I</code> (<quote>initial</quote>),
+<code>M</code> (<quote>medial</quote>), and
+<code>F</code> (<quote>final</quote>) (as well as
+<code>Y</code> and <code>N</code> for less informative encodings).
+The unity of a discontinuous element
+can be reconstructed by taking the fragment
+with <code>part="I"</code>, followed by the
+zero or more fragments with <code>part="M"</code>,
+and concluding with <code>part="F"</code>.
+A second mechanism uses
+<emphasis>next</emphasis> and <emphasis>prev</emphasis> attributes
+of type <code>IDREF</code> to allow each fragment of a
+whole to point at the next such fragment.
+The <emphasis>next</emphasis> / <emphasis>prev</emphasis> mechanism
+is more general than the <emphasis>part</emphasis> attribute
+because it does not
+require the fragments of a discontinuous whole to appear
+in order in the larger document.
+The <emphasis>next</emphasis> and <emphasis>prev</emphasis> attributes
+are defined for every element type,
+if the additional tag set for linking is selected.
+Using <emphasis>next</emphasis> and <emphasis>prev</emphasis>,
+our example might look like this:
+<programlisting xml:space="preserve">&lt;p&gt;
+Alice was beginning to get very
+tired ... but it had no pictures or
+conversations in it,
+&lt;q id="q1" next="q2"&gt;and what is
+the use of a book,&lt;/q&gt;
+thought Alice
+&lt;q id="q2" prev="q1"&gt;without
+pictures or conversation?&lt;/q&gt;
+&lt;/p&gt;</programlisting>
+A third mechanism, less convenient but more
+powerful, is the TEI's <emphasis>join</emphasis> element,
+which creates a virtual element by joining
+fragments together.<footnote><para>We describe
+<emphasis>join</emphasis> as more powerful because unlike
+the <emphasis>next</emphasis> / <emphasis>prev</emphasis> mechanism
+it is not limited to gluing together fragments which
+are tagged as elements with the same generic identifier.
+It also has the ability to specify that the target
+elements should be treated as children, or that
+the target elements should be disregarded and
+their children treated as children of the virtual
+element, which is lacking in the other mechanisms
+described here (including TexMecs).</para></footnote>
+Assuming the same IDs as just
+shown, the unitary nature of Alice's utterance
+might be encoded thus:
+<programlisting xml:space="preserve">&lt;join result="q" targets="q1 q2"
+  scope="branches"/&gt;
+</programlisting>
+</para></section><section xml:id="texmecs"><title>TexMecs notation</title><para>Mechanisms like those defined by the TEI are not, of course,
+understood or supported by generic XML tools; they require
+vocabulary-specific support by a different
+layer of code.  One goal of
+the TexMecs notation first specified in 2001 and revised in 2003
+[<xref linkend="ref-texmecs"/>]
+is to move such information about virtual elements
+and element discontinuity out of the application level
+and into the level of basic syntax.
+TexMecs includes a generic notation for discontinuous elements:
+in addition to start- and end-tags of the form
+<code>&lt;e|</code> and <code>|e&gt;</code>, TexMecs defines
+<quote>suspend-</quote> (<code>|-e&gt;</code>)
+and <quote>resume-</quote> (<code>&lt;+e|</code>) tags,
+which can be used to signal discontinuity in the element.
+</para><para>Using this TexMecs notation, the passage from Alice in Wonderland
+can be encoded thus:
+<programlisting xml:space="preserve">&lt;p|Alice
+was beginning to get very tired of sitting
+by her sister on the bank, and of having
+nothing to do: once or twice she had peeped
+into the book her sister was reading, but
+it had no pictures or conversations in it,
+&lt;q|and what is the use of a book,|-q&gt;
+thought Alice
+&lt;+q|without pictures or conversation?|q&gt;
+|p&gt;</programlisting>
+</para><para>This has the modest advantage over the <emphasis>next</emphasis> /
+<emphasis>prev</emphasis> mechanism of TEI P3 that it does not require that
+we generate unique identifiers for the fragments; it's also a bit more
+compact than the attribute-based notations.
+It shares with the other mechanisms mentioned the property of
+assuming some more abstract layer in which elements fragmented
+in the concrete syntax are treated as units, and of leaving the
+details of that more abstract layer to be specified
+elsewhere, while it focuses solely on the serialization layer.
+</para><para>In the MLCD project, efforts to define that more abstract layer
+have focused on the definition of generalized ordered-descendant
+directed acyclic graphs (Goddags).
+</para></section><section xml:id="goddag"><title>Goddag structures</title><para>The Goddag structure is a directed acyclic graph structure
+developed by the MLCD project
+for the convenient representation of overlapping
+document structures
+[<xref linkend="ref-goddag"/>].</para><para>
+Although in principle the goal of the MLCD project is to ensure that every
+TexMecs document be representable using a Goddag structure, and that every
+Goddag structure be serializable as a TexMecs document, nevertheless work to date
+on Goddag structures has not addressed the topic of discontinuous
+elements directly. The definition of Goddag structures antedated the
+specification of the TexMecs notation, and when the notation for
+discontinuous elements was added to TexMecs, we did not initially
+notice that it caused a problem for the existing rules for mapping
+documents into Goddag structures.
+</para><para>Our colleague Paul Meurer called our attention to
+the problem, when he discovered that his program for
+drawing diagrams of Goddag structures from TexMecs data
+[<xref linkend="ref-meurer"/>]
+was producing output structurally different from the input
+whenever it was asked to re-serialize TexMecs examples with discontinuous
+elements.  His
+program maps the example into the Goddag
+structure shown in <xref linkend="alice.3"/>.
+<figure xml:id="alice.3"><title>A Goddag for the Alice example</title><mediaobject><imageobject><imagedata format="png" width="100%" fileref="../../../vol1/graphics/Sperberg-McQueen01/Sperberg-McQueen01-001.png"/></imageobject></mediaobject></figure>
+The crossing lines here
+signal a conceptual difficulty;
+from a graph-theoretic point of view, and thus from
+the point of view of the definition of Goddag structures,
+<xref linkend="alice.3"/> is just another way of drawing
+the graph in <xref linkend="alice.4"/>.
+<figure xml:id="alice.4"><title>A Goddag for the Alice example, without crossing lines</title><mediaobject><imageobject><imagedata format="png" width="100%" fileref="../../../vol1/graphics/Sperberg-McQueen01/Sperberg-McQueen01-002.png"/></imageobject></mediaobject></figure>
+</para><para>That is, the <emphasis>p</emphasis> has three children,
+in the following order:  a text node (<quote>Alice was beginning ... of a book</quote>),
+a <emphasis>q</emphasis> element, and a text node (<quote>thought Alice</quote>);
+the <emphasis>q</emphasis> element has two text-node children
+(<quote>and what ...</quote> and <quote>without ...</quote>).
+This is equivalent, in turn, to the TexMecs document
+<programlisting xml:space="preserve">&lt;p|Alice
+was beginning to get very tired ...
+it had no pictures or conversations in it,
+&lt;q|and what is the use of a book,|-q&gt;
+&lt;+q|without pictures or conversation?|q&gt;
+thought Alice
+|p&gt;</programlisting>
+And indeed a straightforward serialization of the
+Goddag structure into TexMecs notation is likely to produce
+this form of the document, or something similar.
+</para><para>These observations may be interpreted as indicating a
+problem in the serialization of Goddag structures, and
+we and our colleagues in the MLCD project have spent
+some time attempting to understand and solve the problem
+in those terms, without achieving results that we have
+found wholly satisfactory.  This paper proposes that
+in fact the problem indicated by this example lies not
+in the serialization of Goddag structures, but in the
+mapping from TexMecs into Goddag structures and in the
+definition of Goddag structures.
+</para><para>We can formulate the problem as we now understand it
+in slightly more abstract terms.</para><para>
+A discontinuous element in TexMecs has a start-tag, an end-tag, one
+or more suspend-tag / resume-tag pairs.
+Any discontinuous element <emphasis>E</emphasis> with <emphasis>P</emphasis> suspend/resume pairs divides the
+material appearing between the start-tag and end-tag of
+<emphasis>E</emphasis> into 2×<emphasis>P</emphasis>+1 sequences:
+<itemizedlist><listitem><para><emphasis>s</emphasis>[1] is the sequence between the start-tag and the first suspend-tag, </para></listitem><listitem><para><emphasis>s</emphasis>[2] between the first suspend-tag and the first resume-tag, </para></listitem><listitem><para><emphasis>s</emphasis>[3] between the first resume- and the second suspend-tag </para></listitem><listitem><para>... </para></listitem><listitem><para><emphasis>s</emphasis>[2×<emphasis>N</emphasis>] is the sequence between the <emphasis>N</emphasis>th suspend-tag and the <emphasis>N</emphasis>th
+        resume-tag (for 1 ≤ <emphasis>N</emphasis> &lt; <emphasis>P</emphasis>)</para></listitem><listitem><para><emphasis>s</emphasis>[2×<emphasis>N</emphasis>+1] the sequence between the <emphasis>N</emphasis>th resume-tag and the <emphasis>N</emphasis>+1th
+          suspend-tag (for 1 ≤ <emphasis>N</emphasis> &lt; <emphasis>P</emphasis>)</para></listitem><listitem><para>...</para></listitem><listitem><para><emphasis>s</emphasis>[2×<emphasis>P</emphasis>+1] is the sequence between the last resume-tag and the end-tag</para></listitem></itemizedlist>
+For any <emphasis>i</emphasis>, if <emphasis>i</emphasis> is odd, <emphasis>s</emphasis>[<emphasis>i</emphasis>] is contained within <emphasis>E</emphasis>,
+and if <emphasis>i</emphasis> is even, then <emphasis>s</emphasis>[<emphasis>i</emphasis>] is not contained within <emphasis>E</emphasis>.
+</para><para>
+Without loss of generality, let us consider the TexMecs document <emphasis>D</emphasis>
+<programlisting xml:space="preserve">
+  &lt;A|&lt;B|x|-B&gt;y&lt;+B|z|B&gt;|A&gt;
+</programlisting>
+where sequence <emphasis>s</emphasis>[1] contains just the character <quote>x</quote>, <emphasis>s</emphasis>[2] contains
+<quote>y</quote>, and <emphasis>s</emphasis>[3] contains <quote>z</quote>.  Let us refer to <emphasis>s</emphasis>[1], <emphasis>s</emphasis>[2], and
+<emphasis>s</emphasis>[3] as <emphasis>x</emphasis>, <emphasis>y</emphasis>, and <emphasis>z</emphasis>.
+</para><para>
+TexMecs discontinuity is meaningful just on the assumption that
+there is some significance both to the sequence <emphasis>x</emphasis><emphasis>z</emphasis>
+
+and to the sequence <emphasis>x</emphasis><emphasis>y</emphasis><emphasis>z</emphasis>.
+Otherwise, there is no need to make <emphasis>B</emphasis> be discontinuous; the material
+interrupting it (i.e., <emphasis>y</emphasis>) can be moved to one side or the other of <emphasis>B</emphasis>.
+</para><para>The sequence <emphasis>x</emphasis><emphasis>y</emphasis><emphasis>z</emphasis> can be preserved without difficulty in the
+data structure if the <emphasis>A</emphasis> node has three children, in order, which are
+or contain <emphasis>x</emphasis>, <emphasis>y</emphasis>, and <emphasis>z</emphasis> respectively.  Similarly, the unity of
+<emphasis>B</emphasis> can be indicated, and its contents correctly represented, if the
+<emphasis>B</emphasis> node has the two children <emphasis>x</emphasis> and <emphasis>z</emphasis>, in that order.  And the
+fact that <emphasis>B</emphasis> is wholly contained within <emphasis>A</emphasis> can be captured by
+having the <emphasis>A</emphasis> node dominate the <emphasis>B</emphasis> node.</para><para>
+It appears difficult to reconcile these different demands. The
+original description of Goddag structures
+[<xref linkend="ref-goddag"/>, p. 151] specifies a rule we will
+call here <emphasis>R1</emphasis>:
+<variablelist><varlistentry><term>R1</term><listitem><para>
+One node
+dominates a second if and only if the second node is completely
+contained within the first.
+</para></listitem></varlistentry></variablelist>
+Since <emphasis>A</emphasis> contains <emphasis>B</emphasis>, rule <emphasis>R1</emphasis>
+requires that <emphasis>A</emphasis> dominate <emphasis>B</emphasis>. A second rule, <emphasis>R2</emphasis>, stipulates that:
+<variablelist><varlistentry><term>R2</term><listitem><para>
+No
+node dominates another node both directly and indirectly.
+</para></listitem></varlistentry></variablelist>
+Since
+<emphasis>A</emphasis> dominates <emphasis>B</emphasis> and <emphasis>B</emphasis> dominates <emphasis>x</emphasis> and <emphasis>z</emphasis>, <emphasis>A</emphasis> dominates <emphasis>x</emphasis> and
+<emphasis>z</emphasis> indirectly and is forbidden by rule <emphasis>R2</emphasis> to dominate them directly as well.
+</para></section><section xml:id="c.d"><title>Containment and dominance</title><para>In recent work reported elsewhere
+[<xref linkend="ref-cd"/>], we have for other reasons
+begun to contemplate
+distinguishing more sharply than heretofore between
+<emphasis>dominance</emphasis> (regarded as the transitive closure
+of the parent/child relation).
+and
+<emphasis>containment</emphasis> (regarded as superset/subset
+relation on the leaf nodes reachable from a node by
+following parent-child arcs).
+</para><para>In previous work, containment and dominance have been
+regarded as near synonyms, connected by the principles <emphasis>R3</emphasis> and <emphasis>R4</emphasis>,
+which are a fuller and more precise statement of the same
+general idea as <emphasis>R1</emphasis>:
+<variablelist><varlistentry><term>R3</term><listitem><para>If two nodes <emphasis>A</emphasis> and <emphasis>B</emphasis> each contain
+the other (i.e. they dominate the same set of leaves), then either
+<emphasis>A</emphasis> dominates <emphasis>B</emphasis> or <emphasis>B</emphasis> dominates <emphasis>A</emphasis>.</para></listitem></varlistentry><varlistentry><term>R4</term><listitem><para>Given two nodes <emphasis>A</emphasis> and <emphasis>B</emphasis> which do
+not dominate the same set of leaves, <emphasis>A</emphasis> dominates <emphasis>B</emphasis> if and only
+if <emphasis>A</emphasis> contains <emphasis>B</emphasis>.</para></listitem></varlistentry></variablelist>
+</para><para>The rationale for distinguishing more broadly
+between containment and dominance can be summarized here briefly.
+When a document contains several
+hierarchical structures, a
+purely containment-based method of deriving the Goddag structure leads
+to a confusing mixture of hierarchies:  sometimes (for example) pages
+contain paragraphs, sometimes paragraphs contain pages, and sometimes
+pages and paragraphs simply share children without either containing
+the other.  Similar things can be said about verse lines and speeches,
+in verse drama. This leads to a confusing account of the structure
+of the larger units of the document.  It is convenient to be able
+to view a chapter either as a sequence of paragraphs (oversimplifying
+slightly for brevity) or a sequence of pages; it is somewhat less
+convenient to have to view it as containing a sequence of children
+some of whom are pages, others paragraphs.  Such a mixed view offers
+little help in describing or understanding the nature of chapters,
+and still less in validating them against a document grammar.
+</para><para>We propose, then, to relax rules <emphasis>R3</emphasis> and <emphasis>R4</emphasis>.
+We propose to replace them
+by stipulating that dominance (parent-child) relations in a
+Goddag structure entail containment, but not vice versa.
+In other words:
+<variablelist><varlistentry><term>R5</term><listitem><para>Given two nodes <emphasis>A</emphasis> and <emphasis>B</emphasis>,
+if <emphasis>A</emphasis> dominates <emphasis>B</emphasis>, then <emphasis>A</emphasis> contains <emphasis>B</emphasis>.</para></listitem></varlistentry></variablelist>
+But the converse implication, from containment to dominance,
+does not apply. Dominance relations are based upon some
+other criteria, which require elaboration in future work.
+At the moment, our
+best suggestion for such criteria are grammatical:  node <emphasis>A</emphasis>
+dominates node <emphasis>B</emphasis> only if both are first-class elements
+in some rabbit/duck grammar, and there is some rule in the grammar
+with <emphasis>A</emphasis> on the left-hand side and <emphasis>B</emphasis> (posssibly among other
+things) on the right-hand side.  (And, of course, <emphasis>A</emphasis> must
+contain <emphasis>B</emphasis>.)  In the usual case there will be several
+different grammars. Each node may, by virtue of being first-class in more than
+one of them, have several different sequences
+of children, one for each grammar; these sequences of children
+need to be distinguished somehow.
+We speculate that some Goddag-based structure analogous to the
+multi-colored trees of [<xref linkend="jagadish.etal.2004"/>]
+may be a useful solution, but we do not have concrete results
+yet.
+</para><para>If we
+replace <emphasis>R3</emphasis> and <emphasis>R4</emphasis> with <emphasis>R5</emphasis>,
+then there are two Goddag structures that could
+be used to describe the Alice example.  In the first, we
+adopt the rule that neither a discontinuous element (here the <emphasis>q</emphasis>)
+nor any of its fragments is ever a child of any element
+which directly dominates
+any material between any of its suspend- / resume-tag pairs
+(here, the <emphasis>p</emphasis>).  The result is shown in <xref linkend="alice.5"/>
+<figure xml:id="alice.5"><title>A Goddag in which P does not dominate Q</title><mediaobject><imageobject><imagedata format="png" width="100%" fileref="../../../vol1/graphics/Sperberg-McQueen01/Sperberg-McQueen01-003.png"/></imageobject></mediaobject></figure>
+</para><para>The Goddag shown in <xref linkend="alice.5"/>, however,
+does not reflect our intuition as readers that the
+paragraph and the <emphasis>q</emphasis> element are not quite so unrelated.
+From a narrative point of view, the paragraph does not
+contain just four text nodes in sequence; the
+paragraph contains text in the narrative voice
+interspersed with text in Alice's voice.  It may be
+more satisfactory, then, to treat the fragments of the
+<emphasis>q</emphasis> as themselves nodes in the Goddag structure and
+allow them, though not the discontinuous <emphasis>q</emphasis>
+itself, to be dominated by the <emphasis>p</emphasis>.
+<figure xml:id="alice.6"><title>A Goddag in which P dominates the Q fragments</title><mediaobject><imageobject><imagedata format="png" width="100%" fileref="../../../vol1/graphics/Sperberg-McQueen01/Sperberg-McQueen01-004.png"/></imageobject></mediaobject></figure>
+</para><para><xref linkend="alice.6"/> conveys accurately that from one point of view
+the paragraph has four children:  two text nodes and
+two fragmentary <emphasis>q</emphasis> elements.</para><para>It is not immediately obvious whether the right thing to
+do with the <emphasis>q</emphasis> element is to make it dominate the two
+text nodes directly (as shown) or to make it dominate
+the two fragmentary <emphasis>q</emphasis> elements which are its
+representation in the TexMecs markup.  At the moment,
+we lean toward the solution shown, on the grounds that
+if we want to treat the <emphasis>q</emphasis> element as a unitary object
+(which was, after all, the starting point of our
+discussion), no good purpose is served by making
+it structurally anomalous.  A normal <emphasis>q</emphasis> element
+recording the sentence <quote>What is the use of a
+book without pictures or conversations?</quote> will
+contain textual data, not fragmentary sub-elements.<footnote><para>That
+the <emphasis>q</emphasis> element has two text-node children rather than
+one is already an artifact of the encoding.  But like
+many such artifacts, this one dissolves if instead of
+positing text nodes we instead posit individual
+characters as children of the element.  Conceptually,
+individual character children are probably the
+preferable approach.  We adopt the text-node approach
+for drawing pictures, however, since it simplifies the
+drawing task.</para></footnote>  If it is desirable to make
+some connection between the nodes <emphasis>q</emphasis>, <emphasis>q1</emphasis>, and <emphasis>q2</emphasis>
+explicit in the Goddag structure, it had better take
+some other form.</para></section><section xml:id="rabbit-duck"><title>Rabbit/duck grammars</title><para>The MLCD project has proposed
+rabbit/duck grammars as a possible mechanism for validating
+overlapping structures
+[<xref linkend="ref-rabbit-duck"/>].</para><para>Previous work on rabbit/duck grammars has not dealt
+with the validation of discontinuous elements; many questions
+remain open, and we can do nothing here but sketch
+some possible avenues of attack.</para><para>It seems clear that if we specify that the discontinuous
+element (<emphasis>q</emphasis> or <emphasis>B</emphasis> in our examples) matches a normal
+(<quote>first-class</quote>) token in a content
+model, then the usual rules for interpreting right-hand
+sides in the production rules of context-free grammars
+do not apply:  the usual interpretation is that the
+right-hand side specifies a sequence of children for
+the left-hand side, but as described at some length
+above (section <xref linkend="goddag"/>)
+the discontinuous element itself <emphasis>cannot</emphasis>
+be part of any sequence which  also contains the material which
+interrupts it.  We postulate, therefore, that discontinuous
+elements, taken as wholes, do not match first-class
+tokens in content models.  If then the content model for <emphasis>p</emphasis> is
+<programlisting xml:space="preserve">(#PCDATA | q)*</programlisting>
+and no further adjustments are made to the rules for
+rabbit/duck grammars,
+then the example from <emphasis>Alice in Wonderland</emphasis>
+cannot be valid.
+</para><para>There seem to be two obvious alternatives, each of which
+would make the example valid.
+We could introduce a new kind of content-model token
+for fragmentary elements, allowing us to write the
+content model for <emphasis>p</emphasis> as
+<programlisting xml:space="preserve">(#PCDATA | q | #frag(q))*</programlisting>
+meaning that a <emphasis>p</emphasis> element can contain <code>PCDATA</code>,
+entire <emphasis>q</emphasis> elements, or fragmentary <emphasis>q</emphasis> elements,
+intermixed in any order. This would allow
+the example to be valid.</para><para>It might be simpler, however, to allow
+fragments of a first-class element to match
+content model tokens for that element type.
+When validating the <emphasis>p</emphasis> element in the example,
+each fragmentary <emphasis>q</emphasis> element would match the
+<emphasis>q</emphasis> token in the content model, so the example
+would be valid against the first content model given.
+This amounts to saying: for purposes of validating
+the parent, the plusses and minus-signs in the
+suspend- and resume-tags are ignored, and they
+are treated as if they were end- and start-tags;
+only for validation of the discontinuous element
+itself does the difference between fragmentary
+element and entire element matter.
+</para><para>The content model for <emphasis>q</emphasis> itself, however, should probably
+be validated against the whole discontinuous <emphasis>q</emphasis>
+element, not against the individual fragments.
+Since conventional content models for quotations
+are likely to take a form like
+<programlisting xml:space="preserve">(#PCDATA | %phrase.mix;)*</programlisting>
+this distinction doesn't matter for <emphasis>q</emphasis>.
+But if we imagine a stricter content model with
+a sequence of required sub-elements, the difference
+will matter.  For example, take a conventional content model
+for <emphasis>text</emphasis>:
+<programlisting xml:space="preserve">(front, body, back?)</programlisting>
+and imagine a text embedded in a larger text
+which interrupts it:
+<programlisting xml:space="preserve">&lt;doc|
+  &lt;p|...|p&gt;
+  &lt;p|...
+    &lt;text|
+      &lt;front| ... |front&gt;
+      &lt;body|...
+        ...
+      |-body&gt;|-text&gt;
+      &lt;p|Just then, we were interrupted.
+      ...
+      |p&gt;
+      &lt;+text|&lt;+body|
+        ...
+      |body&gt;
+    |text&gt;
+  ...|p&gt;
+|doc&gt;</programlisting>
+As regards the discontinuous <emphasis>text</emphasis> element,
+this document should probably be valid, not invalid.
+Validating each fragmentary <emphasis>text</emphasis> element
+separately, however, would
+make the second <emphasis>text</emphasis>
+fragment invalid, as it has no
+front matter.
+</para><para>Integrating this idea more firmly into the definition of
+validation using rabbit/duck grammars remains work for
+the future.
+</para><para>Another pressing task will be modifying the parsing
+algorithm for rabbit/duck grammars to integrate support
+for discontinuity.  The published algorithm
+uses Brzozowski derivatives, and it is not at all clear
+how to suspend the validation of an element while
+it is interrupted, and return when it is resumed.
+The validation of discontinuous elements would be easier
+using the graph data structure, but the only known
+algorithms for validating with rabbit/duck grammars
+rely on an event stream created by parsing TexMecs documents,
+and cannot be used on Goddag structures.
+The current working assumption
+is that Goddag structures contain no nodes for start- or
+end-tags (or any other form of tags, in languages with
+multiple forms of tags); if this assumption were
+abandoned, validation could work from the Goddag structure
+(but the structures themselves would be harder to
+define and work with).
+</para><para>
+It is possible that the treatment of interleave in
+Creole
+[<xref linkend="creole"/>]
+will indicate a solution.
+Further study of the
+problem remains a task for future work.
+</para></section><section xml:id="otherwork"><title>Relation to other proposals</title><para>A few remarks may be in order on how discontinuity,
+and the proposal to distinguish between containment and
+dominance, relate to other proposals for handling overlapping
+structures.</para><para>LMNL, the layered markup and annotation language
+[<xref linkend="add-lmnl"/>],
+cannot readily make a distinction between containment and
+dominance (we are indebted to a reviewer of this paper for
+this observation), and so seems unlikely to satisfy the
+competing demands which suggest to us that both concepts
+are needed.  On the other hand, there is a sense in which
+LMNL does not need to make the distinction.
+Elements in a LMNL document are in any case just ranges
+with annotations; containment relations follow from the
+arithmetic of the range start and end points, but
+no dominance relations are ever postulated except by
+some application logic.  The same applies for the unity
+of discontinuous elements:  such a unity may be
+asserted by the application layer (that is, by the
+definition of a LMNL vocabulary), but it is not visible
+on the LMNL level, and thus need not be accounted for
+at the level of LMNL itself.</para><para>
+The design of LMNL thus seems to require that any
+account of dominance (as distinct from containment),
+and any account of discontinuous elements, be handled
+in the application layer.  LMNL itself achieves a
+degree of simplicity and regularity as a result,
+at the expense of complexity in the application.
+</para><para>XCONCUR and similar mechanisms
+([<xref linkend="add-concur"/>],
+[<xref linkend="add-concur2006"/>])
+already incorporate
+the containment/dominance distinction to a certain
+degree.  The usual rules for hierarchical markup ensure
+that in a set of concurrent trees, dominance entails
+containment, but the fact that two elements in a
+containment relation may be in different trees
+ensures that in systems with concurrent markup, the
+relations of containment and dominance are systematically
+separate and distinct.
+For elements in the same tree, containment and dominance are essentially
+equivalent (except for elements with identical character data content),
+and elements in different trees never have dominance relations.  But these are
+the only two choices: either two elements are both in the same tree, or
+they are not.
+The complex network of factors
+in examples like the <emphasis>q</emphasis> and <emphasis>p</emphasis> elements
+in the Alice example, however,
+lead us to wish both that the <emphasis>p</emphasis> element should dominate
+the <emphasis>q</emphasis> fragments and that it should <emphasis>not</emphasis>
+dominate the <emphasis>q</emphasis> element as a whole.  In cases like this,
+the either/or choice of concurrent markup can seem unsatisfactory.
+
+And like non-concurrent XML, XCONCUR has no conception
+of discontinuous elements.
+</para><para>Mechanisms like Trojan Horse markup
+([<xref linkend="add-derose"/>],
+[<xref linkend="add-bauman"/>])
+can be used to
+serialize discontinuous elements, provided the empty
+XML elements used to mark the boundaries of virtual
+elements have ways to signal that they record
+a resumption, rather than only a beginning or end,
+of the virtual element.  Trojan Horse markup can be
+used to encode data models which make a distinction
+between containment and dominance, but it does not
+require such a distinction; its inclination is to
+leave details of the abstract model for elaboration
+by the user.  Indeed, the treatment above
+of discontinuity, dominance, and containment may be
+regarded as an attempt to make more explicit what
+Trojan Horse markup hints at without making explicit.
+</para></section><section xml:id="concl"><title>Conclusion</title><para>We have illustrated the problem of discontinuity,
+in particular the problems it raises for data structures
+intended to represent documents.</para><para>We have proposed that a graph structure which more
+nearly reflects our intuitions about the document can
+be constructed if we retain the principle that parent/child
+and ancestor/descendant relations imply that the ancestor
+contain the descendant, but jettison the converse principle
+that any element properly contained by another element
+is necessarily a descendant of (dominated by) that other
+element.</para><para>A number of questions remain open and
+will require further work:<itemizedlist><listitem><para>Can a principled set of criteria be found for assigning
+parent/child relations to node pairs?  What are they?
+Do the criteria apply at the meta-language level, or
+are they a function of how document type designers specify
+the document types they are working with?</para></listitem><listitem><para>Can discontinuous elements be integreated into the
+notion of validity associated with rabbit/duck grammars?</para></listitem><listitem><para>Can the algorithms for validation with rabbit/duck grammars
+be extended to handle discontinuous elements?</para></listitem><listitem><para>Can the ideas of multi-colored trees be applied
+successfully to Goddag structures?
+</para></listitem></itemizedlist>
+</para></section><bibliography><title>References</title><bibliomixed xml:id="teip1" xreflabel="ACH/ACL/ALLC 1990">
+Association for Computers and the Humanities,
+Association for Computational Linguistics, and
+Association for Literary and Linguistic Computing.
+1990.
+<emphasis>Guidelines for the Encoding
+and Interchange of Machine-Readable Texts (TEI P1)</emphasis>.
+Ed. C. M. Sperberg-McQueen and Lou Burnard.
+Chicago, Oxford: Text Encoding Initiative, 1990.
+</bibliomixed><bibliomixed xml:id="teip3" xreflabel="ACH/ACL/ALLC 1994">
+Association for Computers and the Humanities,
+Association for Computational Linguistics, and
+Association for Literary and Linguistic Computing.
+1994.
+<emphasis>Guidelines for Electronic Text Encoding
+and Interchange (TEI P3)</emphasis>.
+Ed. C. M. Sperberg-McQueen and Lou Burnard.
+Chicago, Oxford: Text Encoding Initiative, 1994.
+</bibliomixed><bibliomixed xml:id="add-bauman" xreflabel="Bauman 2005">
+Bauman, Syd.
+2005.
+<quote>TEI HORSEing around.</quote>
+In <emphasis>Proceedings of Extreme Markup Languages 2005</emphasis>.
+On the Web at
+<link xlink:href="http://www.idealliance.org/papers/extreme/proceedings/html/2005/Bauman01/EML2005Bauman01.html" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.idealliance.org/papers/extreme/proceedings/html/2005/Bauman01/EML2005Bauman01.html</link>
+</bibliomixed><bibliomixed xml:id="add-derose" xreflabel="DeRose 2004">
+DeRose, Steven J.
+2004.
+<quote>Markup overlap: A review and a horse.</quote>
+In <emphasis>Proceedings of Extreme Markup Languages 2004</emphasis>.
+On the Web at
+<link xlink:href="http://www.idealliance.org/papers/extreme/proceedings/html/2004/DeRose01/EML2004DeRose01.html" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.idealliance.org/papers/extreme/proceedings/html/2004/DeRose01/EML2004DeRose01.html</link>
+</bibliomixed><bibliomixed xml:id="add-concur" xreflabel="Hilbert / Schonefeld / Witt 2005">
+Hilbert, Mirco, Oliver Schonefeld, and Andreas Witt.
+2005.
+<quote>Making CONCUR work.</quote>
+In <emphasis>Proceedings of Extreme Markup Languages 2005</emphasis>.
+On the Web at
+<link xlink:href="http://www.idealliance.org/papers/extreme/proceedings/html/2005/Witt01/EML2005Witt01.xml" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.idealliance.org/papers/extreme/proceedings/html/2005/Witt01/EML2005Witt01.xml</link>
+</bibliomixed><bibliomixed xml:id="ref-texmecs" xreflabel="Huitfeldt/Sperberg-McQueen 2003">
+Huitfeldt, Claus, and C. M. Sperberg-McQueen.
+2003.
+<quote>TexMECS:
+An experimental markup meta-language for complex documents</quote>.
+Working paper of the project Markup Languages for Complex
+Documents (MLCD), University of Bergen.
+January 2001, rev. October 2003.
+Available on the Web at
+<link xlink:href="http://decentius.aksis.uib.no/mlcd/2003/Papers/texmecs.html" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://decentius.aksis.uib.no/mlcd/2003/Papers/texmecs.html</link>
+</bibliomixed><bibliomixed xml:id="jagadish.etal.2004" xreflabel="Jagadish et al. 2004">
+Jagadish, H. V.,
+Laks V. S. Lakshmanan,
+Monica Scannapieco,
+Divesh Srivastava,
+and
+Nuwee Wiwatwattana.
+2004.
+<quote>Colorful XML: One hierarchy isn't enough</quote>.
+<emphasis>Proceedings of the 2004 ACM SIGMOD International
+conference on management of data</emphasis>, Paris,
+sponsored by the Association
+for Computing Machinery Special Interest Group on Management of Data.
+New York: ACM Press. doi: <biblioid class="doi">10.1145/1007568.1007598</biblioid>.
+</bibliomixed><bibliomixed xml:id="ref-meurer" xreflabel="Meurer 2001">
+Meurer, Paul.
+2001.
+<emphasis>TexMECS tester</emphasis>.
+Web-accessible program for drawing Goddags
+from TexMecs data.
+Available on the Web at
+<link xlink:href="http://decentius.aksis.uib.no/cl/mlcd/texmecs-tester.html" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://decentius.aksis.uib.no/cl/mlcd/texmecs-tester.html</link>
+</bibliomixed><bibliomixed xml:id="add-concur2006" xreflabel="Schonefeld / Witt 2006">
+Schonefeld, Oliver, and Andreas Witt.
+2006.
+<quote>Towards validation of concurrent markup.</quote>
+In <emphasis>Proceedings of Extreme Markup Languages 2006</emphasis>.
+On the Web at
+<link xlink:href="http://www.idealliance.org/papers/extreme/proceedings/html/2006/Schonefeld01/EML2006Schonefeld01.html" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.idealliance.org/papers/extreme/proceedings/html/2006/Schonefeld01/EML2006Schonefeld01.html</link>
+</bibliomixed><bibliomixed xml:id="ref-rabbit-duck" xreflabel="Sperberg-McQueen 2006">
+Sperberg-McQueen, C. M.
+2006.
+<quote>Rabbit/duck grammars:
+a validation method for overlapping structures.</quote>
+In <emphasis>Proceedings of Extreme Markup Languages 2006</emphasis>.
+On the Web at
+<link xlink:href="http://www.idealliance.org/papers/extreme/proceedings/html/2006/SperbergMcQueen01/EML2006SperbergMcQueen01.html" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.idealliance.org/papers/extreme/proceedings/html/2006/SperbergMcQueen01/EML2006SperbergMcQueen01.html</link>
+</bibliomixed><bibliomixed xml:id="ref-goddag" xreflabel="Sperberg-McQueen/Huitfeldt 2000">
+Sperberg-McQueen, C. M., and Claus Huitfeldt.
+2000.
+<quote>GODDAG: A Data Structure for Overlapping Hierarchies</quote>,
+paper given at Digital Documents: Systems and Principles. 8th
+International Conference on Digital Documents and Electronic
+Publishing, DDEP 2000, 5th International Workshop on the Principles of
+Digital Document Processing, PODDP 2000, Munich, Germany, September
+13-15, 2000. Published in
+<emphasis>DDEP-PODDP 2000</emphasis>, ed. P. King and E.V. Munson.
+Lecture Notes in Computer Science 2023.
+Berlin: Springer, 2004, pp. 139-160.
+Available on the Web at
+<link xlink:href="http://www.w3.org/People/cmsmcq/2000/poddp2000.html" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/People/cmsmcq/2000/poddp2000.html</link>
+</bibliomixed><bibliomixed xml:id="ref-cd" xreflabel="Sperberg-McQueen/Huitfeldt 2008">
+Sperberg-McQueen, C. M., and Claus Huitfeldt.
+2008.
+<quote>Containment and dominance in Goddag structures</quote>,
+paper given at the conference
+<emphasis>Processing text-technological resources</emphasis>,
+Bielefeld, March 13-15, 2008,
+organized by the Zentrum für interdisziplinäre Forschung
+der Universität Bielefeld.
+Slides (but not full text) available on the Web at
+<link xlink:href="http://www.w3.org/People/cmsmcq/2008/bielefeld/slides.html" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/People/cmsmcq/2008/bielefeld/slides.html</link>
+</bibliomixed><bibliomixed xml:id="add-lmnl" xreflabel="Tennison/Piez 2002">
+Tennison, Jeni, and Wendell Piez.
+2002.
+<quote>The layered markup and annotation language (LMNL).</quote>
+Late-breaking talk given at Extreme Markup Languages 2002 (not in proceedings).
+Slides on the Web at
+<link xlink:href="http://www.idealliance.org/papers/extreme/proceedings/author-pkg/2002/Tennison02/EML2002Tennison02.zip" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.idealliance.org/papers/extreme/proceedings/author-pkg/2002/Tennison02/EML2002Tennison02.zip</link>
+</bibliomixed><bibliomixed xml:id="creole" xreflabel="Tennison 2007">
+Tennison, Jeni.
+2007.
+<quote>Creole: Validating Overlapping Markup</quote>.
+In <emphasis>Proceedings of XTech 2007</emphasis>,
+Paris, 2007.
+Available on the Web at
+<link xlink:href="http://www.lmnl.org/wiki/images/8/86/Creole.zip" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.lmnl.org/wiki/images/8/86/Creole.zip</link>
+</bibliomixed><bibliomixed xml:id="add-ft" xreflabel="W3C 2008">
+World Wide Web Consortium (W3C).
+2008.
+<quote>XQuery 1.0 and XPath 2.0 Full-Text 1.0</quote>,
+ed. Sihem Amer-Yahia et al.
+W3C Candidate Recommendation 16 May 2008.
+[Cambridge, Sophia-Antipolis, Tokyo]: W3C, 2007.
+Available on the Web at
+<link xlink:href="http://www.w3.org/TR/xpath-full-text-10/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/xpath-full-text-10/</link>
+</bibliomixed></bibliography></article>

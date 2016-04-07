@@ -1,0 +1,715 @@
+<?xml version="1.0" encoding="UTF-8"?><article xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink" version="5.0-subset Balisage-1.3"><title>Markup to generate markup to generate markup</title><subtitle>Using XML to create and maintain LaTeX packages and
+    classes</subtitle><info><confgroup><conftitle>Balisage: The Markup Conference 2013</conftitle><confdates>August 6 - 9, 2013</confdates></confgroup><abstract><para>This paper presents an experiment in using DocBook5 to
+	mark up and maintain LaTeX classes and packages in the
+	literate-programming style, using XSLT2 to generate the
+	standard format of distribution files suitable for the CTAN
+	repository. It identifies several benefits in automation and
+	reusability of code; a number of areas where a customisation
+	layer for DocBook would be useful; and a few unresolved
+	restrictions that package and class authors or maintainers
+	would need to be aware of when editing XML.</para></abstract><author><personname><firstname>Peter</firstname><surname>Flynn</surname></personname><personblurb><para>Peter Flynn runs the Electronic Publishing Group in IT
+	  Services at University College Cork. He is a graduate of the
+	  London College of Printing and the University of
+	  Westminster. He worked for the Printing and Publishing
+	  Industry Training Board and for United Information Services
+	  as IT consultant before joining UCC as Project Manager for
+	  academic and research computing. In 1990 he installed
+	  Ireland's first Web server and since then has been
+	  concentrating on electronic publishing support. He was
+	  Secretary of the TeX Users Group, and a member of the IETF
+	  Working Group on HTML and the W3C XML SIG, and he has
+	  published books on HTML, SGML/XML, and LaTeX. Peter is
+	  editor of the XML FAQ and an irregular contributor to
+	  conferences and journals in electronic publishing and
+	  Humanities computing. He is currently completing a part-time
+	  PhD in user interfaces with the Human Factors Research Group
+	  in UCC. He maintains a technical blog at
+	  http://blogs.silmaril.ie/peter</para></personblurb></author><legalnotice><para>Article copyright © 2013 by Silmaril Consultants.</para><para>Application code copyright © 2013 by Peter Flynn, released under the terms of the LaTeX Project Public License.</para></legalnotice></info><section><title>Background</title><para>The LaTeX document preparation system provides a framework
+      of commands (markup) for the TeX typesetting program, designed
+      to shield the writer from the need to know the internal
+      programming required to format a document (<xref linkend="Lamport1986"/>, <xref linkend="Lamport1994"/>). It has been in widespread use in
+      scientific, technical, and academic publishing since 1986, and
+      more recently has experienced growth in the Humanities and in
+      general publishing (<xref linkend="Boggio2006"/>, <xref linkend="Ubuntu2012"/>).</para><para>LaTeX relies for its extensibility on a library of over
+      4,000 style packages and document classes, which provide additional
+      markup functionality, layouts, typography, and variant behaviour. The
+      <code>ltxdoc</code> document class supplies features for maintaining
+      these packages and classes in a literate programming style using
+      interleaved code and annotation with end-user documentation in a
+      single-file wrapper. The syntax to achieve this, however, is
+      complex, as documentation must be shielded from interpretation
+      as code, and vice versa.</para><section><title>Packages and Classes</title><para>A <quote>document class</quote> is a collection of macros
+	providing both formatting and markup for a specific class of
+	documents, such as the articles for a particular journal, the
+	books by a particular publisher, the theses for a particular
+	university, or any of over 400 other types of document. It is
+	broadly equivalent to a DTD or Schema, although without
+	prescription, and with formatting specifications embedded. The default
+	document classes (report, book, article, and letter) are
+	stylistically minimalist but provide sufficient markup for
+	draft purposes.</para><para>A <quote>style package</quote> is a collection of macros
+	providing a specific variant on formatting, such as hyperlinks
+	in a PDF, the styling of footnotes or references, the use of
+	additional typefaces, or any of over 3,600 other typographic
+	or markup possibilities. There is no direct equivalent in the
+	XML field, but a package can be regarded as broadly equivalent
+	to a CSS or XSLT2 fragment, implementing a particular
+	formatting requirement.</para><para>Document classes and packages are typically distributed as
+	DocTeX (<code>.dtx</code>) files, which contain the LaTeX
+	code implementing the features, interleaved with annotation
+	in a literate programming manner, plus user documentation
+	about how to use the additional markup provided (<xref linkend="Carlisle2007"/>). An installer (<code>.ins</code>)
+	file uses LaTeX to extract the code as a class
+	(<code>.cls</code>) or style package (<code>.sty</code>) file
+	from the <code>.dtx</code> file, and LaTeX can then be run
+	on the <code>.dtx</code> file directly to produce both user
+	documentation and code annotation.<footnote><para>A few older packages are still distributed as raw
+	    <code>.cls</code> or <code>.sty</code> files with
+	    documentation in comments.</para></footnote></para><para>This method has proved a very reliable and
+	compact means of distribution, but at the cost of some
+	additional complexity in the construction of the master
+	<code>.dtx</code> file:</para><itemizedlist><listitem><para>documentation and annotation must be armored against
+	    extraction as code by prefixing each line with
+	    percent-space (<code>%␣</code>);</para></listitem><listitem><para>macro code must be identified for extraction by
+	    prefixing the <code>\begin</code> and <code>\end</code>
+	    commands (equivalent to start and end tags) with percent
+	    and exactly four spaces (<code>%␣␣␣␣</code>);</para></listitem><listitem><para>the regular comment character (<code>%</code>) must 
+	    therefore be treated specially in some circumstances (doubled
+	    or tripled);</para></listitem><listitem><para>there are special tags (in pointy brackets!) like
+	    <code>%&lt;*driver&gt;</code> and
+	    <code>%&lt;/driver&gt;</code> to identify certain
+	    sections or lines of the file that need extracting or
+	    ignoring in certain circumstances.</para></listitem></itemizedlist><para>Against this must be set the advantages of robustness once
+	constructed; the availability of all LaTeX facilities for
+	writing and formatting the documentation; some added
+	document-management features (version control,
+	change-recording, checksumming, indexing of commands used in
+	the code, etc), and the extensive supporting documentation
+	(<xref linkend="LaTeX2006"/>, <xref linkend="Mittelbach2004"/>,
+	<xref linkend="Lehmann2011"/>).</para></section><section><title>Automation requirement</title><para>In 2005, I undertook to create a new thesis document class
+	in my university which would implement stricter controls on
+	the content and sequence of front matter (title page, legal,
+	table of contents, declaration of originality, etc), and
+	particularly on the naming and identity of schools,
+	departments and research centers, and the bibliographic
+	reference format used by each. Many users had become
+	accustomed to designing their own title page, and to the
+	re-wording of the names of their unit to suit their own
+	perceptions or requirements. In some cases this involved
+	inventing entirely new department names or descriptions of
+	their degrees, which conflicted with the university's
+	statutory requirements. While the new class would initially
+	only affect the title page and preliminaries of a thesis, this
+	is exactly where the Library catalog staff look for the
+	metadata (in the case of electronic submissions, the PDF
+	metadata is also required to provide the same
+	information).</para><para>The data on course names and codes, the abbreviations and
+	full titles of degrees, and the official names of departments
+	and centers were all available from the institutional
+	database, but were subject to annual change, as there were
+	complex and overlapping administrative and pedagogical
+	requirements to be satisfied. This data needed to be converted
+	to the parameter syntax used by LaTeX on an ongoing basis to
+	make it usable as selectable options by users, so a more
+	robust and programmatic solution was needed to automate the
+	process. The data was already available in a consistent XML
+	format, so XML and XSLT2 were obvious candidates for the task.
+	As a long-time user of XML for documentation, I felt it would
+	be an advantage from the maintenance point of view to use the
+	same syntax and method for writing the documentation, and this
+	led to the experiment in using DocBook and generating the
+	<code>.dtx</code> file with XSLT2.</para><para>Beyond the title page and the settings for margins and
+	type size, the remainder of a student's thesis document would
+	be largely unaffected, as LaTeX's <code>report</code>
+	document class and existing packages already provided all the
+	facilities needed. However, it had become clear from local
+	LaTeX training sessions that some requirements of thesis
+	writing would benefit from more automation, and that better
+	use could be made of the layout specifications, which were,
+	and remain, relatively lax (<xref linkend="Flynn2012"/>), so
+	the decision was taken to experiment with using DocBook for
+	the whole project.</para></section></section><section><title>Implementation</title><para>The use of XSLT2 to generate XML from XML is standard
+      practice, and its use to generate LaTeX from XML is also
+      well-established. However, in this case, the resulting LaTeX
+      (<code>.dtx</code>) was going to be used to generate more
+      LaTeX code (the <code>.cls</code> document), which itself
+      would generate ancillary LaTeX files (Table of Contents,
+      Index, etc) as well as the student's thesis final PDF.</para><section><title>Metadata</title><para>A <code>.dtx</code> file is made up of a number of
+      well-defined sections:</para><orderedlist><listitem><para>an initialization block;</para></listitem><listitem><para>the LaTeX Preamble for the documentation;</para></listitem><listitem><para>a character checksum table;</para></listitem><listitem><para>a change history;</para></listitem><listitem><para>an indexing control block;</para></listitem><listitem><para>the user documentation;</para></listitem><listitem><para>the annotated code;</para></listitem><listitem><para>any ancillary files to be distributed with the class
+	  or package.</para></listitem></orderedlist><para>The design of a DocBook document does not of course align
+	directly with this, but there is provision in one form or
+	another for most of it, and XSLT2 can easily vary the order of
+	processing. The initial metadata (mostly effectivities) is
+	stored in the <code>book</code> root element start-tag:</para><programlisting xml:space="preserve">
+&lt;book xml:id="uccthesis" version="1" revision="03" xml:lang="en"
+  xml:base="ucc" remap="a4paper,12pt" arch="class" audience="lppl"
+  condition="2009/09/24" conformance="LaTeX2e" os="all"
+  security="2070" userlevel="cls" vendor="UCC" status="beta"&gt;</programlisting><itemizedlist><listitem><para>The <code>xml:base</code> specifies the ultimate
+	  destination directory within TeX's installation tree;</para></listitem><listitem><para>The <code>remap</code> attribute is [ab]used to hold 
+	    document-class options for LaTeX so that the target
+	    document format can be switched between US Letter and ISO
+	    A4, and the base font size changed.</para></listitem><listitem><para>The <code>audience</code> attribute is used to select
+	    a boilerplate license document (here, the LaTeX Project
+	    Public License).</para></listitem><listitem><para>The <code>security</code> attribute holds a checksum
+	    which is validated during LaTeX processing, and which
+	    must be updated after changes to the code (or set to 0 to
+	    disable it).</para></listitem><listitem><para>The <code>conformance</code> and
+	    <code>condition</code> attributes hold the version and
+	    date of LaTeX required.</para></listitem></itemizedlist><para>The <code>info/cover</code> element type was used to hold
+	the document management data, principally the metadata, the
+	lists of packages required by both the documentation and the
+	class or package file itself; a file list for the manifest;
+	and any setup commands for the documentation. The title,
+	author, contact details, Abstract/Summary, and revision
+	history are in the <code>info</code> container in the
+	conventional manner.</para><para>Working from the DocTeX and <code>ltxdoc</code>
+	specifications, with existing classes as examples, it was then
+	possible to construct the <code>.dtx</code> initialization
+	block as a literal result template, using the ID and
+	version values from the <code>book</code> element's
+	attributes. The preliminary LaTeX comments and the ‘driver’
+	block are shielded from processing by a conditional which
+	always evaluates to false:</para><programlisting xml:space="preserve">
+% \iffalse meta-comment
+%
+% Extracted from uccthesis.xml
+[...licensing and descriptive comment...]
+% \fi
+% \iffalse
+%&lt;*driver&gt;
+\ProvidesFile{uccthesis.dtx}
+%&lt;/driver&gt;
+%&lt;class&gt;\NeedsTeXFormat{LaTeX2e}[2009/09/24]
+%&lt;class&gt;\ProvidesClass{uccthesis}[2012/12/18 v1.03 Typesetting a UCC thesis with LaTeX]
+...
+% \fi</programlisting></section><section xml:id="codedoc"><title>Annotated code</title><para>The annotated code is stored in <code>chapter</code>
+	elements in a <code>part</code> element with an ID of
+	<code>code</code>. These can be subdivided into sections and
+	subsections according to the modularity and complexity of the
+	code. The annotations get output as part of the formatted
+	documentation: the code gets extracted to the class or package
+	file. The <code>ltxdoc</code> package uses LaTeX
+	<code>\section</code>s as its top level, so a DocBook chapter
+	is mapped in the XSLT to a LaTeX section, a
+	<code>sect1</code> to a <code>\subsection</code> and so
+	on.</para><section><title>Options</title><para>The <code>.dtx</code> format requires any user-selectable
+	  options for the class or package to be declared and activated
+	  <emphasis>before</emphasis> any requisite style or utility
+	  packages are loaded, so the first chapter would typically
+	  contain the option code.</para><para>The large number of special-purpose definitions needed
+	  for the departmental controls in the UCC Thesis class were
+	  stored in <code>methodsynopsis</code> elements in external
+	  file entities per Faculty. This is probably the most blatant
+	  piece of tag abuse, but the structure seemed to offer an
+	  acceptable way to store the data transformed from the
+	  administrative system's export format:</para><programlisting xml:space="preserve">
+&lt;methodsynopsis xml:id="physio" arch="med"&gt;
+  &lt;methodname&gt;Vancouver&lt;/methodname&gt;
+  &lt;methodparam&gt;
+    &lt;parameter role="department" remap="Department of"&gt;Physiology&lt;/parameter&gt;
+    &lt;initializer&gt;vancouver&lt;/initializer&gt;
+  &lt;/methodparam&gt;
+&lt;/methodsynopsis&gt;</programlisting><itemizedlist><listitem><para>each department gets an ID value which becomes the
+	      departmental class option entered by the student
+	      (<code>physio</code>);</para></listitem><listitem><para>the school to which the department belongs
+	      (<code>med</code>) is stored in the <code>arch</code>
+	      attribute;</para></listitem><listitem><para>the method name becomes the printable name of the
+	      bibliographic format required
+	      (<code>Vancouver</code>);</para></listitem><listitem><para>the method parameters hold the type of
+	      organisational unit (<code>department</code>), the
+	      prefix for printing on the title page (<code>Department
+		of</code>), and the actual name of the organisational
+	      unit (<code>Physiology</code>);</para></listitem><listitem><para>the initializer element is used for name of the
+	      BibTeX style for this discipline
+	      (<code>vancouver</code>).</para></listitem></itemizedlist><para>The XSLT transforms these to package options which define
+	  the official name of the department and fix the
+	  bibliographic format in that discipline. These are output
+	  before the annotated code itself starts, as described
+	  above.</para><programlisting xml:space="preserve">
+%␣␣␣␣\begin{macrocode}
+\DeclareOption{physio}{%
+  \department{Physiology}
+  \@usebib{vancouver}{Vancouver}{}
+}
+%␣␣␣␣\end{macrocode}</programlisting></section><section><title>Package specification</title><para>Classes and packages, as well as documentation, often
+	  use frequently-occurring sets of utility and style packages,
+	  with commonly-used setup commands before and after package
+	  invocation. To avoid class and package authors having to
+	  retype similar blocks of code for every class or package
+	  they create, an ancillary file <code>prepost.xml</code>
+	  stores an author's package preferences. The two lists of
+	  packages (for the documentation, and for the class or
+	  package itself) are therefore given in an XML structure
+	  rather than just typed in LaTeX format as code, so that
+	  preferences can be looked up and implemented. We used
+	  segmented lists in <code>constraintdef</code> elements
+	  in the <code>info/cover</code> to do this.</para><programlisting xml:space="preserve">
+&lt;info&gt;
+  &lt;cover&gt;
+    &lt;constraintdef xml:id="clspackages" linkend="options"&gt;
+      &lt;segmentedlist&gt;
+        &lt;segtitle&gt;Packages needed for this class&lt;/segtitle&gt;
+        &lt;seglistitem&gt;
+          &lt;seg&gt;fix-cm&lt;/seg&gt;
+        &lt;/seglistitem&gt;
+        &lt;seglistitem&gt;
+          &lt;seg role="textwidth=159mm,textheight=229mm"&gt;geometry&lt;/seg&gt;
+        &lt;/seglistitem&gt;
+        &lt;seglistitem&gt;
+          &lt;seg&gt;graphicx&lt;/seg&gt;
+        &lt;/seglistitem&gt;
+        [...]
+      &lt;/segmentedlist&gt;
+    &lt;/constraintdef&gt;
+    [...]
+  &lt;/cover&gt;
+&lt;/info&gt;</programlisting><para>Each <code>seglistitem</code> specifies a package
+	  required in the <code>seg</code> element. The
+	  <code>role</code> attribute holds any package options
+	  needed.<footnote><para>In review, it was suggested that reversing this and
+	      placing the package name in the <code>role</code>
+	      attribute and the options in the element content would
+	      be more natural. This would not be hard to
+	      change.</para></footnote> A similar construct is used with an ID of
+	  <code>docpackages</code> for any packages required for the
+	  documentation.</para><para>The <code>linkend</code> attribute specifies the ID of a
+	  chapter or section in the annotated code after which the
+	  package loading commands are to be output.</para><programlisting xml:space="preserve">
+\usepackage{fix-cm}
+\usepackage[textwidth=159mm,textheight=229mm]{geometry}
+\usepackage{graphicx}
+...
+</programlisting></section><section><title>Modular code</title><para>Code can be given in <code>programlisting</code>
+	  elements interspersed with <code>para</code> and other
+	  documentary elements of annotation. The amount of annotation
+	  and frequency of interruption is unrestricted: the
+	  <code>ltxdoc</code> extraction process simply stitches
+	  together all the code and outputs it; and the documentation
+	  formatting treats the code as verbatim blocks (line-numbered
+	  for convenience).</para><para>However, the <quote>literate-programming</quote> format
+	  for the uses <code>annotation</code> elements to define the
+	  LaTeX commands and environments being provided. The
+	  <code>role</code> attribute defines the class of object
+	  being annotated, and the <code>xreflabel</code> attribute
+	  gives its name. Each such <code>annotation</code> element
+	  can contain paragraphs, lists, etc, plus the
+	  <code>programlisting</code> code, broken into whatever
+	  granularity is needed to explain what is being done.</para><programlisting xml:space="preserve">
+  &lt;annotation role="environment" xreflabel="epigraph"&gt;
+    &lt;para&gt;Define an environment for Epigraphs. These would normally go immediately after the
+      &lt;command&gt;chapter&lt;/command&gt; command. This is basically the &lt;envar&gt;quotation&lt;/envar&gt;
+      environment modified, but it has to allow for &lt;emphasis&gt;either&lt;/emphasis&gt; manual
+      &lt;emphasis&gt;or&lt;/emphasis&gt; automated citation (because it may just be a phrase needing 
+      no citation), whereas a normal quotation &lt;emphasis&gt;must&lt;/emphasis&gt; be cited. It 
+      therefore has &lt;emphasis&gt;two&lt;/emphasis&gt; arguments, described below:&lt;/para&gt;
+    &lt;remark version="0.92" revision="2011-05-31"&gt;Added Epigraphs.&lt;/remark&gt;
+    &lt;programlisting&gt;
+\newenvironment{epigraph}[2][\relax]{%
+    &lt;/programlisting&gt;
+    &lt;para&gt;Record the argument values now, because they are needed in the end of the 
+      environment, so they have to pass across the group boundary. The compulsory 
+      argument is for a &amp;BiBTeX; citation key, so that a proper citation can be 
+      formatted; the optional argument is for when a pre-formed, 
+      &lt;wordasword&gt;full&lt;/wordasword&gt; (actually often simpler, non-rigorous) citation
+      is wanted.&lt;/para&gt;
+    &lt;programlisting&gt;
+  \gdef\@fullcite{#1}%
+  \gdef\@quotcite{#2}%
+    &lt;/programlisting&gt;
+ ...
+  &lt;/annotation&gt;</programlisting><para>The <code>remark</code> element is used for noting
+	  updates: these get extracted to the revision history. The
+	  annotations are output using the armored <code>ltxdoc</code>
+	  code; the actual lines of code from the
+	  <code>programlisting</code> elements are output
+	  <emphasis>un</emphasis>armored for extraction. This results
+	  in LaTeX code in the <code>.dtx</code> as shown
+	  below:</para><programlisting xml:space="preserve">
+% \begin{environment}{epigraph}
+% Define an environment for Epigraphs. These would normally go immediate after the
+% \DescribeMacro{\chapter}\verb`\chapter` command. This is basically the
+% \DescribeEnv{quotation}\texttt{quotation} environment modified, but it has to 
+% allow for \emph{either} manual \emph{or} automated citation (because it may 
+% just be a phrase needing no citation), whereas a normal quotation \emph{must} be 
+% cited. It therefore has \emph{two} arguments, described below:\par
+% \changes{v0.92}{2011/05/31}{Added Epigraphs.}
+%    \begin{macrocode}
+\newenvironment{epigraph}[2][\relax]{%
+%    \end{macrocode}
+% Record the argument values now, because they are needed in the end of the environment, 
+% so they have to pass across the group boundary. The compulsory argument is for a 
+% \BibTeX{} citation key, so that a proper citation can be formatted; the optional 
+% argument is for when a pre-formed, `full' (actually often simpler, non-rigorous) 
+% citation is wanted.\par
+%    \begin{macrocode}
+  \gdef\@fullcite{#1}%
+  \gdef\@quotcite{#2}%
+%    \end{macrocode}
+...
+% \end{environment}</programlisting><para>The formatted result in the documentation PDF is shown
+	  in <xref linkend="epigraph"/>, where the marginal
+	  annotation of the commands being documented can be
+	  seen.</para><figure xml:id="epigraph"><mediaobject><imageobject><imagedata fileref="../../../vol10/graphics/Flynn01/Flynn01-001.png"/></imageobject></mediaobject></figure><para>The <code>ltxdoc</code> package provides only two
+	  documentary environments for annotated code:
+	  <code>macro</code> and <code>environment</code>. The
+	  <code>dox</code> utility package has been  used to provide
+	  additional environments for other declarations such as
+	  counters, classes, options, templates, etc.</para></section></section><section xml:id="userdoc"><title>User documentation</title><para>User documentation is similarly stored in a
+	<code>part</code> element, this time with the ID of
+	<code>doc</code>. In the <code>.dtx</code> file, the user
+	documentation starts with an <emphasis>un</emphasis>armored
+	LaTeX Preamble where settings and packages needed for
+	formatting the documentation are specified, followed by a
+	self-reference to the same <code>.dtx</code> file in place of
+	the actual text. This enables LaTeX to read the Preamble and
+	then switch to armored mode to input the same document to
+	process the armored documentation at high speed (doing it all
+	in a single pass would entail a more computationally-intensive
+	process).</para><section><title>Preamble</title><para>Using the <code>remap</code> attribute from the
+	  <code>book</code> root element shown earlier (for any
+	  changes to the <code>ltxdoc</code> options) we can now
+	  output the start of the documentation and add the
+	  <code>\usepackage</code> commands for the packages
+	  specified. These are given in exactly the same way as those
+	  for the code (above), stored in a separate
+	  <code>constraindef</code> element, and they use the same
+	  <code>prepost.xml</code> lookup mechanism for commonly-used
+	  options.</para><para>Unlike with the code, however, this mechanism is largely
+	  automated for documentation. This provides for a
+	  configurable basic set of packages (defined in
+	  <code>prepost.xml</code>) as well as the detection of
+	  packages required for specific formatting choices in the
+	  documentation. For example, using a compact list in the
+	  documentation (the <code>spacing="compact"</code> attribute
+	  on a list container) will automatically ensure that the
+	  relevant package (<code>enumitem</code>, in this case) is
+	  included in the <code>.dtx</code> file without the author
+	  needing to take any action (and removing it, should compact
+	  lists cease to be used).</para><programlisting xml:space="preserve">
+%&lt;*driver&gt;
+\documentclass[a4paper,12pt]{ltxdoc}
+\usepackage[utf8x]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[textwidth=159mm,textheight=229mm]{geometry}
+\usepackage{graphicx}
+\usepackage{fancyvrb}
+[...]</programlisting><para>Some additional <code>ltxdoc</code> commands are added
+	  to control the behaviour of the documentation
+	  cross-referencing and indexing. The <code>\DocInput</code>
+	  command then makes the <code>.dtx</code> file input itself
+	  as described earlier.</para><programlisting xml:space="preserve">
+[...]
+\EnableCrossrefs
+\CodelineIndex
+\RecordChanges
+\begin{document}
+\raggedright
+\DocInput{uccthesis.dtx}
+\end{document}
+%&lt;/driver&gt;</programlisting><para>This <quote>driver</quote> block is followed by three
+	  blocks not illustrated here:</para><itemizedlist><listitem><para>a character checksum table as a protection against
+	      file corruption in data transfer (output in a literal
+	      result template in the XSLT2 program);</para></listitem><listitem><para>a list of <code>\changes</code> commands for the
+	      Change History (taken from the DocBook
+	      <code>revisionhistory</code> and <code>remark</code>
+	      elements);</para></listitem><listitem><para>and a standard block of hard-coded
+	      <code>\DoNotIndex</code> commands to prevent
+	      <code>ltxdoc</code> indexing non-relevant internal
+	      LaTeX commands.</para></listitem></itemizedlist></section><section><title>Armoring the text</title><para>After all this automated Preamble we can output the
+	  <code>\title</code> and <code>\author</code>, an Abstract or
+	  Summary, and then the chapters or sections of documentation
+	  text. These are all standard DocBook, handled with XSLT2
+	  templates in the conventional manner, with the exception of
+	  adding the <code>%␣</code> armor.</para><para>The armoring means that
+	  <code>&lt;sect1&gt;&lt;title&gt;Introduction&lt;/title&gt;...</code> 
+	  is output as <code>%␣\subsection{Introduction}</code> (as
+	  noted above, the hierarchy is offset by one level to
+	  accommodate <code>ltxdoc</code>'s default format). All text
+	  nodes are handed to a <code>text()</code> template which
+	  passes the content through a recursive named template
+	  filter, honoring hard-coded newlines but adding the
+	  <code>%␣</code> prefix. The template also handles TeX
+	  special characters in filenames and other literals,
+	  detecting a <code>parent::programlisting</code> (where
+	  armoring is not required). It also removes any leading
+	  white-space after a newline (inserted by Emacs'
+	  <emphasis>psgml-mode</emphasis>'s pretty-printing). The
+	  final token output is always a newline, so that we can start
+	  any element which occurs in element content with the
+	  armour.</para><para>Verbatim code in <code>programlisting</code> examples
+	  presented a special case: not only must the code itself
+	  <emphasis>not</emphasis> be armored, the processor must
+	  be able to escape from the armored text mode, otherwise the
+	  verbatim material itself would still contain leading
+	  <code>%</code> signs.</para><programlisting xml:space="preserve">
+&lt;variablelist&gt;
+  &lt;varlistentry&gt;
+    &lt;term&gt;&lt;envar&gt;dedication&lt;/envar&gt;&lt;/term&gt;
+    &lt;listitem&gt;
+      &lt;para&gt;The &lt;envar&gt;dedication&lt;/envar&gt;
+	environment is for you to add a dedication.&lt;/para&gt;
+      &lt;programlisting annotations="dedication" language="LaTeX"&gt;
+\begin{dedication}
+...
+\end{dedication}
+      &lt;/programlisting&gt;
+    &lt;/listitem&gt;
+  &lt;/varlistentry&gt;
+[...]</programlisting><para>This is done by escaping the
+	  <code>%&lt;*ignore&gt;</code> tag separately with the
+	  same <code>\iffalse...\fi</code> method seen earlier (the
+	  same is done for the end-tag). Between them comes the
+	  <emphasis>unarmored</emphasis> verbatim content (formatted
+	  here with the <code>listings</code> package, which automates
+	  per-language colored pretty-printing of the code).</para><programlisting xml:space="preserve">
+% \item[Dedication:] The \texttt{dedication} 
+% environment is for you to add a dedication. 
+% \iffalse 
+%&lt;*ignore&gt; 
+% \fi
+\begin{lstlisting}[language={[LaTeX]TeX},emph={dedication}]
+\begin{dedication}
+ ... 
+\end{dedication} 
+\end{lstlisting} 
+% \iffalse 
+%&lt;/ignore&gt; 
+% \fi</programlisting><para>This results in formatting like this (minus the color,
+	  and using this conference's default
+	  <code>variablelist</code> layout):</para><blockquote><variablelist><varlistentry><term>Dedication:</term><listitem><para>The <code>dedication</code> environment is for you
+		  to add a dedication.</para><programlisting xml:space="preserve">
+\begin{<emphasis>dedication</emphasis>} 
+ ...
+\end{<emphasis>dedication</emphasis>}
+		</programlisting></listitem></varlistentry></variablelist></blockquote><para>A bibliography, if one is used, is output in a similar
+	  manner to the verbatim code mentioned above, using the
+	  <code>%&lt;*ignore&gt;</code> tags and the
+	  <code>VerbatimOut</code> environment from the
+	  <code>fancyvrb</code> package. When LaTeX is run on the
+	  <code>.dtx</code> file, this extracts the bibliographic
+	  content to an external (<code>.bib</code>) file so that it
+	  on a subsequent pass it can be reprocessed with BibTeX or
+	  <emphasis>biblatex</emphasis> to recreate its own
+	  bibliography.</para></section><section><title>Inlines</title><para>A number of elements in mixed content are used to
+	  identify terms and values for indexing. The
+	  <code>envar</code> element type is used to identify a
+	  LaTeX environment name; <code>classname</code> for a
+	  document class name, <code>package</code> for a package
+	  name, and <code>option</code> for an option.</para><para/></section></section></section><section><title>Automation</title><para>The advantages of literate programming (<xref linkend="Knuth1992"/>) — modular construction, hermetic
+      testability, debugging tools, interspersed documentation, even
+      pretty-printing — are well known (<xref linkend="Thompson2000"/>) and well-criticised (static
+      representation; lack of folding structures, version control,
+      alternate views of variables). In itself, literate programming
+      does not solve any specific requirement for automation (although
+      modularity may contribute to this). In developing this method, one
+      of the objectives was to remove as much as possible the tedious
+      and repetitive typing that program development and documentation
+      writing engenders.</para><section><title>Development from pilot to production</title><para>The original thesis document class was successfully
+	implemented, and the XML-based system as described is used to
+	maintain it. The 50 or so class options specifying department
+	and degree are used to simplify and rationalize the setup for
+	the department name, title-page layout, and style of
+	references, while the class itself presets the rest of the
+	formatting; see <xref linkend="setup"/>).</para><figure xml:id="setup"><title>Thesis set-up</title><informaltable><tr><td>
+	      <programlisting xml:space="preserve">
+\documentclass[history,phd]{uccthesis}
+\begin{document}
+\title{The Application of XML to the Lexicography 
+       of Old, Middle and Early Modern Irish}
+\author{Julianne Nyhan}
+\qualifications{BA}
+\professor{Prof Dermot Keogh}
+\supervisor{Prof Donnchadh Ó Corráin}
+\date{June 2005}
+\maketitle
+... 
+\end{document}</programlisting>
+	    </td><td>
+	      <mediaobject><imageobject><imagedata format="png" fileref="../../../vol10/graphics/Flynn01/Flynn01-002.png" width="75%"/></imageobject></mediaobject>
+	    </td></tr></informaltable></figure><para>However, that class was a pilot: the result is that this
+	XML-based mechanism is usable for the creation and maintenance
+	of almost any LaTeX class or package. The system is used for
+	all the author's classes and packages, and has significantly
+	reduced development time on a new class or package. In the
+	development of additional classes or packages in a series or
+	suite (such as occurs in corporate use) the reduction is
+	greater because of the ease and reliability with which modules
+	of code can be included (as entities or XIncludes). The reuse
+	of imported data specifications also has an important place in
+	industrial documentation, where sets of part numbers or known
+	production components need to be pre-specified, and the system
+	has now been adapted twice to use this method.</para></section><section><title>Markup load</title><para>Many of the templates in the XSLT2 program make decisions
+	about the markup they should emit according to the content of
+	the element type they match. As an example, a
+	<code>firstterm</code> element type can be made to identify
+	from its position if it is indeed the first occurrence, and if
+	so, to add a bold LaTeX <code>\index</code> entry rather
+	than a plain one. The careful author can add an attribute to
+	suppress this behaviour in cases where a first or early
+	occurrence may be used <emphasis>en passant</emphasis>.</para><para>In a more complex environment, such as a footnote or the
+	<code>term</code> element of a <code>variablelist</code>
+	containing code requiring a monospace font and LaTeX's
+	verbatim formatting, the template will choose not to use
+	LaTeX's <code>\verb</code> command because of its fragility
+	inside other markup, and to use <code>\texttt</code> (simple
+	monospace) instead, or even <code>\url</code>, according to
+	content. This is something which would otherwise require the author to
+	remember that certain special characters cause LaTeX
+	problems when treated verbatim.</para><para>Cross-references which cannot be automated by LaTeX's
+	otherwise excellent <code>varioref</code> package (such as
+	references to an unnumbered list item, where by definition no reference
+	number exists) are pre-empted in the XSLT2 code and the reference
+	switches to the <code>fmtcount</code> package, which phrases
+	a counter value as a spelled-out ordinal: <quote>see the third
+	  item in the list on p.42</quote>.</para><para>The objective in all these cases is to relieve class and
+	package authors of the need to work manually around LaTeX's
+	oddities and allow them to write unhindered, for example,  by
+	the need to remember that such-and-such a reference was to a
+	table, or a figure, or a subsubsubsection, or a call-out; and
+	to have the reference auto-adjust its semantics if the target
+	element type gets changed.</para><para>As an example of the use of markup, the formatted
+	annotation output (code documentation) usually requires a
+	wider left margin than the user documentation because code
+	fragments are identified by a marginal note showing the
+	LaTeX command name. In order to accommodate the widest name
+	used, a new value for the margin is calculated in the XSLT2
+	program, using the longest value of the various commands
+	explained in the annotations. This ensures that an
+	unexpectedly long command name will not extend beyond the
+	left-hand edge of the page. This calculation, straightforward
+	in XSLT2, would be computationally challenging in LaTeX and
+	would need to be written to use the second pass of the
+	document normally associated with LaTeX tables of content
+	and cross-references. This calculation can therefore be done
+	first, before processing the content of the <code>part</code>
+	element for annotated code.</para><para>The use of XML also makes it straightforward to query the
+	document structure for control purposes. For example, using
+	standard command-line tools such as the LTxml toolkit
+	provides, a list of macros and environments defined can be
+	extracted, or a list made of the packages used:</para><programlisting xml:space="preserve">
+$ lxprintf -e annotation "%s (%s)\n" @xreflabel @role uccthesis.xml | sort
+ackname (macro)
+acknowledgements (environment)
+author (macro)
+bibliography (macro)
+bibname (macro)
+cjk (option)
+dedication (environment)
+department (macro)
+draft (environment)
+epigraph (environment)
+...
+$ lxprintf -e \
+'constraintdef[@xml:id="clspackages"]/segmentedlist/seglistitem' \
+"%s\n" seg uccthesis.xml
+inputenc
+fontenc
+geometry
+lmodern
+url
+graphicx
+array
+calc
+soul
+textcomp
+ucccrest
+setspace
+float
+$
+</programlisting></section><section xml:id="tagabuse"><title>Tag abuse</title><para>We said earlier in <xref linkend="codedoc"/> that some
+	element types have been used for purposes not envisaged by
+	DocBook, and that part of this experiment was to identify what
+	the nature of these use cases in class and package maintenance
+	was likely to be. As there are areas of DocBook into which the
+	present author has never had need to stray, suggestions are
+	welcomed for element types with a better fit. A future task is
+	to write an RNG specialist modification layer for the DocBook
+	schema to create some additional element types to avoid the
+	current level of abuse.</para><variablelist><varlistentry><term><code>exceptionname</code></term><listitem><para>Used to hold keywords of RFC 2119:1997 (<xref linkend="Bradner1997"/>) for direction on requirement or
+	    optionality. Formatted as small caps.</para></listitem></varlistentry><varlistentry><term><code>methodsynopsis</code></term><listitem><para>Holds the structured data for the naming departments
+	    and degrees (here; extensible to other structured data).</para></listitem></varlistentry><varlistentry><term><code>entry</code></term><listitem><para>In a table, the attributes <code>wordsize</code>,
+	    <code>charoff</code>, <code>char</code>, and
+	    <code>morerows</code> are used to hold dimensions required
+	    for LaTeX to format a multi-row column containing a large
+	    vertical brace.</para></listitem></varlistentry><varlistentry><term><code>classname</code>, <code>package</code>,
+	  <code>option</code>, <code>envar</code></term><listitem><para>These are used to identify LaTeX class, package,
+	    option, and environment names or values.</para></listitem></varlistentry><varlistentry><term><code>annotation</code></term><listitem><para>Used as the container for modules or fragments of
+	      annotated code. In the <code>info/cover</code> element,
+	      this is used for the wording of the Notice which goes in
+	      the Preamble of the <code>.ins file.</code></para></listitem></varlistentry><varlistentry><term><code>cover</code></term><listitem><para>Holds the setup specifications for packages.</para></listitem></varlistentry><varlistentry><term><code>constraintdef</code></term><listitem><para>Holds the structured lists of packages needed for
+	    documentation and for the class or package being written.</para></listitem></varlistentry><varlistentry><term><code>procedure</code></term><listitem><para>Used in the <code>prepost.xml</code> file to store
+	      the default settings for frequently-used packages with
+	      any ancillary commands needed before and after package
+	      load.</para></listitem></varlistentry><varlistentry><term><code>cmdsynopsis</code></term><listitem><para>Within a <code>constraintdef</code> in a
+	      <code>procedure/step</code>, holds commands which need
+	      to be ouput before (or after) a command.</para></listitem></varlistentry><varlistentry><term><code>type</code></term><listitem><para>In documentation, marks a span for which special
+	      typographical treatment is needed. The role attribute
+	      must be set to <code>font</code> and the remap attribute
+	      must be set to the NFSS2e three-character
+	      fontname code.</para></listitem></varlistentry></variablelist><para>At the moment, the XSLT also generates a shell script file
+	which can be used to build the relevant LaTeX distribution
+	package (a specially-formed zip file). This needs to be
+	replaced by a parameterised Makefile, using the
+	<code>latexmk</code> script.</para></section></section><section><title>Conclusions</title><para>The experience of this experiment has been fourfold:</para><orderedlist><listitem><para>It is certainly possible to use XML to define and
+	  maintain LaTeX document class and package data and
+	  documentation, and to use XSLT2 to create the distribution
+	  files. In conjunction with a small shell script or Makefile
+	  and a suitable repository mechanism (eg Subversion, GIT,
+	  etc), a fairly complete process can be defined for
+	  versioning and production of LaTeX document classes and
+	  packages.</para></listitem><listitem><para>The benefits of reusability appear only when using this
+	  method for handling a number of classes or packages, where
+	  there is some re-use of commonly-occurring constructs
+	  (macros, environments, utilities, etc), or where the class
+	  or package is part of a series sharing common attributes.</para></listitem><listitem><para>It does require significant knowledge of XML and
+	  DocBook, regardless of the editor being used (it may be
+	  assumed that a class or package author is already
+	  well-skilled in the use of LaTeX).</para></listitem><listitem><para>It does save time and effort when actually writing the
+	  documentation, as there is no need to consider the various
+	  forms of escapement and armoring required by the
+	  <code>.dtx</code> file format, or the need to invoke
+	  particular packages when certain facilities are used.</para></listitem></orderedlist><para>The system has provisionally been called
+      <quote>ClassPack</quote>, and is available on CTAN
+      (Comprehensive TeX Archive Network) under the LaTeX Project
+      Public License. At the moment there are substantial remnants of
+      earlier code which need tidying up, and the mechanism for
+      handling structured data for formal naming needs to be
+      generalized.</para></section><bibliography><title>References</title><bibliomixed xml:id="Lamport1986">Lamport, Leslie.
+      <emphasis>LaTeX: A Document Preparation
+	System.</emphasis> Addison-Wesley, 1986, 1st Ed.,
+      0-201-15790-X. <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.amazon.com/Latex-Document-Preparation-System-Users/dp/020115790X</link></bibliomixed><bibliomixed xml:id="Lamport1994">Lamport, Leslie.
+      <emphasis>LaTeX: A Document Preparation
+	System.</emphasis> Addison-Wesley, 1994, 2nd Ed.,
+      978-0201529838. <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.amazon.com/LaTeX-Document-Preparation-System-2nd/dp/0201529831</link></bibliomixed><bibliomixed xml:id="Boggio2006">Boggio-Togna, Gianfranco.
+      <quote>Technica: Typesetting for the humanities.</quote> LaTeX
+      package, November 2006. In CTAN,
+      <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://mirrors.ctan.org/macros/latex/contrib/technica/Technica.pdf</link></bibliomixed><bibliomixed xml:id="Ubuntu2012">Ubuntu Core Developers.
+      <quote>TeX Live: LaTeX support for the humanities.</quote>
+      Debian package, June 2012. In Ubuntu repositories,
+      <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://packages.ubuntu.com/raring/texlive-humanities</link></bibliomixed><bibliomixed xml:id="Carlisle2007">Carlisle, David. <quote>ltxdoc:
+	Documentation support.</quote> LaTeX
+      package, November 2007. In CTAN,
+      <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://ctan.org/pkg/ltxdoc</link></bibliomixed><bibliomixed xml:id="Lehmann2011">Lehmann, Philipp. <quote>ltxdockit:
+	Class for documented LaTeX macro files.</quote> LaTeX
+      package, March 2011. In CTAN,
+      <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://ctan.org/pkg/ltxdockit</link></bibliomixed><bibliomixed xml:id="LaTeX2006">The LaTeX3
+    Project. <quote>LaTeX2ε for class and package
+    writers.</quote> LaTeX Project documentation, February 2006. In
+    CTAN,
+    <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://mirrors.ctan.org/macros/latex/doc/clsguide.pdf</link></bibliomixed><bibliomixed xml:id="Mittelbach2004">Mittelbach Frank; Goossens
+      Michel; Braams, Johannes; Carlisle, David; Rowley, Chris.
+      <emphasis>The LaTeX Companion.</emphasis> Addison-Wesley, May
+      2004, 2nd Ed., 978-0201362992.
+      <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.amazon.com/LaTeX-Companion-Techniques-Computer-Typesetting/dp/0201362996</link></bibliomixed><bibliomixed xml:id="Bradner1997">Bradner, Scott. <quote>Key words
+	for use in RFCs to Indicate Requirement Levels.</quote> RFC
+      2119, Internet Engineering Task Force, Fremont, CA, March 1997
+      <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.ietf.org/rfc/rfc2119.txt</link></bibliomixed><bibliomixed xml:id="Flynn2012">Flynn, Peter. <quote>A university
+	thesis class: Automation and its pitfalls.</quote> Presented
+      at TeX Users Group Conference 2012, Boston, MA, July 16–18,
+      2012. In TUGboat, 33:2, 2012, pp172–177.
+      <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">https://www.tug.org/members/TUGboat/tb33-2/tb104flynn.pdf</link></bibliomixed><bibliomixed xml:id="Knuth1992">Knuth, Donald E. <quote>Literate
+	Programming.</quote> Center for the Study of Language and
+      Information, Stanford, CA (CSLI Lecture Notes, no.27) 1992,
+      0937073806, See
+      <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www-cs-faculty.stanford.edu/~uno/lp.html</link></bibliomixed><bibliomixed xml:id="Thompson2000">Thompson, David B. <quote>The
+    Literate Programming FAQ.</quote> San Gabriel, CA, March 2000. <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.literateprogramming.com/lpfaq.pdf</link></bibliomixed></bibliography></article>

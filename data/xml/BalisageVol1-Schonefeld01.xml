@@ -1,0 +1,425 @@
+<?xml version="1.0" encoding="UTF-8"?><article xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink" version="5.0-subset Balisage-1.2" xml:id="Bal20081102"><title>A Simple API for XCONCUR</title><subtitle>Processing concurrent markup using an event-centric API</subtitle><info><confgroup><conftitle>Balisage: The Markup Conference 2008</conftitle><confdates>August 12 - 15, 2008</confdates></confgroup><abstract><para>
+        Programmers can basically choose from two different types APIs
+        when working with XML documents. On provides an event-centric
+        view (SAX) on the document, while the offers an object-centric
+        view (DOM). This contribution introduces an event-centric
+        programming interface to work with XCONCUR documents which is
+        inspired by the XML's SAX-API. It provides a very easy to use
+        API for parsing XCONCUR documents.
+      </para></abstract><author><personname><firstname>Oliver</firstname><surname>Schonefeld</surname></personname><personblurb><para>
+	  Oliver Schonefeld works in University of Tübingen's
+          collaborative research centre Linguistic Data Structures in
+          a project that develops the foundations for sustainable
+          linguistic resources. He studied computer science at
+          University of Bielefeld until 2005. This contribution
+          deals with aspects of his forthcoming PhD thesis.
+        </para></personblurb><affiliation><orgname>University of Tübingen</orgname></affiliation><!-- Sorry for being inconvenient, but I try to minimize spam --><email>oliver.schonefeld (AT) uni-tuebingen (DOT) de</email></author><legalnotice><para>Copyright © 2008 Oliver Schonefeld</para></legalnotice><keywordset role="author"><keyword>processing XCONCUR</keyword></keywordset></info><!-- introduction --><section xml:id="sec-intro" xreflabel="1"><title>Introduction</title><para>
+      To process XML documents using a programming language, one can
+      basically choose from two different application programming
+      interfaces (APIs). The <emphasis role="ital">Simple API for XML
+      processing</emphasis> (SAX)  is an event-centric interface, while the
+      <emphasis role="ital">Document Object Model</emphasis> (DOM) provides
+      a sophisticated object structure to work with XML
+      documents.
+      This contribution introduces an event-centric API to work
+      with XCONCUR documents, which is inspired by the XML's SAX-API.
+    </para><para>
+      Section <xref linkend="sec-xconcur"/> gives a brief overview of
+      the XCONCUR document syntax, in section <xref linkend="sec-api"/> an event-centric XCONCUR API is described
+      and in section <xref linkend="sec-conclude"/> contains an
+      outlook on further work.
+    </para></section><!-- XCONCUR --><section xml:id="sec-xconcur" xreflabel="2"><title>XCONCUR</title><para>
+      XCONCUR is an extension to XML with major goal to
+      provide an convenient method for expressing concurrent
+      hierarchies. An XCONCUR document may contain an arbitrary number
+      of annotation layers. Each layer can be transformed to a
+      well-formed XML document by a simple filtering
+      process. Therefore, an XCONCUR document can be seen as set of
+      inter-woven XML documents. Figure <xref linkend="fig-sample"/>
+      shows an XCONCUR example document with two annotation
+      layers. Each tag is prefixed by an annotation layer id and thus
+      assigned to a layer. The XCONCUR schema declarations
+      allow to assign an annotation schema to each layer. The
+      annotation schema may be written in any of the current XML
+      schema languages, e.g. DTD, XML Schema or RELAX NG. If an
+      annotation schema has been assigned to an annotation layer, the
+      layer is validated using this schema. While the use of
+      annotation schemas is optional, an XCONCUR document is required
+      to be well-formed: each XCONCUR document can be decomposed in a
+      set of XML documents, by selecting one layer and removing the
+      tags from other annotation layers and the annotation layer
+      prefixes. The resulting XML documents are required to be
+      well-formed. Additionally, an XCONCUR constraint declaration can
+      optionally be used to associate an XCONCUR-CL constraint set to
+      the document, which allows cross-tree validation. For details
+      see <xref linkend="Schonefeld2007"/> and <xref linkend="Witt2007"/>.
+    </para><figure xml:id="fig-sample" xreflabel="1"><title>XCONCUR example</title><programlisting xml:space="preserve">&lt;?xconcur version="1.1" encoding="iso-8859-1"?&gt;
+&lt;?xconcur-schema layer="l1" root="div" system="teispok2.dtd"?&gt;
+&lt;?xconcur-schema layer="l2" root="text" system="teiana2.dtd"?&gt;
+&lt;?xconcur-constraint system="peterandpaul.xcs" xconcur:l1="L1" xconcur:l2="L2"?&gt;
+&lt;(l1)div type="dialog" org="uniform"&gt;
+  &lt;(l2)text&gt;
+      &lt;(l1)u who="Peter"&gt;
+    &lt;(l2)s&gt;Hey Paul!&lt;/(l2)s&gt;
+      &lt;(l2)s&gt;Would you give me
+    &lt;/(l1)u&gt;
+    &lt;(l1)u who="Paul"&gt;
+      the hammer?&lt;/(l2)s&gt;
+    &lt;/(l1)u&gt;
+  &lt;/(l2)text&gt;
+&lt;/(l1)div&gt;</programlisting></figure></section><!-- main --><section xml:id="sec-api" xreflabel="3"><title>An event-centric application programming interface</title><para>
+      The event-centric API for processing XCONCUR documents is
+      heavily inspired by XML's SAX API (see <xref linkend="SaxAPI"/>). It provides a very low-level approach for
+      working with XCONCUR documents. While processing a document, the
+      parser emits a series of events. An application may receive
+      those events and perform custom actions, e.g. build an in-memory
+      representation of the document. Since the application ultimately
+      decides which events to accept and how to handle them, the
+      parser only has to build up a very minimal in-memory
+      representation to perform it's work. This streaming approach is
+      therefore quite memory-efficient.
+    </para><para>
+      The API basically defines a number of start events, which
+      signal the beginning of an entity in the parsed document (e.g. a
+      start tag) and their corresponding counterparts. The event signaling
+      character data is an exception, since only a sole character data
+      event exists without any start or end event. The following list
+      contains the events, which are defined by the API. All events
+      marked with an asterisk are unique the XCONCUR API, all others
+      have been adapted to cope with more than one annotation
+      layer.
+    <variablelist><varlistentry><term>Start Document ()</term><listitem><para>
+            The beginning of the document has been detected. This event
+            is sent after the XCONCUR declaration has been read.
+        </para></listitem></varlistentry><varlistentry><term>End Document ()</term><listitem><para>
+            The end of the document has been detected. This
+            event is sent, when the document has been processed completely.
+          </para></listitem></varlistentry><varlistentry><term>Start Layer (layer)<superscript>*</superscript></term><listitem><para>
+            A new annotation layer has been detected. This is event is
+            sent, either if an XCONCUR layer declaration has been
+            processed or if the root tag of a new annotation layer has
+            been found. The name of the annotation layer prefix is
+            provided.
+          </para></listitem></varlistentry><varlistentry><term>End Layer (layer)<superscript>*</superscript></term><listitem><para>
+            The end of an annotation layer has been detected, This
+            event is send after the matching end tag for the
+            annotation layer's root element has been processed. The
+            name of the annotation layer prefix is provided.
+          </para></listitem></varlistentry><varlistentry><term>Start Primary Data ()<superscript>*</superscript></term><listitem><para>
+            This events signals the beginning of the character data of
+            the document. It is sent, after the root element for all
+            annotation layers in the document have been processed.
+          </para></listitem></varlistentry><varlistentry><term>End Primary Data ()<superscript>*</superscript></term><listitem><para>
+            This events signals the end of the actual character data
+            of the document. It is sent, right before the first end
+            tag of a root element for any annotation has been
+            processed.
+          </para></listitem></varlistentry><varlistentry><term>Start Prefix Mapping (layer, prefix, uri)</term><listitem><para>
+            This event signals the beginning of the scope of a
+            namespace prefix mapping on a layer. It is sent
+            just before start tag event of the element, which declares
+            the prefix mapping, is emitted. The event carries
+            information about the annotation layer, the namespace
+            prefix and the namespace URI is provided. If an element
+            defines more than one prefix mapping, the start prefix
+            mapping events may occur in any order.
+          </para></listitem></varlistentry><varlistentry><term>End Prefix Mapping (layer, prefix, uri)</term><listitem><para>
+            This event signals the end of the scope of a
+            namespace prefix mapping on a layer. It is sent just after
+            the end element event for the element, which declared the
+            mapping, was emitted. The event carries information about
+            the annotaion layer, the namespace prefix and the
+            namespace URI is provided. If an element defined more than
+            one prefix mapping, the end prefix mapping events may
+            occur in any order.
+          </para></listitem></varlistentry><varlistentry><term>Characters (characters)</term><listitem><para>
+            This event signals the character data. More then one
+            character data events my be emitted for one chunk of
+            character data in the document.
+          </para></listitem></varlistentry><varlistentry><term>Start Element (layer, uri, localname,
+        qname, attributes)</term><listitem><para>
+            A start tag has been detected. The event carries the
+            annotation layer prefix, the namespace URI, the local
+            name and the qualified name of the tag. Furthermore, a list of
+            attributes is available. This list is either empty, if the
+            element has no attributes or contains the namespace URI,
+            local name, qualified name and value for each attribute.
+          </para></listitem></varlistentry><varlistentry><term>End Element (layer, uri, localname, qname)</term><listitem><para>
+            A end tag has been detected. The event carries the
+            annotation layer prefix, the namespace URI, the local
+            name and the qualified name of the tag.
+          </para></listitem></varlistentry></variablelist>
+  </para><para>
+    The major difference to XML's SAX-API is that all events, except
+    the characters event, have been modified to also carry the
+    annotation layer id, so an application can also take this
+    information into account. Furthermore, the start/end layer and
+    start/end primary data events have been added. The start/end layer
+    events provide an easy mechanism for the application to determine
+    which annotation layers exist in an XCONCUR document and perform
+    actions, e.g. allocating memory for each layer. Strictly speaking,
+    one could derive this information from other events
+    (e.g. checking, if the just received start element event carries
+    an yet unknown annotation layer id), but by providing the
+    start/end layer events, the API eases writing the application,
+    since the programmer can rely upon these events. The same hold for
+    the start/end primary data events. They signal the start and end
+    of the actual character data for a document.
+  </para><para>
+    The XCONCUR SAX-API provides various classes and interfaces. The
+    most important entities of the XCONCUR SAX-API are the
+    <code>XConcurReader</code> and <code>ContentHandler</code>
+    classes. The <code>XConcurReader</code> class encapsulates the
+    underlying parser<footnote xml:id="fn-parser"><para>The parser
+    implementation is not part if the API. Different vendors could
+    supply their own implementation. The reference implementation of
+    the XCONCUR SAX-API currently provides a non-validating
+    parser.</para></footnote>. The <code>ContentHandler</code> defines
+    an interface, which needs to be implemented by user's program and
+    acts as the message sink for the events generated by the
+    parser. The whole API consists of various other auxiliary classes,
+    e.g. provide abstract input sources for reading XCONCUR documents
+    or error reporting classes.
+  </para><para>
+    Figure <xref linkend="fig-handler"/> shows an excerpt of a class
+    implementing the <code>ContentHandler</code> interface. Given this
+    class, a typical sequence for parsing an XCONCUR document is shown
+    in Figure <xref linkend="fig-invoke"/>.
+  </para><figure xml:id="fig-handler" xreflabel="2"><title>An example implementation of <code>ContentHandler</code>
+    interface</title><programlisting xml:space="preserve">class MyContentHandler : public ContentHandler {
+public:
+  virtual void StartElement(const char* const layer,
+                            const char* const uri,
+                            const char* const localname,
+                            const char* const qname,
+                            const Attributes &amp;attrs) {
+    if (strcmp(layer, "l1")) {
+      // do something for start element events on layer "l1"
+    }
+  }
+
+  virtual void EndElement(const char* const layer,
+                          const char* const uri,
+                          const char* const localname,
+                          const char* const qname) {
+    if (strcmp(layer, "l1")) {
+      // do something for end elements events on layer "l1"
+    }
+  }
+
+  // ...
+}; // class MyContentHandler</programlisting></figure><figure xml:id="fig-invoke" xreflabel="3"><title>Typical sequence to invoke the parser</title><programlisting xml:space="preserve">try {
+  // create reader instance
+  XConcurReader *reader = XConcurReaderFactory::CreateReader();
+
+  // class 'MyContentHandler' extends the ContentHandler interface
+  MyContentHandler handler;
+
+  // register content handler with reader
+  reader-&gt;SetContentHandler(handler);
+
+  // create input source
+  // NOTE: 'input' is an InputStream object which points to an XCONCUR file
+  InputSource source(input);
+
+  // parse document
+  reader-&gt;parse(&amp;source);
+} catch (XConcurException &amp;e) {
+  // handle exception
+}</programlisting></figure><para>
+    The C++ reference implementation of the XCONCUR SAX-API contains a
+    program called <code>xconcurlint</code>. It uses the API to read
+    an XCONCUR document and prints the events, which are emitted by
+    the parser. Figure <xref linkend="fig-xconcurlint"/> shows a
+    transcript of the parse of the XCONCUR document from figure <xref linkend="fig-sample"/>. The event types are printed in curly
+    brackets. Other event specific information, like annotation layer
+    prefix or element name are also printed.
+  </para><figure xml:id="fig-xconcurlint" xreflabel="4"><title>Output created by the <code>xconcurlint</code> utility</title><programlisting xml:space="preserve">{START LAYER} l1
+{START ELEMENT} l1, div
+                 type = dialog
+                 org = uniform
+{START LAYER} l2
+{START ELEMENT} l2, text
+{START PRIMARY DATA}
+{CHARACTERS} "\n      "
+{START ELEMENT} l1, u
+                 who = Peter
+{CHARACTERS} "\n    "
+{START ELEMENT} l2, s
+{CHARACTERS} "Hey Paul!"
+{END ELEMENT} l2, s
+{CHARACTERS} "\n      "
+{START ELEMENT} l2, s
+{CHARACTERS} "Would you give me\n    "
+{END ELEMENT} l1, u
+{CHARACTERS} "\n    "
+{START ELEMENT} l1, u
+                 who = Paul
+{CHARACTERS} "\n      "
+{CHARACTERS} "the hammer?"
+{END ELEMENT} l2, s
+{CHARACTERS} "\n    "
+{END ELEMENT} l1, u
+{CHARACTERS} "\n  "
+{END PRIMARY DATA}
+{END ELEMENT} l2, text
+{END LAYER} l2
+{END ELEMENT} l1, div
+{END LAYER} l1</programlisting></figure></section><!-- conclusion --><section xml:id="sec-conclude" xreflabel="4"><title>Conclusion</title><para>
+      The XCONCUR SAX-API provides a very low-level, yet powerful,
+      interface for processing XCONCUR documents. It is a relatively
+      simple and easy interface to work with XCONCUR
+      documents. Programmers, who are familiar with XML's SAX-API,
+      should feel at ease with XCONCUR API really quickly. The API
+      makes very few assumptions about the underlying parser and
+      provides a uniform interface for using parser implementations
+      from different vendors. Furthermore, the API can easily be
+      ported to different programming languages. A C++ and a Java
+      reference implementation is available<footnote xml:id="fn-request"><para>The author provides the software for
+      evaluation and academic purposes upon
+      request.</para></footnote>. For the Java language bindings, the
+      API is implemented in plain Java, while parser uses the C++
+      implementation of the parser.
+    </para><para>
+      Future work involves creating a object based API similar to
+      XML's DOM-API. Conceptional work for this is currently underway
+      and the XCONCUR-DOM parser will be built upon the XCONCUR-SAX
+      parser. Furthermore, the Mascarpone XCONCUR editor needs to be
+      overhauled to use the new APIs.
+    </para></section><!-- appendix --><appendix><title>API interfaces</title><para>
+      This appendix lists the most fundamental interfaces of the
+      XCONCUR SAX-API. The full API contains a few more interfaces and
+      classes.
+    </para><figure><title><code>XConcurReader</code> interface</title><programlisting xml:space="preserve">class XConcurReader {
+public:
+  virtual ContentHandler* GetContentHandler() const = 0;
+
+  virtual void SetContentHandler(ContentHandler *handler) = 0;
+
+  virtual ErrorHandler* GetErrorHandler() const = 0;
+
+  virtual void SetErrorHandler(ErrorHandler *handler) = 0;
+
+  virtual void Parse(InputSource *source) = 0;
+
+  virtual void SetFeature(const char* const name, const bool value) = 0;
+
+  virtual bool GetFeature(const char* const name) = 0;
+
+  virtual ~XConcurReader();
+}; // class XConcurReader</programlisting></figure><figure><title><code>ContentHandler</code> interface</title><programlisting xml:space="preserve">class ContentHandler {
+public:
+  virtual ~ContentHandler();
+
+  virtual void StartDocument() = 0;
+
+  virtual void EndDocument() = 0;
+
+  virtual void StartLayer(const char* const prefix) = 0;
+
+  virtual void EndLayer(const char* const prefix) = 0;
+
+  virtual void StartPrimaryData() = 0;
+
+  virtual void EndPrimaryData() = 0;
+
+  virtual void StartPrefixMapping(const char* const layer,
+                                  const char* const prefix,
+                                  const char* const uri) = 0;
+
+  virtual void EndPrefixMapping(const char* const layer,
+                                const char* const prefix) = 0;
+
+  virtual void Characters(const char* const chars,
+                          const size_t offset,
+                          const size_t len) = 0;
+
+  virtual void StartElement(const char* const layer,
+                            const char* const uri,
+                            const char* const localname,
+                            const char* const qname,
+                            const Attributes &amp;attrs) = 0;
+
+  virtual void EndElement(const char* const layer,
+                          const char* const uri,
+                          const char* const localname,
+                          const char* const qname) = 0;
+}; // interface ContentHandler</programlisting></figure><figure><title><code>Attributes</code> interface</title><programlisting xml:space="preserve">class Attributes {
+public:
+
+  virtual int GetLength() const = 0;
+
+  virtual int GetIndex(const char* const qname) const = 0;
+
+  virtual int GetIndex(const char* const uri,
+                       const char* const localname) const = 0;
+
+  virtual const char* const GetQName(const int idx) const = 0;
+
+  virtual const char* const GetURI(const int idx) const = 0;
+
+  virtual const char* const GetLocalName(const int idx) const = 0;
+
+  virtual const char* const GetType(const char* const qname) const = 0;
+
+  virtual const char* const GetType(const char* const uri,
+                                    const char* const localname) const = 0;
+
+  virtual const char* const GetType(const int idx) const = 0;
+
+  virtual const char* const GetValue(const char* const qname) const = 0;
+
+  virtual const char* const GetValue(const char* const uri,
+                                     const char* const localname) const = 0;
+
+  virtual const char* const GetValue(const int idx) const = 0;
+
+  virtual bool IsDeclared(const char* const qname) const = 0;
+
+  virtual bool IsDeclared(const char* const uri,
+                          const char* const localname) const = 0;
+
+  virtual bool IsDeclared(const int idx) const = 0;
+
+  virtual bool IsSpecified(const char* const qname) const = 0;
+
+  virtual bool IsSpecified(const char* const uri,
+                           const char* const localname) const = 0;
+
+  virtual bool IsSpecified(const int idx) const = 0;
+
+protected:
+  virtual ~Attributes();
+}; // interface Attributes</programlisting></figure></appendix><!-- bibliography --><bibliography><title>References<footnote><para>All online resources have last been
+    checked on 2008/08/31.</para></footnote></title><bibliomixed xml:id="SaxAPI" xreflabel="Megginson et al. (2002)">
+      David Megginson, <emphasis role="ital">“Simple API for XML
+      processing”</emphasis>. Available online at
+      <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.saxproject.org/quickstart.html</link>
+    </bibliomixed><bibliomixed xml:id="DomAPI" xreflabel="Le Hors et al. (2004)">
+      Arnaud Le Hors, Philippe Le Hégaret, Lauren Wood, Gavin Nicol,
+      Jonathan Robie, Mike Champion, Steve Byrne: <emphasis role="ital">“Document Object Model (DOM) Level 3 Core
+      Specification”</emphasis>. World Wide Web Consortium,
+      2006. Available online at
+      <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/2004/REC-DOM-Level-3-Core-20040407/</link>
+    </bibliomixed><bibliomixed xml:id="Schonefeld2007" xreflabel="Schonefeld (2007)">
+      Oliver Schonefeld: <emphasis role="ital">“XCONCUR and
+      XCONCUR-CL: A constraint-based approach for the validation of
+      concurrent markup”</emphasis>. In: Datenstrukturen für
+      linguistische Ressourcen und ihre Anwendungen / Data structures
+      for linguistic resources and applications: Proceedings of the
+      Biennial GLDV Conference 2007, Georg Rehm, Andreas Witt, Lothar
+      Lemnitzer (eds), Tübingen Verlag, Germany, 2007. Pp. 347–356.
+    </bibliomixed><bibliomixed xml:id="Witt2007" xreflabel="Witt at al. (2007)">
+      Andreas Witt, Oliver Schonefeld, Georg Rehm, Jonathan Khoo,
+      Kilian Evang: <emphasis role="ital">“On the Lossless
+      Transformation of Single-File, Multi-Layer Annotations into
+      Multi-Rooted Trees”</emphasis>. In: Proceedings of Extreme
+      Markup Languages 2007, Montréal, Canada, 2007. Available online
+      at
+      <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.idealliance.org/papers/extreme/proceedings/html/2007/Witt01/EML2007Witt01.xml</link>
+    </bibliomixed><bibliomixed xml:id="Bray2006" xreflabel="Bray et al. (2006)">
+      Tim Bray, Jean Paoli, C. M. Sperberg-McQueen, Eve Maler,
+      Francois Yergeau, John Cowan: <emphasis role="ital">“Extensible Markup Language (XML)
+      1.1”</emphasis>. World Wide Web Consortium, 2006, 2nd
+      edition. Available online at <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/2006/REC-xml11-20060816/</link>
+    </bibliomixed></bibliography></article>

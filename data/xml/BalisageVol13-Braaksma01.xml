@@ -1,0 +1,1239 @@
+<?xml version="1.0" encoding="UTF-8"?><article xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink" version="5.0-subset Balisage-1.3"><title>In pursuit of streamable stylesheet functions in XSLT 3.0</title><info><confgroup><conftitle>Balisage: The Markup Conference 2014</conftitle><confdates>August 5 - 8, 2014</confdates></confgroup><abstract><para>With the XSLT Working Draft being in Last Call since December 2013 and the XSL
+                Working Group working hard to get the latest bugs fixed, it is only a matter of time
+                that the XSLT 3.0 Draft becomes a Candidate Recommendation, locked for changes and
+                suitable for implementors to adopt.</para><para>One of the bugs the Working Group received was about the inability to create
+                stylesheet functions that take streamable nodes as an argument. The group considered
+                the omission and decided to ask me to write up a proposal. We discussed several
+                iterations of the proposal until recently it was adopted and added to the internal
+                Working Draft. </para><para>This paper investigates the ways in which stylesheet functions can be made
+                streamable and why it is such a complex to task to make them so. It summarizes the
+                rules that have been adopted so far according to the public bug entry and shows the
+                possibilities it gives for stylesheet and package authors. While the impact on the
+                specification is minimal, the impact for authors of packages and stylesheet authors
+                in general is potentially big and opens up a whole world of new possibilities in
+                streaming.</para></abstract><author><personname><firstname>Abel</firstname><surname>Braaksma</surname></personname><personblurb><para>Abel Braaksma is an invited expert of the XSL and XQuery Working Group and is
+                    creator and owner of <link xlink:href="http://exselt.net" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Exselt</link>, a
+                    streaming XSLT 3.0 processor. Next to his XSL work for the Working Group he runs
+                    a consultancy and outsourcing firm <link xlink:href="http://abrasoft.net" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Abrasoft</link>, specializing in data aggregation and XML in .NET
+                    environments. He has over 15 years experience in XML and related technologies.
+                    You can contact him about Exselt or XML, XSLT and C# / F# related inquiries. His
+                    personal thoughts on technological challenges and XSLT in particular are
+                    collected on his blog <link xlink:href="http://undermyhat.org" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://undermyhat.org</link>.</para></personblurb><email>abel[-at-]exselt.net</email><affiliation><jobtitle>Owner/creator</jobtitle><orgname><link xlink:href="http://exselt.net" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Exselt, a streaming XSLT 3.0 processor</link></orgname></affiliation><affiliation><orgname><link xlink:href="http://abrasoft.net" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Abrasoft Consulting</link></orgname></affiliation><affiliation><orgname>Blog: <link xlink:href="http://undermyhat.org" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Undermyhat.org</link></orgname></affiliation></author><legalnotice><para>Copyright © 2014 by the author. Used with permission.</para></legalnotice><keywordset role="author"><keyword>XML</keyword><keyword>XSLT 3.0</keyword><keyword>XPath 3.0</keyword><keyword>Streaming</keyword><keyword>Streamable-stylesheet-functions</keyword><keyword>Guaranteed-streamability</keyword><keyword>Stylesheet-functions</keyword><keyword>User-defined-functions</keyword><keyword>Packages</keyword><keyword>Recursive-functions</keyword></keywordset></info><section xml:id="notes"><title>Notes</title><note xreflabel="Updates"><para>This paper discusses very recent changes to the XSLT 3.0 specification that are
+                still under discussion in the related BugZilla bug entries. When the specification
+                is updated, rules laid out in this paper need updating as well. I will publish those
+                updates at <link xlink:href="http://exselt.net/papers" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://exselt.net/papers</link>
+                in DocBook and PDF formats.</para></note><note xreflabel="Prerequisites"><para>To read and understand this paper, a basic understanding of XSLT 3.0 and streaming
+                is desirable. For an introduction on streaming, you can refer to two earlier papers
+                in this series, <xref linkend="Braaksma14a"/>, about the <emphasis role="ital">Ten
+                    rules of thumb of streaming</emphasis> and <xref linkend="Braaksma14b"/>, about
+                <emphasis role="ital">Streaming XSLT design patterns</emphasis>.</para></note></section><section xml:id="disclaimer"><title>Disclaimer</title><para>This paper relies on information that can be found in the public <xref linkend="XsltLastCall"/> at the time of this writing, and in some of the public XSLT
+            3.0 BugZilla bugs (see <xref linkend="W3cBugzilla"/>). While I am an <emphasis role="ital">invited expert</emphasis> for the XSL Working Group, I do not speak at
+            there behalf, and any thoughts I lay out in this paper are my own and are not
+            necessarily the thoughts of the XSL Working Group.</para><para>Changes to the Last Call Working Draft will be discussed through the same BugZilla and
+            will ultimately result in the publication of a new version of the specification in <xref linkend="Xslt30Latest"/>. Where this paper refers to XPath, XPath functions and
+            operators or the XDM, it uses <xref linkend="XPathRec"/>, <xref linkend="FuncOpRec"/>
+            and <xref linkend="XdmRec"/>.</para><para>Since the XSLT 3.0 specification is not final yet, it is possible that syntax or
+            semantics of constructs used in this paper change in the future or are dropped in their
+            entirety. Large parts of this paper rely on discussions and conclusions of functionality
+            reported in the public section of BugZilla. Where the text of this paper deviates from
+            the public Working Draft and where these changes are publicly available through
+            BugZilla, I will state so by using footnotes.</para></section><section><title>Introduction</title><para>Streamability analysis is a complex subject, yet the basics are, as is often the case,
+            relatively trivial: just write your stylesheet in such a way that it only uses the child
+            axis, plus an occasional escape to node properties such as attributes on the ancestor or
+            self axes, and you have essentially written a streamable stylesheet.</para><para>But in practice, it is not so trivial. Rules in the specification are complex and even
+            hard-core spec-readers have trouble following them. They are meant for implementors and
+            not necessarily for programmers or users, which is why these rules have to take care of
+            every possible corner case and yet make sure that for general use, the rules work with
+            the least possible surprises.</para><para>This paper tries to fill in the gap between spec-prose and tutorial. While there
+            currently are no tutorials on the subject of streamable stylesheet functions, this paper
+            aims to explain the basics and several rather advanced concepts such as recursive
+            streamable functions, in a way that it becomes understandable for a larger
+            public.</para><para>A streamable stylesheet function is a function that can take a streamed node from a
+            streaming input document, while still passing the tests for being guaranteed streamable.
+            Being able to write streamable stylesheet functions is import for package designers, so
+            that they can create functions that work alike for streaming and non-streaming
+            scenarios.</para><para>This paper first introduces you to part of the terminology used in the specification
+            and at several sections in this paper, see <xref linkend="terminology"/>. It then
+            explains typical use-cases for streamable functions in <xref linkend="case-for-functions"/>, after which it explains the challenges we face when
+            dealing with streamability analysis and streamable functions in <xref linkend="challenge"/>. </para><para>Streamability of standard, non-recursive functions is explained in <xref linkend="posture-sweep"/> and <xref linkend="multiple-arguments"/>; and the rather
+            complex subject of streamability for recursive functions is dealt with in depth in <xref linkend="recursion"/> and its sub-sections. Futher sections deal with packages and
+            function inheritance with respect to streamability (see <xref linkend="packages"/>) and
+            a proposal for a general improvement to the analysis of the posture in <xref linkend="terminology"/>. And in <xref linkend="miscelleneous"/> several related
+            subjects are covered on inline functions, partial function application, named function
+            refverences and dynamic function calls. </para><para>The current state of the specification is discussed in <xref linkend="specification-status"/> and the current state of processors with regard to
+            streamability analysis of stylesheet functions in <xref linkend="status-processors"/>.</para></section><section xml:id="terminology"><title>Streaming terminology</title><para> This section will briefly discussed terminology used throughout this paper. This
+            overview does not try to be complete.</para><para>
+            <itemizedlist><listitem><para><emphasis role="ital">Guaranteed streamable:</emphasis> determines
+                        whether a particular construct, instruction or declaration is streamable
+                        according to the streamability rules in section 19 of the XSLT 3.0
+                        specification. If it is, any processor that is conformant with the
+                        streamability feature will be able to process your input using streaming,
+                        that is, by reading the input in forward-only mode without keeping the whole
+                        document in memory.</para></listitem><listitem><para><emphasis role="ital">Posture:</emphasis> the posture of a construct
+                        determines the state of a streamed node in the output of that construct.
+                        Often, this will be the same as the input posture. It is used in
+                        streamability analysis to determine whether a construct returns streamed
+                        nodes and in what way. Many constructs are capable of returning streamed
+                        nodes, but if all rules are followed, the usages of these constructs are
+                        limited in such a way that they can only return a subset that is compatible
+                        with streaming. The different postures are:<itemizedlist><listitem><para><emphasis role="ital">Grounded:</emphasis> the construct
+                                    does not return a reference to a streamed node. An expression or
+                                    instruction operating on a grounded posture is allowed to be
+                                    free-ranging. Examples: <code>fn:currentDateTime</code>,
+                                        <code>fn:copy-of</code>, <code>xsl:copy-of</code>, a
+                                    variable reference.</para></listitem><listitem><para><emphasis role="ital">Climbing:</emphasis> the construct can
+                                    return nodes that refer climb the tree through the ancestor or
+                                    attribute axis. Examples: <code>parent::foo</code>,
+                                        <code>author/@name</code>, <code>..</code>.</para></listitem><listitem><para><emphasis role="ital">Striding:</emphasis> the construct can
+                                    return non-overlapping nodes, typically only on the child axis.
+                                    Examples: any child-select expression, any match pattern,
+                                        <code>fn:zero-or-one</code>,
+                                    <code>fn:outermost</code>.</para></listitem><listitem><para><emphasis role="ital">Crawling:</emphasis> the construct can
+                                    return overlapping nodes on a downward axis. Examples:
+                                        <code>foo/descendant-or-self::bar</code>,
+                                        <code>./b//c</code>.</para></listitem><listitem><para><emphasis role="ital">Roaming:</emphasis> the construct can
+                                    return nodes that can be anywhere in the input tree. Examples:
+                                        <code>following::node()</code>,
+                                        <code>ancestor::foo/bar</code>,
+                                        <code>preceding-sibling::price</code>.</para></listitem></itemizedlist></para></listitem><listitem><para><emphasis role="ital">Sweep:</emphasis> the sweep of a construct
+                        determines how the current read position of the input stream is changed as a
+                        result of executing the construct. The different sweeps are:<itemizedlist><listitem><para><emphasis role="ital">Motionless:</emphasis> the read
+                                    position does not change. This is true for expressions that only
+                                    operate on grounded nodes or data, and for expressions that
+                                    request a property of a node or the ancestor axis<footnote><para>The ancestor-or-self axis is available during
+                                            streaming and requesting properties on nodes on that
+                                            axis is allowed. However, it is not possible to navigate
+                                            away from that axis, doing so would result in a
+                                            free-ranging and roaming expression.</para></footnote>. Examples: <code>fn:has-children(.)</code>,
+                                        <code>@name</code>, <code>if(./name()) then ...</code>,
+                                        <code>ancestor-or-self::para/@xml:lang</code>, any constant
+                                    and any expression not operating on a streamed node.</para></listitem><listitem><para><emphasis role="ital">Consuming:</emphasis> the read
+                                    position changes in a forward-only direction. Any expression
+                                    that requires read-ahead is considered a consuming expression,
+                                    unless the current node is a childless node, such as text- and
+                                    comment nodes. Consuming constructs form the heart of
+                                    streamability analysis. Any construct may have at most one
+                                    consuming construct. Examples: <code>fn:count(foo)</code>,
+                                        <code>x/y</code>, <code>&lt;xsl:value-of select="name"
+                                        /&gt;</code>.</para></listitem><listitem><para><emphasis role="ital">Free-ranging:</emphasis> the construct
+                                    cannot be evaluated by using forward-only movement of the read
+                                    pointer of the input stream, for instance when evaluation of a
+                                    filter expression requires look-ahead. Typically, a free-ranging
+                                    construct is also roaming. Examples: <code>foo[bar]</code>,
+                                        <code>parent::author/book</code>, any <code>xsl:sort</code>
+                                    on streamed nodes, <code>@* | foo</code>, <code>if(a) then b
+                                        else c</code>, <code>fn:reverse(index)</code>.</para></listitem></itemizedlist></para></listitem><listitem><para><emphasis role="ital">Usage:</emphasis> the usage determines what an
+                        operand of a construct does when it receives a streamed node as argument.
+                        The following usages are defined:<itemizedlist><listitem><para><emphasis role="ital">Inspection:</emphasis> if the argument
+                                    is a streamed node, it will inspect the node, but not consume
+                                    the node, resulting in a motionless sweep (assuming no other
+                                    part of the expression or construct consumes the input). An
+                                    inspection operand is the only operand that can take a climbing,
+                                    motionless expression as its argument.</para></listitem><listitem><para><emphasis role="ital">Absorption:</emphasis> if the argument
+                                    is a streamed node, it will consume the node, resulting in a
+                                    consuming sweep. Examples are arguments of <code>fn:data</code>,
+                                        <code>fn:string</code>, constructor functions,
+                                        <code>xsl:value-of/@select</code>,
+                                        <code>xsl:apply-templates/@select</code> and text value and
+                                    attribute value templates.</para></listitem><listitem><para><emphasis role="ital">Transmission:</emphasis> if the
+                                    argument is a streamed node, the result will also be a streamed
+                                    node. Depending on the function or construct, this can result in
+                                    any kind of sweep. Examples are arguments of
+                                        <code>fn:outermost</code>, <code>fn:remove</code>,
+                                        <code>fn:subsequence</code>,
+                                        <code>xsl:sequence/@select</code>.</para></listitem><listitem><para><emphasis role="ital">Navigation:</emphasis> if the argument
+                                    is a streamed node, there is no guarantee that calling the
+                                    construct will be streamable. Typically, a navigational operand
+                                    will result in free-ranging and roaming streamability analysis
+                                    results. Examples are arguments of
+                                        <code>xsl:call-template</code> (the implicit context item,
+                                    making it impossible to use this instruction with streamed
+                                    nodes), first argument of <code>fn:fold-left</code>, last
+                                    argument of <code>fn:key</code>, <code>fn:innermost</code>, any
+                                    untyped argument to a stylesheet function not specifically
+                                    marked streamable.</para></listitem></itemizedlist></para></listitem></itemizedlist>
+        </para><para>The combination of posture, sweep and usage determines whether a certain construct is
+            guaranteed streamable or not. Constructs can be nested, and constructs have operands.
+            What exactly constitutes a construct and operands is outside the scope of this paper<footnote><para>See section 19 of the XSL 3.0 specification.</para></footnote>, except for stylesheet functions, which will be explained in the following
+            sections.</para></section><section xml:id="case-for-functions"><title>A case for streamable functions</title><para>Functions are a nice machinery in XSLT 2.0 that have surplaced most of the
+                <code>xsl:call-template</code> scenarios from XSLT 1.0. The benefit of being able to
+            create a function and call it directly inside an XPath expression or in a pattern filter
+            has shown its use-cases. More often than not, functions tend to operate on atomic types,
+            such as strings and integers, because the natural habitat for nodes processing is done
+            declaratively by template matching. This is often called <emphasis role="ital">The XSLT
+                way of doing things</emphasis>, see <xref linkend="Welker08"/>, <xref linkend="Gerstbach06"/> and <xref linkend="Lenz05"/>, and even today, this is still
+            often advocated on the XSL Mailing List<footnote><para>See <link xlink:href="http://www.mulberrytech.com/xsl/xsl-list/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">XSL Mailing List
+                        at Mulberry Tech's</link>.</para></footnote> and on discussion fora such as StackOverflow<footnote><para>See, for instance, <link xlink:href="http://stackoverflow.com/questions/2835567/xslt-templates-and-recursion" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">StackOverflow question 2835567 on templates and recursion</link>.</para></footnote> and Experts-Exchange.com. However, even advocates of using templates over
+            (recursive) functions, such as Dimitre Novatchev, sometimes choose a function over a
+            template based scenario because it is clearer or because it is simply a better tool for
+            that particular job<footnote><para>See, for instance, his answer in <link xlink:href="http://stackoverflow.com/questions/16631213/writing-a-recursive-function-xslt-xpath-for-computing-new-values" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">question 16631213 at StackOverflow</link>, which uses recursion on element
+                    nodes, it's an example where functions are arguably a better choice than
+                    template matching.</para></footnote>, or in the words of Jeni Tennison in <xref linkend="Tennison01"/>: <blockquote><para><emphasis role="ital">“If the result follows the structure of the source, then
+                        a push method is more natural — the source drives the process. If the result
+                        has a substantially different structure from the source, then a pull method
+                        is more natural — the result drives the process.”</emphasis></para></blockquote></para><para>It should be said: in XSLT 3.0, the natural way of doing things with nodes from an
+            input tree is to use template declarations. This is no other than previous XSLT
+            versions. Perhaps it is even stronger now that it is possible to apply templates on
+            atomic values such as sequences of strings as well<footnote><para>See section <link xlink:href="http://www.w3.org/TR/xslt-30/#dt-pattern" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">5.6
+                        Patterns</link>, specifically the part on <emphasis role="ital">predicate
+                        patterns</emphasis> in the XSLT 3.0 Working Draft.</para></footnote>. But this does not help with complex patterns, which can only be replaced by
+            functions. Also, it does not help in scenarios where reusing a result in an expression
+            is important, which is where functions come into play: they can be used inside
+            expressions and call-template nor apply-template can do that (unless wrapped inside a
+            function, that is).</para><para>The current working draft, which is in Last Call, does not have a provision for
+            streamable functions. That is, it is impossible in any which way to pass a streamed node
+            to a function. Dimitre Novatchev's example from the StackOverflow question would
+            therefore not be possible in a streaming scenario. Now that more and more people have
+            gotten used to write functions, and with the advent of (precompiled) XSLT packages
+            containing lots and lots of library functions, it seems unfair that they cannot continue
+            doing so in streamable scenarios, nor does it seem fair that library vendors will not
+            have any means to create library packages with functions that are
+            streaming-aware.</para><para>The XSL Working Group has considered this and as the solution of <link xlink:href="https://www.w3.org/Bugs/Public/show_bug.cgi?id=25679" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Bug 25679</link>
+            shows, the proposal was considered and adopted into the internal working draft. The
+            following sections will explain my personal analysis on the situation and <xref linkend="specification-status"/> will summarize which parts of this analysis match
+            the specification. Since the discussion on this bug report is not final yet, anything in
+            that section is very preliminary and may change without prior notice.</para></section><section xml:id="stylesheet-functions"><title>Stylesheet functions in streaming scenarios before they were allowed to be
+            streamable</title><para>In the current XSL Transformations 3.0 Last Call Working Draft, calls on stylesheet
+            functions are analysed based on the declared type of the arguments. If an argument is
+            typed as an atomizing type, such as <code>xs:string</code> or <code>xs:integer</code>,
+            the usage of that argument will be <emphasis role="ital">absorption</emphasis>, in other
+            words, it will absorb a streamed node, which in most cases results in a <emphasis role="ital">consuming</emphasis> sweep. The result of such function calls is defined
+            as <emphasis role="ital">grounded</emphasis>. If the argument is untyped or is a type
+            that can take nodes, it is disallowed to pass a streamed node to the function call,
+            because there is no way of knowing statically what will happen with that node inside the
+            function. I call this the <emphasis role="ital">safe bet</emphasis>: disallowing
+            streamed nodes as arguments makes streamability analysis easier. Example:<figure xml:id="f-square" xreflabel="Code listing: calculate square"><programlisting xml:space="preserve">&lt;xsl:function name="f:square"&gt;
+    &lt;xsl:param name="i" as="xs:integer" /&gt;
+    &lt;xsl:value-of select="$i * $i" /&gt;
+&lt;/xsl:function&gt;
+
+&lt;xsl:template match="number"&gt;
+    &lt;xsl:sequence select="f:square(.)" /&gt;
+&lt;/xsl:template&gt;</programlisting></figure></para><para>In this example, the function <code>f:square</code> takes an argument <code>$i</code>
+            that is of type <code>xs:integer</code>. Upon calling the function, the processor will
+            have to atomize the value or node. To do so, it must process all its children, which is
+            why such a usage is considered <emphasis role="ital">consuming</emphasis>. In this
+            case, the element <code>number</code> will be atomized.</para><para>This is a typical way of writing functions and it works perfectly well with streaming.
+            However, if you want the argument to be a node and get some properties of a node or
+            process the node's children, it gets trickier, since passing a node to a function is
+            disallowed with streaming. Consider the following:</para><para>
+            <figure xreflabel="Code listing: get attribute of ancestor" xml:id="f-hasname"><programlisting xml:space="preserve">&lt;xsl:function name="f:hasname"&gt;
+    &lt;xsl:param name="n" as="item()" /&gt;
+    &lt;xsl:sequence select="
+        if($n/ancestor::node()[@name]) 
+        then true() 
+        else false()" /&gt;
+&lt;/xsl:function&gt;
+
+&lt;xsl:template match="author[f:hasname(.)]"&gt;
+    &lt;xsl:text&gt;Has name attribute in ancestor!&lt;/xsl:text&gt;
+&lt;/xsl:template&gt;</programlisting></figure>
+        </para><para>In this example, the call to the function is not streamable. We pass on a node to the
+            function and the rules in the current Working Draft state that it has usage <emphasis role="ital">navigation</emphasis><footnote><para>Before user-defined stylesheet functions were allowed to be streamable and
+                    take on streamed nodes, the rules were as in the current Working Draft:
+                        <quote>For a call to a stylesheet function, the general streamability rules
+                        apply. There is one operand role for each argument in the function
+                        signature, and its operand usage is the type-determined usage based on the
+                        declared type of that argument.</quote>, see section <link xlink:href="http://www.w3.org/TR/xslt-30/#streamability-of-function-calls" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">19.8.7.12 Streamability of Function Calls</link> in XSLT 3.0 Working Draft.
+                    Please note that this and other references to the WD will change when the next
+                    version of the specification comes out.</para></footnote>, which has the effect that the whole expression, in this case the match
+            pattern <code>author[f:hasname(.)]</code>, will be <emphasis role="ital">roaming</emphasis> and <emphasis role="ital">free-ranging</emphasis>, in other
+            words, it is not <emphasis role="ital">guaranteed streamable</emphasis>.</para><para>It is possible to call the function in some situations, by using the
+                <code>fn:copy-of</code> or <code>fn:snapshot</code> functions. But that means that
+            users of your function must have enough knowledge to know what atomizing or <emphasis role="ital">grounding</emphasis> function to use before passing on an argument. In
+            this particular case, it would make little sense to use either of these functions,
+            because a match pattern must be motionless, so it is not possible to use the function in
+            a match pattern predicate expression. This is essentially true for any function that
+            does not consume the input tree. With the current rules in place, even if a function
+            does not consume the input tree, you still need to create a copy of the tree to call
+            that function. Hardly efficient and in many cases impossible with streaming, because the
+            input node may simply be too big to be copied.</para><para>Were you to use it in another context, you still have to choose between
+                <code>fn:copy-of</code> and <code>fn:snapshot</code>. This function would not work
+            with <code>fn:copy-of</code>, because that function does not copy the ancestor axis. In
+            other words, you must know the internals of the function to find out that you need to
+            call it with a call to <code>fn:snapshot</code>. And even then, if the function requires
+            information from the original document, such as the <emphasis role="ital">base-uri</emphasis> or other properties that are not copied with either of those
+            functions, you are out of luck.</para><para>In essence, these rules disallow stylesheet authors to write a function that take
+            nodes as arguments, and in the case of library package authors, they will not be able to
+            write functions that take nodes that work the same way in a streaming scenario and a
+            non-streaming one. They would have to educate library function users how to use their
+            functions in a streaming scenario and many functions will never work in streaming
+            scenarios because their usage would always be <emphasis role="ital">consuming</emphasis> even though the function body does not actually consume the
+            input node. In other words, it makes writing functions for use in streamable stylesheets
+            next to useless.</para></section><section xml:id="challenge"><title>The challenge of streamable stylesheet functions</title><para>It is often trivial to see at a glance that a function is <emphasis role="ital">motionless</emphasis> and that it would not hurt using it on a streamed input node.
+            Take, for instance, <xref linkend="f-hasname"/> from the previous section. It only uses
+            the ancestor axis and tests whether one exists with an attribute <code>@name</code>.
+            Since walking the ancestor axis is motionless (the processor is required to keep a stack
+            of the ancestor nodes and their properties) and the attribute axis is too, any call on
+            that function would be motionless with respect to its argument.</para><para>This shows us one thing: it is possible to write functions that can be statically
+            analyzed to be <emphasis role="ital">motionless</emphasis>. But this function has
+            special properties: the body of the function is <emphasis role="ital">motionless</emphasis> and the result of the function is <emphasis role="ital">grounded</emphasis>. That means, it can never return any nodes, it can either
+            return <code>true()</code> or <code>false()</code>. But can we always statically
+            determine that that is the case? Let us write a slightly different function, this time
+            we return the attribute node, instead of testing for it:</para><para>
+            <figure xreflabel="Code listing: return attribute node"><programlisting xml:space="preserve">&lt;xsl:function name="f:hasname"&gt;
+   &lt;xsl:param name="n" as="item()" /&gt;
+   &lt;xsl:sequence select="$n/ancestor::node()/@name" /&gt;
+&lt;/xsl:function&gt;
+
+&lt;!-- guaranteed streamable: --&gt;
+&lt;xsl:template match="author[f:hasname(.)]"&gt;
+   &lt;xsl:text&gt;Has name attribute in ancestor!&lt;/xsl:text&gt;
+&lt;/xsl:template&gt;
+
+&lt;!-- potentially guaranteed streamable: --&gt;
+&lt;xsl:template match="*"&gt;
+   &lt;xsl:apply-templates select="author/f:hasname(.)" /&gt;
+&lt;/xsl:template&gt;</programlisting></figure>
+        </para><para>The function still takes a node as its argument, but this time it returns a reference
+            to an attribute of the ancestor axis of that node. The attribute axis has <emphasis role="ital">climbing</emphasis> posture, which is limited in that you cannot
+            navigate downwards again from it. In the first usage of this function, in the predicate
+            of the pattern, the input is the current node, but a predicate only has to be true
+            (nodes are there) or false (no nodes). After that, there is no navigation away from the
+                <emphasis role="ital">climbing</emphasis> posture, so this could be considered
+            streamable.</para><para>If we take a look at the second example, we see there an
+                <code>xsl:apply-templates</code>. By definition, assuming the rest of your
+            stylesheet is guaranteed streamable, any apply-templates will be an atomizing construct:
+            templates must be grounded and therefore, passing on nodes to a template will atomize
+            those nodes. Just as we saw before, atomizing means that the node is consumed. In
+            streamability terms this means it has usage <emphasis role="ital">absorption</emphasis>. But to consume a node, its children must be visited, which
+            is a downward movement. The argument has a <emphasis role="ital">climbing</emphasis>
+            posture because it ends with <code>f:hasname(.)</code>, which we know returns attribute
+            nodes, which are <emphasis role="ital">climbing</emphasis>.</para><para>There is a caveat, however: if the <emphasis role="ital">climbing</emphasis>
+            expression returns childless nodes, consuming such a node will not harm the streaming
+            process: there are no children to consume. The <emphasis role="ital">General
+                Streamability Rules</emphasis><footnote><para>See section 19.8.1. in XSL Transformations 3.0.</para></footnote> in the specification have a special provision for this: childless nodes with
+            a <emphasis role="ital">climbing</emphasis> posture are allowed in an <emphasis role="ital">absorption</emphasis> context.</para><para>So it can be made streamable, right? Wrong! For a construct to be streamable it must
+            be statically determinable to be so. Here, we have a function with an unspecified return
+            type. If we had written <code>as="attribute()"</code>, the processor would be able to
+            detemine that the returned nodes would always be childless and it could be used in an
+                <emphasis role="ital">absorption</emphasis> context.</para><para>But this is only one example. What happens when the stylesheet function returns a
+                <emphasis role="ital">climbing</emphasis> node and we pass it a <emphasis role="ital">crawling</emphasis> expression? What happens if the function returns
+                <emphasis role="ital">crawling</emphasis> (overlapping) nodes and the input is
+                <emphasis role="ital">climbing</emphasis>? And how about recursive functions, or
+            within packages, with abstract or overriden functions?</para><para>Let us look at some possible approaches to tackle these issues.</para><section xml:id="approach-1" xreflabel=""><title>Approach 1: analyzing stylesheet functions statically on their own</title><para>Arguably the easiest approach from both the user's point of view and for
+                implementors alike is to try to find a method to analyze the streamability of
+                stylesheet functions statically, without taking into account any possible context
+                the stylesheet function is called in.</para><para>Suppose you have a stylesheet function <code>my:for-each</code> which traverses
+                all nodes in a node set and returns a certain aggregate result. By its definition,
+                traversing the node set, it will consume the input tree, just like
+                    <code>xsl:for-each</code> would. Writing such a function that it works equally
+                well for different kinds of input postures is hard, perhaps even impossible. A
+                function call like <code>my:for-each(head//section)</code> may have to traverse over
+                overlapping nodes, the expression in the argument is a <emphasis role="ital">crawling</emphasis> expression and looping over a <emphasis role="ital">crawling</emphasis> node set is not allowed in streaming because certain
+                buffering is required to cache the overlapping nodes. If the loop is not going to
+                consume the individual nodes, this is alright<footnote><para>See section <link xlink:href="http://www.w3.org/TR/xslt-30/#streamability-xsl-for-each" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">19.8.4.17 Streamability of <code>xsl:for-each</code></link> in the XSLT
+                        3.0 Working Draft, specifically the rule <quote>The posture of the
+                            instruction is the posture of the contained sequence constructor,
+                            assessed with the context posture and context item type set to the
+                            posture and type of the select expression.</quote>.</para></footnote>, but otherwise, it is not <emphasis role="ital">guaranteed
+                    streamable</emphasis>.</para><para>For such a function to be statically analyzable without knowing what context it is
+                used in, it is allowed to traverse the input tree, but it is not allowed to consume
+                the individual nodes of the streamed input tree. A function that can potentially
+                work with any input posture, albeit <emphasis role="ital">climbing</emphasis>,
+                    <emphasis role="ital">striding</emphasis> or <emphasis role="ital">crawling</emphasis> might look like the following:</para><para>
+                <figure xml:id="my-for-each1" xreflabel="Code listing: streamable my:for-each working with any argument posture"><programlisting xml:space="preserve">&lt;xsl:function name="my:for-each1"&gt;
+    &lt;xsl:param name="$node-set" as="node()*" /&gt;
+    &lt;xsl:for-each select="$node-set"&gt;
+        &lt;xsl:sequence select="./@name" /&gt;
+    &lt;/xsl:for-each&gt;
+&lt;/xsl:function&gt;</programlisting></figure>
+            </para><para>This example loops over all the nodes, but does not consume the individual nodes,
+                it only requests a property of those nodes using the attribute axis, which is
+                motionless and its result is <emphasis role="ital">climbing</emphasis>. And a
+                motionless expression on either a <emphasis role="ital">climbing</emphasis>,
+                    <emphasis role="ital">striding</emphasis> or <emphasis role="ital">crawling</emphasis> context is always allowed<footnote><para>That the attribute axis in any context results in a posture of <emphasis role="ital">climbing</emphasis> and a sweep of <emphasis role="ital">motionless</emphasis> follows from the rules in section <link xlink:href="http://www.w3.org/TR/xslt-30/#general-streamability-rules" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">19.8.1 General Rules for Streamability</link>, rule 2.e and the rules
+                        on the axis steps itself, which can be found in <link xlink:href="http://http://www.w3.org/TR/xslt-30/#streamability-of-axis-steps" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest"> 19.8.7.7 Streamability of Axis Steps</link>.</para></footnote>. </para><para>Even though this example is exemplary for showing the possibility of writing a
+                function that can take any posture, it limits our possibilities greatly. Suppose we
+                want to write an implementation of <code>my:for-each</code> that <emphasis role="ital">does</emphasis> consume the individual nodes in the streamed node
+                set, for instance as in the following example:</para><para>
+                <figure xml:id="my-for-each2" xreflabel="Code listing: streamable my:for-each failing with argument postures climbing and crawling"><programlisting xml:space="preserve">&lt;xsl:function name="my:for-each2"&gt;
+    &lt;xsl:param name="$node-set" as="node()*" /&gt;
+    &lt;xsl:for-each select="$node-set"&gt;
+        &lt;xsl:value-of select="child::*[self::author | self::author-name]" /&gt;
+    &lt;/xsl:for-each&gt;
+&lt;/xsl:function&gt;</programlisting></figure>
+            </para><para>Whether or not this example would use the child axis within the
+                    <code>xsl:for-each</code> or directly without the loop, for the streamability
+                analysis this does not matter. The child axis, if applied on a <emphasis role="ital">climbing</emphasis> or <emphasis role="ital">crawling</emphasis> axis, is
+                always <emphasis role="ital">roaming</emphasis> and has a sweep of <emphasis role="ital">free-ranging</emphasis><footnote><para>The rule that a child axis is not <emphasis role="ital">guaranteed
+                            streamable</emphasis> if applied on an axis other than an axis with
+                            <emphasis role="ital">striding</emphasis> posture follows from <link xlink:href="http://www.w3.org/TR/xslt-30/#streamability-of-axis-steps" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">19.8.7.7 Streamability of Axis Steps</link> in the XSLT Working Draft,
+                        in the table under item 6 in the list.</para></footnote>. This means that the expression <code>my:for-each2(child::book)</code>
+                is allowed, but the expressions <code>my:for-each2(listing//book)</code> and
+                    <code>my:for-each(title/ancestor::book)</code> are not, because the latter two
+                have arguments with <emphasis role="ital">crawling</emphasis> and <emphasis role="ital">climbing</emphasis> postures respectively and can therefor not be
+                consumed.</para><para>This leaves us with essentially two options for static analysis of streamable
+                stylesheet functions, without having to take the function calls into account:<itemizedlist><listitem><para><emphasis role="ital">Option 1:</emphasis> force stylesheet authors to
+                            only write functions that are capable of dealing with any input posture.
+                            This means that the body of functions must be motionless, or if they are
+                            not, they must use a <emphasis role="ital">higher-order
+                                operand</emphasis><footnote><para>A <emphasis role="ital">higher-order operand</emphasis> is an
+                                    operand that can change focus, such as <code>xsl:for-each</code>
+                                    or <code>xsl:for-each-group</code>, see the <link xlink:href="http://www.w3.org/TR/xslt-30/#dt-higher-order-operand" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">definition of <emphasis role="ital">higher-order
+                                            operand</emphasis></link> in the XSLT 3.0 Working
+                                    Draft.</para></footnote> such as the shown <code>xsl:for-each</code> construct in the
+                            example.</para></listitem><listitem><para><emphasis role="ital">Option 2:</emphasis> limit the allowed posture
+                            to only one posture, so that caller and callee are guaranteed to have
+                            the same input posture, always. Most likely candidate is the <emphasis role="ital">striding</emphasis> posture, because it is the most
+                            common posture when processing an input document. This would mean that
+                            the argument that can take nodes always has its context posture set to
+                                <emphasis role="ital">striding</emphasis> and that the only allowed
+                            argument posture when calling the function must also be <emphasis role="ital">striding</emphasis>.</para></listitem></itemizedlist></para><para>Both options have severe drawbacks, but they have the advantage of being very
+                clear-cut and easy to communicate or explain. As it turns out, the current approach
+                taken by the XSL Working Group, as explained in <link xlink:href="https://www.w3.org/Bugs/Public/show_bug.cgi?id=25679" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">XSL Bug
+                    25679</link>, takes the approach of <emphasis role="ital">Option 2</emphasis>:
+                the result posture of a function must be <emphasis role="ital">striding</emphasis>
+                or <emphasis role="ital">grounded</emphasis> and the argument to a function must
+                also be <emphasis role="ital">striding</emphasis> or <emphasis role="ital">grounded</emphasis>. To accomplish this, the parameter that can take nodes,
+                which can at most be one parameter, will have a context posture of <emphasis role="ital">striding</emphasis> and is by itself <emphasis role="ital">motionless</emphasis>.</para></section><section><title>Approach 2: analyzing stylesheet functions from the function call</title><para>Radically different from the previous approach is to analyze the function's body
+                only when we actually know what the context is of the argument that takes a streamed
+                node. For this approach, we simply ignore analyzing the declaration of the function
+                on itself.</para><para>If we take the example from <xref linkend="my-for-each2"/> and call it with a
+                    <emphasis role="ital">striding</emphasis> argument, for instance
+                    <code>my:for-each2(*/books/book)</code>, the processor, upon encountering such
+                function call, takes the posture of the argument and sets the context posture of
+                    <code>$node-set</code> to this posture, in this case: <emphasis role="ital">striding</emphasis>. With this posture, the processor can now analyze the
+                function body and return a result of that analysis, not surprisingly the same as in
+                the previous section: a <emphasis role="ital">consuming</emphasis> sweep and a
+                    <emphasis role="ital">grounded</emphasis> result posture (because the function
+                does not return any nodes, the result is <emphasis role="ital">grounded</emphasis>).</para><para>If user were to call the function with a <emphasis role="ital">crawling</emphasis>
+                argument, say <code>my:for-each2(*/books//book)</code> (mark the extra slash), the
+                parameter <code>$node-set</code> is set to a context posture of <emphasis role="ital">crawling</emphasis> and the resulting analysis of the whole function
+                body will be <emphasis role="ital">roaming</emphasis> and <emphasis role="ital">free-ranging</emphasis>. Exactly as expected. And with a <emphasis role="ital">climbing</emphasis> argument, or even a <emphasis role="ital">roaming</emphasis> argument, the result would be the same.</para><para>Doing the same analysis for the first example, <xref linkend="my-for-each1"/>, the
+                result would be different each time, showing the advantage of this approach:</para><para>
+                <table frame="border" cellpadding="3" border="1px" rules="all" xml:id="table-for-each1-analysis" xreflabel="Table I: Posture and sweep of my:for-each1 function, depending on argument"><colgroup span="1"><col align="left" width="1.0*" span="1"/><col align="left" width="1.0*" span="1"/><col align="left" width="1.0*" span="1"/><col align="left" width="1.0*" span="1"/></colgroup><thead><tr><th>Argument posture</th><th>Function posture <code>my:for-each1</code></th><th>Resulting posture for function-call</th><th>Resulting sweep for function call</th></tr></thead><tbody><tr><td>Grounded</td><td>Grounded</td><td>Grounded</td><td>Motionless</td></tr><tr><td>Climbing</td><td>Climbing</td><td>Climbing</td><td>Motionless</td></tr><tr><td>Striding</td><td>Climbing</td><td>Climbing</td><td>Motionless or consuming</td></tr><tr><td>Crawling</td><td>Climbing</td><td>Climbing</td><td>Motionless or consuming</td></tr><tr><td>Roaming</td><td>Roaming</td><td>Roaming</td><td>Free-ranging</td></tr></tbody></table>
+            </para><para>The advantage is clear, by postponing analysis of the function body until it is
+                called, the programmer has more flexibility in creating the function and the user
+                will get an error if he uses the function with an invalid argument. This is also the
+                disadvantage: without a clear rule how to call the function, the user may have
+                trouble understanding why one argument works and the other does not. The previous
+                table showed a function, <code>my:for-each1</code>, that works with any posture as
+                argument input (except <emphasis role="ital">roaming</emphasis>, but that posture
+                will always result in an unstreamable result, whether it is a user-defined function,
+                a build-in function or any other construct). The following table shows the drawback
+                of this approach, where only upon calling the function it becomes apparent that
+                certain postures are disallowed:</para><para>
+                <table frame="border" cellpadding="3" border="1px" rules="all" xml:id="table-for-each2-analysis" xreflabel="Table II: Posture and sweep of my:for-each2 function, depending on argument"><colgroup span="1"><col align="left" width="1.0*" span="1"/><col align="left" width="1.0*" span="1"/><col align="left" width="1.0*" span="1"/><col align="left" width="1.0*" span="1"/></colgroup><thead><tr><th>Argument posture</th><th>Function posture <code>my:for-each2</code></th><th>Resulting posture for function-call</th><th>Resulting sweep for function call</th></tr></thead><tbody><tr><td>Grounded</td><td>Grounded</td><td>Grounded</td><td>Motionless</td></tr><tr><td>Climbing</td><td>Roaming</td><td>Roaming</td><td>Free-ranging</td></tr><tr><td>Striding</td><td>Striding</td><td>Striding</td><td>Consuming</td></tr><tr><td>Crawling</td><td>Roaming</td><td>Roaming</td><td>Free-ranging</td></tr><tr><td>Roaming</td><td>Roaming</td><td>Roaming</td><td>Free-ranging</td></tr></tbody></table>
+            </para><para>As we can see, only one argument posture (bar <emphasis role="ital">grounded</emphasis>, which is always allowed), <emphasis role="ital">striding</emphasis>, is allowed with the function <code>my:for-each2</code>,
+                and its sweep is <emphasis role="ital">consuming</emphasis>. This is similar to our
+                expectations, as in the previous section, we already saw that this function only
+                worked with a <emphasis role="ital">striding</emphasis> argument posture. But in the
+                previous approach, for <emphasis role="ital">Option 2</emphasis>, we considered this
+                the only allowed posture for function arguments to stylesheet functions, which made
+                it pretty clear for end users. Here, the user does not know beforehand what the
+                argument posture can be, in fact, he needs intricate knowledge of the function body
+                to find out what posture is allowed.</para><para>While this approach allows more flexibility, it also introduces more room for
+                error, at least at the static development stage. Of course, the documentation of a
+                function could contain information of how it should be used, but who reads
+                documentation anyway?</para><para>Another advantage, though, is the potential that many existing functions might
+                "just work". In fact, quite some functions that can be found online are often short
+                and meant for a certain given input. As it turns out, if you take, for instance, a
+                look at the functions on <link xlink:href="http://www.xsltfunctions.com/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">www.xsltfunctions.com</link> that can take nodes as their arguments, quite some
+                of them are streamable right out of the box if we would allow this approach.</para></section><section><title>Approach 3: analyzing stylesheet functions based on static posture assessments</title><para>If we try to combine the previous two approaches into one, and try to achieve both
+                static analysis of function bodies and clear information for the users of the
+                functions, we achieve that by decorating the functions with an extra attribute that
+                can take one or more postures. Let us call the attribute
+                    <code>argument-posture</code> and add it to <code>xsl:param</code>, with at most
+                one parameter allowed to have that attribute (the challenge of multiple arguments
+                that can take nodes is discussed in <xref linkend="multiple-arguments"/>). The value
+                for the attribute is set to be one or more of <code>grounded climbing striding
+                    crawling roaming</code>. The postures <emphasis role="ital">grounded</emphasis>
+                and <emphasis role="ital">roaming</emphasis> are redundant, because the former is
+                always allowed and results in a <emphasis role="ital">motionless</emphasis> sweep
+                and the latter is never allowed, resulting in a <emphasis role="ital">free-ranging</emphasis> sweep.</para><para>If we take the previous example, <code>my:for-each1</code> and rewrite it with
+                this additional decorating attribute, it looks like this:</para><para>
+                <figure xml:id="my-for-each1-decorated" xreflabel="Code listing: streamable my:for-each with decorated parameter"><programlisting xml:space="preserve">&lt;xsl:function name="my:for-each1" as="attribute()*"&gt;
+    &lt;xsl:param name="$node-set"
+        as="node()*"
+        argument-posture="climbing striding crawling" /&gt;
+
+    &lt;xsl:for-each select="$node-set"&gt;
+        &lt;xsl:sequence select="./@name" /&gt;
+    &lt;/xsl:for-each&gt;
+&lt;/xsl:function&gt;</programlisting></figure>
+            </para><para>This tells the processor that the programmer declares the function to be
+                streamable with each and every one of these postures. The processor can then
+                statically assess the function body with each posture one by one and report back
+                whether or not this assessment is correct or not. In this case, it would compile
+                successfully, because all postures yield correct results.</para><para>Still, you might argue, the different input postures do not necessarily mean that
+                the sweeps are all the same. True, but the sweep is something that can never be
+                statically determined for a declaration, as it is dependent on the context of the
+                caller. For instance, if the function is called with a <emphasis role="ital">motionless</emphasis> but <emphasis role="ital">striding</emphasis> argument,
+                the resulting sweep is also <emphasis role="ital">motionless</emphasis>, because the
+                    <code>xsl:for-each</code> with a <emphasis role="ital">motionless</emphasis>
+                argument and its body containing a <emphasis role="ital">motionless</emphasis>
+                sequence constructor all together yield a <emphasis role="ital">motionless</emphasis> call to the function, even though it is striding. This is
+                true, for instance, for the following call:</para><para>
+                <figure xml:id="my-for-each-in-match-pattern" xreflabel="Code listing: calling function with motionless striding argument"><programlisting xml:space="preserve">&lt;xsl:template match="books/book[my:for-each1(.) = 'Swift')]"&gt;
+    &lt;h1&gt;Books from Swift!&lt;/h1&gt;
+    &lt;xsl:apply-templates /&gt;
+&lt;/xsl:template&gt;</programlisting></figure>
+            </para><para>This example shows the power of the current rules in the XSL Working Draft. The
+                existing rules allow a function call inside a predicate in a pattern. Because the
+                context item expression, <code>(.)</code> is <emphasis role="ital">motionless</emphasis> and takes the context posture as its result posture,
+                which in this case is <emphasis role="ital">striding</emphasis>, the result of
+                calling the function with this argument is also <emphasis role="ital">motionless</emphasis> and has a result posture of <emphasis role="ital">climbing</emphasis> (which follows from our table above). Finally, the result
+                must be atomized to be able to compare it to a string. For a <emphasis role="ital">climbing</emphasis> expression that returns an attribute, atomization is
+                allowed and motionless.</para><para>As we can see, this third approach gives us more flexibility, but the drawback is
+                that it requires programmers to understand what a posture is. One of the design
+                goals of the streamability rules is that they can be applied without knowing all the
+                internals, and bringing one of those internals, the posture of a construct, to the
+                surface, may not be desirable.</para><para>In the next sections we dive deeper in the analysis of stylesheet functions and
+                try to come up with a set of rules that works for different inputs, not only
+                    <emphasis role="ital">striding</emphasis>, and that works also with recursion or
+                non-final packaged functions, subjects that have not yet been touched in this
+                section.</para></section></section><section xml:id="posture-sweep"><title>In pursuit of flexible rules for guaranteed streamable stylesheet functions</title><para>The previous section introduced three possible approaches. In the following sections
+            we will research these approaches further. In fact, the focus will be on <emphasis role="ital">Approach 2</emphasis> above.</para><para>In the specification, under the rules on path expressions<footnote><para>See 19.8.7.6 Streamability of Axis Steps in XSL Transformations 3.0.</para></footnote> and axis steps<footnote><para>See 19.8.7.7 Streamability of Axis Steps in XSL Transformations 3.0.</para></footnote>, a table shows what happens if the output posture of one part of the path
+            expression is the input posture of the other part of it. Stylesheet functions are not
+            much difference. If we take the lessons learned in that section and we reproduce that
+            table here and adjust it slightly for stylesheet functions, we can deduct that the
+            following rules apply:</para><para>
+            <table frame="border" cellpadding="3" border="1px" rules="all" xml:id="posture-sweep-table" xreflabel="Table III: Posture and sweep of stylesheet functions"><colgroup span="1"><col align="left" width="1.0*" span="1"/><col align="left" width="1.0*" span="1"/><col align="left" width="1.0*" span="1"/><col align="left" width="1.0*" span="1"/></colgroup><thead><tr><th>Argument posture</th><th>Function posture</th><th>Resulting posture</th><th>Allowed sweep<superscript>a</superscript></th></tr></thead><tfoot><tr><td colspan="4"><para>
+                            <superscript>a)
+                            This is the highest allowed resulting sweep of the
+                            function body resulting in the given result posture,
+                            if the sweep is higher then the sweep of the
+                            function body is effectively free-ranging.</superscript>
+                        </para>
+                        <para>
+                            <superscript>b)
+                            The term "direct-transitional" is not a posture, it
+                            applies to constructs such as "$n/self::foo" or
+                            "$n", where $n is the streamed
+                            parameter. Such expressions are motionless and take the
+                            posture of their input as their output posture.</superscript>
+                        </para>
+                        <para>
+                            <superscript>c)
+                            The current rules on streamability do not allow a
+                            striding or crawling posture after a climbing or crawling 
+                            posture, the result of such analysis is always roaming and 
+                            free-ranging.</superscript>
+                        </para>
+                        </td></tr></tfoot><tbody><tr><td>Grounded</td><td>Any</td><td>Grounded</td><td>Motionless</td></tr><tr><td>Any</td><td>Grounded</td><td>Grounded</td><td>Sweep of function body</td></tr><tr><td>Any</td><td><emphasis role="ital">Direct-transitional<superscript>b</superscript></emphasis></td><td>argument posture</td><td>Motionless</td></tr><tr><td>Climbing</td><td>Climbing</td><td>Climbing</td><td>Motionless</td></tr><tr><td>Climbing</td><td>Striding<superscript>c</superscript></td><td>Roaming</td><td>Free-ranging</td></tr><tr><td>Climbing</td><td>Crawling<superscript>c</superscript></td><td>Roaming</td><td>Free-ranging</td></tr><tr><td>Striding</td><td>Climbing</td><td>Climbing</td><td>Motionless</td></tr><tr><td>Striding</td><td>Striding</td><td>Striding</td><td>Consuming</td></tr><tr><td>Striding</td><td>Crawling</td><td>Crawling</td><td>Consuming</td></tr><tr><td>Crawling</td><td>Climbing</td><td>Climbing</td><td>Motionless</td></tr><tr><td>Crawling</td><td>Striding<superscript>c</superscript></td><td>Roaming</td><td>Free-ranging</td></tr><tr><td>Crawling</td><td>Crawling<superscript>c</superscript></td><td>Roaming</td><td>Free-ranging</td></tr><tr><td>Roaming</td><td>any</td><td>Roaming</td><td>Free-ranging</td></tr></tbody></table>
+            
+            
+        </para><para>To determine the posture of a function body, it is easiest to consider the argument
+            that can take nodes similar to the context item expression <code>"."</code>. This
+            expression is motionless on itself, but if used with usage <emphasis role="ital">absorption</emphasis> it may become <emphasis role="ital">consuming</emphasis> 
+            depending on the input posture of the expression or instruction it appears in, called the <emphasis role="ital">context posture</emphasis>. For functions that means, it takes the
+            posture of the argument to that function, in other words, the <emphasis role="ital">context posture</emphasis> of the parameter that can take streamed nodes is the
+            posture of the argument to the function. Example:</para><para>
+            <figure xml:id="f-third-child" xreflabel="Code listing: striding streamable function that can take streamed nodes"><programlisting xml:space="preserve">&lt;xsl:function name="f:thirdchild" as="element()"&gt;
+    &lt;xsl:param name="n" as="node()" /&gt;
+    &lt;xsl:sequence select="$n/child::*[3]" /&gt;
+&lt;/xsl:function&gt;
+
+&lt;!-- guaranteed streamable: --&gt;
+&lt;xsl:template match="author"&gt;
+    &lt;xsl:apply-templates select="f:thirdchild(.)" /&gt;
+&lt;/xsl:template&gt;
+
+&lt;!-- not guaranteed streamable: --&gt;
+&lt;xsl:template match="author"&gt;
+    &lt;xsl:apply-templates select="f:thirdchild(.//book)" /&gt;
+&lt;/xsl:template&gt;</programlisting></figure>
+        </para><para>The body of the function <code>f:thirdchild</code> has a posture <emphasis role="ital">striding</emphasis> because of the child axis step. The usage of the
+            function is <emphasis role="ital">transitional</emphasis>, which means it can return
+            nodes. Using the table above, we can lookup the result posture and sweep of any call to
+            the function. The first use in this example is in <code>xsl:apply-templates</code>,
+            which we have seen before takes a usage of <emphasis role="ital">absorption</emphasis>, meaning that overlapping nodes are not allowed<footnote><para>A public bug entry <link xlink:href="https://www.w3.org/Bugs/Public/show_bug.cgi?id=25185" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Bug
+                        25185</link> tries to resolve this by allowing limited buffering of crawling
+                    postures in a absorption contexts such as these, if that bug is accepted and
+                    resolved, overlapping nodes as with crawling posture is allowed with usage
+                    absorption, at least in the general case.</para></footnote>. The operand here is a call to our function with the current node as
+            argument. Inside any template, by definition the context posture, and thus the posture
+            of the context item expression, is <emphasis role="ital">striding</emphasis>. The
+            table then gives us for argument is <emphasis role="ital">striding</emphasis>,
+            function body is <emphasis role="ital">striding</emphasis>, then result posture is
+            also <emphasis role="ital">striding</emphasis> and the sweep is <emphasis role="ital">consuming</emphasis>. </para><para>Looking at the second use of the function we see another
+                <code>xsl:apply-templates</code>, this time with a <emphasis role="ital">crawling</emphasis> path expression (the descendant axis is returns a crawling
+            posture, it can have overlapping nodes) as argument to the function. From the table this
+            gives us for argument is <emphasis role="ital">crawling</emphasis>, function body
+                <emphasis role="ital">striding</emphasis> the result posture of <emphasis role="ital">roaming</emphasis> and a sweep of <emphasis role="ital">free-ranging</emphasis>. Even without the table we can see from the argument that
+            it returns overlapping nodes and that a processor will have to potentially look back and
+            forward to find the third child of each overlapping node. If there is no overlap, this
+            problem would not arise, but statically we do not know that, and the processor has to
+            assume the worst.</para></section><section xml:id="multiple-arguments"><title>Multiple arguments that can take nodes</title><para>With streaming, it is not possible to have one construct take multiple downward select
+            expressions, or more generally, multiple consuming expressions. Suppose we were to allow
+            a function call to take multiple arguments that are streamed nodes, this rule would
+            backfire. An function call such as <code>f:equals(foo, bar)</code> has two downward
+            select expressions, <code>foo</code> and <code>bar</code>. Because there is no way the
+            processor can know in what order these appear in the input document, it is possible that
+                <code>foo</code> appears before <code>bar</code>, or the other way around, which
+            means that the processor may have to look back to find the other child. This is the
+            general reason why multiple downward selects are not allowed in any single
+            construct.</para><para>We could argue that one argument can be a <emphasis role="ital">grounded</emphasis>
+            node and another a streamed node. But that does not help us much further, because it
+            hits the same problems as with the non-streamable functions we showed earlier: how can
+            we tell the user of the function to choose between <code>fn:snapshot</code> and
+                <code>fn:copy-of</code> and how can he determine what argument can take a streamed
+            node and what argument cannot?</para><para>Another argument to allow multiple arguments that can take nodes is that one argument
+            can be motionless in the function body and the other is not. Together they would be
+            consuming, or if both are motionless, together they would be motionless. But this still
+            does not deal with the fact that to get a node into the function, that node first needs
+            to be consumed, unless it is the context node or an ancestor of the context node. These
+            restrictions would be very limiting and also very hard to define in spec
+            language.</para><para>The resolution is to keep things simple. Instead of allowing multiple arguments that
+            take nodes, streamable functions can have a maximum of one parameter that can take
+            nodes. The other arguments must either be non-node types, or absent.</para></section><section xml:id="recursion"><title>Recursive streamable functions</title><para>In <xref linkend="posture-sweep-table"/>
+            in <xref linkend="posture-sweep"/> we have seen that it is
+            possible to write functions with any kind of result posture. The result posture is then
+            dependent on the argument passed to the function. This works for the trivial case where
+            the function body is simple and can be analyzed. But what happens if we try to apply
+            those rules with a function body that is recursive?</para><para>For this section I consider four kinds of recursion<footnote><para>The XSL Transformations 3.0 Working Draft does not use this terminology, but
+                    it helps differentiate different situations for this discussion.</para></footnote>:<itemizedlist><listitem><para><emphasis role="ital">Direct recursion:</emphasis> function calls itself
+                        inside the body of the function.</para></listitem><listitem><para><emphasis role="ital">Indirect recursion:</emphasis> function calls
+                        itself indirectly through another function it calls.</para></listitem><listitem><para><emphasis role="ital">Indeterminate recursion:</emphasis> function
+                        applies templates and a template at some level calls the function.</para></listitem><listitem><para><emphasis role="ital">Dynamic recursion:</emphasis> a dynamic function
+                        call resolves, or can resolve to a function which is currently
+                        executed.</para></listitem></itemizedlist></para><section xml:id="direct-recursion"><title>Direct recursion</title><para>To understand the challenges when dealing with recursive functions it is enough to
+                look at a most trivial example, which is clearly streamable and uses infinite direct
+                recursion:</para><para>
+                <figure xml:id="f-recur" xreflabel="Code listing: trivial direct recursion"><programlisting xml:space="preserve">&lt;xsl:function name="f:recur"&gt;
+    &lt;xsl:param name="n" /&gt;
+    &lt;xsl:sequence select="f:recur($n)" /&gt;
+&lt;/xsl:function&gt;
+
+&lt;xsl:template match="x"&gt;
+    &lt;xsl:apply-templates select="f:recur(y)" /&gt;
+&lt;/xsl:template&gt;</programlisting></figure>
+
+            </para><para>This function does not have an exit-clause for the recursion and will run
+                indefinitely, likely causing a stackoverflow error. But it is legal XSLT and it is
+                streamable in the sense that it no movement occurs on the streamed argument.</para><para>If we analyze this function using <xref linkend="posture-sweep-table"/>, we run into a problem:<itemizedlist><listitem><para>First we need to determine the posture of the argument to the
+                            function, here it is <emphasis role="ital">striding</emphasis>.</para></listitem><listitem><para>This sets the posture of <code>$n</code> to <emphasis role="ital">striding</emphasis> as well. The next step is to determine the
+                            posture and sweep of the function body.</para></listitem><listitem><para>To determine that, we need to determine the posture and sweep of the
+                            contained sequence constructor, which is a single
+                                <code>xsl:sequence</code> with here one operand, the
+                            select-expression.</para></listitem><listitem><para>The posture and sweep of <code>xsl:sequence</code> is equal to the
+                            posture and sweep of its select expression<footnote><para>See <link xlink:href="http://www.w3.org/TR/xslt-30/#streamability-xsl-sequence" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">19.8.4.33 Streamability of <code>xsl:sequence</code> in XSL
+                                        Transformations 3.0</link>.</para></footnote>, here <code>f:recur($n)</code>.</para></listitem><listitem><para>We know the posture of <code>$n</code>, but to determine the posture
+                            of the function call <code>f:recur</code> we need to analyze the
+                            function body again, which we already did, but without having a
+                            conclusive sweep or posture yet. We've reached an eternal analysis loop,
+                            the function is <emphasis role="ital">non-analyzable</emphasis>.</para></listitem></itemizedlist></para><para>It is not trivial to resolve this dead end situation. One way forward could be to
+                split the function body artificially into two operands and analyze each
+                individually: one for the part without the recursion point<footnote><para>I use the term <emphasis role="ital">recursion point</emphasis> for the
+                        place in the code where the recursion is invoked, but this is not a term
+                        that is used in the specification.</para></footnote>, setting the recursive function to the empty sequence <code>()</code>,
+                and one for the argument to the recursion point. This will help somewhat, but feels
+                wrong and is hard to proof right. What would happen if a function returns streamed
+                nodes and gets a <emphasis role="ital">climbing</emphasis> input and the output is
+                of a different posture?</para><para>Looking back at <xref linkend="posture-sweep-table"/> we can deduct that
+                any function call with a <emphasis role="ital">climbing</emphasis> or <emphasis role="ital">crawling</emphasis> argument must yield a <emphasis role="ital">climbing</emphasis> or <emphasis role="ital">crawling</emphasis> result. The
+                only argument that is allowed to return a different result posture is an input with
+                a <emphasis role="ital">striding</emphasis> posture. This makes sense, because the
+                natural process for streaming is to go through the input document depth-first, which
+                is the <emphasis role="ital">striding</emphasis> posture and once you change
+                direction upwards, you cannot go down again: it would make a construct roaming. To
+                summarize, we can consider that:<itemizedlist><listitem><para>A <emphasis role="ital">climbing</emphasis> input argument must
+                            remain climbing to be streamable, so if the input is climbing, the
+                            recursive argument must also be climbing and the body cannot contain an
+                            expression in another direction.</para></listitem><listitem><para>A <emphasis role="ital">striding</emphasis> input argument can
+                            change to <emphasis role="ital">climbing</emphasis> but not to
+                                <emphasis role="ital">crawling</emphasis> in recursion, because
+                            that would validate the next point. If it changes to <emphasis role="ital">climbing</emphasis> the whole function body must be
+                            motionless, because you cannot both climb and consume, and if it stays
+                                <emphasis role="ital">striding</emphasis> the whole function body
+                            must be <emphasis role="ital">striding</emphasis> and can be either
+                            motionless or consuming.</para></listitem><listitem><para>A <emphasis role="ital">crawling</emphasis> input argument can only
+                            take motionless expressions, it cannot turn magically back into
+                                <emphasis role="ital">striding</emphasis><footnote><para>See the table under <link xlink:href="http://www.w3.org/TR/xslt-30/#streamability-of-axis-steps" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">19.8.7..7 Streamability of Axis Steps in XSL
+                                        Transformations 3.0</link>.</para></footnote> nor is it allowed to have a <emphasis role="ital">crawling</emphasis> expression operate on another <emphasis role="ital">crawling</emphasis> expression.</para></listitem><listitem><para>Anything <emphasis role="ital">roaming</emphasis> will always stay
+                                <emphasis role="ital">roaming</emphasis>.</para></listitem></itemizedlist></para><para>The following table shows what this means for different argument postures of calls
+                to a function, what the recursive argument (the one at the recursion point) can be
+                and the result posture of the recursive call is and what the posture of the function
+                body must be (it must be the same) and what the sweep is of the recursive call. The
+                last column stresses the maximum sweep of the function body with the given
+                arguments. Note that all these analyses are <emphasis role="ital">in the context
+                    of the initial function call</emphasis>, not the recursive call, which makes it
+                possible to allow one function body to take different postures as input:</para><para>
+                <table frame="border" cellpadding="3" border="1px" rules="all" xml:id="table-recursive-calls" xreflabel="Table IV: Posture and sweep of recursive stylesheet function calls"><colgroup span="1"><col align="left" width="1.0*" span="1"/><col align="left" width="1.0*" span="1"/><col align="left" width="1.0*" span="1"/><col align="left" width="1.0*" span="1"/><col align="left" width="1.0*" span="1"/></colgroup><thead><tr><th align="left">Argument posture</th><th align="left">Recursive argument posture</th><th align="left">Recursive function body &amp; call posture<superscript>a</superscript></th><th align="left">Recursive function call sweep</th><th align="left">Maximum function body sweep</th></tr></thead><tfoot><tr><td colspan="5"><para>
+                                    <superscript>a)
+                                        The function body must match the recursive call
+                                        posture or be grounded, otherwise the posture is
+                                        roaming.</superscript>
+                                </para>
+                                    <para>
+                                        <superscript>b)
+                                            In fact, if the argument is grounded, the recursive
+                                            argument will also be grounded.</superscript>
+                                    </para>
+                                    <para>
+                                        <superscript>c)
+                                            Because on a next iteration, the argument will be
+                                            crawling, not striding anymore, it would be a crawling
+                                            expr. on a crawling expr. which is not guaranteed
+                                            streamable.</superscript>
+                                    </para>
+                                </td></tr></tfoot><tbody><tr><td>Grounded</td><td>Any (grounded)<superscript>b</superscript></td><td>Grounded<superscript>b</superscript></td><td>Motionless</td><td>Motionless</td></tr><tr><td>any</td><td><emphasis role="ital">Direct-transitional</emphasis></td><td align="left">Posture of argument</td><td>Motionless</td><td align="left">Consuming</td></tr><tr><td>Climbing</td><td>Climbing</td><td>Climbing</td><td>Motionless</td><td>Motionless</td></tr><tr><td>Climbing</td><td>Non-climbing</td><td>Roaming</td><td>Free-ranging</td><td>n/a</td></tr><tr><td>Striding</td><td>Climbing</td><td>Climbing</td><td>Motionless</td><td>Motionless</td></tr><tr><td>Striding</td><td>Striding</td><td>Striding</td><td>Consuming</td><td>Consuming</td></tr><tr><td>Striding</td><td>Crawling</td><td>Roaming<superscript>c</superscript></td><td>Free-ranging<superscript>c</superscript></td><td>n/a</td></tr><tr><td>Crawling</td><td>Climbing</td><td>Climbing</td><td>Motionless</td><td>Motionless</td></tr><tr><td>Crawling</td><td>Non-climbing</td><td>Roaming</td><td>Free-ranging</td><td>n/a</td></tr><tr><td>Roaming</td><td>any</td><td>Roaming</td><td>Free-ranging</td><td>n/a</td></tr></tbody></table>
+            </para><para>For this table to work in practice, we can allow at most one recursion point, or
+                each recursion point must have the same posture <emphasis role="ital">and</emphasis> at most one can be consuming. Once you have found the posture
+                and sweeps of the recursive function call, you can continue the analysis of the
+                function body and then apply the previous <xref linkend="posture-sweep-table"/>.</para><para>The rules in this table are laid out in such a way that it is not possible to have
+                a <emphasis role="ital">climbing</emphasis> expression as the argument to a
+                recursive function at a recursion point and somewhere else in the same function body
+                a consuming construct or a non-climbing result. This is necessary, because if we
+                would allow the combination of a <emphasis role="ital">climbing</emphasis>
+                recursion point and a <emphasis role="ital">striding</emphasis> function body,
+                then on either the initial call (with a <emphasis role="ital">climbing</emphasis>
+                argument) or the recursive call (if the initial call would have been <emphasis role="ital">striding</emphasis> for instance) would call the function with an
+                incompatible <emphasis role="ital">climbing</emphasis> posture, which would then
+                be consumed. And a <emphasis role="ital">climbing</emphasis> posture can never be
+                consumed. More specifically, it prevents a function like the following to be
+                considered streamable:</para><para>
+                <figure xml:id="f-climbstri" xreflabel="Code listing: non-streamable climbing and consuming"><programlisting xml:space="preserve">&lt;xsl:function name="f:climbstri"&gt;
+    &lt;xsl:param name="n" /&gt;
+    &lt;xsl:choose&gt;
+        &lt;xsl:when test="f:climbstri($n/ancestor::foo)/contains(., 'bar')"&gt;
+            &lt;xsl:text&gt;Found it&lt;/xsl:text&gt;
+        &lt;/xsl:when&gt;
+        &lt;xsl:otherwise&gt;
+            &lt;xsl:value-of select="$n" /&gt;
+        &lt;/xsl:otherwise&gt;
+    &lt;/xsl:choose&gt;
+&lt;/xsl:function&gt;</programlisting></figure>
+            </para><para>Glancing over the example might already give a hint as to why it cannot possibly
+                be streamable: the <code>xsl:value-of</code> can consume a streamed node and that
+                streamed node is likely to be at a climbing axis because of the climbing posture of
+                the recursive argument. If we take the item in the table into account and consider
+                calling this function with a striding argument, as with <code>f:climbstr(a/b)</code>
+                then we find in the entry for <emphasis role="ital">striding</emphasis> and
+                    <emphasis role="ital">climbing</emphasis> that the body of the function must
+                at most be motionless. It is consuming, because of the <code>xsl:value-of</code> so
+                the analysis fails and the function is <emphasis role="ital">roaming</emphasis>
+                and <emphasis role="ital">free-ranging</emphasis>.</para><para>If we go back to our original example (see <xref linkend="f-recur"/>) and apply
+                the rules of this table, we have one recursion point, <code>f:recur($n)</code>, the
+                argument is <emphasis role="ital">direct-transitional</emphasis>, that is, it is
+                motionless and takes the posture of its caller, in this case the caller of the
+                function. According to the table above, we can use any posture as input, which will
+                then become the result posture, and the sweep of the function body follows as
+                    <emphasis role="ital">motionless</emphasis> and <emphasis role="ital">grounded</emphasis>. In our case, the call has a child-select expression in
+                    <code>f:recur(y)</code>, which has posture <emphasis role="ital">striding</emphasis> and sweep <emphasis role="ital">consuming</emphasis>. The
+                result posture and sweep of the whole template is then <emphasis role="ital">grounded</emphasis> and <emphasis role="ital">consuming</emphasis>.</para></section><section xml:id="indirect-recursion"><title>Indirect recursion</title><para>With indirect recursion there are extra layers of calls before the recursion takes
+                place, as in A calls B calls C calls A again. The question that rises is whether the
+                rules in <xref linkend="direct-recursion"/> also hold if a function calls itself
+                indirectly. Indirect recursion is a type of recursion that can also be determined
+                statically. Let us look at an example:</para><para>
+                <figure xml:id="f-filterattr" xreflabel="Code listing: indirect recursion"><programlisting xml:space="preserve">&lt;xsl:function name="f:filterattr"&gt;
+    &lt;xsl:param name="n" /&gt;
+    &lt;xsl:param name="filter" /&gt;
+    &lt;xsl:sequence select="$n/@*[name() = $filter]" /&gt;
+    &lt;!-- indirect recursion --&gt;
+    &lt;xsl:sequence select="f:take-ancestor($n, $filter)" /&gt;
+&lt;/xsl:function&gt;
+
+&lt;xsl:function name="f:take-ancestor"&gt;
+    &lt;xsl:param name="n" /&gt;
+    &lt;xsl:param name="filter" /&gt;
+    &lt;xsl:sequence select="
+        if($n) 
+        (: indirect recursion :)
+        then f:filterattr($n/ancestor::element()[1], $filter) 
+        else ()" /&gt;
+&lt;/xsl:function&gt;</programlisting></figure>
+            </para><para>The example is a very verbose and clumsy way of getting all attributes of all
+                ancestor-or-self nodes that have a certain name. For instance, with the
+                following input and stylesheet, the output will be <code>3.14 1.64</code>:</para><para>
+                <figure xml:id="f-input-doc" xreflabel="Code listing: input document"><programlisting xml:space="preserve">&lt;foo version="1.64" name="john"&gt;
+    &lt;zed&gt;
+        &lt;bar version="3.14" id="1234"&gt;
+    &lt;/zed&gt;
+&lt;/foo&gt;</programlisting></figure>
+                <figure xml:id="f-stylesheet" xreflabel="Code listing: indirect recursive function call example"><programlisting xml:space="preserve">&lt;xsl:mode on-no-match="shallow-skip" /&gt;
+
+&lt;xsl:template match="bar"&gt;
+    &lt;xsl:value-of select="f:filterattr(., 'version')" /&gt;
+&lt;/xsl:template&gt;</programlisting></figure>
+            </para><para>But whether it is clumsy or not is not the matter. It serves as a basic example of
+                indirect recursion and the function is clearly streamable because it only traverses
+                the ancestor and attribute axes, which are motionless. However, the question is, of
+                course, whether this example is streamable by following the rules from 
+                    <xref linkend="table-recursive-calls"/>.</para><para>If we try that a first time, we quickly find that it is not immediately obvious
+                how to apply it, because the functions above are not directly recursive. Recall that
+                we said in <xref linkend="direct-recursion"/> we wrote <quote> we can allow at most
+                    one recursion point, or each recursion point must have the same posture and at
+                    most one can be consuming </quote>. There are two recursion points here, the one
+                inside <code>f:filterattr</code> that calls <code>f:take-ancestor</code> and the one
+                inside <code>f:take-ancestor</code> that calls <code>f:filterattr</code>. The
+                posture of the first one takes the input posture of the argument, it is <emphasis role="ital">Direct-transitional</emphasis>, the second one traverses the
+                ancestor axis, which gives it a <emphasis role="ital">climbing</emphasis> posture.
+                Finally, the argument inside the template example in <xref linkend="f-stylesheet"/>
+                has itself a posture of <emphasis role="ital">striding</emphasis>, because the
+                context item expression takes the <emphasis role="ital">context posture</emphasis>
+                which in the case of <code>xsl:template</code> is <emphasis role="ital">striding</emphasis>.</para><para>In short, if we start at the template, we start with posture <emphasis role="ital">striding</emphasis>, then <emphasis role="ital">striding</emphasis> again
+                (because it is <emphasis role="ital">direct-transitional</emphasis>), then <emphasis role="ital">climbing</emphasis> and on the next recursive iteration this
+                repeats, but now from <emphasis role="ital">climbing</emphasis> as input to
+                    <code>f:filter-attr</code>, then <emphasis role="ital">climbing</emphasis> again
+                (because <emphasis role="ital">direct-transitional</emphasis> takes over the posture
+                of the argument) and so it continues climbing until all recursive iterations have
+                finished.</para><para>This breaks the rule we set to ourselves: the posture changed from <emphasis role="ital">striding</emphasis> to <emphasis role="ital">climbing</emphasis>.
+                Yet, we also established that the example functions were streamable. The conflict
+                arises from the argument <code>$n</code> being <emphasis role="ital">direct-transitional</emphasis>, which works like a cameleon and changes the
+                posture along the way. One resolution to this specific situation is to allow
+                    <emphasis role="ital">direct-transitional</emphasis>, provided the rest of the
+                body of the function is motionless, in which case it does no harm. Another, perhaps
+                easier solution is to force the <emphasis role="ital">same posture in, same posture
+                    out</emphasis> rule and rewrite the argument to this function as follows:</para><para>
+                <figure xml:id="f-stylesheet-fixed" xreflabel="Code listing: fixed indirect recursive function call"><programlisting xml:space="preserve">&lt;xsl:mode on-no-match="shallow-skip" /&gt;
+
+&lt;xsl:template match="bar"&gt;
+    &lt;xsl:value-of select="f:filterattr(./ancestor-or-self::*[1], 'version')" /&gt;
+&lt;/xsl:template&gt;</programlisting></figure>
+            </para><para>The change to using the ancestor-or-self axis also changes the initial posture to
+                    <emphasis role="ital">climbing</emphasis>, which in turn changes the posture of
+                    <code>$n</code> to be <emphasis role="ital">climbing</emphasis> as well, making
+                all postures in all recursion points climbing.</para><para>While this relatively trivial example seemed to show an edge-case because it used
+                a recursive argument posture of <emphasis role="ital">direct-transitional</emphasis>, it taught us two things: one, even a trivial
+                example can quickly appear hard once we try to apply streamability rules on them and
+                two, to keep things simple, it is best to stick a set of ground rules, even though
+                that potentially means that we slightly limit certain use-cases.</para><para>In practice, indirect recursion is found pretty rarely in XSLT programming, even
+                though XSLT is itself a functional language, it is much more common to use direct
+                recursion. But if a scenario requires indirect recursion, it is possible, even with
+                streaming.</para></section><section xml:id="indeterminate-recursion"><title>Indeterminate recursion</title><para>Another challenge comes from indeterminate recursion as in the following
+            example:</para><para>
+            <figure xml:id="f-indeter" xreflabel="Code listing: trivial indeterminate recursion"><programlisting xml:space="preserve">&lt;xsl:function name="f:indeter"&gt;
+    &lt;xsl:param name="n" /&gt;
+    &lt;xsl:apply-templates select="$n" mode="streamable" /&gt;
+&lt;/xsl:function&gt;
+
+&lt;xsl:template match="*" mode="streamable"&gt;
+    &lt;xsl:sequence select="f:indeter(.)" /&gt;
+&lt;/xsl:template&gt;</programlisting></figure>
+        </para><para>In this situation, the analysis of the function declaration and the template
+            declaration can be done independently, without ever finding the recursion point.
+            However, when this code is run, the recursion kicks in (assuming the argument is an
+            element). There is, however, one big advantage to this type of recursion: the rules on
+            templates define that the result of a template declaration must be <emphasis role="ital">grounded</emphasis><footnote><para>See section <link xlink:href="http://www.w3.org/TR/xslt-30/#streamable-templates" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">6.6.3, Streamable Templates in XSL Transformations 3.0</link>, second
+                    bullet-point: <quote>The sequence constructor contained in the body of the
+                        xsl:template element is grounded</quote>.</para></footnote>. Therefore, by definition, the result of any
+                <code>xsl:apply-templates</code> is also <emphasis role="ital">grounded</emphasis>, which gives the function body above a <emphasis role="ital">grounded</emphasis> posture as well. In turn, the call to <code>f:indeter</code>
+            results in a <emphasis role="ital">grounded</emphasis> posture, which concludes the
+            circle. In addition, any select-expression in <code>xsl:apply-templates</code> must be
+            atomizable, which in streamability terms means that it cannot be <emphasis role="ital">climbing</emphasis> or <emphasis role="ital">crawling</emphasis><footnote><para>One exception is allowed for selections that only select childless nodes, such
+                    as attribute nodes. These are <emphasis role="ital">climbing</emphasis> but do
+                    not contain children and are henceforth allowed.</para></footnote>. This leads us to a temporary conclusion: if the arguments to a function are
+                <emphasis role="ital">striding</emphasis> they can be used in indeterminate
+            recursive functions. If the arguments are not <emphasis role="ital">striding</emphasis>, the analysis fails and makes the call on the function
+                <emphasis role="ital">roaming</emphasis> and <emphasis role="ital">free-ranging</emphasis>.</para><para>Following <xref linkend="posture-sweep-table"/> and taking the same
+                approach that the body of the function should be analyzed during the call to the
+                function, we can conclude that it is impossible for a function body to apply
+                templates on something else then a <emphasis role="ital">striding</emphasis>
+                posture. The one exception that is allowed in the General Streamability Rules<footnote><para>See <link xlink:href="http://www.w3.org/TR/xslt-30/#general-streamability-rules" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Section 19.8.1 General Streamability Rules in XSL Transformations
+                            3.0</link>, item 1.b.iii.A.I.</para></footnote>is for a <emphasis role="ital">climbing</emphasis> posture of childless
+                nodes, which only applies to the attribute axis. This means that we can consider the
+                following example streamable as well, even though we pass a <emphasis role="ital">climbing</emphasis>, or even a <emphasis role="ital">crawling</emphasis>
+                expression to the function:</para><para>
+                <figure xml:id="f-apply-attribs" xreflabel="Code listing: climbing result accepting crawling posture"><programlisting xml:space="preserve">&lt;xsl:function name="f:apply-attribs"&gt;
+    &lt;xsl:param name="n" /&gt;
+    &lt;xsl:apply-templates select="$n/@*" /&gt;
+&lt;/xsl:function&gt;</programlisting></figure>
+            </para><para>Whether or not that function will be called indeterminate-recursively or not is
+                irrelevant, because on the second iteration, the selection will be empty, because
+                attribute nodes do not have children.</para><para>In short: indeterminate recursion does not have influence on the streamability
+                analysis, nor does it break it. The existing rules suffice.</para></section><section><title>Dynamic recursion</title><para>Dynamic recursion looks a bit like indeterminate recursion in the sense that
+                whether or not recursion takes place cannot be determined statically. In XPath 3.0,
+                it is possible to bind a variable to a function<footnote><para>See section <link xlink:href="http://www.w3.org/TR/xpath-30/#id-eval-function-call" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">3.1.5.1
+                            Evaluating Static and Dynamic Function Calls</link> in the XPath 3.0
+                        Recommendation.</para></footnote>, this is commonly referred to as higher order functions. The concept is
+                not new, already in 2001, Dimitre Novatchev showed in his paper
+                    <xref linkend="Novatchev01"/> that writing higher order functions is possible
+                in XSLT 1.0 by means of what he calls <emphasis role="ital">template
+                    references</emphasis><footnote><para>See page 4 of his paper <xref linkend="Novatchev01"/>.</para></footnote>, a concept also applied to the functional coding patterns in
+                    <xref linkend="Mangano05"/>, which was further popularized as <emphasis role="ital">the Novatchev technique</emphasis> in <xref linkend="Kay08"/>.
+                It took until XSLT and XPath 3.0 that function items became first-class citizens,
+                see my own paper <xref linkend="Braaksma13"/> for an extended coverage of that subject
+                for XSLT and <xref linkend="Grust13"/> for a coverage for XQuery and
+                databases.</para><para>For the rest of this section, we will assume you have a basic understanding of
+                higher order functions in XSLT and XPath. The closure of higher order functions
+                cannot contain the context item, so for our analysis we should only worry about
+                arguments that can be streamed nodes, just like with regular functions.</para><para>The nature of a dynamic function call is that the function it refers to is only
+                known at runtime, when the variable is bound to a function item. As a result, there
+                is not much we can say of the posture and sweep of the function it refers to until
+                it is actually invoked. Following the rules on streamability, the result of binding
+                a variable to a function item is always grounded. This makes sense, because at the
+                moment of binding, a function item is assigned to a variable and no streamed nodes
+                are possibly involved in the result.</para><para>Once a function item is evaluated, its arguments are known. Provided that the
+                arguments themselves are not <emphasis role="ital">roaming</emphasis> and
+                    <emphasis role="ital">free-ranging</emphasis>, the analysis will thenceforth
+                look at the bound function. If this function is streamable, we can do the analysis
+                from the previous sections as if it was a direct function call. The biggest
+                difference lies in the fact that the analysis is done during execution. This means
+                that an error for whether a call is not streamable will be a dynamic error.</para><para>This is no different for dynamic recursion. If dynamic evaluation leads to a
+                recursive call, the posture of the argument, the recursive call and the function
+                body must be matched to <xref linkend="table-recursive-calls"/>. If the result is
+                    <emphasis role="ital">roaming</emphasis> and <emphasis role="ital">free-ranging</emphasis>, the recursive call is not guaranteed
+                streamable.</para><para>While it is theoretically possible to allow such dynamic streamability rules, the
+                rules in the specification are meant to <emphasis role="ital">guarantee</emphasis>
+                streamability statically. As a result, any potential <emphasis role="ital">dynamic</emphasis> streamability is prohibited. Processors may allow dynamic
+                streamability as a vendor extension, but the specification will consider passing a
+                node to a dynamic function call <emphasis role="ital">not guaranteed
+                    streamable</emphasis>, dynamic recursion, as suggested in this section, is
+                therefor not possible with the current set of rules on <emphasis role="ital">static
+                    guaranteed streamability</emphasis>.</para></section><section xml:id="analyzable"><title>Analyzable and non-analyzable functions</title><para>Analyzable stylesheet functions are functions that can be analyzed by themselves,
+                as we saw in <xref linkend="approach-1"/>. Non-analyzable stylesheet functions are
+                those that can only be analyzed from the function call, because the body of the
+                function on itself cannot be analyzed without knowing what the argument is. Most of
+                the previous sections was about non-analyzable function calls.</para><para>Spec-wise, the term <emphasis role="ital">non-analyzable</emphasis> refers to the
+                set of functions that cannot be analyzed statically and are given very conservative
+                assumptions on streamability. This is true for recursive stylesheet functions and
+                non-final streamable functions (see <xref linkend="packages"/>). The term <emphasis role="ital">non-analyzable</emphasis> does not necessarily mean that the
+                function is not analyzable, however, the general rule is that it requires a call, or
+                knowledge of the context of a call to the function to find out whether or not the
+                function is streamable. We have seen in the previous sections that it is possible to
+                allow quite a variety of postures, even for non-analyzable functions, but in the
+                specification such functions are limited to a posture of <emphasis role="ital">striding</emphasis> and are always considered <emphasis role="ital">consuming</emphasis> even if in fact they are not.</para></section></section><section xml:id="packages"><title>Non-final streamable functions in packages</title><para>In XSLT 3.0, a new feature, <emphasis role="ital">packages</emphasis> allows
+            programmers to create a collection of modes, functions, named and matching templates,
+            accumulators etc and pack them in a, potentially pre-compilable, <emphasis role="ital">package</emphasis>, which can then be included in other packages or stylesheets
+            with <code>xsl:use-package</code><footnote><para>See section <link xlink:href="https://www.w3.org/XML/Group/qtspecs/specifications/xslt-30/html/Overview.html#package-dependencies" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">3.6.1 Dependencies between Packages</link> in XSLT 3.0 Working
+                    Draft.</para></footnote>. Components in that package can have a <emphasis role="ital">visibility</emphasis> attribute that can be set to <emphasis role="ital">public</emphasis>, <emphasis role="ital">private</emphasis>, <emphasis role="ital">final</emphasis> or <emphasis role="ital">abstract</emphasis>. If the visibility is
+            set to <emphasis role="ital">private</emphasis> it can only be used in the local
+            package, and if it is set to <emphasis role="ital">final</emphasis> the declaration
+            cannot be overridden, but can be used also in other packages. Visibility <emphasis role="ital">abstract</emphasis> means there is no implementation yet, and it must be
+            implemented by a using package (one that includes the package). And <emphasis role="ital">public</emphasis>, the default, means that a declaration can be
+            overridden by using <code>xsl:override</code>, which will then take precedence over the
+            original implementation. This can be considered similar to <emphasis role="ital">virtual
+                methods</emphasis> in object-oriented languages like C++ and C#.</para><para>The result for determining whether a function can be <emphasis role="ital">guaranteed
+                streamable</emphasis> or not cannot be determined statically at the moment that a
+            package is compiled, because it is possible that it will later be overridden and any
+            calls to that function can be impacted if the implementation, and the streamability,
+            changes.</para><para>As briefly explained in the previous section, if a function is defined with visibility
+                <emphasis role="ital">abstract</emphasis> or <emphasis role="ital">public</emphasis>, in other words, if they are non-final and non-private, then they are
+            considered <emphasis role="ital">non-analyzable</emphasis> by the specification. This
+            means that the processor cannot, and does not have to, try to analyze function calls too
+            deeply: it only expects a <emphasis role="ital">striding</emphasis> posture and it will
+            not try to determine whether or not the function is consuming or motionless when you
+            call the function: it assumes the worst and will consider the call <emphasis role="ital">consuming</emphasis>.</para><para>A proposal from me in the bug entry <footnote><para>See <link xlink:href="https://www.w3.org/Bugs/Public/show_bug.cgi?id=25679" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Bug
+                        25679</link> in W3C's BugZilla, which discusses the implications of allowing
+                    streamable stylesheet functions.</para></footnote>awaits reaction from the working group. It shows a way that processors can
+            use to statically detemine the posture of non-final streamable functions. However, if
+            that proposal were excepted, it will pose limitations on overriding non-final streamable
+            stylesheet functions. I think, however, that not being able to override a function, and
+            not being able to write non-final functions, is too severe a limitation. Even if a
+            function is non-final, if you override it to make it final, you will have to rewrite the
+            whole function body, you cannot use <code>xsl:original()</code>, because that would call
+            into the non-final function again, which takes too much of conservative approach.</para><para>An alternative approach is the approach taken for the recursive functions in the
+            previous sections. For all analysis there, we always considered the function call itself
+            to get the whole picture. For functions that are non-final, such an approach can also
+            work. Because the processor only knows what function to call when it encounters the
+            function call itself, it should include the body of that function at that moment into
+            the analysis. This can be done statically, there is no need to first run the
+            stylesheet.</para><para>A potential problem, however, still arises if someone writes a package function that
+            works correctly with a <emphasis role="ital">climbing</emphasis> result posture, but
+            cannot be used if that is changed into a function override with a <emphasis role="ital">striding</emphasis> result posture. Even more, a <emphasis role="ital">motionless</emphasis> function could be changed into a <emphasis role="ital">consuming</emphasis> function, which will greatly impede existing calls to that
+            function. One way to remedy that is to disallow overriding functions with a different
+            result posture or with a different sweep. That means that any given call will need to be
+            analyzed against the new function and the <code>xsl:original()</code> function call, as
+            if it still existed in scope, otherwise it will not be possible for the processor to
+            determine whether there is a change in posture or sweep.</para><para>Whether or not this turns out to be a feasible option in practice remains to be seen.
+            After all, there is always a trade-off between usability of a feature and the complexity
+            of the rules or the complexity for implementations. If the rules become too complex for
+            anybody to understand, then there is littly chance it will be used in practice, and
+            there will be little incentive for existing implementors to implement such feature, let
+            alone write specification-tests for it.</para></section><section xml:id="type-determined"><title>An improvement: type-determined posture</title><para>In the past few sections we have seen that analyzing a function that can return nodes
+            can be quite hard and intricate. However, if you know what type your function will
+            return, you can use the <code>as</code>-attribute on the <code>xsl:function</code>
+            declaration. This will tell the processor that the result must be converted into the
+            type defined in that attribute.</para><para>In cases where the type is not a node, the processor can go much further with static
+            analysis than in situations where the type is not known, because if the type is not
+            known, the processor must assume the worst. Suppose you declare the function with
+                <code>as="xs:integer"</code>, there is no way your function can return nodes. For
+            recursion this is a big help, because the processor now knows the result of the
+            recursion will not contain nodes. Whether or not there is overlap in the argument
+            expression is now less relevant and the posture of any function call, even the recursive
+            ones, will always be <emphasis role="ital">grounded</emphasis>. This makes the
+            requirement to match the argument with the result posture go away and simplifies both
+            writing and analysis.</para><para>Let us look at an example, adopted from an example by Michael Sperberg-McQueen:</para><para>
+            <figure xml:id="f-fqgi" xreflabel="Code listing: type determined posture"><programlisting xml:space="preserve">&lt;!-- mimicking what can also be written as
+     string-join(('', reverse(ancestor-or-self::*)/name()), '/') --&gt;
+&lt;xsl:function name="f:fqgi" as="xs:string"&gt;
+    &lt;xsl:param name="n" as="node()"/&gt;
+    &lt;xsl:choose&gt;
+        &lt;xsl:when test="count($n/ancestor::*) = 0"&gt;
+            &lt;xsl:value-of select="'/' || name($n)"/&gt;
+        &lt;/xsl:when&gt;
+        &lt;xsl:otherwise&gt;
+            &lt;xsl:value-of select="concat(
+                name($n), 
+                '/', 
+                f:fqgi($n/parent::*))"/&gt;
+        &lt;/xsl:otherwise&gt;
+    &lt;/xsl:choose&gt;
+&lt;/xsl:function&gt;</programlisting></figure>
+        </para><para>The example takes a node, processes its parents recursively and returns the names in
+            reverse order (deepest first) separated by slashes. Because the function is declared to
+            return a <emphasis role="ital">grounded</emphasis> result, namely
+                <code>xs:string</code>, there is no need to assume the function can return nodes,
+            because it cannot. Through <xref linkend="table-recursive-calls"/> we find
+            that if the argument posture is <emphasis role="ital">striding</emphasis> and the
+            recursive argument posture is <emphasis role="ital">climbing</emphasis>, as is the
+            case here, the recursive function call is considered <emphasis role="ital">climbing</emphasis> as well and the function body must then result in either a
+                <emphasis role="ital">climbing</emphasis> or <emphasis role="ital">grounded</emphasis> posture.</para><para>In this case, the function call itself does not have to be set to be <emphasis role="ital">climbing</emphasis>, because we know from the <code>xs:string</code>
+            result type that the result will always be <emphasis role="ital">grounded</emphasis>.
+            This simplifies the analysis in that we can now consider the function argument to be of
+            either <emphasis role="ital">absorption</emphasis> or <emphasis role="ital">inspection</emphasis> usage. If the function body as a whole consumes the node
+            referenced by <code>$n</code> it will be <emphasis role="ital">absorption</emphasis> and
+            the analysis fails, because a climbing expression with <emphasis role="ital">absorption</emphasis> usage is not allowed. Because the only other operands on the
+            streamed argument are <code>fn:count</code> and <code>fn:name</code>, both having
+            inspection operand usage and both being motionless, the result of the analysis as a
+            whole is that the function is guaranteed streamable, does not consume the streamed
+            argument which we can summarize as having usage <emphasis role="ital">inspection</emphasis>, and while it is direct-recursive we know it can be called
+            with any argument, albeit <emphasis role="ital">climbing</emphasis>, <emphasis role="ital">striding</emphasis> or <emphasis role="ital">crawling</emphasis>.</para><para>We could expand the type-determined analysis further by including whether or not the
+            streamable argument has a cardinality of zero-or-one or has a cardinality of
+            zero-or-more. In the case of zero-or-one there is no way that overlapping nodes can be
+            passed on to the function, which can simplify analysis of a function call with a
+                <emphasis role="ital">crawling</emphasis> argument, because it will fail dynamically
+            if the <emphasis role="ital">crawling</emphasis> argument returns more than one node.
+            This special-case scenario has meanwhile been tackled and been generalized for any
+            situation and cardinality<footnote><para>See the resolution to <link xlink:href="https://www.w3.org/Bugs/Public/show_bug.cgi?id=25185" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Public XSLT
+                        Bug 25185</link> on how crawling posture is now allowed in atomizing
+                    contexts.</para></footnote>, which can also by applied to stylesheet function call arguments.</para></section><section xml:id="miscelleneous"><title>Miscelleneous</title><section xml:id="inline-functions"><title>Inline functions and streamability</title><para>Inline functions are a new XPath 3.0 capability<footnote><para>See section <link xlink:href="http://www.w3.org/TR/xpath-30/#id-inline-func" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">3.1.7 Inline Function Expressions</link> in the XPath 3.0
+                        Recommendation.</para></footnote> that allows you to write an anonymous function inside an XPath
+                expression. The definition of inline function expressions prohibits referencing the
+                context item, which makes it not directly possible to refer to the context. However,
+                the closure of an inline function contains all local variable bindings, which makes
+                it possible to refer to a variable outside of the inline function, which itself
+                could be bound to a streamed node. The streamability rules for
+                    <code>xsl:variable</code> and <code>xsl:param</code> prohibit referencing a
+                streamed node, but one exception is inside a streamable stylesheet function, where
+                it is possible to have a parameter bound to a streamed node.</para><para>There are two solutions possible. One is to come up with complex rules for inline
+                functions referencing the streamed parameter, the other is to simply prohibit using
+                a streamed parameter inside an inline function body. This in itself would not be
+                consistent with the definition in XPath, which states that all local variable
+                bindings are available in the dynamic context of the inline function, which leads us
+                to a third option: simply disallow inline function expressions within the body of a
+                streamable stylesheet function.</para><para>This third option would be in line with the current streamability rules for inline
+                function declarations<footnote><para>See section <link xlink:href="http://www.w3.org/TR/xslt-30/#streamability-of-inline-functions" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">19.8.7.14 Streamability of Inline Function Declarations</link> in the
+                        XSLT 3.0 Working Draft.</para></footnote>, which states that they are, by definition, <emphasis role="ital">grounded</emphasis> and <emphasis role="ital">motionless</emphasis>, simply
+                because it is not possible to pass a streamed node into the closure of the inline
+                function body.</para></section><section xml:id="partial-function-application"><title>Partial function application and streamability</title><para>Partial function application is also a new XPath 3.0 capability by writing down a
+                question mark as a placeholder for an argument<footnote><para>See section <link xlink:href="http://www.w3.org/TR/xpath-30/#dt-partial-function-application" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">3.1.5 Static Function Calls, definition for Partial Function
+                            Application</link> in the XPath 3.0 Recommendation.</para></footnote>, and apply the other arguments already. The result is a function item
+                with less arguments than the original and some arguments already filled in. An
+                example is the expression <code>index-of(?, ?, "http://my-collation")</code>, which
+                returns a function item that presets the collation argument to
+                    <code>http://my-collation</code>, resulting in a two-argument function that
+                always uses the same collation.</para><para>The current rules are under the rules on function calls<footnote><para>See section <link xlink:href="http://www.w3.org/TR/xslt-30/#streamability-of-function-calls" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">19.8.7.12 Streamability of Function Calls</link> in the XSLT 3.0
+                        Working Draft.</para></footnote> state that, unless the function is focus-dependent, that the <emphasis role="ital">general streamability rules</emphasis> apply, which means that it is
+                treated as a normal function call, but the placeholder arguments are ignored.</para><para>If we take into consideration that binding a streamed node to a variable and
+                passing it around is prohibited, a similar rule should be applied to partial
+                function application: if the function is a streamable stylesheet function, the
+                argument that can take a streamed node, must be the placeholder, or a grounded node
+                must be supplied, otherwise it would become a <emphasis role="ital">roaming</emphasis> and <emphasis role="ital">free-ranging</emphasis>
+                expression. </para><para>In other words, partial function application works with user-defined streamable
+                stylesheet functions, as long as you do not try to bind a streaming node from the
+                current context to it. You should do that at a later stage, when you actually call
+                the function.</para></section><section xml:id="function-references"><title>Named function references and streamability</title><para>Named function references are another XPath 3.0 feature<footnote><para>See section <link xlink:href="http://www.w3.org/TR/xpath-30/#id-named-function-ref" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest"> 3.1.6
+                            Named Function References</link> in the XPath 3.0 Recommendation.</para></footnote>: you can create a function item of an existing function by using the
+                syntax <code>FunctionName#ArgCount</code>, where <code>ArgCount</code> is a literal
+                giving the arity of the function. For instance, <code>count#0</code> will give a
+                reference to the zero-argument function of <code>count</code> and
+                    <code>my:filter#3</code> will give a reference to a three-argument function
+                    <code>my:filter</code>. </para><para>The function item returned by such an expression can be called as a normal
+                function by applying parentheses and arguments, which in turn will call the function
+                you referred to to begin with. In practice, this syntax is useful for binding
+                variables to existing named functions.</para><para>Creating a named function reference is an atomic action and does not involve
+                references to nodes. As a result, a named function reference itself is always
+                grounded. There is one exception, if you try to create a reference to a function
+                that is focus-dependent. In such cases, just like in previous rules, the result is
+                    <emphasis role="ital">roaming</emphasis> and <emphasis role="ital">free-ranging</emphasis>. This is in fact the current rule for streamability of
+                named function references in the specification<footnote><para>See section <link xlink:href="http://www.w3.org/TR/xslt-30/#streamability-of-named-function-ref" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">19.8.7.13 Streamability of Named Function References</link> in the XSLT
+                        3.0 Working Draft.</para></footnote>.</para><para>Since stylesheet functions by definition cannot be focus-dependent, this exception
+                does not apply to named function references that refer to a (streamable) stylesheet
+                function.</para></section><section xml:id="dynamic-function-calls"><title>Dynamic function calls and streamability</title><para>A dynamic function call, also a new XPath 3.0 feature<footnote><para>See section <link xlink:href="http://www.w3.org/TR/xpath-30/#id-dynamic-function-invocation" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">3.2.2 Dynamic Function Call</link> in the XPath 3.0
+                        Recommendation.</para></footnote>, is a call to a function item that is bound to a variable. Suppose you
+                have <code>&lt;xsl:variable name="fref" select=" 'name#1' " /&gt;</code>, which binds
+                the one-argument version of the name-function to <code>$fref</code>, then you can
+                call that function by adding parentheses and arguments, the same way you would have
+                done if the variable were the actual function:
+                <code>$fref(child::*[1])</code>.</para><para>Since it is not possible to know at runtime what function the variable is bound
+                to, analysis can only take place once the function is actually called. The current rules<footnote><para>See section <link xlink:href="http://www.w3.org/TR/xslt-30/#streamability-of-dynamic-function-calls" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">19.8.7.9 Streamability of Dynamic Function Calls</link> in the XSLT 3.0
+                        Working Draft.</para></footnote> state that all arguments have operand usage <emphasis role="ital">navigation</emphasis>, which means that you can only call a dynamic function
+                when you actually create a <emphasis role="ital">grounded</emphasis> copy of a
+                streamed node. In case you wanted to apply it to a streamed node you are out of
+                luck.</para><para>The rules make an exception in case the signature of the function item is known,
+                in which case <emphasis role="ital">type-determined usage</emphasis>, as in part
+                explained in <xref linkend="type-determined"/>, can be used. That means that, if an
+                argument is declared as a non-node type, the usage typically becomes <emphasis role="ital">absorption</emphasis>.</para></section></section><section xml:id="specification-status"><title>Streamability of stylesheet functions according to the specification</title><para>The current approach taken by the rules in <link xlink:href="https://www.w3.org/Bugs/Public/show_bug.cgi?id=25679" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Bug 25679</link> is a
+            pessimistic one. For stylesheet functions to return nodes, they must be <emphasis role="ital">striding</emphasis> and are allowed to be either <emphasis role="ital">motionless</emphasis> or <emphasis role="ital">consuming</emphasis>. As a further
+            limitation, which actually follows from forcing the <emphasis role="ital">striding</emphasis> posture on function bodies, is that the argument to the
+            function must itself also be <emphasis role="ital">striding</emphasis>. In fact, it is
+            not possible, by the current definition, to have a streamed node with <emphasis role="ital">crawling</emphasis> or <emphasis role="ital">climbing</emphasis> posture
+            act as an argument to a streamable stylesheet function.</para><para>By limiting the result posture of the stylesheet function to one allowed posture, it
+            is easier to write rules for both analyzable and non-analyzable stylesheet functions,
+            see <xref linkend="analyzable"/>. However, because the bug entry is quite fresh and the
+            discussion is still ongoing, there is little conclusive I can tell about the rules that
+            will eventually make it into the next public version of the specification<footnote><para>The next version will probably be a <emphasis role="ital">Candidate
+                        Recommendation</emphasis>, considering that the current status is <emphasis role="ital">Last Call Working Draft</emphasis>, meaning that the
+                    specification is ready for implementors and only bugs found that come from
+                    implementation issues will be fixed. No new features will be added.</para></footnote>. For instance, in <link xlink:href="https://www.w3.org/Bugs/Public/show_bug.cgi?id=25679#c1" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Comment#1</link>
+            of the same public bug entry I have proposed some of the rules from <xref linkend="posture-sweep-table"/>. Whether or not any or all of these suggestions will
+            make it into the specification will remain to be seen.</para><para>Even if the specification will only allow relatively pessimistic stylesheet functions,
+            vendors are still allowed to use wider rules on streamability. In the case of functions,
+                <link xlink:href="http://exselt.net" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Exselt</link> will allow any function that is streamable, as explained
+            in the previous section, by using an optimistic operational mode at user option.</para><section><title>The <code>streamable</code> attribute on <code>xsl:function</code></title><para>In none of the previous sections in this paper have I mentioned the
+                    <code>streamable</code> attribute on an <code>xsl:function</code> declaration.
+                Since most of the paper discussed streamability of a stylesheet function in the
+                context of the function call, whether or not a function is streamable then depends
+                on its implementation and there is no need for the processor to know beforehand what
+                functions to analyze and what not.</para><para>The streamability rules in the specification are made such that the processor must
+                statically determine whether or not a function declaration is streamable or not.
+                Since it is likely that any given stylesheet will have both streamable and
+                non-streamable stylesheet functions, it is necessary to tell the processor which are
+                and which are not streamable. For that, the <code>xsl:function</code> declaration
+                gets a new attribute, similar to the attribute of <code>xsl:accumulator</code> and
+                    <code>xsl:mode</code>, which determines whether or not a function should be
+                analyzed for streamability.</para><para>The attribute takes a value of <code>yes</code> or <code>no</code>. If the value
+                is <code>yes</code>, then the function must be <emphasis role="ital">guaranteed
+                    streamable</emphasis> and the function can be called with a streamable node as
+                an argument.</para><para>I think that such an attribute is not necessary if we take the approach in this
+                paper and analyze the entire function only upon the actual function call. If that
+                function call is inside a streamable context and a streamable node is passed as an
+                argument, the body of the function is analyzed with the context posture of the
+                streamable argument set as the posture of the streamable parameter reference.</para></section></section><section xml:id="status-processors"><title>Status of current processors with respect to streamable stylesheet functions</title><para>Since streamable stylesheet functions are a relative recent addition to the
+            specification and lots of it is not yet publicly available, there are currently no
+            processors available that fully support streamable stylesheet functions.</para><para>At the time of this writing, of the two streaming processors that I know of, <link xlink:href="http://exselt.net" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Exselt</link> and <link xlink:href="http://saxonica.com" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Saxon</link>, the former currently has a full streamability analysis for all
+            constructs but a limited ability to analyze stylesheet functions for streamability.
+            However, the available set of tests is still growing and the rules on streamability may
+            change between now and the actual presentation of this paper, or even afterwards, since
+            the specification is not final yet and work on streamable stylesheet functions may
+            change the current rules. Apart from analyzing a function for streamability, Exselt
+            chooses an optimistic streaming approach: if you write your stylesheet in a correct way
+            with forward expressions only, your stylesheet will process streaming input in a
+            streamable way.</para><para>For Saxon, I do not know the actual current status on streamable stylesheet functions,
+            but I do know that they plan to do it in the not-so-far future.</para><para>If you are interested in streaming, or more specifically in streamable stylesheet
+            functions, keep an eye out on the website of Exselt and Saxon as it is likely that in
+            the near future, both processors will support this feature.</para></section><section xml:id="conclusion"><title>Conclusion</title><para>The previous sections have shown that writing streamable stylesheet functions is not
+            that hard, as long as you do not require recursion, or want to write overridable
+            non-final functions. But if you do require recursion, the simplest rule to remember is
+                <emphasis role="ital">same posture in, same posture out</emphasis>. As long as you
+            stick to that rule, and forget about the exceptional cases, you are in safe streaming
+            waters.</para><para>We have also seen that the current resolution in the specification taken to allow
+            streamable stylesheet functions is far more limiting, allowing only a posture of
+                <emphasis role="ital">striding</emphasis> for the input arguments and in the case of
+            recursive functions or non-final functions, always concludes that a call to such a
+            function is <emphasis role="ital">consuming</emphasis>, even if it is not. This
+            conservative approach has a valid reason, though: it tries to keep things simple and the
+            rules understandable and implementable. But even with this limitations in mind, it gives
+            stylesheet authors quite a wide range of possibilities to write streamable stylesheet
+            functions.</para><para>This paper has shown how a relative small change to the specification opens up the way
+            for stylesheet and library package writers to write streamable stylesheet functions,
+            which can be used in both streamable and non-streamable scenarios alike<footnote><para>Any streamable construct will work exactly the same in a non-streaming
+                    scenario. Functions or modes written with streaming in mind can be used with
+                    both streaming and non-streaming input without alterations.</para></footnote>. This change was an important and vital one and has brought us very close to
+            making the streamability rules as mature as they can be and ready for widespread use in
+            stylesheets and packages. Hopefully this paper has given potential library writers a
+            strong hint that they should take the extra step to write their library packages with
+            streamability in mind to be useful for both the streaming and non-streaming
+            markets.</para></section><bibliography><title>Bibliography</title><bibliomixed xml:id="Braaksma13" xreflabel="Braaksma 2013">
+            Braaksma, Abel. <quote>Efficient XML processing with XSLT 3.0 and higher order functions</quote>: pp 23-40.
+            Presented at <emphasis role="ital">XML Prague 2013, a conference on markup languages and data on the web</emphasis>, Prague, Czechia, Feb 8-10, 2013. 
+            In XML Prague Proceedings 2013.
+            <link xlink:href="http://archive.xmlprague.cz/2013/files/xmlprague-2013-proceedings.pdf" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://archive.xmlprague.cz/2013/files/xmlprague-2013-proceedings.pdf</link>.
+            Web.            
+        </bibliomixed><bibliomixed xml:id="Braaksma14a" xreflabel="Braaksma 2014a">
+            Braaksma, Abel. 
+            <quote>Streaming for the masses, an introduction to streaming with XSLT</quote>: pp 29-80.
+            Presented at <emphasis role="ital">XML Prague 2014, a conference on markup languages and data on the web</emphasis>, Prague, Czechia, Feb 14-16, 2014. 
+            In XML Prague Proceedings 2014.
+            <link xlink:href="http://archive.xmlprague.cz/2014/files/xmlprague-2014-proceedings.pdf" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://archive.xmlprague.cz/2014/files/xmlprague-2014-proceedings.pdf</link>.
+            Web.
+        </bibliomixed><bibliomixed xml:id="Braaksma14b" xreflabel="Braaksma 2014b">Braaksma, Abel. 
+            <quote>Streaming Design Patterns or: How I Learned to Stop Worrying and Love the
+                Stream</quote>: pp 24-53.
+            Presented at <emphasis role="ital">XML Prague 2014, a conference on markup languages and data on the web</emphasis>, Prague, Czechia, Feb 14-16, 2014. 
+            In XML Prague Proceedings 2014.
+            <link xlink:href="http://xmllondon.com/2014/xmllondon-2014-proceedings.pdf" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://xmllondon.com/2014/xmllondon-2014-proceedings.pdf</link>.
+            Web. doi:<biblioid class="doi">10.14337/xmllondon14.braaksma01</biblioid>
+        </bibliomixed><bibliomixed xml:id="Grust13" xreflabel="Grust 2013">
+            Grust, Torsten and Ulrich, Alexander.
+            <quote>First-Class Functions for First-Order Database Engines</quote>
+            Presented at <emphasis role="ital">International Symposium on Database Programming Languages</emphasis>.
+            In Proceedings of the 14th International Symposium on Database Programming Languages (DBPL 2013), Trento, Italy.
+            arXiv:1308.0158: 
+            <link xlink:href="http://arxiv.org/pdf/1308.0158v1" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://arxiv.org/pdf/1308.0158v1</link>.
+        </bibliomixed><bibliomixed xml:id="FuncOpRec" xreflabel="XPath and XQuery F&amp;O 3.0">
+            Kay, Michael.
+            <quote>XPath and XQuery Functions and Operators 3.0 Recommendation</quote>
+            8 April 2014. W3 Consortium. W3C Recommendation.
+            <link xlink:href="http://www.w3.org/TR/xpath-functions-30/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/xpath-functions-30/</link>.
+            Web.
+        </bibliomixed><bibliomixed xml:id="Gerstbach06" xreflabel="Gerstbach 2006">
+            Gerstbach, Peter.
+            <quote>Generating Structured Documents to Create Reports by Integrating Data from CMS/DMS and EAI Systems</quote>: pp 27-28.
+            Master thesis. At: Softwaretechnik und Interaktive Systeme der Technischen Universit¨at Wien. May 2006.
+            <link xlink:href="http://www.gerstbach.at/2006/thesis/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.gerstbach.at/2006/thesis/</link>. Web.
+        </bibliomixed><bibliomixed xml:id="Kay08" xreflabel="Kay 2008">
+            Kay, Michael.
+            <quote>XSLT 2.0 and XPath 2.0 Programmer's Reference</quote>
+            2nd edition, 5 May 2008: pp 251+. Published by O'Reilly Media. ISBN: 0470192747. Print.
+        </bibliomixed><bibliomixed xml:id="Lenz05" xreflabel="Lenz 2005">
+            Lenz, Evan.
+            <quote>XSLT 1.0 Pocket Reference (Pocket Reference)</quote>.
+            1st edition, 19 August 2005: pp 23-40. Published by O'Reilly Media. ISBN: 0596100086. 
+            Chapter 3 (pages 23-40) is available online: <link xlink:href="http://lenzconsulting.com/how-xslt-works/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://lenzconsulting.com/how-xslt-works/</link>.
+            Print.
+        </bibliomixed><bibliomixed xml:id="Mangano05" xreflabel="Mangano 2005">
+            Mangano, San.
+            <quote>XSLT Cookbook, 2nd Edition, Solutions and Examples for XML and XSLT Developers</quote>
+            2nd edition, 21 December 2005: pp 686-732. Published by O'Reilly Media. ISBN: 0596009747.
+            Print.            
+        </bibliomixed><bibliomixed xml:id="Novatchev01" xreflabel="Novatchev 2001">
+            Novatchev, Dimitre.
+            <quote>The Functional Programming Language XSLT — A proof through examples</quote>
+            November 2001.
+            Seen at: <emphasis role="ital">Sommer Semester 2010 course material University of Magdeburg 2010</emphasis>
+            <link xlink:href="http://edu.cs.uni-magdeburg.de/EC/lehre/sommersemester-2010/funktionale-programmierung/uebungen/gruppe-2/aufgabenblatt-12/XSLTasFP.pdf" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://edu.cs.uni-magdeburg.de/EC/lehre/sommersemester-2010/funktionale-programmierung/uebungen/gruppe-2/aufgabenblatt-12/XSLTasFP.pdf</link>.
+            Online reference: <link xlink:href="http://fxsl.sourceforge.net/articles/FuncProg/Functional%20Programming.html" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">
+                http://fxsl.sourceforge.net/articles/FuncProg/Functional%20Programming.html</link>. Print.
+        </bibliomixed><bibliomixed xml:id="Tennison01" xreflabel="Tennison 2001">
+            Tennison, Jeni.
+            <quote>Rescuing XSLT from Niche Status.</quote>.
+            17 February 2001.
+            MulberryTech XSL Mailing List Archive. <link xlink:href="http://www.biglist.com/lists/xsl-list/archives/200102/msg01143.html" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">
+                http://www.biglist.com/lists/xsl-list/archives/200102/msg01143.html</link>. Web.
+        </bibliomixed><bibliomixed xml:id="W3cBugzilla" xreflabel="W3C BugZilla">
+            Various contributors.
+            <quote>Bugzilla - Public W3C Bug / Issue tracking system</quote>
+            1997 - 2014. W3 Consortium.
+            <link xlink:href="https://www.w3.org/Bugs/Public/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">https://www.w3.org/Bugs/Public/</link>. 
+            Web.
+        </bibliomixed><bibliomixed xml:id="Welker08" xreflabel="Welker 2008">
+            Welker, Eddie.
+            <quote>Advantages of push-style XSLT over pull-style</quote>
+            25 November 2008. 
+            <link xlink:href="http://www.eddiewelker.com/2008/11/25/push-style-xslt-vs-pull-style/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.eddiewelker.com/2008/11/25/push-style-xslt-vs-pull-style/</link>.
+            Web.
+        </bibliomixed><bibliomixed xml:id="XdmRec" xreflabel="XQuery and XPath Data Model 3.0">
+            Walsh, Norman; Berglund, Anders; Snelson, John.
+            <quote>XQuery and XPath Data Model 3.0 Recommendation</quote>
+            8 April 2014. W3 Consortium. W3C Recommendation.
+            <link xlink:href="http://www.w3.org/TR/xpath-datamodel-30/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/xpath-datamodel-30/</link>.
+            Web.
+        </bibliomixed><bibliomixed xml:id="XPathRec" xreflabel="XPath 3.0">
+            Robie, Jonathan; Chamberlin, Don; Dyck, Michael; Snelson, John.
+            <quote>XML Path Language (XPath) 3.0 Recommendation</quote>
+            8 April 2014. W3 Consortium. W3C Recommendation.
+            <link xlink:href="http://www.w3.org/TR/xpath-30/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/xpath-30/</link>.
+            Web.
+        </bibliomixed><bibliomixed xml:id="XProc" xreflabel="XProc">
+            Walsh, Norman; Milowski, Alex; Thompson, Henry S.
+            <quote>XProc: An XML Pipeline Language</quote>
+            11 May 2010. W3 Consortium. W3C Recommendation.
+            <link xlink:href="http://www.w3.org/TR/xproc/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/xproc/</link>.
+            Web.
+        </bibliomixed><bibliomixed xml:id="Xslt30Latest" xreflabel="XSLT Latest Version">
+            Kay, Michael.
+            <quote>XSL Transformations (XSLT) Version 3.0, Latest Version</quote>
+            Undated. W3 Consortium. W3C Working Draft / Last Call Working Draft / Candidate Recommendation / Proposed Recommendation / Recommendation.
+            <link xlink:href="http://www.w3.org/TR/xslt-30/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/xslt-30/</link>.
+            Web.
+        </bibliomixed><bibliomixed xml:id="XsltLastCall" xreflabel="XSLT Last Call WD">
+            Kay, Michael.
+            <quote>XSL Transformations (XSLT) Version 3.0 W3C Last Call Working Draft</quote>
+            12 December 2013. W3 Consortium. Last Call Working Draft.
+            <link xlink:href="http://www.w3.org/TR/2013/WD-xslt-30-20130201/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/2013/WD-xslt-30-20130201/</link>.
+            Web.
+        </bibliomixed></bibliography></article>

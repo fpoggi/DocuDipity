@@ -1,0 +1,561 @@
+<?xml version="1.0" encoding="UTF-8"?><article xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink" version="5.0-subset Balisage-1.2"><title>XQuery Design Patterns</title><info><confgroup><conftitle>Balisage: The Markup Conference 2010</conftitle><confdates>August 3 - 6, 2010</confdates></confgroup><abstract><para>Design patterns are widely used inside the object-oriented community.
+They are proven mature and reusable solutions that facilitate the development of modules with minimal coupling.
+Moreover, design patterns are also high-level constructs that contribute to improve the communication between developers.
+</para><para>Nowadays, XQuery and its family of specifications are used beyond just querying XML collections and documents.
+XQuery is more and more used as a multi-paradigm, fully-fledged programming language.
+The aim of this paper is (1) to motivate the need for XQuery design patterns using a real-world example application and
+(2) to explore the existence of general design solutions to solve recurring problems in large-scale XQuery applications.
+</para></abstract><author><personname><firstname>William</firstname><surname>Candillon</surname></personname><personblurb><para>William Candillon is a software engineer at 28msec. His focus is on the development of large scale web applications in XQuery. William recently graduated from Telecom Lille 1 in France. His final year project was about XQuery Design Patterns.</para></personblurb><email>william.candillon@28msec.com</email><affiliation><orgname>28msec Inc.</orgname></affiliation></author><author><personname><firstname>Matthias</firstname><surname>Brantner</surname></personname><personblurb><para>Matthias Brantner is the chief architect of 28msec, a US-based startup that delivers an XQuery in the cloud implementation. He studied Information Systems at the University of Mannheim in Germany from 1999 until 2004. In 2007, he acquired a PhD from the University of Mannheim, based on his research on rewriting declarative query languages. Matthias has published several papers on XML query processing and co-developed one of the first research native XML databases.</para></personblurb><email>matthias.brantner@28msec.com</email><affiliation><orgname>28msec Inc.</orgname></affiliation></author><author><personname><firstname>Dennis</firstname><surname>Knochenwefel</surname></personname><personblurb><para>Dennis Knochenwefel is a Software Architect at 28msec Inc. Dennis joined 28msec in 2007 after finishing his combined degree in Business Administration and Computer Science at the University of Mannheim, Germany. Already whilst studying, Dennis was eagerly interested in XML-related technologies like XQuery, XSL, or XPath. He is an "IBM Certified Solution Developer XML 1.1 and Related Technologies" and was awarded a grant from the Karl-Steinbuch-Stipendium in 2006 for implementing an XQuery based XML messaging prototype. Currently, he is a keen developer of 28msec's Sausalito development team implementing the scalable XQuery Web Application server Sausalito.</para></personblurb><email>dennis.knochenwefel@28msec.com</email><affiliation><orgname>28msec Inc.</orgname></affiliation></author><legalnotice><para>Copyright © 2006-2010 28msec Inc.</para></legalnotice><keywordset role="author"><keyword>XQuery</keyword><keyword>Design Patterns</keyword></keywordset></info><section xml:id="introduction" xreflabel="1"><title>Introduction</title><!-- About Design Patterns --><para>During the last decade, design patterns have become increasingly popular as general and reusable solutions to commonly occurring software design problems in the object-oriented community. 
+      Nowadays, almost every developed application, component, or API written in an object-oriented language is built using design patterns (e.g. [<xref linkend="bib01"/>, <xref linkend="bib02"/>]).
+      Such patterns improve software development in the following perspectives [<xref linkend="bib03"/>]:
+      <itemizedlist><listitem><para><emphasis role="bold">Reusable Software and Design</emphasis>: Design Patterns are often key drivers to provide better encapsulation and reduce coupling between software components.
+            As a consequence, software exhibiting design patterns is more reusable, flexible, and extensible.</para></listitem><listitem><para><emphasis role="bold">Documentation</emphasis>: Using the name of a pattern in software documentation allows developers to recognize/remember the structure and design of an API instantly.</para></listitem><listitem><para><emphasis role="bold">Communication and Teaching</emphasis>: Design patterns constitute a common language to improve the communication between software designers and analysts. Additionally, an established vocabulary eases discussions between developers with a different programming language background.</para></listitem></itemizedlist>
+    </para><!-- About Design Patterns in the functional world --><para>Although, being widely accepted and applied within the object-oriented community, design patterns have rarely been evaluated outside of this community. 
+      For example, in the functional world they have never been evaluated on a complex application programming level.
+      In "Functional Logic Design Patterns" [<xref linkend="bib05"/>] design patterns have been evaluated within a functional language to solve specific problems on a very low level; whereas [<xref linkend="bib06"/>] discusses on a meta level. 
+      From this perspective, the fear of Tom DeMarco from 1996 has been proven reasonable:
+      <blockquote><para>"Because Design Patterns bills itself as being concerned with object oriented software alone, I fear that software developers outside the object community may ignore it. This would be a shame. [...] All software designers use patterns; understanding better the reusable abstractions of our work can only make us better at it." [<xref linkend="bib04"/>]</para></blockquote>
+    </para><!-- About XQuery --><para>XQuery [<xref linkend="bib07"/>] -- a functional and declarative language -- has been designed by the World Wide Web Consortium as a general purpose XML processing language, useful in a variety of architectures and environments.
+      Although, in the beginning, XQuery was mainly used to query XML data within database systems (e.g. [<xref linkend="bib20"/>]), it has more and more become a complete application programming language.
+      One such scenario in which XQuery is used as a full-fledged programming language is called the end-to-end XML architecture.
+      In such an architecture, XML is the primary form in which information is stored and processed.
+      This information is persistent across successive invocations of programs, and XQuery is the primary language for accessing this information for search, filter, transform, update, and for writing more complex application workflows.
+      Moreover, in such programs, XQuery has also become fluent with web entities such as web services, Atom, JSON, HTTP messages, and common authentication techniques such as OpenID or OAuth.
+      Together with its extension specifications XQuery Update [<xref linkend="bib11"/>], XQuery Scripting [<xref linkend="bib12"/>], and XQuery Full Text [<xref linkend="bib13"/>], XQuery nowadays plays in the same league as general purpose programming languages such as Java, Python, or Ruby while keeping its edge in terms of expressiveness and first-class support for dealing with web resources.</para><!-- Large Scale Applications Symptoms --><para>Overall, these recent changes are directly related to the growth of complex XQuery applications [<xref linkend="bib14"/>].
+      One example of such an application is developed by a customer of the company the authors work for.
+      This application is an Enterprise Resource Planning (ERP) application entirely written in XQuery on top of the Sausalito Web Application Server [<xref linkend="bib15"/>].
+      This application consists of 28.000 lines of XQuery code implemented in 135 XQuery modules.
+      
+      By auditing this application, we found common symptoms in both the codebase and the development processes:
+      <itemizedlist><listitem><para>Modules have strong coupling between each other. They are based on complex collaborations that are reducing their reusability in other frameworks or applications. In most cases, extending or composing a module would require intrusive code refactoring.</para></listitem><listitem><para>Some recurring structural designs are referred to using a different vocabulary. Even though they can be looked at as identical from an abstract point of view.
+           This increases the entry barrier into the codebase significantly.</para></listitem></itemizedlist>
+    </para><!-- Contribution --><para>
+      As described at the beginning of this section, such problems have been solved in the object-oriented community by developing and applying design patterns.
+      Encouraged by this observation, we decided to start using design patterns to overcome the misfits described above.
+      Besides motivating the use of design patterns for XQuery, the contributions of this paper are 
+      (1) to identify misfits in a real-world application and (2) to show how these misfits can be remedied by using design patterns.
+      Specifically, we present four design patterns and describe how each of them solves one specific design problem in our (running) example application.</para><!-- Structure of the paper --><para>The remainder of this paper is structured as follows.
+      In Section <xref linkend="application"/>, we describe the use cases for our running example.
+      This example will be used to point out design problems that exist in real world applications.
+      In each of the following four sections (i.e. Sections <xref linkend="cor"/>, <xref linkend="pm"/>, <xref linkend="strategy"/>, and <xref linkend="observer"/>), we present one design pattern to solve one of the identified design problems.
+      Section <xref linkend="conclusion"/> concludes the paper and gives an outlook on future work.</para></section><section xml:id="application" xreflabel="2"><title>Running Example: An AtomPub Application</title><para>The Atom Publishing Protocol (AtomPub; see <xref linkend="bib16"/>) is an HTTP-based protocol for creating and updating resources on the web.
+      Lately, it became widely used to implement APIs for cloud services.
+      The most prominent example is probably the Google Data Protocol<footnote><para>Google Data Protocol: <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://code.google.com/apis/gdata/docs/developers-guide.html</link>.</para></footnote>.
+      AtomPub is built up on the Atom Syndication Format which is an XML representation of arbitrary collection of resources (e.g. web feeds).
+      Hence, XQuery is a natural fit for implementing AtomPub-based (cloud) services.</para><para>We use an AtomPub application in order to present design patterns for XQuery.
+      This application is particularly well-suited for many (common) patterns because most of it's components need to be reusable by other components of the application.
+      Moreover, leveraging existing libraries (e.g. for HTTP communication and authentication) requires some careful design decisions to be made.
+      
+      Essentially, the AtomPub application consists of two major components: a client and a server.
+      
+      The client is an XQuery application which should implement the following two basic use cases: 
+      <itemizedlist><listitem><para><emphasis role="bold">Use Case 1:</emphasis> Send an HTTP request to create an Atom entry.</para></listitem><listitem><para><emphasis role="bold">Use Case 2:</emphasis> Send an HTTP request to retrieve a particular Atom entry. The resulting entry should be transformed into HTML.</para></listitem></itemizedlist>
+      
+      The server is an application which is running within an XQuery-enabled application server.
+      That is, its functions are triggered by HTTP requests.
+      Those functions have access to the content of the HTTP request using a (HTTP) module provided by the application server.
+      The server acts as a counterpart to the client requests. 
+      Specifically, it should be able to accomplish the following two use cases:
+      
+      <itemizedlist><listitem><para><emphasis role="bold">Use Case 3:</emphasis> Receive an AtomPub entry and store it. It should be possible to store entries in arbitrary locations such as the file system or XQuery collections.</para></listitem><listitem><para><emphasis role="bold">Use Case 4:</emphasis> Post a message on Twitter for each entry created in Use Case 3.</para></listitem></itemizedlist>
+    </para><para>In the next sections of the paper, we show how the design challenges of implementing the described use cases can be solved leveraging design patterns.
+      We start with Use Cases 1 and 2 of the client in Sections <xref linkend="cor"/> and <xref linkend="pm"/>, respectively.
+      After this, Sections <xref linkend="strategy"/> and <xref linkend="observer"/> describe the design and implementation of Use Cases 3 and 4.
+      The following table depicts the mapping of use cases, sections, required XQuery features, and the names of the pattern that is used to implement the feature in question.
+      <table border="1"><caption><para>Mapping between use cases, sections, patterns, and required XQuery features.</para></caption><col valign="top" align="center" width="15%" span="1"/><col valign="top" align="center" width="10%" span="1"/><col valign="top" align="center" span="1"/><col valign="top" align="center" span="1"/><col valign="top" align="left" span="1"/><thead><tr valign="top"><th/><th>Section</th><th>Pattern Name</th><th>Language</th><th>Description</th></tr></thead><tbody><tr><td>Use Case 1</td><td><xref linkend="cor"/></td><td>Chain of Responsibility</td><td>XQuery 1.0</td><td>Send an HTTP request to create an Atom entry.</td></tr><tr><td>Use Case 2</td><td><xref linkend="pm"/></td><td>Translator</td><td>XQuery 1.1</td><td>Transforms an Atom entry to XHTML.</td></tr><tr><td>Use Case 3</td><td><xref linkend="strategy"/></td><td>Strategy</td><td>XQuery 1.1</td><td>Store an Atom entry on the server.</td></tr><tr><td>Use Case 4</td><td><xref linkend="observer"/></td><td>Observer</td><td>XQuery 1.1 + Scripting</td><td>Advertise new Atom entries on Twitter.</td></tr></tbody></table>
+    </para><para>The XQuery application can be downloaded from <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://patterns.28msec.com</link>.
+      Each use case is ready to be executed, i.e. the package contains one XQuery main module for each use case.
+      <footnote><para>Please note that the implementation requires features that might not be present in every XQuery processor (i.e.\ XQuery Scripting, Function Items, and File module). For example, the latest SVN revision (&gt; 8071) of the Zorba XQuery Processor (<link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.zorba-xquery.com</link>) is capable of running all examples.</para></footnote>
+    </para></section><section xml:id="cor" xreflabel="3"><title>Chain of Responsibility</title><para>In this section, we discuss the implementation of Use Case 1.
+      That is, we want to develop an XQuery program that publishes an Atom entry to an AtomPub enabled server.
+      Since not everybody is allowed to publish an entry, the AtomPub server requires authentication using the basic HTTP authentication mechanism.  
+      The AtomPub protocol specifies that an entry is published by sending an HTTP POST request to the server.
+      The payload of this request contains the entry to be published.
+      The basic HTTP authentication requires the username and password to be part of the HTTP-Header.</para><para>For making HTTP calls in an XQuery program, we decided to rely on the (de-facto standard) EXPath HTTP Client (see <xref linkend="bib17"/>).
+      This HTTP Client works by passing an XDM element describing the request to a function called <code>send-request</code>.
+      For example, a program that is sending a HTTP GET request to <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.example.com</link> could look as follows:
+      <programlisting xml:space="preserve">
+http-client:send-request(
+  &lt;http:request href="http://www.example.com/" method="GET" /&gt;
+)
+      </programlisting>
+    </para><para>In order to implement our first use case, the AtomPub client could be implemented with a hard wired dependency between the module that is responsible for configuring and sending the HTTP request and the module responsible for the authentication.
+      However, this would clearly make the AtomPub client less flexible and reusable in other scenarios.
+      For example, changing the authentication mechanism to something like OAuth or OpenID would require intrusive changes to the AtomPub module or would result in another highly redundant codebase.</para><para>To improve the flexibility and reusability of our application, we specify the following two design requirements.
+      The AtomPub client should be decoupled from 
+      <itemizedlist><listitem><para>any authentication mechanism it may collaborate with at runtime.</para></listitem><listitem><para>a particular implementation of the transport layer, i.e. the HTTP client.</para></listitem></itemizedlist>
+    </para><para>In order to meet these requirements, we have designed the AtomPub client using the Chain of Responsibility pattern [<xref linkend="bib03"/>].
+      The intent of this pattern is as follows:
+      <blockquote><para>Reduce coupling between different modules by moving nested dependencies outside of a module and integrate dependent functions consecutively into a chain. Pass an item along the chain and give each of these functions the chance to manipulate or process the item.</para></blockquote>
+    </para><section><title>Description</title><para>Applying the Chain of Responsibility to our use case results in making a separation between the code that is responsible for sending the request and each of the functions configuring the request (i.e. setup the request for AtomPub and putting authentication information in the request).
+        In order to do so, we identify the following participants (also see Fig. <xref linkend="cor-structure"/>): 
+        <itemizedlist><listitem><para><emphasis role="bold">Request:</emphasis> The XDM instance representation of an HTTP request.</para></listitem><listitem><para><emphasis role="bold">Handler:</emphasis> Function in the chain which is configuring or processing the request instance.</para></listitem><listitem><para><emphasis role="bold">Client:</emphasis>  Initiates the request, passes it to each function in the chain, and returns the result.</para></listitem></itemizedlist>
+      </para><para>Spreading the functionality among the three participants allows us to easily rewrite the client, for example to use a different authentication strategy.
+        In particular, we avoid that different library modules "know about" each other, i.e. they are not imported into each other.
+      </para><figure xml:id="cor-structure" floatstyle="1" xreflabel="1"><mediaobject><imageobject><imagedata format="png" fileref="../../../vol5/graphics/Candillon01/Candillon01-001.png"/></imageobject><caption><para>Structure of the Chain of Responsibility.</para></caption></mediaobject></figure></section><section><title>Implementation</title><para>In this section, we describe one possible implementation of our use case by applying the Chain of Responsibility pattern.
+        <footnote><para>The code presented in this section can be found within <emphasis role="ital">AtomPub/chain_of_responsibility.xq</emphasis>.</para></footnote>
+      </para><para>First, we start with a description of the implementation of the client which is implemented in a function called <code>local:post-entry</code>.
+        After this, we describe the two functions <code>atompub-client:post</code> and <code>http-auth:basic</code>.
+        Each of these functions takes as first parameter the request item which is prepared in the body of each function.
+        <programlisting xml:space="preserve">
+(:
+ : This function initializes the HTTP request, passes it to three
+ : chained functions (atompub-client:post, http-auth:basic, and 
+ : httpclient:send-request), and returns the result of the last 
+ : invoked function.
+ :)
+declare sequential function local:post-entry() as item()*
+{
+  (: Initialize the request :)
+  declare $request  := validate { 
+      &lt;http:request href="http://atompubtest.my28msec.com/blog/feed"
+                    method="GET" /&gt;
+  };
+  (: Update the request according to the AtomPub protocol
+   : $local:entry is the Atom entry to be sent 
+   :)
+  atompub-client:post($request, $local:entry);
+  (: Basic HTTP Authentication. :)
+  http-auth:basic($request, "Username", "Password");
+  (: Finally, send the request to the AtomPub server :)
+  http-client:send-request($request);
+};
+        </programlisting>
+      </para><para>In the code snippet above, the HTTP request element (<code>$request</code>) is declared and initialized containing the URL of the AtomPub server.
+        This element is passed along the chain of functions <code>atompub-client:post</code> and <code>http-auth:basic</code> ending up in a call to the <code>http-client:send-request()</code> function.
+        The latter function takes over the responsibility of executing the request.
+        <programlisting xml:space="preserve">
+(:
+ : AtomPub POST handler.
+ : Update the HTTP request according to the
+ : AtomPub protocol specification.
+ :)
+declare updating function atompub-client:post(
+    $request as schema-element(http:request),
+    $entry   as schema-element(atom:entry))
+{
+    replace value of node $request/@method with "POST",
+    
+    insert node &lt;http:body media-type="application/xml"
+                           method="xml"&gt;{$entry}&lt;/http:body&gt;
+    as last into $request
+};          
+          </programlisting>
+      </para><para>The function <code>atompub-client:post()</code> "massages" the request item (using XQuery update) according to the AtomPub specification.
+        Specifically, this function makes sure that the HTTP request method is set to POST. 
+        Moreover, it configures the body of the HTTP request to contain the entry to be published.</para><para>After that, the <code>http-auth:basic()</code> function adds username and password attributes to the request and sets the authentication method to <code>basic</code>.
+        <programlisting xml:space="preserve">
+(:
+ : Basic HTTP Auth handler.
+ : Update the HTTP request according to the
+ : basic HTTP authentication specification.
+ :)
+declare updating function http-auth:basic(
+    $request  as schema-element(http:request),
+    $username as xs:string,
+    $password as xs:string)
+{
+  insert node (attribute username    { $username },
+               attribute password    { $password },
+               attribute auth-method { "basic" })
+  into $request
+};          
+         </programlisting>
+      </para></section><section><title>Implementation Considerations</title><para>In the implementation presented in the last section, we made some decisions in order to make the essence of the paper easier to understand and improve the readability of the code.
+        Neither are these decisions mandatory for implementing Chain of Responsibility nor might they be optimal.
+        Therefore this pattern can be implemented in XQuery 1.0.
+        In this section, we discuss some alternative implementation aspects.
+        <itemizedlist><listitem><para><emphasis role="bold">Consideration 1:</emphasis> The implementation of the client, chains the participating functions using XQuery Scripting.
+            However, there are many ways to implement the chaining.
+            For example, the chain could be implemented using Continuation Passing Style or by using a sequence of function items which are executed consecutively.</para></listitem><listitem><para><emphasis role="bold">Consideration 2:</emphasis> Another decision that we took in order to make the code more crisp is to implement the participating functions (i.e. <code>atompub-client:post</code> and <code>http-auth:basic</code>) using the XQuery Update Facility.
+            Alternative implementations could copy and transform the request element and return it as a result of the function.
+            In this case, the client needs to make sure that the returned element is passed as an argument to the next function.</para></listitem></itemizedlist>
+      </para></section><section><title>Conclusion</title><para>The Chain of Responsibility helped us to improve the flexibility and reusability of the modules involved to implement Use Case 1.
+        As a result, we gained the following:
+        <itemizedlist><listitem><para><emphasis role="bold">Reduced coupling:</emphasis> The AtomPub client has been decoupled from the HTTP Client and other optional modules such as HTTP authentication, OAuth Client, or OpenID.</para></listitem><listitem><para><emphasis role="bold">Added flexibility:</emphasis> Any function in the chain can configure the request or even take over the responsibility to process the request.
+            More than that, the code can effortlessly be reused in a different setting.
+            For example, a different authentication method could be used by replacing the <code>http-auth:basic()</code> function with an appropriate function from a different authentication module.</para></listitem></itemizedlist>
+        </para><para>Use Chain of Responsibility if
+        <itemizedlist><listitem><para>an execution process can be abstracted in a configurable XDM item, e.g. a request.</para></listitem><listitem><para>an execution process can be divided into different responsibilities.</para></listitem><listitem><para>different configuration settings can be freely combined.</para></listitem><listitem><para>you want to issue a request to one of several functions without specifying the receiver explicitly.</para></listitem></itemizedlist>
+      </para></section></section><section xml:id="pm" xreflabel="4"><title>Translator</title><para>
+	  In this section, we present the accomplishment of Use Case 2 (see Sec. <xref linkend="application"/>): retrieving an Atom feed and rendering it as an HTML page.
+      Thanks to XQuery's expressiveness to deal with XML data, transforming an Atom feed into an HTML page is a straightforward operation.
+      For example, one could easily come up with a function as follows:
+      <programlisting xml:space="preserve">
+declare function to-xhtml:get-feed(
+  $feed as schema-element(atom:feed))
+  as element(xhtml:html)
+{
+  let $title := $feed/atom:title
+  return
+    &lt;html xmlns="http://www.w3.org/1999/xhtml"&gt;
+      &lt;head&gt;
+        &lt;title&gt;{$title}&lt;/title&gt;
+      &lt;/head&gt;
+      &lt;body&gt;
+        &lt;h1&gt;{$title}&lt;/h1&gt;
+        {for $entry in $feed/atom:entry
+         return to-xhtml:get-entry($entry)}
+      &lt;/body&gt;
+    &lt;/html&gt;  
+};        
+</programlisting>
+
+      However, on the web, most feeds contain heterogeneous data (i.e. they contain elements from multiple different namespaces).
+      The most prominent examples are Google's or Twitter's extensions (see <link xlink:href="http://tinyurl.com/gdata-format" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://tinyurl.com/gdata-format</link> and <link xlink:href="http://tinyurl.com/twitter-format" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://tinyurl.com/twitter-format</link>).
+      Another example is shown in the following feed that contains instances of the GeoRSS Application Schema.
+      <programlisting xml:space="preserve">
+&lt;?xml version="1.0" encoding="utf-8"?&gt;
+&lt;feed xmlns="http://www.w3.org/2005/Atom" 
+      xmlns:georss="http://www.georss.org/georss"&gt;
+  &lt;title&gt;Where is Waldo?&lt;/title&gt;
+  &lt;link href="http://example.org/"/&gt;
+  &lt;entry&gt;
+    &lt;title&gt;Caecilienstrasse 5, 8032 Zurich, Switzerland&lt;/title&gt;
+    &lt;link href="http://example.org/2009/09/09/atom01"/&gt;
+    &lt;updated&gt;2009-08-17T07:02:32Z&lt;/updated&gt;
+    &lt;georss:point&gt;45.256 -71.92&lt;/georss:point&gt;
+   &lt;/entry&gt;
+ &lt;/feed&gt;        
+        </programlisting>
+    </para><para>
+      Usually, the information contained in such feeds should be converted into HTML as well.
+      Obviously, one could extend the <code>get-feed</code> function above by incorporating nested loops over elements in different namespaces.
+      However, this is not desirable for several reasons:
+
+      <itemizedlist><listitem><para>Having to transform a large number of heterogeneous elements will usually lead to ''spaghetti code''.</para></listitem><listitem><para>Interweaved code lowers the reusability.</para></listitem><listitem><para>The structure of a feed (i.e. which namespaces are actually contained in a feed), might not be known in advance.</para></listitem></itemizedlist>
+
+      For those reasons, it's clearly favorable to have ''ravioli code'', i.e. code that consists of loosely coupled components.
+      Therefore, we have used the design pattern named Translator to implement Use Case 2 <xref linkend="bib19"/>.
+      This pattern describes a functional organization that keeps the transformation functions loosely coupled.
+      The ultimate goal of Translator is to bring the modular XSLT stylesheet paradigm into XQuery.
+      The intent of Translator is defined as follows:
+      <blockquote><para>Separate interpretations of heterogeneous elements <xref linkend="bib19"/>. Translator brings XSLT programming paradigm into XQuery.</para></blockquote>
+    </para><section><title>Description</title><para>
+      Since the goal of Translator is to bring the XSLT programming paradigm into XQuery, the participants involved in this pattern have the same names and also have a similar semantics as their complements in XSLT.
+      The participants involved are the following: 
+      <itemizedlist><listitem><para><emphasis role="bold"><code>apply</code> function: </emphasis> The <code>apply</code> function contains the code that does the transformation of an XDM instance if the <code>match</code> function returned true.
+            The parameters of the <code>apply</code> function are: (1) The XDM instance to transform, (2) the <code>transform</code> function itself, and (3) the templates involved in the process.</para></listitem><listitem><para><emphasis role="bold"><code>match</code> function: </emphasis>This function decides whether an according <code>apply</code> function should be executed given a selected XDM instance.</para></listitem><listitem><para><emphasis role="bold"><code>transform</code> function: </emphasis>The <code>transform</code> function is driving the transformation process (i.e. calling <code>match</code> and <code>apply</code>.
+            It is invoked by the client.</para></listitem><listitem><para><emphasis role="bold">Template: </emphasis> A template is a sequence of two function items.
+            The first item is representing the <code>match</code> and the second <code>apply</code> function, respectively.</para></listitem><listitem><para><emphasis role="bold">Client: </emphasis>The client invokes the <code>transform</code> function by providing the XDM instance to be transformed and a sequence of templates.</para></listitem></itemizedlist></para><para>
+
+      Figure <xref linkend="pm-structure"/> shows the dependencies between the participants for Translator applied to the GeoRSS example describe in the previous section.
+      The figure illustrates that
+      (1) only the Atom templates (<code>apply</code> and <code>match</code> for Atom feeds and entries) need to know the Atom schema,
+      (2) the template responsible for transforming GeoRSS only knows the GeoRSS schema, and
+      (3) the <code>transform</code> function orchestrates the transformation process by invoking the function items of the templates.
+    </para><figure xml:id="pm-structure" floatstyle="1" xreflabel="2"><mediaobject><imageobject><imagedata format="png" fileref="../../../vol5/graphics/Candillon01/Candillon01-002.png"/></imageobject><caption><para>Structure of Translator.</para></caption></mediaobject></figure><para>
+      Figure <xref linkend="pm-collaborations"/> depicts this orchestration of the translation process.
+      The client invokes the <code>transform</code> function passing the XDM instance and the templates as parameters.
+      For each template, the <code>transform</code> function first executes the <code>match</code> function passing the current XDM instance as parameter.
+      If the result of the invocation of <code>match</code> is true, then the <code>apply</code> function is invoked on this instance.
+      Please note that the <code>apply</code> function itself may repeatably invoke the <code>transform</code> function to further transform nested structures.
+    </para><figure xml:id="pm-collaborations" floatstyle="1" xreflabel="3"><mediaobject><imageobject><imagedata format="png" fileref="../../../vol5/graphics/Candillon01/Candillon01-003.png"/></imageobject><caption><para>Collaborations in Translator.</para></caption></mediaobject></figure></section><section><title>Implementation</title><para>In this section, we describe the implementation of Translator for the GeoRSS-to-HTML transformation (see above).<footnote><para>You can find the code presented in this section in <emphasis role="ital">AtomPub/translator.xq</emphasis></para></footnote>.
+    We start with a presentation of the <code>transform</code> function which receives the XDM instance to transform (i.e. the Atom feed) and the transformation templates as parameters.
+      <programlisting xml:space="preserve">
+declare function converter:transform(
+  $i as item()*,
+  $templates as function(*)+) as item()*
+{
+  for $tpl in $templates
+  let $template := $tpl()
+  let $match    := $template[1]
+  let $apply    := $template[2]
+  return
+    if($match($i)) then
+      $apply($i, converter:transform#2, $templates)
+    else()
+};        
+        </programlisting>
+    </para><para>This function invokes the <code>apply</code> and <code>match</code> functions for all templates.
+      The example application contains templates for Atom feeds, Atom entries, and GeoRSS points.
+      For instance, it contains an <code>xhtml-template</code> module which contains templates to transform Atom feeds and entries into XHTML.
+      Moreover, it contains a module to match and apply GeoRSS points.<footnote><para>However, the code is not shown in this  paper but contained in the example application</para></footnote>
+      For example, the Atom module contains two templates each consisting of a <code>match</code> and an <code>apply</code> function:
+      <itemizedlist><listitem><para>Atom feed template: <code>match-feed</code> and <code>apply-feed</code> functions.</para></listitem><listitem><para>Atom entry template: <code>match-entry</code> and <code>apply-entry</code> functions.</para></listitem></itemizedlist>
+    </para><para>
+      The functions <code>match-feed</code> and <code>match-entry</code> are respectively checking if the XDM instance is an Atom feed or entry.
+      <programlisting xml:space="preserve">
+ declare function html-templates:match-feed($item) as xs:boolean
+{
+    $item instance of schema-element(atom:feed)
+};       
+        </programlisting>
+      <programlisting xml:space="preserve">
+ declare function html-templates:match-entry($item) as xs:boolean
+{
+    $item instance of schema-element(atom:entry)
+};
+        </programlisting>
+    </para><para>
+      Both of the <code>match</code> functions are associated to <code>apply</code> functions, namely <code>apply-feed</code> and <code>apply-entry</code>.
+      Each of the <code>apply</code> functions shown below is invoking the <code>transform</code> function.
+      More specifically, in <code>apply-feed</code>, the <code>transform</code> function is invoked for each Atom entry in the feed.
+      In <code>apply-entry</code>, the <code>transform</code> function is invoked for all children of an entry.
+      If one of the children is contained in the GeoRSS namespace, it will be transformed by a matching template.
+      <programlisting xml:space="preserve">
+declare function html-templates:apply-feed(
+    $feed as schema-element(atom:feed),
+    $transform as (function(item()*, function(*)+) as item()*),
+    $templates as function(*)+)
+{
+    &lt;html xmlns="http://www.w3.org/1999/xhtml"&gt;
+        &lt;h1&gt;{$feed/atom:title/text()}&lt;/h1&gt;
+        &lt;div id="entries"&gt;{
+         for $entry in $feed/atom:entry
+         return $transform($entry, $templates)
+        }&lt;/div&gt;
+    &lt;/html&gt;
+};  
+</programlisting>
+      <programlisting xml:space="preserve">
+declare function html-templates:apply-entry(
+    $entry as schema-element(atom:entry),
+    $transform as (function(item()*, function(*)+) as item()*),
+    $templates as function(*)+)
+{
+    &lt;div class="atom:content"
+         xmlns="http://www.w3.org/1999/xhtml"&gt;
+      &lt;h2&gt;{$entry/atom:title/text()}&lt;/h2&gt;
+      &lt;div class="atom:content"&gt;
+      {$entry/atom:content/text()}
+      &lt;/div&gt;
+      {for $child in $entry/*
+       return $transform($child, $templates)}
+    &lt;/div&gt;
+};
+</programlisting>
+    </para><para>Finally, the client invokes the <code>transform</code> function for the first time, passing as first argument an instance of an Atom feed to be converted and as second argument the templates as parameters.
+    <programlisting xml:space="preserve">
+(: Display the Atom feed :)
+let $feed := local:get-feed()
+return algo:transform($feed, tohtml:get-templates());      
+    </programlisting>
+    </para></section><section><title>Implementation Considerations</title><para>In the previous section, we have introduce one possible implementation of Translator.
+        In this section, we consider some alternative implementation aspects.
+        <itemizedlist><listitem><para><emphasis>Consideration 1:</emphasis> This pattern is based on functional parametrization therefore XQuery 1.1 is required to implement Translator.</para></listitem><listitem><para><emphasis role="bold">Consideration 2:</emphasis> The <code>transform</code> function can vary.
+              In our implementation, if the given input hasn't been matched by any template, it stops the process. 
+            However, alternative implementation of the <code>transform</code> function may look at the children of the XDM input.
+          </para></listitem><listitem><para><emphasis role="bold">Consideration 3:</emphasis> If an <code>apply</code> function invokes the <code>transform</code> function, it may invoke it with a different implementation of the <code>transform</code> function than the one received as parameter.
+          The same variation can apply for the templates passed as parameter to the <code>transform</code> function.</para></listitem></itemizedlist>
+        </para></section><section><title>Conclusion</title><para>By implementing Use Case 2 (Sec. <xref linkend="application"/>) using Translator, we have improved the application on the following perspectives:
+        <itemizedlist><listitem><para>Independent modules can collaborate easily on the same XDM instance.</para></listitem><listitem><para>Extending transformations is easy. With Translator, templates are loosely coupled. New templates can be introduced without affecting the others.</para></listitem></itemizedlist>
+        
+        In conclusion, use Translator if you want to:
+        <itemizedlist><listitem><para>Bring the XSLT programing paradigm to XQuery.</para></listitem><listitem><para>Transform and/or interpret an heterogeneous XML document with a modular partitioning of the function involved.</para></listitem></itemizedlist>
+     </para></section></section><section xml:id="strategy" xreflabel="5"><title>Strategy</title><para>In this section, we present the design and implementation of parts of the AtomPub server (see Section <xref linkend="application"/>).
+      Specifically, we discuss the module that is responsible for retrieving and storing and Atom entry posted to the server.</para><para>If an Atom entry is posted to the server, the server must store it and add it to the Atom feed.
+      For example, Feeds can be stored in the file system or in a transaction-enabled XML database (i.e. in XQuery collections backed by the database).
+      Coupling the AtomPub server module to a specific storage module is not desirable for the following reasons:
+      <itemizedlist><listitem><para>If the AtomPub server is depending on many storage modules, the code base becomes larger and harder to maintain.</para></listitem><listitem><para>Storage modules often depend on the environment. For example, different databases are available on different platforms.</para></listitem></itemizedlist>
+    </para><para>This problem can be solved by encapsulating each available storage algorithm in a function item.
+      Such a particular implementation of a functionality is called a Strategy.
+      The intent of the Strategy Pattern is as follows:
+      <blockquote><para>Define a family of algorithms, encapsulate each one, and make them interchangeable. Strategy lets the algorithm implementations vary independently from clients that use it. [<xref linkend="bib03"/>].</para></blockquote>
+    </para><section><title>Description</title><para>In order to implement our use case with the Strategy Pattern, we have to decouple the AtomPub operations from the storage operations. 
+        Therefore, we call the AtomPub operations passing a function item encapsulating the storage Strategy as parameter.
+        
+        Strategy defines the following participants (cf. <xref linkend="bib03"/>):
+        <itemizedlist><listitem><para><emphasis role="bold">Strategy: </emphasis>Interface and functionality implicitly defined by the ContextFunction. This interface applies to all ConcreteStrategy implementations.</para></listitem><listitem><para><emphasis role="bold">ConcreteStrategy: </emphasis>A specific implementation of a commonly defined Strategy.</para></listitem><listitem><para><emphasis role="bold">ContextFunction: </emphasis>Is called with a ConcreteStrategy and all required data as parameters. For example, the ContextFunction <code>atompub:post</code> is called with the concrete filesystem storage strategy as parameter.</para></listitem><listitem><para><emphasis role="bold">Context: </emphasis>Imports a ConcreteStrategy to use and passes it to the ContextFunction as parameter.</para></listitem></itemizedlist>
+      </para><para>ContextFunction and ConcreteStrategy interact to implement the Strategy chosen by the server. 
+        A ContextFunction may pass all data required to the ConcreteStrategy at runtime.
+        The client creates and passes a ConcreteStrategy to a ContextFunction.
+      </para><figure xml:id="strategy-motivation" floatstyle="1" xreflabel="4"><mediaobject><imageobject><imagedata format="png" fileref="../../../vol5/graphics/Candillon01/Candillon01-004.png"/></imageobject><caption><para>Structure of the Strategy Pattern.</para></caption></mediaobject></figure><para>In Figure <xref linkend="strategy-motivation"/>, the <code>atompub:post</code> function is responsible for creating a new Atom entry.
+        The <code>create-strategy</code> argument is a function item that encapsulates the functionality to store an entry.
+        Therefore, it represents a concrete Strategy that stores the entry, for example in a collection.
+        Different concrete storage strategies are implemented within different modules that have no dependencies with the AtomPub server module.
+        For instance, atompub:post could use one of these strategies:
+        <itemizedlist><listitem><para><emphasis role="bold">File System Store: </emphasis>implements the storage of entries on the file system. I/O operations on the file system are based on Zorba file API [<xref linkend="bib18"/>].</para></listitem><listitem><para><emphasis role="bold">Collection Store: </emphasis>implements the storage of entries within collections. This implementation is based on the XQuery Data Definition Facility [<xref linkend="bib11"/>].</para></listitem><listitem><para><emphasis role="bold">REST Store: </emphasis>implements a remote storage of entries through a REST API. This store is based on EXPath HTTP Client [<xref linkend="bib17"/>].</para></listitem></itemizedlist>
+      </para><para>
+        Whenever the AtomPub server has to retrieve or create data, it forwards the responsibility to the concrete Strategy which is passed as a function argument.
+      </para></section><section><title>Implementation</title><para>Within this section, we describe one possible implementation of the AtomPub server use case using the Strategy pattern <footnote><para>You can find the code presented in this section in <emphasis role="ital">AtomPub/strategy.xq</emphasis></para></footnote>.</para><para>First, we show how a ConcreteStrategy is chosen and used within the Context, i.e. the main module; in our example application we use the concrete file system storage Strategy. 
+        After that, we present the usage of the ConcreteStrategy within the <code>atompub:post</code> ContextFunction.
+        Finally, we will present the concrete implementation of the <code>create</code> algorithm, i.e. a chosen ConcreteStrategy implemented in the <code>store:create</code> function.</para><para>
+        The code listing below shows the main server module which handles an Atom entry posting from a client.
+        By importing the file system store (not shown in the code snippet below) the main module chooses the concrete store strategy. 
+        It then calls <code>atompub:post</code> passing <code>store:create</code> as the chosen storage strategy.
+        <programlisting xml:space="preserve">
+(: 
+ : Post the entry, the result is the URI of the entry 
+ : using store:create#2 as the storage strategy
+ :)
+let $feed-uri  := "http://www.example.org/blog"
+let $entry-uri := atompub:post($feed-uri, $local:entry, store:create#2)
+(: Get the newly created entry :)
+return store:retrieve-entry($entry-uri)          
+</programlisting>
+      </para><para>
+        The ContextFunction <code>atompub:post</code> shown below is processing an Atom entry posted by a client.
+        It takes three parameters: the feed uri, the entry to be aggregated, and the storage strategy.
+        First, the entry is processed.
+        Then it is passed as parameter to the invoked strategy function item.
+        <programlisting xml:space="preserve">
+(: Post an entry :)
+declare sequential function atompub:post(
+    $feed-uri as xs:string,
+    $entry as schema-element(atom:entry),
+    $create-strategy 
+as (function(xs:string, schema-element(atom:entry)) as item()*)
+) as xs:string
+{
+    (: Prepare the entry :)
+    declare $id := util:uuid();
+    declare $entry-uri := concat($feed-uri, "/", $id);
+    insert nodes (&lt;atom:id&gt;{$id}&lt;/atom:id&gt;,
+                  &lt;atom:link href="{$entry-uri}" rel="self" /&gt;)
+    into $entry;
+    (: Use strategy to store the entry :)
+    $create-strategy($feed-uri, $entry);
+    (: Return the entry URI :)
+    $entry-uri;
+};          
+        </programlisting>
+      </para><para>
+        The common interface of the <code>create-strategy</code> algorithm to create an entry is implicitly defined as <code>function(xs:string, schema-element(atom:entry))</code>.
+        Within XQuery there is no explicit mechanism to define an interface in the manner of an object oriented language like Java.
+        Therefore, one implicit way to define the common interface for the actual Strategy is by definition of the function item parameter within the signature of the ContextFunction.
+        
+        <programlisting xml:space="preserve">
+declare sequential function store:create(
+    $feed-uri as xs:string,
+    $entry as schema-element(atom:entry))
+{
+  declare $filename  := store:get-filename($feed-uri);
+  declare $meta-feed := validate { 
+    fs:read-xml($filename)/atom:feed
+  };
+  declare $entry-uri := 
+    $entry/atom:link[string(@rel) eq "self"]/@href;
+  (: Create the entry in the file system :)
+  fs:write(store:get-filename($entry-uri), $entry, ());
+  (: Update the feed metadata :)
+  insert node &lt;atom:link href="{$entry-uri}" rel="entry" /&gt;
+  as first into $meta-feed;
+  fs:write($filename, $meta-feed, ());
+};          
+          </programlisting>
+        
+        As an example of a concrete implementation of the entry creation strategy we present our sample implementation within the file system store above.
+        The implementation stores the feed metadata in one file and each entry in a separate file.
+        To preserve the order of all contained entries the <code>store:create</code> function has to insert an <code>atom:link</code> element into the feed metadata for each new entry which points to the according entry file.
+      </para></section><section><title>Implementation Considerations</title><para>When implementing the Strategy pattern, the Strategy may be optional [<xref linkend="bib03"/>]. If no Strategy is provided, we execute the default behavior of the function.</para><para>The Strategy implemented in our use case has side effects: it stores data in the file system. Therefore the use of XQuery Scripting Extension depends on the algorithm implementation that needs to be achieved, not on the Strategy pattern itself.</para></section><section><title>Conclusion</title><para>By adapting the Strategy pattern in our example application we gained the following benefits (cf. <xref linkend="bib03"/>):
+        <itemizedlist><listitem><para><emphasis role="bold">Reduced coupling: </emphasis>Using Strategy enabled the AtomPub server module to be loosely coupled with any storage module.</para></listitem><listitem><para><emphasis role="bold">Reusability: </emphasis>All storage modules are defining a family of algorithms for contexts to use and reuse.</para></listitem><listitem><para><emphasis role="bold">Flexibility: </emphasis>Switching code to a different desired behavior can be done by changing only one import statement.</para></listitem></itemizedlist>
+        
+      </para><para>  
+        We encourage usage of the Strategy  pattern when
+        <itemizedlist><listitem><para>you need different implementations of a specific component having a uniform interface. Using Strategies you can simply configure different behaviors.</para></listitem><listitem><para>you want to hide specific implementation details from a module.</para></listitem><listitem><para>you are using several nested <code>if..then..else</code> statements to emulate configurability for different behaviors within functions. Such functions can be refactored using the Strategy pattern.</para></listitem></itemizedlist>
+       </para></section></section><section xml:id="observer" xreflabel="6"><title>Observer</title><para>In this section, we discuss the implementation of Use Case 4: sending a message on Twitter for each new Atom entry that is created on the server.
+    In this use case, the AtomPub module automatically becomes dependent on the module that provides the functionality to send messages on Twitter.
+    A requirement for the AtomPub server module is to enable cooperation with an arbitrary number of modules that exist outside the Atom library.
+    Moreover, the AtomPub server should not depend on any of these extension modules.
+    For example, one could easily think of modules that do logging, spam detection, or email notification.
+    However, all such modules should not be tightly coupled because this prevents from using them in other scenarios.
+    </para><para>The Observer pattern describes how to establish such loosely-coupled collaborations between functions:
+      <blockquote><para>Define a one-to-many dependency between functions so that when one is called, all its dependents are notified automatically [<xref linkend="bib03"/>].</para></blockquote></para><section><title>Description</title><para>When applying the Observer pattern to our use case, we have decoupled collaborative modules by introducing a subscription mechanism for functions to be invoked on particular events in the application.</para><para>The Observer pattern defines the following participants (cf. <xref linkend="bib03"/>):
+        <itemizedlist><listitem><para><emphasis role="bold">Subject: </emphasis> keep track of its observers. Subject notifies its observers when an event occurred.</para></listitem><listitem><para><emphasis role="bold">Observer: </emphasis> function invoked to be notified about an event. Observer receives as parameter information about the event that triggered its invocation.</para></listitem><listitem><para><emphasis role="bold">Client: </emphasis> attach Observers to the Subject.</para></listitem></itemizedlist>
+      </para><para>
+        Observers are attached to the Subject.
+        If a particular event occurs, the subject invokes all its observers and provides each of them with data about the event that triggered the invocation.
+        A Subject can have many Observers, each Observer implementing a different functionality.
+      </para><para>
+        Subjects and Observers are loosely coupled: they can vary independently [<xref linkend="bib03"/>].
+        Consider our use case, adding/removing Observers doesn't affect neither the AtomPub server module nor the Twitter Observer function.
+        Both modules (AtomPub and Twitter) can operate without the other. The Observer pattern is enables collaborations between these two decoupled modules.
+      </para></section><section><title>Implementation</title><para>In this section, we discuss the implementation of the Observer pattern in our application <footnote><para>You can find the code presented in this section in <emphasis role="ital">AtomPub/observer.xq</emphasis></para></footnote>.
+        Figure <xref linkend="observer-structure"/> describes the structure of our Observer implementation.
+        The implementation of the Observer pattern in our application involves the AtomPub server module (the Subject) and the <code>tweet-entry</code> function (the Observer).</para><figure xml:id="observer-structure" floatstyle="1" xreflabel="4"><mediaobject><imageobject><imagedata format="png" fileref="../../../vol5/graphics/Candillon01/Candillon01-005.png"/></imageobject><caption><para>Structure of Observer.</para></caption></mediaobject></figure><para>The <code>on-post</code> function is responsible for attaching new observers to the AtomPub server module (the Subject).
+            The AtomPub server is keeping track of all its observers with the <code>on-post</code> module variable.
+          <programlisting xml:space="preserve">
+(: Hold the observer references :)
+declare variable $atompub:on-post
+  as (function(schema-element(atom:entry)) as item()*)* := ();
+
+(: Add an observer to the post request :)
+declare sequential function atompub:on-post(
+  $o as (function(schema-element(atom:entry)) as item()*))
+{
+    set $atompub:on-post := ($atompub:on-post, $o)
+};            
+          </programlisting>
+      </para><para>In order for the subject to be able to invoke an Observer, all observers must have the same function signature. For instance, in the AtomPub server module, each observer must be a subtype of <code>function(schema-element(atom:entry)) as item()*</code>.
+      The single parameter of the observer, (<code>schema-element(atom:entry)</code>) is an instance of the Atom entry that has been created on the server.
+      </para><para>
+        The <code>tweet-entry</code> function is the Observer we will use in our use case: it will be executed for each new entry created on the server.
+        It takes an Atom entry as parameter and sends a message on Twitter with the following format: entry title, tiny url of the entry.
+        The function signature is compatible with the observer signature defined in the AtomPub server module (<code>function(schema-element(atom:entry)) as item()*</code>).
+        <programlisting xml:space="preserve">
+(: The tweet will be formatted as following: Title + tiny url :)
+declare function twitter:tweet-entry(
+  $entry as schema-element(atom:entry))
+{ 
+  (: Get the title :)
+  let $title := $entry/atom:title/text()
+  (: Create a tiny link :)
+  let $uri := twitter:get-tiny-url(
+    string($entry/atom:link[@rel = "self"]/@href)
+  )
+  (: Send the status on twitter :)
+  return twitter:tweet(concat($title, ": ", $uri))
+};          
+        </programlisting>
+      </para><para>The Client registers the <code>tweet-entry</code> function as an Observer of the AtomPub server module.
+        <programlisting xml:space="preserve">
+(: Register the Twitter observer :)
+atompub:on-post(twitter:tweet-entry#1);        
+      </programlisting>
+      </para><para>
+        When a new Atom entry is added to the server, each Observer is notified and receives the entry as parameter.
+        <programlisting xml:space="preserve">
+(: Notify observers :)
+for $o in $atompub:on-post
+return $o($entry);         
+          </programlisting>
+      </para></section><section><title>Implementation Considerations</title><para>In the previous section, we introduced an implementation of the observer pattern. In this section, we discuss how this implementation can vary:
+        <itemizedlist><listitem><para><emphasis role="bold">Consideration 1: </emphasis>
+              In our implementation, the AtomPub server module is using the XQuery Scripting Extension to keep track of its observers.
+              However, variants of the Observer pattern can be implemented using only the XQuery 1.1 core specification.
+              For instance, an alternative implementation could access Observers as function parameter:
+              <programlisting xml:space="preserve">
+let $observers := twitter:tweet-entry#1
+return
+  atompub:post($feed-uri, $entry, $observers)          
+        </programlisting>
+          </para></listitem><listitem><para><emphasis role="bold">Consideration 2: </emphasis> Notifying observers has a performance cost in the application.
+          Therefore, when implementing Observer, the event granularity must be carefully designed in order to avoid a large number of useless event notification.</para></listitem><listitem><para><emphasis role="bold">Consideration 3: </emphasis>
+            Observers producing side-effects may trigger an infinite amount of event notifications.
+            This can happen if the observer code is triggering the same event that triggered its own invocation.
+            If an Observer implementor is writing side-effects, she must avoid this scenarios.
+          </para></listitem><listitem><para><emphasis role="bold">Consideration 4: </emphasis> 
+            Observers should be independent of each other.
+            For instance, consider a spam checker observer that removes a newly created Atom entry because the author's e-mail address is blacklisted.
+            In such situation, all observers become dependent on the outcome of the spam checker observer.
+            For example, they might process an entry that has already been removed by the spam checker or they could have already sent a notification for a spam post.</para></listitem></itemizedlist>
+      </para></section><section><title>Conclusion</title><para>
+        By using Observer to implement Use Case 4, the application has improved in the following perspectives:
+        <itemizedlist><listitem><para>The behavior the AtomPub server has been extended, by sending messages to Twitter without any changes to the code of the AtomPub server.</para></listitem><listitem><para>The AtomPub server module can collaborate with an arbitrary number of functions in the application but stays loosely coupled.</para></listitem></itemizedlist>
+      </para><para>
+        In conclusion, use the Observer pattern if you want to:
+        <itemizedlist><listitem><para>Use the Publish/Subscribe messaging paradigm within XQuery.</para></listitem><listitem><para>To keep state consistency between independent entities in the application.</para></listitem></itemizedlist>
+      </para></section></section><section xml:id="conclusion" xreflabel="7"><title>Conclusion &amp; Outlook</title><para>In this paper, we motivated the need for XQuery design patterns.
+      The reason therefore is that there exist more and more large XQuery applications most of them showing symptoms which are well-known in the object-oriented world and have there been solved using design patterns.
+      In more detail, we have presented four design problems along the lines of a running example.
+      Moreover, we have shown how each of these problems can be solved by applying a particular design pattern.
+    </para><para>We have chosen to use an AtomPub client and server implementation as a running example.
+      For the AtomPub client, we used the Chain of Responsibility (see Sec. <xref linkend="cor"/>) which is using several loosely coupled modules to construct and send an HTTP request.
+      Translator (see Sec. <xref linkend="pm"/>) helped us to provide a flexible and extensible HTML rendering engine of Atom entries.
+      For the AtomPub server, the Strategy Pattern (Sec. <xref linkend="strategy"/>) allows for configurable storage algorithms by exhibiting higher-order functions.
+      Last, the Observer Pattern (Sec. <xref linkend="observer"/>) provided a way to register services (e.g. Twitter notification) which are automatically notified if a state of an observed object changes.</para><para>
+      Generally, the most important aspect of each of the patterns presented in this paper is to decouple XQuery functions and modules.
+      For instance, in the Chain of Responsibility, we achieved this by removing dependencies between functions by agreeing on a common XML Schema element (i.e. the request item).
+      The Strategy and Observer patterns both leverage higher-order functions as a decoupling mechanism.
+    </para><para>
+      However, the four patterns presented in this paper are only a starting point.
+      In the future, we want to develop an extensive catalog of reusable design solutions for the most recurring XQuery design problems.
+      Also, we want to classify these design patterns according to
+      (1) language features (i.e. pure functional XQuery, XQuery Update, and XQuery Scripting) and
+      (2) categories (i.e. creational, structural, and behavioral).  
+    </para><para>
+      Finally, we hope that XQuery design patterns help the XQuery community to capture recurring design problems and develop extensible XQuery applications.
+      Therefore, we started to publish a pattern catalog online at <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://patterns.28msec.com/</link>.
+      We are open and very interested in comments, suggestions, and other contributions to our effort and this catalog.
+    </para></section><bibliography><title>Bibliography</title><bibliomixed xml:id="bib01" xreflabel="Cooper2000">J. W. Cooper. <emphasis role="ital">Java design patterns: a tutorial</emphasis>. Addison-Wesley Longman Publishing Co., Inc., Boston, MA, USA, 2000.</bibliomixed><bibliomixed xml:id="bib02" xreflabel="Cooper2002">J. W. Cooper. <emphasis role="ital">C# design patterns: a tutorial</emphasis>. Addison-Wesley Longman Publishing Co., Inc., Boston, MA, USA, 2002.</bibliomixed><bibliomixed xml:id="bib03" xreflabel="Gamma1994">E. Gamma, R. Helm, R. Johnson, and J. M. Vlissides. <emphasis role="ital">Design Patterns: Elements of Reusable Object-Oriented Software</emphasis>. Addison-Wesley Professional, illustrated edition edition, November 1994.</bibliomixed><bibliomixed xml:id="bib04" xreflabel="DeMarco96">T. DeMarco. <emphasis role="ital">Book review: Design patterns: Elements of reusable object-oriented software</emphasis>. IEEE Software Magazine, 1996. <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.systemsguild.com/GuildSite/TDM/Gamma.html</link>.</bibliomixed><bibliomixed xml:id="bib05" xreflabel="AntoyHanus02FLOPS">S. Antoy and M. Hanus. <emphasis role="ital">Functional logic design patterns</emphasis>. In 6th Int'l Symp, on Functional and Logic Programming (FLOPS'02), pages 67-87, Aizu, Japan, 9 2002. Springer LNCS 2441. doi: <biblioid class="doi">10.1007/3-540-45788-7_4</biblioid>.</bibliomixed><bibliomixed xml:id="bib06" xreflabel="Narbel2007">P. Narbel. <emphasis role="ital">A Multiparadigmatic Study of the Object-Oriented Design Patterns</emphasis>. 2007.</bibliomixed><bibliomixed xml:id="bib07" xreflabel="XQ11">W3C. XQuery 1.1: <emphasis role="ital">An XML Query Language</emphasis>. Website, 2009. <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/xquery-11/</link>.</bibliomixed><bibliomixed xml:id="bib08" xreflabel="Liu2005">Liu, Z. H., Krishnaprasad, M., and Arora, V. <emphasis role="ital">Native xquery processing in oracle xmldb</emphasis>. In SIGMOD '05: Proceedings of the 2005 ACM SIGMOD international conference on Management of data (New York, NY, USA, 2005), ACM, pp. 828-833. doi: <biblioid class="doi">10.1145/1066157.1066259</biblioid>.</bibliomixed><bibliomixed xml:id="bib09" xreflabel="Nicola2005">Nicola, M., and van der Linden, B. <emphasis role="ital">Native XML Support in db2 Universal Database</emphasis>. In VLDB '05: Proceedings of the 31st international conference on Very large data bases (2005), VLDB Endowment, pp. 1164-1174.</bibliomixed><bibliomixed xml:id="bib10" xreflabel="Brian2006">Brian, D. <emphasis role="ital">The Definitive Guide to Berkeley DB XML</emphasis>. Apress, Berkely, CA, USA, 2006.</bibliomixed><bibliomixed xml:id="bib11" xreflabel="XQUF">W3C. <emphasis role="ital">XQuery Update Facility 1.0</emphasis>. Website, 2009. <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/xquery-update-10/</link>.</bibliomixed><bibliomixed xml:id="bib12" xreflabel="XQSE">W3C. <emphasis role="ital">XQuery Scripting Extension 1.0</emphasis>. Website, 2008. <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/xquery-sx-10/</link>.</bibliomixed><bibliomixed xml:id="bib13" xreflabel="XQFT">W3C. <emphasis role="ital">XQuery and XPath Full Text 1.0</emphasis>. Website, 2010. <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/xpath-full-text-10/</link>.</bibliomixed><bibliomixed xml:id="bib14" xreflabel="Kaufmann2009">Kaufmann, M., and Kossmann, D. <emphasis role="ital">Developing an Enterprise Web Application in XQuery</emphasis>. In ICWE (2009), vol. 5648 of Lecture Notes in Computer Science, Springer, pp. 465-468. doi: <biblioid class="doi">10.1007/978-3-642-02818-2_39</biblioid>.</bibliomixed><bibliomixed xml:id="bib15" xreflabel="Sausalito2010">28msec Inc. <emphasis role="ital">Sausalito Developer Guide</emphasis>. Website, 2010. <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://sausalito.28msec.com</link>.</bibliomixed><bibliomixed xml:id="bib16" xreflabel="RFC5023">Gregorio, J., and de hOra, B. <emphasis role="ital">The Atom Publishing Protocol</emphasis>. RFC 5023 (Proposed Standard), Oct. 2007. <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.ietf.org/rfc/rfc5023.txt</link>.</bibliomixed><bibliomixed xml:id="bib17" xreflabel="HTTPClient">Georges, F. <emphasis role="ital">HTTP Client Module</emphasis>. Candidate, EXPath, January 2010. <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.expath.org/modules/http-client.html</link>.</bibliomixed><bibliomixed xml:id="bib18" xreflabel="XQDDF">FLWOR Foundation <emphasis role="ital">XQuery Data Definition Facility</emphasis>. <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.zorba-xquery.com/doc/zorba-latest/zorba/html/XQDDF.html</link>.</bibliomixed><bibliomixed xml:id="bib19" xreflabel="Translator">Kühne, T. <emphasis role="ital">The Translator Pattern - External Functionality with Homomorphic Mappings</emphasis>. TOOLS '97: Proceedings of the Tools-23: Technology of Object-Oriented Languages and Systems, 1997.</bibliomixed><bibliomixed xml:id="bib20" xreflabel="XQueryInAction">W3C. <emphasis role="ital">Examples of XML Query In Action</emphasis>. Website, 2010. <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/XML/Query/#examples</link></bibliomixed></bibliography></article>

@@ -1,0 +1,1132 @@
+<?xml version="1.0" encoding="UTF-8"?><article xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink" version="5.0-subset Balisage-1.3"><title>Multilevel Versioning</title><info><confgroup><conftitle>Balisage: The Markup Conference 2014</conftitle><confdates>August 5 - 8, 2014</confdates></confgroup><abstract><para>
+                <quote>Straight</quote> versioning systems for XML documents that produce a new
+                version for every save, such as eXist DB's versioning extension, aren't as useful as
+                they could be. They produce far too many versions, of which far too few are
+                significant, and so each significant version is very hard to find or use. An old
+                version, for example, cannot be easily located or reliably referenced. Adding
+                check-out and check-in functionality would help alleviate some of the problems but
+                not solve them.</para><para>In this paper, I propose adding a multilevel, XML-based versioning abstraction on
+                top of this <quote>straight</quote> versioning system, where any new versions are
+                placed on different levels or stages, based on check-out and check-in operations
+                that move the resources up or down in the versioning structure.</para><para>The multilevel versioning is achieved using several different areas within the
+                system, each of which in themselves is version handled using the system's
+                    <quote>straight</quote> versioning extension and where each save produces a
+                system address to a specific (straight) version in that area. These addresses are
+                kept track of and mapped to the multilevel versions in an XML-based version mapping
+                file when a resource is checked in or out, as defined by the business rules for the
+                abstraction.</para></abstract><author><personname><firstname>Ari</firstname><surname>Nordström</surname></personname><personblurb><para>Ari Nordström is the resident XML
+                    guy at Condesign AB in Göteborg, Sweden. His information structures and
+                    solutions are used by Volvo Cars, Ericsson, and many others. His favourite XML
+                    specification remains XLink so quite a few of his frequent talks and
+                    presentations on XML focus on linking and various aspects of reuse. </para><para>Ari spends some of his spare time
+                    playing with old 35/70 mm film projectors and has a respectable collection of
+                    Dolby cinema processors, which goes some way towards explaining why he wanted to
+                    automate cinemas using XML, once upon a time. He has now fully accepted that
+                    it's too late.</para></personblurb></author><legalnotice><para>Ari Nordström © 2014</para></legalnotice><keywordset role="author"><keyword>Reuse</keyword><keyword>Modularisation</keyword><keyword>Versioning</keyword><keyword>eXist-DB</keyword><keyword>XML databases</keyword></keywordset></info><section xml:id="section_cjv_bnb_5n"><title>Intro</title><section><title>Modularised XML Example</title><para>Let's say we have a modularised XML document. It consists of a number of linked
+                resources, XML or otherwise:</para><figure xml:id="figure_qfc_k4b_5n"><title>Document Tree</title><mediaobject><imageobject><imagedata fileref="../../../vol13/graphics/Nordstrom01/Nordstrom01-001.png" width="500px"/></imageobject></mediaobject></figure><para>Each resource<!-- (the XML modules and image, in this case)--> is version handled
+                separately, and every significant change to a resource will result in a new version
+                of that resource<footnote><para>Using a check-out/check-in procedure that bumps up the version with every
+                        check-in.</para></footnote>. Many of the resources are reused in other documents as well. For
+                example, the three warnings are used in many documents and might be edited by a
+                separate legal team. </para><para>Furthermore, each link includes not only the resource's name but also its exact
+                version. This means that while the document pictured above may use version 12 of
+                    <emphasis>Warning 3</emphasis>, another document may have linked to a later
+                version of that same warning, say version 18. This means that, in a version handling
+                system, any modularised document such as the one above can be precisely recreated
+                later, using the right versions of each participating resource, as every link
+                includes both name and version.</para></section><section xml:id="section_ksr_3bh_5n"><title>The Versioning Module in eXist</title><para>I've implemented the above modularisation and version handling in a document
+                management system based on an XML editor coupled with a SQL database and a document
+                management layer, but I'd very much like to implement something like that in an
+                XML-based database. Something like eXist.</para><para>I love eXist. It's extremely powerful: it supports handling and storing XML as XML
+                using XML technologies from XSLT to XQuery, XProc to XForms, and more, which means
+                that geeks such as yours truly who are markup-centric rather than code-centric<footnote><para>A nicer way of grouping together those of us who think <quote>Java</quote>
+                        is really a drink.</para></footnote> can do a lot of cool stuff in eXist using those technologies and nothing
+                else.</para><para>There is a simple versioning module available for eXist. It allows you to version
+                handle your stored resources, basically adding a new version whenever you hit Save.
+                It works quite well for what it is intended, well but there are problems:</para><itemizedlist><listitem><para>You get a lot of versions, most of which are irrelevant.</para></listitem><listitem><para>It is therefore difficult to identify the relevant versions.</para></listitem><listitem><para>There's no concept of a workflow beyond that save operation, no check-outs
+                        or check-ins.</para></listitem><listitem><para>Addressing the stored versions is somewhat difficult.</para></listitem><listitem><para>The version number itself is just an integer number, with a single counter
+                        for everything version handled. </para></listitem></itemizedlist><para>A more code-centric markup geek would probably write a better versioning module
+                using Java or some such language, adding basic functionality for check-outs and
+                check-ins, metadata for versions, etc. I'm not one of them, unfortunately, so I need
+                to make do with what I have, which is XML and the XML-based technologies available
+                to me in eXist.</para></section><section xml:id="section_ss5_jbh_5n"><title>The <quote>Use Latest</quote> Problem</title><para>There are problems when updating a modularised document such as the one
+                above:</para><para>Let's say, for example, that the link to <emphasis>Warning 3</emphasis> needs to
+                be updated from the old version 12 to the latest version, 18. It should be a simple
+                matter of checking out <emphasis>Chapter 2</emphasis>, updating the link, and
+                checking in the updated chapter again.</para><para>But this means that the root document's (<emphasis>Root doc</emphasis>'s) link to
+                    <emphasis>Chapter 2</emphasis> needs to be updated as well, which entails
+                checking out the root, updating the link, and checking in the root again.</para><para>This causes several potential problems:</para><itemizedlist><listitem><para>Since <emphasis>Chapter 2</emphasis>might have been used elsewhere, what
+                        if it had been <emphasis>edited</emphasis> elsewhere? What if that edit was
+                        more recent, meaning that <emphasis>Chapter 2</emphasis> had been updated
+                        after our example document was first put together, with <emphasis>Warning
+                            3</emphasis> in version 12 inserted into <emphasis>Chapter 2</emphasis>?
+                        This would mean that <emphasis>Chapter 2</emphasis> might contain
+                        incompatible changes. </para></listitem><listitem><para>The problem is the same for any ancestor module, of course. They might
+                        have been edited and updated since the document at hand was published and
+                        could therefore include incompatible content.</para></listitem><listitem><para>That later version of <emphasis>Chapter 2</emphasis> might, of course, now
+                        also include new links in addition to in-module content.</para></listitem><listitem><para>It would then not be possible to update <emphasis>Chapter 2</emphasis> to
+                        include a new version of the <emphasis>Warning 3</emphasis> link without
+                        immediately creating a problem for the other documents using
+                            <emphasis>Chapter 2</emphasis> once someone needed to update
+                            <emphasis>them</emphasis>.</para></listitem></itemizedlist><para>So, with all this in mind, what if one always wanted to use the latest versions of
+                some of the resources but not others? </para><para>Leaf nodes such as images are an obvious choice; it's perfectly reasonable to,
+                say, always require the latest approved versions of warnings. In our example, the
+                warnings are authored by a separate legal team, so it makes sense that the latest
+                version approved is always the one to be used. It would then also make sense to
+                automate the handling of links, automatically updating such a link to the latest
+                version when editing the rest of the document.</para><para>Which means that we'll run into the problems outlined above, that is, how to
+                (automatically) update the ancestor's link versions, considering that their contents
+                (links) have potentially been updated with incompatible content. A change in
+                contents means that a new version must result.</para><para>The problem here is, in the words of Eliot Kimber, <quote>bad configurations
+                    management</quote>
+                <footnote><para>His comment was given at Balisage 2013, in response to a description of
+                        the problems involved in updating a document link tree such as the one in
+                            <xref linkend="figure_qfc_k4b_5n"/>. It's an insightful comment, and one that
+                        directly caused this paper to come into being. Incidentally, the paper
+                        presented, <emphasis>Semantic Profiling</emphasis> (<xref linkend="id-semantic-profiling"/>), also used URNs.</para></footnote>. The document link tree is allowed to be updated freely and
+                uncontrollably, creating a situation that is next to impossible to handle. More
+                specifically, the idea of always using the latest version does not play well with
+                the version management; every resource is updated separately and independently. </para><para>From a configuration management point of view, all of the resource versions above
+                are equal; no single version is more important than another. There are no workflow
+                statuses (<quote>editing</quote>, <quote>reviewing</quote>, <quote>approved</quote>,
+                etc) for the participating resources. <emphasis>Nothing</emphasis> indicates what
+                version, if any, is approved. In other words, is updating from version 12 to version
+                18 OK in the first place? There is no scope, so always wanting the latest warning
+                (or image or some other resource) is a matter of safeguarding against change.</para><para>You want version handling so you can recreate the exact version of your
+                modularised document later, but at the same time, you want to be able to easily
+                update links to certain leaf nodes without the hassle of updating every parent link,
+                all the way up to the root. Preferably, you want the system to do the updating for
+                you, automatically, but the <quote>stupid</quote> version handling that handles
+                every resource separately gets in the way, <emphasis>because</emphasis> the
+                resources are reused everywhere.</para><para>This, basically, is what I call the <quote>use latest</quote> problem.</para></section></section><section xml:id="section_m1l_434_5n"><title>Better Version Management for eXist</title><para>To introduce version handling that is a bit more advanced than the versioning module
+            in eXist, I propose the following:</para><para>Split the versioning of resources into different areas<footnote><para>Collections, in eXist.</para></footnote>, where a <quote>stable</quote> area will only ever contain approved versions
+            of documents, that is, the resources that make up a modularised document. This area I
+            rather appropriately call <emphasis>Stable</emphasis>. When a stable document is
+            updated, it is first copied, or checked out, into an area intended for editing. I call
+            this area <emphasis>Stage 1</emphasis>.</para><!--Improve image?--><figure><title>Versioning Split Into Two Areas</title><mediaobject><imageobject><imagedata fileref="../../../vol13/graphics/Nordstrom01/Nordstrom01-002.png" width="500px"/></imageobject></mediaobject></figure><para>Versioning, then, is represented using a tree structure with two main areas:</para><itemizedlist><listitem><para><emphasis>Stable</emphasis> is exactly what it sounds like: stable. It
+                    contains the <quote>major</quote> versions of resources and
+                        <quote>documents</quote>, that is, groups of resources.</para></listitem><listitem><para>
+                    <emphasis>Stage 1</emphasis> is intended for editing. An author can check out an
+                    individual resource from <emphasis>Stable</emphasis> to <emphasis>Stage
+                        1</emphasis> to work on the resource. He may also be allowed to check out a
+                    whole document.</para></listitem></itemizedlist><para>Both areas are actual collections in the system, version handled using eXist's
+            versioning extension module. In other words, every <emphasis>Save</emphasis> in
+            respective collection results in a new version of the old one (offsetting each save
+            using a diff against a first, base, version).</para><para>Each area, then, is versioned independently from the other. They are designed to be
+            used together, however:</para><itemizedlist><listitem><para>
+                    <emphasis>Stable</emphasis> implies integer versions: 1, 2, 3, etc.</para></listitem><listitem><para>
+                    <emphasis>Stage 1</emphasis> implies decimal versions: 1.1, 1.2, 1.3, etc; 2.1,
+                    2.2, 2.3, etc.</para></listitem></itemizedlist><section xml:id="section_ptj_zk4_5n"><title>Save, Check-in and Check-out</title><para>Direct <emphasis>Save</emphasis> operations are only allowed in <emphasis>Stage
+                    1</emphasis>. In other words, they are edited, saved and versioned there, and
+                need to be checked in to <emphasis>Stable</emphasis> to cause a new
+                    <emphasis>Stable</emphasis>. <emphasis>Stable</emphasis> resources cannot be
+                edited directly.</para><para>
+                <emphasis>Stable</emphasis> resources can be checked out to <emphasis>Stage
+                    1</emphasis> to be edited, however, in which case they are locked in
+                    <emphasis>Stable</emphasis> while awaiting a check-in from <emphasis>Stage
+                    1</emphasis>. A check-in from <emphasis>Stage 1</emphasis> to
+                    <emphasis>Stable</emphasis> means that the <emphasis>Stage 1</emphasis> resource
+                is locked from further edits.</para><note><para>The locking of files merits a discussion. See <xref linkend="section_f5d_ykw_l4"/>.</para></note><para>Check-out and check-in operations are as follows:</para><itemizedlist><listitem><para>Check-out from <emphasis>Stable</emphasis> is a copy to <emphasis>Stage
+                            1</emphasis>. The check-out causes a new file version of the resource in
+                            <emphasis>Stage 1</emphasis>.</para></listitem><listitem><para>Check-in from <emphasis>Stage 1</emphasis> is a copy to
+                            <emphasis>Stable</emphasis>, locking the resource in <emphasis>Stage
+                            1</emphasis> and causing a new file version of the resource in
+                            <emphasis>Stable</emphasis>.<!-- This requires <quote>project</quote> permissions.--></para></listitem></itemizedlist></section><section xml:id="section_csw_2m4_5n"><title>Version Abstraction</title><para>While both areas are version handled using the standard versioning system in the
+                respective collection, they are connected to each other only implicitly. There is
+                therefore a need to create version abstractions for the resources being copied,
+                logically connecting the two areas. A basic URN namespace such as the following
+                should be enough:</para><programlisting xml:space="preserve">urn:x-resource:r1:&lt;doc-number&gt;:&lt;lang&gt;:&lt;stable&gt;:&lt;stage1&gt;</programlisting><para>where <code>&lt;stable&gt;</code> is the <quote>integer version</quote> in
+                    <emphasis>Stable</emphasis> and <code>&lt;stage1&gt;</code> the <quote>decimal
+                    version</quote> in <emphasis>Stage1</emphasis>
+                <footnote><para>Both are integers from <quote>1</quote> and up.</para></footnote>. <code>&lt;lang&gt;</code> is a four-position<footnote><para>Plus a position for the hyphen.</para></footnote> language-and-country code for the resources that require one. For
+                example, version 2.1 of a British English document 123456 might be identified like
+                so:</para><programlisting xml:space="preserve">urn:x-resource:r1:123456:en-GB:2:1</programlisting><para>The URNs can be kept track of using an XML-based URN/URL map document, like
+                so:</para><programlisting xml:space="preserve">&lt;resources&gt;
+  &lt;resource&gt;
+    &lt;urn&gt;&lt;/urn&gt;
+    &lt;url&gt;&lt;/url&gt;
+  &lt;/resource&gt;
+  ...
+&lt;/resources&gt;</programlisting><para>A resource mapping document is useful, as links can be made to resource names (and
+                specific versions) rather than addresses. In a reasonably well-indexed XML database,
+                looking up a URN to find its corresponding URL should be quick, even with many
+                resources and a large map.</para></section><section xml:id="section_rs1_vm4_5n"><title>Version Mapping XML</title><para>The resource maps need to do more than just map a name to an address, however.
+                Every version, integer or decimal, of every URN needs to not only be mapped to a
+                URL, but also to be given a <emphasis>context</emphasis>, indicating a relation
+                between the two staging areas and, thus, between the different versions of the same
+                resource.</para><para>The URN schema implies a structure for each resource version. Something like this<footnote><para>Leaving, for the moment, out the <code>lang</code> attribute and element
+                        content examples.</para></footnote>:</para><programlisting xml:space="preserve">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;resource&gt;
+    
+    &lt;!-- Base URN --&gt;
+    &lt;base&gt;&lt;/base&gt;
+    
+    &lt;!-- Stable version 1 --&gt;
+    &lt;version&gt;
+        &lt;rev&gt;&lt;/rev&gt;
+        &lt;url&gt;&lt;/url&gt;
+        
+        &lt;!-- Stage 1 (decimal versions) --&gt;
+        &lt;version&gt;
+            &lt;rev&gt;&lt;/rev&gt;
+            &lt;url&gt;&lt;/url&gt;
+        &lt;/version&gt;
+        &lt;version&gt;
+            &lt;rev&gt;&lt;/rev&gt;
+            &lt;url&gt;&lt;/url&gt;
+        &lt;/version&gt;
+    &lt;/version&gt;
+    
+    &lt;!-- Stable version 2 --&gt;
+    &lt;version&gt;
+        &lt;rev&gt;&lt;/rev&gt;
+        &lt;url&gt;&lt;/url&gt;
+        
+        &lt;!-- Stage 1 (decimal versions) --&gt;
+        &lt;version&gt;
+            &lt;rev&gt;&lt;/rev&gt;
+            &lt;url&gt;&lt;/url&gt;
+        &lt;/version&gt;
+        &lt;version&gt;
+            &lt;rev&gt;&lt;/rev&gt;
+            &lt;url&gt;&lt;/url&gt;
+        &lt;/version&gt;
+    &lt;/version&gt;
+&lt;/resource&gt;</programlisting><para>I've included two <emphasis>Stable</emphasis> versions, each of them inside a
+                    <code>version</code> tag, and two <emphasis>Stage 1</emphasis> or decimal
+                versions for each <emphasis>Stable</emphasis> version. This is a nice, recursive
+                    <code>version</code> structure (and yes, there is a reason for it; read
+                on).</para><para>Each <code>rev</code> identifies an actual stored version (integer or decimal) of
+                a resource, with the resource's URL in <code>url</code>. On
+                    <emphasis>Stable</emphasis> level, there's only a single <code>rev</code> inside
+                    <code>version</code>, but it may contain an unlimited number of decimal
+                versions.</para><para>A save operation in <emphasis>Stage 1</emphasis> causes a new version of the
+                resource to be stored in that area. A new decimal-level <code>version</code>
+                structure is added to the mapping document, with a new <code>rev</code> (counted up
+                a notch) and a URL to the decimal-level resource file.</para><para>When a <emphasis>Stage 1</emphasis>, or decimal-level, resource is checked in, the
+                resource is copied into the <emphasis>Stable</emphasis> area, causing a new (eXist)
+                version of the resource to be stored in that area. A new integer-level
+                    <code>version</code> is added to the mapping document, with a new
+                    <code>rev</code> (counted up a notch) and a URL to the integer-level resource
+                file.</para><para>Using the mapping document and a simple XPath, any version of the base URN can
+                easily be retrieved later.</para></section><section xml:id="section_xk1_pp4_5n"><title>Translations</title><para>Resources, of course, are translated to other languages all the time, so a
+                versioning system needs to be able to keep track of the translations, clearly
+                identifying which translation is based on which original, etc.  </para><section xml:id="section_mvh_pp4_5n"><title>Translations As Renditions</title><para>A document management system will frequently require writing the actual
+                    content in one language (the <quote>master language</quote>) only and then
+                    translating that content into whatever target languages that are needed. This is
+                    mostly a design decision, based partly on the authors' preferences and location,
+                    but also around the notion that a single language will be used to drive the
+                    contents (and versions) forwards, thus minimising problems arising from allowing
+                    different languages to <quote>take turns</quote> in developing the content<footnote><para>This is a common occurrence in traditional, desktop-based authoring.
+                            Without systems support, a few translations and new versions of the
+                            documentation are enough for the writers to lose track of which version
+                            that contains the latest information.</para></footnote>.</para><para>Such a system will regard the master-language document as the original bearer
+                    of content and the translations simply as <emphasis>renditions</emphasis> of
+                    that original. A typical workflow might be as follows:</para><orderedlist><listitem><para>Update the master-language document through a couple of versions, then
+                            lock an approved version.</para></listitem><listitem><para>Translate the approved version to any required target languages. These
+                            translations are seen as renditions of that particular master-language
+                            version.</para></listitem><listitem><para>Update the master-language document again, based on the approved and
+                            translated version from step 1, going through the required number of
+                            versions until done. Lock the approved version.</para></listitem><listitem><para>Retranslate the new approved version to any required target
+                            languages.</para><note><para>Typically, there is no way to know what differences there are
+                                between this new approved version and the old one. In modularised
+                                documents, however, some modules may not need updates and will have
+                                their versions and any translations unchanged.</para></note></listitem></orderedlist><para>This works well in some contexts but there are some rather well-defined
+                    problems:</para><itemizedlist><listitem><para>In a large, decentralised organisation, it might be difficult to
+                            always author in a single master language. Market-specific requirements
+                            frequently drive documentation forwards, and often in a market where the
+                            available writers would much prefer their own language.</para></listitem><listitem><para>When translating to certain languages, an intermediate language is
+                            often desired to keep costs to a minimum due to the availability of
+                            translators. It is, for example, much easier to find a good translator
+                            working from English to Simplified Chinese than from Swedish to
+                            Simplified Chinese.</para></listitem></itemizedlist><para>Which brings us back to the URN schema representing a resource:</para><programlisting xml:space="preserve">urn:x-resource:r1:&lt;doc-number&gt;:&lt;lang&gt;:&lt;stable&gt;:&lt;stage1&gt;</programlisting><para>I use a similar URN schema to identify originals and their translations in a
+                    system that requires the authors to write using a predefined master language and
+                    then translating an approved version to any required target languages. So if
+                        <code>urn:x-resource:123456:en-GB:18</code> is the original, all of these
+                    are renditions of that original:</para><itemizedlist><listitem><para>
+                            <code>urn:x-resource:123456:sv-SE:18</code>
+                        </para></listitem><listitem><para>
+                            <code>urn:x-resource:123456:es-ES:18</code>
+                        </para></listitem><listitem><para>
+                            <code>urn:x-resource:123456:pl-PL:18</code>
+                        </para></listitem><listitem><para>
+                            <code>urn:x-resource:123456:fi-FI:18</code>
+                        </para></listitem><listitem><para>
+                            <code>urn:x-resource:123456:en-US:18</code>
+                        </para></listitem></itemizedlist><para>Etc. But here's the kicker: there's nothing here to identify one as the master
+                    and the others as translations, other than my introductory sentence. We
+                    shouldn't have to define a master language, not if the versioning system can
+                    keep track of a series of URNs, so rather than actually defining one, it should
+                    be better to define a semantic resource:</para><para>
+                    <code>urn:x-resource:123456</code>
+                </para><para>Then add a language to render the <quote>base content</quote> with:</para><para>
+                    <code>urn:x-resource:123456:en-GB</code>
+                </para><para>And versioning to identify changes over time:</para><para>
+                    <code>urn:x-resource:123456:en-GB:18</code>
+                </para><para>If we accept that the underlying semantic resource can be updated using any
+                    rendering language, then this one is a perfectly acceptable updated version to
+                    version 18:</para><para>
+                    <code>urn:x-resource:123456:fi-FI:19</code>
+                </para><para>It happens to be rendered in Finnish, but <quote>19</quote> is the next
+                    version of the semantic resource according to the URN schema, above.</para></section><section xml:id="section_vqb_yp4_5n"><title>Version Mapping With Translations</title><para>Keeping the basics of the (semantic) resource and the URN schema representing
+                    it in mind, here's a mapping document updated with language handling:</para><programlisting xml:space="preserve">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;resource&gt;
+    
+    &lt;!-- Base URN --&gt;
+    &lt;base&gt;&lt;/base&gt;
+    
+    &lt;!-- Stable version 1 --&gt;
+    &lt;version&gt;
+        &lt;rev&gt;&lt;/rev&gt;
+        &lt;url lang="en-GB"&gt;&lt;/url&gt;
+        
+        &lt;!-- 1st decimal version --&gt;
+        &lt;version&gt;
+            &lt;rev&gt;&lt;/rev&gt;
+            &lt;url&gt;&lt;/url&gt;
+        &lt;/version&gt;
+        
+        &lt;!-- 2d decimal version --&gt;
+        &lt;version&gt;
+            &lt;rev&gt;&lt;/rev&gt;
+            &lt;url lang="en-GB"&gt;&lt;/url&gt;
+            &lt;url lang="sv-SE"&gt;&lt;/url&gt;
+            &lt;url lang="fi-FI"&gt;&lt;/url&gt;
+        &lt;/version&gt;
+    &lt;/version&gt;
+    
+    &lt;!-- Stable version 2 --&gt;
+    &lt;version&gt;
+        &lt;rev&gt;&lt;/rev&gt;
+        &lt;url lang="en-GB"&gt;&lt;/url&gt;
+        &lt;url lang="sv-SE"&gt;&lt;/url&gt;
+        &lt;url lang="fi-FI"&gt;&lt;/url&gt;
+        
+        &lt;!-- Stage 1 (decimal versions) --&gt;
+        &lt;version&gt;
+            ...
+        &lt;/version&gt;
+    &lt;/version&gt;
+&lt;/resource&gt;</programlisting><para>Let's walk through this. The first <emphasis>Stable</emphasis> version happens
+                    to be authored in English (UK):</para><programlisting xml:space="preserve">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;resource&gt;
+    
+    &lt;!-- Base URN --&gt;
+    &lt;base&gt;&lt;/base&gt;
+    
+    &lt;!-- Stable version 1 --&gt;
+    &lt;version&gt;
+        &lt;rev&gt;&lt;/rev&gt;
+        &lt;url lang="en-GB"&gt;&lt;/url&gt;
+        
+        &lt;!-- 1st decimal version --&gt;
+        ...
+    &lt;/version&gt;
+    ...
+&lt;/resource&gt;
+</programlisting><para>Then follow two decimal versions. Translations are made based on the second
+                    saved iteration because the original language version is considered to be
+                    ready:</para><programlisting xml:space="preserve">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;resource&gt;
+    
+    ...
+    
+    &lt;!-- Stable version 1 --&gt;
+    &lt;version&gt;
+        ...
+        
+        &lt;!-- 1st decimal version --&gt;
+        &lt;version&gt;
+            ...
+        &lt;/version&gt;
+        
+        &lt;!-- 2d decimal version --&gt;
+        &lt;version&gt;
+            &lt;rev&gt;&lt;/rev&gt;
+            &lt;url lang="en-GB"&gt;&lt;/url&gt;
+            &lt;url lang="sv-SE"&gt;&lt;/url&gt;
+            &lt;url lang="fi-FI"&gt;&lt;/url&gt;
+        &lt;/version&gt;
+    &lt;/version&gt;
+    
+    &lt;!-- Stable version 2 --&gt;
+    ...
+&lt;/resource&gt;
+</programlisting><para>The translations (and original) are then checked in (copied to
+                        <emphasis>Stable</emphasis>) to form a new stable version:</para><programlisting xml:space="preserve">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;resource&gt;
+    
+    ...
+    
+    &lt;!-- Stable version 1 --&gt;
+    &lt;version&gt;
+        ...
+        
+        &lt;!-- 2d decimal version --&gt;
+        &lt;version&gt;
+            &lt;rev&gt;&lt;/rev&gt;
+            &lt;url lang="en-GB"&gt;&lt;/url&gt;
+            &lt;url lang="sv-SE"&gt;&lt;/url&gt;
+            &lt;url lang="fi-FI"&gt;&lt;/url&gt;
+        &lt;/version&gt;
+    &lt;/version&gt;
+    
+    &lt;!-- Stable version 2 --&gt;
+    &lt;version&gt;
+        &lt;rev&gt;&lt;/rev&gt;
+        &lt;url lang="en-GB"&gt;&lt;/url&gt;
+        &lt;url lang="sv-SE"&gt;&lt;/url&gt;
+        &lt;url lang="fi-FI"&gt;&lt;/url&gt;
+        
+        ...
+    &lt;/version&gt;
+&lt;/resource&gt;</programlisting><para>The concept of the semantic resource means that while translations (or rather,
+                    renditions) are bound to specific versions, all that is required to identify
+                    them uniquely is to add the URLs to the actual physical translated files;
+                    everything else remains the same.</para><note><para>There's nothing above to suggest that the original (as in <quote>first
+                            written</quote>) language is always carried over from one stable version
+                        to the next; a first decimal version based on a stable version might entail
+                        translating the original-language document to a new language that is then
+                        used to update the contents with.</para></note></section></section></section><section xml:id="section_srk_mr4_5n"><title>Multiple Level Versioning</title><para>While the versioning system outlined in <xref linkend="section_m1l_434_5n"/> is, in my
+            mind, better than the basic versioning offered, there are problems:</para><itemizedlist><listitem><para>It does not solve the <quote>use latest</quote> problem, outlined in <xref linkend="section_ss5_jbh_5n"/>.
+                    In all fairness, it doesn't attempt to; it simply provides a better abstraction
+                    for versioning.</para></listitem><listitem><para>There will still be a lot of versions in <emphasis>Stage 1</emphasis>. This
+                    happens because basically, every new version is a save when working on a
+                    resource in that area.</para></listitem><listitem><para>Also, it is noteworthy that while too many versions are still being saved,
+                    overall, too few of them can easily be used to identify
+                        <emphasis>significant</emphasis> versions<footnote><para>The problem is that every new version in <emphasis>Stage 1</emphasis>
+                            is basically the same; they are all the result of a save.</para></footnote> of the works in progress.</para></listitem></itemizedlist><para>So what can be done to identify all significant versions in a resource's version
+            history? </para><para>One solution is to add markup to the version mapping XML to identify significant
+            saves. This requires (author) access to the version map, so that suitable markup can be
+            added to some saves but not others, but also additions to the save operation itself. It
+            means supporting a special case of save.</para><para>This, of course, is the general case of adding workflow handling to the markup. The
+            problem with workflow markup, apart from the access needed to the versioning markup and
+            the additions to the save operation, is that not every check-in comprises a change in a
+            workflow. Most, in fact, are simply versions that an author considers to be of interest
+            for some reason.</para><para>Another is to check in the resource more often, but that would defeat one of the
+            purposes of the <emphasis>Stable</emphasis> area, namely to identify stable versions
+            only.</para><para>But there is a simpler, third option.</para><section xml:id="section_lvy_pr4_5n"><title>Adding a Second Stage</title><para>In my mind, it's far easier, and more logical, and better suited for the
+                versioning logic as described by the URN schema and the version map markup, to add a
+                second (or third, if you consider <emphasis>Stable</emphasis> to be one) stage, like
+                so:</para><figure><title>Versioning Split Into Three Areas</title><mediaobject><imageobject><imagedata fileref="../../../vol13/graphics/Nordstrom01/Nordstrom01-003.png" width="500px"/></imageobject></mediaobject></figure><para>So, what's the use of a third area?</para><itemizedlist><listitem><para>The <emphasis>Stable</emphasis> branch is still just that, stable.</para></listitem><listitem><para> Now, however, <emphasis>Stage 1</emphasis> is the <quote>project checkout
+                            level</quote>, used for checking out projects, groups of documents, from
+                        the stable branch, but the participating resources cannot be directly edited
+                        there. <emphasis>Stage 1</emphasis> is used to store
+                            <quote>significant</quote> versions, but also to enable updating links
+                        in a controlled fashion. More on this last bit later.</para></listitem><listitem><para>An author can check out an individual resource from <emphasis>Stage
+                            1</emphasis> to <emphasis>Stage 2</emphasis> to edit the
+                        resource.</para></listitem></itemizedlist><para>All three areas are still actual collections (and subcollections) in the system,
+                still versioned using eXist's versioning module. In other words, every
+                    <emphasis>Save</emphasis> results in a new version.</para><para>Each area still implies an integer-based versioning system:</para><itemizedlist><listitem><para>
+                        <emphasis>Stable</emphasis> implies integer versions: 1, 2, 3, etc.</para></listitem><listitem><para>
+                        <emphasis>Stage 1</emphasis> implies decimal versions: 1.1, 1.2, 1.3, etc;
+                        2.1, 2.2, 2.3, etc.</para></listitem><listitem><para>
+                        <emphasis>Stage 2</emphasis> implies centecimal versions: 1.1.1, 1.1.2,
+                        1.1.3, etc; 2.1.1, 2.1.2, 2.1.3, etc.</para></listitem></itemizedlist></section><section xml:id="section_esr_qr4_5n"><title>Save, Check-in and Check-out Revised</title><para>The basic idea is largely unchanged, but an added stage offers better
+                control.</para><para>Direct <emphasis>Save</emphasis> operations are now only allowed in
+                    <emphasis>Stage 2</emphasis>, that is, resources must be checked out from
+                    <emphasis>Stage 1</emphasis> to <emphasis>Stage 2</emphasis> to be edited, and
+                any edits are saved and versioned there. When sufficiently edited (that is, when a
+                    <quote>significant</quote> version is at hand, it can be checked in to
+                    <emphasis>Stage 1</emphasis> to cause a new <emphasis>Stage 1</emphasis> version
+                of the resource. <emphasis>Stage 1</emphasis> resources cannot be edited directly
+                but mark those <quote>significant</quote> versions that are not (yet?)
+                stable.</para><para>Sufficiently <quote>significant</quote>
+                <footnote><para>Finished and approved, that is.</para></footnote>
+                <emphasis>Stage 1</emphasis> resources can then be checked in from <emphasis>Stage
+                    1</emphasis> to <emphasis>Stable</emphasis>, causing a new
+                    <emphasis>Stable</emphasis> version to be added.</para><para>Check-out operations, then, are as follows:</para><itemizedlist><listitem><para>A check-out from <emphasis>Stable</emphasis> is a copy to <emphasis>Stage
+                            1</emphasis><!--, done with <quote>project</quote> permissions-->. A
+                        direct <emphasis>Save</emphasis> is not allowed. The check-out causes a new
+                        file version of the resource in <emphasis>Stage 1</emphasis>.</para></listitem><listitem><para>A check-out from <emphasis>Stage 1</emphasis> is a copy to <emphasis>Stage
+                            2</emphasis><!--, done with <quote>project</quote> or <quote>writer</quote> permissions-->.
+                        A direct <emphasis>Save</emphasis> is not allowed.</para></listitem><listitem><para>There is no check-out from <emphasis>Stage 2</emphasis>, as it would mean
+                        a third stage. A direct <emphasis>Save</emphasis> is allowed and will result
+                        in a new file version in <emphasis>Stage 2</emphasis>.</para></listitem></itemizedlist><para>Check-in operations are as follows:</para><itemizedlist><listitem><para>A check-in from <emphasis>Stage 2</emphasis> is a copy to <emphasis>Stage
+                            1</emphasis>, locking the resource in <emphasis>Stage 2</emphasis> and
+                        causing a new file version of the resource in <emphasis>Stage 1</emphasis>.
+                        <!--This is done with <quote>project</quote> or <quote>writer</quote> permissions.-->
+                    </para></listitem><listitem><para>A check-in from <emphasis>Stage 1</emphasis> is a copy to
+                            <emphasis>Stable</emphasis>, locking the resource in <emphasis>Stage
+                            1</emphasis> and causing a new file version of the resource in
+                            <emphasis>Stable</emphasis>.
+                        <!--This requires <quote>project</quote> permissions.-->
+                    </para></listitem></itemizedlist><note><para>It might be prudent to make the check-out/in operations permission-based,
+                    requiring special permissions to check in a new <emphasis>Stable</emphasis>
+                    version, for example, while allowing a writer to check out from (and in to)
+                        <emphasis>Stage 1</emphasis>.</para></note><para>The following exemplifies a document that is updated from
+                    <emphasis>Stable</emphasis> version 1 to 2. The numbers inside the circles
+                represent an ordered list of check-out and check-in operations.</para><figure><title>Updating from Stable Version 1 to Stable Version 2</title><mediaobject><imageobject><imagedata fileref="../../../vol13/graphics/Nordstrom01/Nordstrom01-004.png" width="500px"/></imageobject></mediaobject></figure><para>While only the <emphasis>Stable</emphasis> versions might need to be
+                    <quote>published</quote>, the <emphasis>Stage 1</emphasis> could be seen as
+                significant, perhaps for traceability, and as such be saved. As we can see, the
+                number of these versions is comparatively small. <emphasis>Stage 2</emphasis>, on
+                the other hand, is simply the document as a work in progress, and while there may be
+                a significant number of new versions produced in that area, none of them is seen as
+                significant.</para></section><section xml:id="id-abstraction-addition"><title>Adding to the Abstraction</title><para>The URN schema identifying the resources (see <xref linkend="section_csw_2m4_5n"/>) can
+                easily be expanded, of course:</para><programlisting xml:space="preserve">urn:x-resource:r1:&lt;doc-number&gt;:&lt;lang&gt;:&lt;stable&gt;:&lt;stage1&gt;:&lt;stage2&gt;</programlisting></section><section xml:id="section_gcv_rr4_5n"><title>Version Map Additions</title><para>The version map markup was already recursive, so adding a second stage is
+                uncomplicated:</para><programlisting xml:space="preserve">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;resource&gt;
+    
+    &lt;!-- Base URN --&gt;
+    &lt;base&gt;&lt;/base&gt;
+    
+    &lt;!-- Stable version 1 --&gt;
+    &lt;version&gt;
+        &lt;rev&gt;&lt;/rev&gt;
+        &lt;url lang="en-GB"&gt;&lt;/url&gt;
+        
+        &lt;!-- 1st Stage 1 (decimal) version --&gt;
+        &lt;version&gt;
+            &lt;rev&gt;&lt;/rev&gt;
+            &lt;url&gt;&lt;/url&gt;
+            
+            &lt;!-- Stage 2 (centecimal) versions --&gt;
+            &lt;version&gt;
+                &lt;rev&gt;&lt;/rev&gt;
+                &lt;url&gt;&lt;/url&gt;
+            &lt;/version&gt;
+            &lt;version&gt;
+                &lt;rev&gt;&lt;/rev&gt;
+                &lt;url&gt;&lt;/url&gt;
+            &lt;/version&gt;
+            
+            &lt;!-- Translations added --&gt;
+            &lt;version&gt;
+                &lt;rev&gt;&lt;/rev&gt;
+                &lt;url lang="en-GB"&gt;&lt;/url&gt;
+                &lt;url lang="sv-SE"&gt;&lt;/url&gt;
+                &lt;url lang="fi-FI"&gt;&lt;/url&gt;
+            &lt;/version&gt;
+        &lt;/version&gt;
+        
+        &lt;!-- 2d Stage 1 (decimal) version --&gt;
+        &lt;!-- Translations checked in from last Stage 2 --&gt;
+        &lt;version&gt;
+            &lt;rev&gt;&lt;/rev&gt;
+            &lt;url lang="en-GB"&gt;&lt;/url&gt;
+            &lt;url lang="sv-SE"&gt;&lt;/url&gt;
+            &lt;url lang="fi-FI"&gt;&lt;/url&gt;
+        &lt;/version&gt;
+    &lt;/version&gt;
+    
+    &lt;!-- Stable version 2 --&gt;
+    &lt;version&gt;
+        &lt;rev&gt;&lt;/rev&gt;
+        &lt;url lang="en-GB"&gt;&lt;/url&gt;
+        &lt;url lang="sv-SE"&gt;&lt;/url&gt;
+        &lt;url lang="fi-FI"&gt;&lt;/url&gt;
+        
+        &lt;!-- Stage 1 (decimal versions) --&gt;
+        &lt;version&gt;
+            &lt;rev&gt;&lt;/rev&gt;
+            &lt;url&gt;&lt;/url&gt;
+            
+            &lt;!-- Stage 2 (centecimal) versions --&gt;
+            &lt;version&gt;
+                &lt;rev&gt;&lt;/rev&gt;
+                &lt;url&gt;&lt;/url&gt;
+            &lt;/version&gt;
+            &lt;version&gt;
+                &lt;rev&gt;&lt;/rev&gt;
+                &lt;url&gt;&lt;/url&gt;
+            &lt;/version&gt;
+        &lt;/version&gt;
+        &lt;version&gt;
+            &lt;rev&gt;&lt;/rev&gt;
+            &lt;url&gt;&lt;/url&gt;
+            
+            &lt;!-- Stage 2 (centecimal) versions --&gt;
+            &lt;version&gt;
+                &lt;rev&gt;&lt;/rev&gt;
+                &lt;url&gt;&lt;/url&gt;
+            &lt;/version&gt;
+            &lt;version&gt;
+                &lt;rev&gt;&lt;/rev&gt;
+                &lt;url&gt;&lt;/url&gt;
+            &lt;/version&gt;
+        &lt;/version&gt;
+    &lt;/version&gt;
+&lt;/resource&gt;</programlisting><para>The differences here consist mostly of an added recursive <code>version</code>,
+                listing centecimal versions for each decimal version. Notable is how translations
+                are added to the last centecimal iteration following the first decimal version and
+                then checked in to <emphasis>Stage 1</emphasis>, causing a new decimal
+                version:</para><programlisting xml:space="preserve">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;resource&gt;
+    
+    &lt;!-- Base URN --&gt;
+    &lt;base&gt;&lt;/base&gt;
+    
+    &lt;!-- Stable version 1 --&gt;
+    &lt;version&gt;
+        &lt;rev&gt;&lt;/rev&gt;
+        &lt;url lang="en-GB"&gt;&lt;/url&gt;
+        
+        &lt;!-- 1st Stage 1 (decimal) version --&gt;
+        &lt;version&gt;
+            &lt;rev&gt;&lt;/rev&gt;
+            &lt;url&gt;&lt;/url&gt;
+            
+            &lt;!-- Stage 2 (centecimal) versions --&gt;
+            &lt;version&gt;
+                &lt;rev&gt;&lt;/rev&gt;
+                &lt;url&gt;&lt;/url&gt;
+            &lt;/version&gt;
+            &lt;version&gt;
+                &lt;rev&gt;&lt;/rev&gt;
+                &lt;url&gt;&lt;/url&gt;
+            &lt;/version&gt;
+            
+            &lt;!-- Translations added --&gt;
+            &lt;version&gt;
+                &lt;rev&gt;&lt;/rev&gt;
+                &lt;url lang="en-GB"&gt;&lt;/url&gt;
+                &lt;url lang="sv-SE"&gt;&lt;/url&gt;
+                &lt;url lang="fi-FI"&gt;&lt;/url&gt;
+            &lt;/version&gt;
+        &lt;/version&gt;
+        
+        &lt;!-- 2d Stage 1 (decimal) version --&gt;
+        &lt;!-- Translations checked in from last Stage 2 --&gt;
+        &lt;version&gt;
+            &lt;rev&gt;&lt;/rev&gt;
+            &lt;url lang="en-GB"&gt;&lt;/url&gt;
+            &lt;url lang="sv-SE"&gt;&lt;/url&gt;
+            &lt;url lang="fi-FI"&gt;&lt;/url&gt;
+        &lt;/version&gt;
+    &lt;/version&gt;
+    
+    ...
+&lt;/resource&gt;</programlisting><para>This new decimal version is then immediately checked in to
+                    <emphasis>Stable</emphasis>, causing a new stable, integer version.</para></section><section><title>Metadata</title><para>While adding markup to identify significant check-ins (see the beginning of this
+                chapter, at <xref linkend="section_srk_mr4_5n"/>) is, in my humble opinion, not a good idea,
+                markup to handle metadata for <emphasis>every</emphasis> check-in probably is, as it
+                will help locate a specific version later. The versioning module provided by eXist
+                will add a timestamp and the user for a save, but other metadata, such as a comment
+                field or a list of relevant keywords, need to be added.</para><para>The version map hints at several useful locations for the metadata:</para><itemizedlist><listitem><para>For a resource, regardless of version.</para></listitem><listitem><para>For a whole version, be it integer, decimal or centecimal.</para></listitem><listitem><para>For specific content, as identified by the mapped URL.</para></listitem></itemizedlist><para>Markup-wise, one solution might be something like this:</para><figure><title>Metadata</title><mediaobject><imageobject><imagedata fileref="../../../vol13/graphics/Nordstrom01/Nordstrom01-005.png" width="500px"/></imageobject></mediaobject></figure><para>The structure and contents of the <code>metadata</code> element are beyond the
+                scope of this paper, as they concern themselves with metadata for each specific
+                version rather than the progression of versions as described here; they simply
+                provide human-readable metadata<footnote><para>For example, a free-text comment.</para></footnote> for a specific version (as identified by the node).</para></section><section xml:id="section_xwr_sr4_5n"><title>Scope and Additional Stages</title><para>Adding a second stage allows us to keep track of significant checked-in versions
+                beyond the <emphasis>Stable</emphasis> branch. Additional stages might be considered
+                to add further semantics to versioning.</para><para>For example, if the versioning was used to handle the documentation of a large
+                software project (everything from Microsoft Office to the Linux kernel springs to
+                mind), the <emphasis>Stable</emphasis> branch could list major releases in the
+                project's lifecycle, <emphasis>Stage 1</emphasis> mark updates within those releases
+                and <emphasis>Stage 2</emphasis> any hotfixes, all of which should be considered to
+                identify significant versions aimed at an end user. A <emphasis>Stage 3</emphasis>
+                and perhaps a <emphasis>Stage 4</emphasis> might be needed to handle the versioning
+                required for content production, where most versions would never reach the end user
+                and only help ease a content author's life.</para><note><para>The additional stages should, of course, be added to the URN schema.</para></note><para>Stages, then, are ultimately about scoping and define situations where the
+                checked-in versions apply.</para><section xml:id="id-projects"><title>Projects</title><para>In addition to adding staging levels, the resources frequently need to be
+                    grouped when version handled. For example, if checking out a resource, it is
+                    often a good idea to check out the document or documents using them.
+                    Furthermore, check-outs as discussed here would benefit from defining
+                        <emphasis>projects</emphasis>, that is, groups of resources that are related
+                    for some other reason (resources commonly reused; documents belonging to the
+                    same product; all system administration guides; etc).</para><para>As a resource is frequently reused by several documents, a useful (and easy)
+                    way of identifying such resources in the version map is something like
+                    this:</para><programlisting xml:space="preserve">&lt;map&gt;
+    &lt;resources&gt;
+        &lt;resource&gt;
+           ...
+        &lt;/resource&gt;
+        ...
+    &lt;/resources&gt;
+    
+    &lt;projects&gt;
+        &lt;project&gt;
+            &lt;urn&gt;&lt;/urn&gt;
+            &lt;urn&gt;&lt;/urn&gt;
+            &lt;urn&gt;&lt;/urn&gt;
+        &lt;/project&gt;
+        &lt;project&gt;
+            &lt;urn&gt;&lt;/urn&gt;
+            &lt;urn&gt;&lt;/urn&gt;
+        &lt;/project&gt;
+    &lt;/projects&gt;
+&lt;/map&gt;</programlisting><para>A <code>project</code> is an arbitrary group listing resources and project
+                    metadata, useful when handling the resources together. Obvious features here
+                    include check-out and check-in operations for the project, but I can think of
+                    several other uses, most of which are beyond the scope of this paper.</para><note><para>There are several ways of listing the URNs included in the project,
+                        depending on their use. If the project's aim is to handle every decimal
+                        version and language of a resource, a wildcard-based shorthand might be
+                        preferable (say, <code>urn:x-resources:123456:*:1:*</code>).</para></note><para>Projects should, of course, be version handled too, as they will almost
+                    certainly change over time. For example, one might handle them as any other
+                    resource in the version map and always store <code>project</code> documents in
+                    separate files (which requires a way to easily identify them when
+                    authoring).</para></section><section xml:id="id-use-latest-revisited"><title>Use Latest Revisited</title><para>The use latest problem<footnote><para>Where the latest (approved) version of a leaf node in a document link
+                            tree is always preferred and should therefore always be linked to, but
+                            where the module doing the linking may have been updated elsewhere, with
+                            incompatible changes, and therefore not be possible to update with a new
+                            link for the document at hand.</para></footnote> is largely a scoping issue and happens because modules are reused
+                    everywhere, without defining rules for when and where reuse is allowed<footnote><para>As mentioned earlier, one (non-) solution is to update the link anyway
+                            and create a new (stable) version. This will pass on the problem to
+                            someone else and eventually come back to bite you, but nevertheless, you
+                            might be tempted to refine it by using merge software and such.
+                            Basically, however, it would always result in a situation where a new
+                            version could not be assumed to be a <emphasis>development</emphasis> of
+                            the last one, but rather an incompatible change.</para></footnote>.</para><para>Better is to add one or more stages and clearly define a scope where using
+                    (and perhaps automatically updating links to) the latest approved versions is
+                    allowed. For example, if <emphasis>Stage 1</emphasis> handles the releases of a
+                    product and its documentation within a major release, it might be reasonable to
+                    allow at least some of the reused modules to be automatically updated to their
+                    latest versions within that major version.</para><para>Let's say, for example, that Module A in version 3.1 (<emphasis>Stage
+                        1</emphasis>) needs a link to a warning inside a warnings document authored
+                    by the legal team. The warnings document is also in <emphasis>Stage 1</emphasis>
+                    and has version 1.19. Module A is checked out to <emphasis>Stage 2</emphasis>
+                    and a link to the warning is added to it, including a fragment ID pinpointing
+                    the warning, like so:</para><programlisting xml:space="preserve">&lt;link xlink:href="URN:1:19#id-warning"/&gt;</programlisting><para>First of all, it is easy to define a business rule that updates the link to
+                    the latest available <emphasis>Stage 1</emphasis> (decimal) version when Module
+                    A is published, triggered by the fact that the version linked to is a decimal
+                    version. It would be easy to look up the latest version in the version map and
+                    use that during preprocessing. If such a generic business rule feels a bit too
+                    risky, adding markup that further scopes the link is equally easy if somewhat
+                    crude:</para><programlisting xml:space="preserve">&lt;link xlink:href="URN:1:19#id-warning" use-latest="yes"/&gt;</programlisting><para>The logic here is <quote>use latest decimal version</quote>. An editor feature
+                    that checks the available versions of the warnings document, including new
+                        <emphasis>Stable</emphasis> versions, and alerts the author if newer ones
+                    are available than the one used in Module A should be useful and relatively
+                    uncomplicated to implement.</para><para>More refined, but perhaps a bit complex to handle without a style guide and a
+                    good user interface, might be to use the version level as the
+                        <code>use-latest</code> value<footnote><para>I've considered renaming the <emphasis>Stable</emphasis> level
+                                <emphasis>Stage 0</emphasis>, for this reason and others.</para></footnote>.</para><programlisting xml:space="preserve">&lt;link xlink:href="URN:1:19#id-warning" use-latest="1"/&gt;</programlisting><para>This would include every update to the target checked in to <emphasis>Stage
+                        1</emphasis> in the scope. An additional dimension of reuse might be to
+                    limit the scope to specific project or projects only.</para></section></section></section><section><title>Linking</title><para>This paper is about versioning rather than linking, but since the former will only be
+            truly useful if there is at least some of the latter, I wish to make a few points
+            regarding linking.</para><section xml:id="id-urns-in-links"><title>Using URNs in Links</title><para>My preferences for URNs stem from my day-to-day work but any other abstraction
+                would probably do, as long as there is a way to separate the version component(s)<footnote><para>And the language/country components.</para></footnote> from the name. Using a name is important, however, assuming that the
+                name is persistent and unique where used. Addresses change because resources are
+                frequently moved around. Indeed, here, using an address would be very difficult in
+                itself.</para><para>Be as it may, there is little point to the multilevel versioning abstraction if it
+                is only ever used for checking in and out monolithic XML documents that never
+                include a multilevel version link to anything else. In <xref linkend="id-use-latest-revisited"/>,
+                I do just that, though: the <code>link</code> element uses a name-based
+                    <code>xlink:href</code> rather than an address-based one.</para><para>Using a URN in a link should be a simple matter of referencing resources in the
+                version map, using the base URN and as many levels of versions as needed (and
+                allowed by the business rules and their implementation). For example, an
+                implementation might use all version levels available when creating the link
+                (resulting in a pointer such as <code>URN:en-GB:2:19:4:3#some-id</code>) but then
+                update that link when publishing to the latest version in scope, based on the
+                business rules in effect.</para></section><section><title>The Case for XLink and Linkbases</title><para>Until now, I've made few assumptions about the link mechanisms themselves. The
+                    <code>link</code> tag above, for example, is an inline reference using XLink
+                mostly because I rather prefer XLink and use Simple XLinks all the time, but I think
+                the example would be equally valid using, say, XInclude. </para><para>I do think, however, that XLink(<xref linkend="id-xlink-spec"/>) might prove to be very powerful, especially if the
+                links were placed out of line, in a linkbase. There are several points to be made
+                here:</para><itemizedlist><listitem><para>Out-of-line links, of course, would not require updating the resource
+                        itself, only the linkbase arc, which would certainly change the specifics of
+                        a <quote>use latest</quote> implementation and conceivably result in
+                        easier-to-maintain business rules.</para></listitem><listitem><para>Extended XLink does also suggest a standardised way for much, if not most,
+                        of the version map markup. The URNs listed in a project, for example, would
+                        probably benefit from being handled as XLink locator-type elements.</para></listitem></itemizedlist><para>It would be sort of cool to add the linkbase to the version map directly:</para><figure><title>Linkbase Added</title><mediaobject><imageobject><imagedata fileref="../../../vol13/graphics/Nordstrom01/Nordstrom01-006.png" width="500px"/></imageobject></mediaobject></figure><para>The <quote>Links</quote> branch above list the XLink arcs. </para><para>There is, to my inner markup geek, something very appealing about this kind of
+                all-purpose markup. I get all excited, thinking about how easy it would be to
+                create, edit and publish XML with a few XPaths pointing to things across the version
+                map XML, but the more practically-minded me questions the feasibility and, above
+                all, necessity of including everything in the same, big file when it does not matter
+                all that much in a well-indexed XML database where you actually put the markup you
+                need to look up later.</para><para>All of which neatly brings me to the last big topic in this paper.</para></section></section><section><title>Implementation Notes</title><para>Now, I know that there is nothing quite so practical as a good theory, but I would
+            still like to include a few implementation notes in my limited capacity as a
+            non-programmer. I do believe that most if not everything of what's suggested in this
+            paper can be implemented using XML technologies only, without having to learn Java, even
+            though I'll readily admit that Java would help<footnote><para>Java would probably be especially helpful when constructing suitable
+                    versioning triggers in eXist.</para></footnote>.</para><section><title>URN Generation and Parsing</title><para>The URN schema (see <xref linkend="section_csw_2m4_5n"/> and <xref linkend="id-abstraction-addition"/>)
+                requires a unique base URN that should be generated and handled by the system. At
+                its simplest, the base URN is little more than a sequential number, bumped up a
+                notch for every new resource, but allowing for different types of base URNs to
+                identify different types of resources might be useful.</para><para>There is also a need to parse the URN, for example, when locating base URNs,
+                handling wildcards, updating links, etc.</para></section><section><title>Check-in, Check-out and Updating the Version Map</title><para>Check-in and check-out are both copy operations from one location to another. In
+                eXist, they are handled using XQuery functions for copying resources and, if
+                permissions are used, eXist Security Manager functions for checking the appropriate
+                permissions and possibly the group of the resource. eXist also provides UNIX-style
+                functions for changing permissions, group, etc, for the file that is copied to
+                protect it from unwanted changes<footnote><para>For example, checked-out files might simply be have their group changed to
+                        a checked-out group.</para></footnote>.</para><para>Updating the map is a matter of adding to the resource's versions list. A
+                check-out means adding a new version to the next stage further down (from
+                    <emphasis>Stage 1</emphasis> to <emphasis>Stage 2</emphasis>, for example) and
+                starting up the next level revisions in the <code>rev</code> tag. A check-in does
+                pretty much the same thing but in the other direction, and needs to check the
+                existing revisions on that level before adding a new one.</para><para>For example, let's say that this resource in <emphasis>Stage 1</emphasis>,
+                revision 2, is checked out:</para><programlisting xml:space="preserve">&lt;version&gt;
+    &lt;rev&gt;2&lt;/rev&gt;
+    &lt;url&gt;xmldb:exist:///...&lt;/url&gt;
+&lt;/version&gt;</programlisting><para>A new <code>version</code> is added, like so:</para><programlisting xml:space="preserve">&lt;version&gt;
+    &lt;rev&gt;2&lt;/rev&gt;
+    &lt;url&gt;xmldb:exist:///...&lt;/url&gt;
+    
+    &lt;!-- Stage 2 (centecimal) versions --&gt;
+    &lt;version&gt;
+        &lt;rev&gt;1&lt;/rev&gt;
+        &lt;url&gt;xmldb:exist:///...&lt;/url&gt;
+    &lt;/version&gt;
+&lt;/version&gt;</programlisting><para>Even though this example discusses stages 1 and 2, there's actually nothing apart
+                from the comment that places them there. The operation here is the same,
+                regardless.</para><para>Checking in is slightly more complicated, but only slightly. Here, the
+                    <emphasis>Stage 1</emphasis> revision 2 will be checked in:</para><programlisting xml:space="preserve">&lt;resource&gt;
+    
+    &lt;!-- Base URN --&gt;
+    &lt;base&gt;123456&lt;/base&gt;
+    
+    &lt;!-- Stable version 1 --&gt;
+    &lt;version&gt;
+        &lt;rev&gt;1&lt;/rev&gt;
+        &lt;url&gt;xmldb:exist:///...&lt;/url&gt;
+        
+        &lt;!-- 1st Stage 1 (decimal) versions --&gt;
+        &lt;version&gt;
+            &lt;rev&gt;1&lt;/rev&gt;
+            &lt;url&gt;xmldb:exist:///...&lt;/url&gt;
+            
+            &lt;!-- Stage 2 (centecimal) versions --&gt;
+            ...
+        &lt;/version&gt;
+        
+        &lt;!-- 2d Stage 1 (decimal) version --&gt;
+        &lt;version&gt;
+            &lt;rev&gt;2&lt;/rev&gt;
+            &lt;url&gt;xmldb:exist:///...&lt;/url&gt;
+        &lt;/version&gt;
+    &lt;/version&gt;
+&lt;/resource&gt;</programlisting><para>A new version, revision 2, is added:</para><programlisting xml:space="preserve">&lt;resource&gt;
+    
+    &lt;!-- Base URN --&gt;
+    &lt;base&gt;123456&lt;/base&gt;
+    
+    &lt;!-- Stable version 1 --&gt;
+    &lt;version&gt;
+        &lt;rev&gt;1&lt;/rev&gt;
+        &lt;url&gt;xmldb:exist:///...&lt;/url&gt;
+        
+        &lt;!-- 1st Stage 1 (decimal) versions --&gt;
+        &lt;version&gt;
+            &lt;rev&gt;1&lt;/rev&gt;
+            &lt;url&gt;xmldb:exist:///...&lt;/url&gt;
+            
+            &lt;!-- Stage 2 (centecimal) versions --&gt;
+            ...
+        &lt;/version&gt;
+        
+        &lt;!-- 2d Stage 1 (decimal) version --&gt;
+        &lt;version&gt;
+            &lt;rev&gt;2&lt;/rev&gt;
+            &lt;url&gt;xmldb:exist:///...&lt;/url&gt;
+        &lt;/version&gt;
+    &lt;/version&gt;
+    
+    &lt;!-- Stable version 2 --&gt;
+    &lt;version&gt;
+        &lt;rev&gt;2&lt;/rev&gt;
+        &lt;url&gt;xmldb:exist:///...&lt;/url&gt;
+    &lt;/version&gt;
+&lt;/resource&gt;</programlisting><para>Both check-out and check-in should be able to use the same basic function for
+                adding a new <code>version</code>, as long as there is something to check which
+                operation has been selected so that the new <code>version</code> and the appropriate
+                    <code>rev</code> can be added either up or down in the structure.</para><note><para>If there is no further level down from <emphasis>Stage 2</emphasis>, in this
+                    example, there should be a little something to disable the check-out function on
+                    that level in the editor.</para></note></section><section xml:id="section_f5d_ykw_l4"><title>Locking</title><para>The versioning in this paper suggests that resources that are checked in or out
+                from a stage are to be locked in that stage. While this paper does not attempt to
+                solve every problem created by locking, there are a number of points to be
+                made:</para><itemizedlist><listitem><para>A <emphasis>lock</emphasis>, here, primarily signifies that the locked
+                        resource is being handled in another stage, not that it is checked out
+                        exclusively by a writer (who then leaves the company and causes problems for
+                        those remaining behind, etc).</para></listitem><listitem><para>Allowing a document in the editing stage to be edited by two or more
+                        writers simultaneously causes various merging problems, all of which are
+                        manageable, but the important question is (and please remember that we are
+                        discussing content rather than code): <emphasis>why are they editing the
+                            same content in the first place?</emphasis> This, to me, hints at an
+                        organisational problem.</para></listitem><listitem><para><emphasis>Not locking</emphasis> a resource that is being handled in
+                        another stage is entirely feasible, of course. Easiest would be to implement
+                        an <quote>optimistic check-out</quote>, never locking anything but having
+                        the system notify the writer if the resource was already being edited by
+                        someone, encouraging communication and collaboration.</para><para>The author's experience, drawn primarily from developing document content
+                        rather than code, is that alone, this approach works best within the same
+                        time zone, preferably the same building, but is made easier by adding
+                        merging tools and means to easily modularising content that is becoming too
+                        large to handle.</para></listitem></itemizedlist></section><section><title>Business Rules and Linking</title><para>As mentioned in <xref linkend="id-urns-in-links"/>, while the link implementation might use an exact
+                URN version in the pointer, business rules used when publishing might be used to
+                update that link to the latest version within scope. That scope might include
+                defining a versioning level, but also further limit the <quote>use latest</quote>
+                function to URNs listed in projects (see <xref linkend="id-projects"/>). Let's say
+                that we created this link:</para><programlisting xml:space="preserve">&lt;link xlink:href="urn:x-resources:r1:123456:en-GB:2:2:4" use-latest="1"/&gt;</programlisting><para>At the time the link was created, the very latest available version was
+                    <quote>2.2.4</quote>. However, later, when the document with the link is
+                published, the target resource has gone through a number of revisions and the
+                version tree now looks like this (leaving out the URLs):</para><programlisting xml:space="preserve">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;map xmlns="http://www.sgmlguru.org/ns/versions"&gt;
+    &lt;resources&gt;
+        &lt;resource&gt;
+            
+            &lt;!-- Base URN --&gt;
+            &lt;base&gt;123456&lt;/base&gt;
+            
+            &lt;!-- Stable version 1 --&gt;
+            &lt;version&gt;
+                &lt;rev&gt;1&lt;/rev&gt;
+                &lt;url lang="en-GB"&gt;&lt;/url&gt;
+                
+                &lt;!-- 1st Stage 1 (decimal) version --&gt;
+                &lt;version&gt;
+                    ...
+                &lt;/version&gt;
+                
+                &lt;!-- 2d Stage 1 (decimal) version --&gt;
+                &lt;version&gt;
+                    ...
+                &lt;/version&gt;
+            &lt;/version&gt;
+            
+            &lt;!-- Stable version 2 --&gt;
+            &lt;version&gt;
+                &lt;rev&gt;2&lt;/rev&gt;
+                &lt;url lang="en-GB"&gt;&lt;/url&gt;
+                
+                &lt;!-- Stage 1 (decimal versions) --&gt;
+                &lt;version&gt;
+                    &lt;rev&gt;1&lt;/rev&gt;
+                    &lt;url&gt;&lt;/url&gt;
+                    
+                    &lt;!-- Stage 2 (centecimal) versions --&gt;
+                    ...
+                &lt;/version&gt;
+                &lt;version&gt;
+                    &lt;rev&gt;2&lt;/rev&gt;
+                    &lt;url&gt;&lt;/url&gt;
+                    
+                    &lt;!-- Stage 2 (centecimal) versions --&gt;
+                    &lt;version&gt;
+                        &lt;rev&gt;1&lt;/rev&gt;
+                        &lt;url&gt;&lt;/url&gt;
+                    &lt;/version&gt;
+                    &lt;version&gt;
+                        &lt;rev&gt;2&lt;/rev&gt;
+                        &lt;url&gt;&lt;/url&gt;
+                    &lt;/version&gt;
+                    &lt;version&gt;
+                        &lt;rev&gt;3&lt;/rev&gt;
+                        &lt;url&gt;&lt;/url&gt;
+                    &lt;/version&gt;
+
+                    &lt;!-- Target at the time of link creation --&gt;
+                    &lt;version&gt;
+                        &lt;rev&gt;4&lt;/rev&gt;
+                        &lt;url&gt;&lt;/url&gt;
+                    &lt;/version&gt;
+
+                    &lt;version&gt;
+                        &lt;rev&gt;5&lt;/rev&gt;
+                        &lt;url&gt;&lt;/url&gt;
+                    &lt;/version&gt;
+                &lt;/version&gt;
+                
+                &lt;!-- New decimal version --&gt;
+                &lt;version&gt;
+                    &lt;rev&gt;3&lt;/rev&gt;
+                    &lt;url&gt;&lt;/url&gt;
+                    &lt;version&gt;
+                        &lt;rev&gt;1&lt;/rev&gt;
+                        &lt;url&gt;&lt;/url&gt;
+                    &lt;/version&gt;
+                    &lt;version&gt;
+                        &lt;rev&gt;2&lt;/rev&gt;
+                        &lt;url&gt;&lt;/url&gt;
+                    &lt;/version&gt;
+                    &lt;version&gt;
+                        &lt;rev&gt;3&lt;/rev&gt;
+                        &lt;url&gt;&lt;/url&gt;
+                    &lt;/version&gt;
+                &lt;/version&gt;
+                &lt;!-- New decimal version --&gt;
+                &lt;version&gt;
+                    &lt;rev&gt;4&lt;/rev&gt;
+                    &lt;url&gt;&lt;/url&gt;
+                &lt;/version&gt;
+            &lt;/version&gt;
+
+            &lt;!-- New stable version --&gt;
+            &lt;version&gt;
+                &lt;rev&gt;3&lt;/rev&gt;
+                &lt;url&gt;&lt;/url&gt;
+                &lt;!-- New decimal version from v3 --&gt;
+                &lt;version&gt;
+                    &lt;rev&gt;1&lt;/rev&gt;
+                    &lt;url&gt;&lt;/url&gt;
+                &lt;/version&gt;
+            &lt;/version&gt;
+        &lt;/resource&gt;
+        ...
+    &lt;/resources&gt;
+&lt;/map&gt;</programlisting><para>We can see that two new <emphasis>Stage 1</emphasis>, decimal, versions have been
+                added to <emphasis>Stable</emphasis> version 2., but also, there is now a
+                    <emphasis>Stable</emphasis> version 3, based on version 2.4. Since version 2.4
+                is the latest <emphasis>Stage 1</emphasis> version at the time of publishing and
+                it's the level defined by <code>use-latest="1"</code> in the link, it is the one
+                used as a target. Version 3.1 is outside the defined scope.</para><para>We could, of course, add a project structure to the version map and further limit
+                the scope. The business rules would state that the link update was only updated if
+                both source and target were part of the same project. Let's say the projects look
+                like this:</para><programlisting xml:space="preserve">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;map xmlns="http://www.sgmlguru.org/ns/versions"&gt;
+    &lt;resources&gt;
+        ...
+    &lt;/resources&gt;
+    
+    &lt;projects&gt;
+        &lt;project&gt;
+            &lt;urn&gt;123456&lt;/urn&gt;
+            &lt;urn&gt;111111&lt;/urn&gt;
+            &lt;urn&gt;222222&lt;/urn&gt;
+        &lt;/project&gt;
+        &lt;project&gt;
+            &lt;urn&gt;333333&lt;/urn&gt;
+            &lt;urn&gt;111111&lt;/urn&gt;
+        &lt;/project&gt;
+    &lt;/projects&gt;
+&lt;/map&gt;</programlisting><para>If the link source document was URN <code>111111</code> and the target URN
+                    <code>222222</code>, the <quote>use latest</quote> update when publishing would
+                be allowed. If the target was <code>333333</code>, however, it wouldn't.</para><para>Implementation-wise, both scoping techniques should be easy to handle in XSLT
+                stylesheets used by publishing pipelines.</para></section><section><title>Permissions</title><para>When implementing the more advanced versioning described in <xref linkend="section_srk_mr4_5n"/>, I
+                think it is a good idea to consider requiring different permissions for check-out
+                and check-in, depending on the versioning level. For example, it might be a good
+                idea to limit check-outs from <emphasis>Stable</emphasis> and <emphasis>Stage
+                    1</emphasis> to a project management role to further control scoping and reuse,
+                especially when handling larger documentation projects, while allowing authors and
+                project managers alike to check out resources to stages 2 and below.</para></section><section><title>Handling eXist Versions</title><para>eXist stores versioning information in <code>/db/system/versions/db/...</code>,
+                mirroring the database's collection structure and including diffed resource versions
+                in the mirrored collections. The diffed XML files use names that include the eXist
+                revision numbers:</para><figure xml:id="id-versioning-in-exist"><title>Versions in eXist</title><mediaobject><imageobject><imagedata fileref="../../../vol13/graphics/Nordstrom01/Nordstrom01-007.png" width="500px"/></imageobject></mediaobject></figure><para>The eXist version-specific metadata is always included, first in the XML diff file
+                (for example, <emphasis>ml-versioning-2.xml.4854</emphasis>), which makes it easy to
+                retrieve when needed:</para><programlisting xml:space="preserve">&lt;v:version xmlns:v="http://exist-db.org/versioning"&gt;
+    &lt;v:properties&gt;
+        &lt;v:document&gt;ml-versioning-2.xml&lt;/v:document&gt;
+        &lt;v:user&gt;admin&lt;/v:user&gt;
+        &lt;v:date&gt;2014-04-17T09:29:14.085+02:00&lt;/v:date&gt;
+        &lt;v:revision&gt;4854&lt;/v:revision&gt;
+    &lt;/v:properties&gt;
+    ...
+&lt;/v:version&gt;</programlisting><para>Binary files are also tracked, but accessing them seems to be more difficult as
+                the diffing mechanism (obviously) does not work.</para><para>eXist revisions <!--of a document version -->are recorded in the
+                    <code>v:revision</code> element (see above). A specific version can be retrieved
+                using the <code>v:doc($doc,$rev)</code> XQuery function, so
+                <!--where <code>$doc</code> is the document to be retrieved and <code>$rev</code> its eXist revision. Therefore, -->the
+                    <code>url</code> element in the version mapping markup will need both the base
+                URL to the resource and the revision of the version to be retrieved:</para><programlisting xml:space="preserve">&lt;url&gt;
+    &lt;base&gt;xmldb:exist:///db/work/whitepapers/balisage/2014/multilevel-versioning/ml-versioning-2.xml&lt;/base&gt;
+    &lt;rev&gt;4854&lt;/rev&gt;
+&lt;/url&gt;</programlisting><para>Identifying eXist version 4854 of <emphasis>ml-versioning-2.xml</emphasis>.</para><note><para>The <code>base</code> URL, above, denotes the <emphasis>latest</emphasis>
+                    version of the document rather than eXist's <quote>base</quote> version, which
+                    is the first version stored and on which the later versions are based.</para></note><para>A version update must be triggered in eXist whenever copying the file from one
+                area to another - both check-in and check-out are copy operations. eXist provides
+                versioning triggers for copy events so capturing the new eXist revision number is a
+                matter of inserting the <code>v:history</code> function after the copy:</para><programlisting xml:space="preserve">v:history(doc("/db/path/to/xml"))//v:revision[last()]</programlisting><!--<programlisting>max(v:history(doc("/db/base/path/to/xml"))//v:revision)</programlisting>--><para> This returns a <code>v:revision</code> element, with the eXist revision given in
+                    <code>@rev</code>:</para><programlisting xml:space="preserve">&lt;v:revision xmlns:v="http://exist-db.org/versioning" rev="5029"&gt;
+    &lt;v:date&gt;2014-04-18T18:11:19.211+02:00&lt;/v:date&gt;
+    &lt;v:user&gt;admin&lt;/v:user&gt;
+&lt;/v:revision&gt;</programlisting><para>It is then a simple matter to bump up the URN <code>rev</code> and add the
+                    <quote>URL</quote> to the new <code>version</code> in the version map.</para></section><section><title>The eXist User Interface</title><para>At its simplest, the user interface needed in eXist is just what's needed to
+                display the version map in a browser, easily produced with an XSLT stylesheet and
+                some CSS, plus something to trigger the page with. </para><para>The map will probably grow to be quite large, so including a filtering mechanism
+                is necessary to show only selected parts of the map (i.e., parts of or the complete
+                version history of a specified resource). Functionality to show various metadata for
+                specified versions, provide links to physical resources, include map icons to
+                indicate the language(s) used, and so on, are other examples of useful
+                additions.</para><para>eXist provides several XForms implementations<footnote><para>XSLTForms and Better Forms are both configured and ready for use, and
+                        Orbeon is easy to add.</para></footnote>, as well as a powerful XQuery (3.0) implementation, to help add
+                these.</para></section><section><title>The Editor</title><para>Here's where I'm currently really out of my depth, as adding check-out and
+                check-in functions to an editor will involve programming. Nevertheless, editor GUI
+                considerations apart, the versioning additions should consist mainly of calling the
+                XQuery doing the copying, including a flag indicating what operation is used, and
+                making the editor aware of what versioning level the resource is at and disabling
+                the check-out operation, if there are no further levels to copy to.</para><para>There should also be a permissions check that disables both operations if the
+                author lacks the necessary permissions to run the operation(s).</para><para>Also, the editor needs linking functionality using the multilevel versioning
+                abstraction (URNs rather than addresses in links). This entails opening the target
+                so that the user can identify the target (including a node inside the target
+                document); easiest should be to map the target's URN and URL locally rather than
+                accessing the version map XML from the database.</para><para>Rather than opening the targets one by one, it might be a good idea to retrieve a
+                URN/URL map for the whole project, if using the project concept (see <xref linkend="id-projects"/>).</para></section></section><section><title>Afterword</title><para>The versioning system suggested here came to be partly because I really want a more
+            advanced version handling for eXist, but mostly because the more primitive
+                <quote>straight</quote> versioning system that introduces this paper was prominently
+            figured in my paper from last year's Balisage (<xref linkend="id-semantic-profiling"/>) and
+            Eliot Kimber promptly dismissed the problems with updating the document link tree as the
+            results of bad configuration management. He was right, too, and I hope this is better.
+            Thank you, Eliot.</para><section xml:id="section_ihn_tfx_l4"><title>A Few Notes</title><section xml:id="section_kqs_xf4_n4"><title>Disclaimer</title><para>I am in no way claiming originality in terms of a versioning scheme that
+                    includes multilevel numbering (<quote>1.1.1</quote>, <quote>1.1.2</quote>, etc)
+                    or the idea of different (and arbitrary) levels of versions defining version
+                    significance and version structure. A number of software systems already use
+                    such versioning schemes (for example, see <xref linkend="id-windchill-multilevel"/>).</para><para>Somewhat original (having not been able to find anything similar) is my
+                    implementation, in the context of an XML database and using an XML-based version
+                    mapping format defining an arbitrary level of versions. In particular, my goal
+                    here was to define a way to add a versioning layer to an existing,
+                        <quote>straight</quote>, versioning system, one that differentiates between
+                    significant versions and simple <quote>saves</quote> by providing multiple
+                    levels of check-outs and check-ins while leaving the definition of the
+                    significance of each level to the end user.</para></section><section xml:id="section_gjw_vkx_l4"><title>git and Other VCSs</title><para>The version mapping document is, of course, by no means unique as a concept.
+                    As a reviewer pointed out, part of it is equivalent with the <emphasis>git
+                        index</emphasis> file (see <xref linkend="id-git-index-format"/>). After all, a lot if it is simply about
+                    mapping the names of resources and their versions to URIs. It is XML because XML
+                    is easy to handle in eXist, however, and there is a recursive hierarchy because
+                    such hierarchies (in my mind) neatly represent the relations between any number
+                    of versioning levels, which is not the case with a git index<footnote><para>The git index file is used when staging resources to be committed,
+                            creating a single tree object to be stored in the database.</para></footnote>. </para><para>The point is that it should be straight-forward in eXist to implement the
+                    versioning represented by the XML. I'm sure it is possible to implement
+                    multilevel versioning in eXist based on git or some other VCS<footnote><para>There is, for example, a Subversion module for eXist.</para></footnote>, with whatever advantages that they might bring to the table, but
+                    the point with this one is to do it in XML with a minimum of non-XML involvement<footnote><para>The reasons for which are that a) I am a poor programmer, and b) eXist
+                            is an XML database and well suited for that approach.</para></footnote>.</para><para>I also realise that git (and other) VCSs have variants of the use latest
+                    problem, as pointed out by that same reviewer. While the problem here is
+                    similar, it is <emphasis>not the same</emphasis>. As a technical writer with
+                    some insight into developing code, I am struck by some subtle differences: </para><para>First of all, in theory at least, it should be possible to avoid using an
+                    incompatible later version of a piece of code by writing automated tests. This
+                    is not possible in the use latest problem as described here. An incompatible
+                    change is only possible to detect by an author who can manually spot the
+                    differences, provided that s/he has sufficient knowledge in the subject of both
+                    the old version [of whatever that is being described] and any forks that
+                    happened along the way.</para><para>The scoping as provided by the stages, then, are simply an agreed-upon, but
+                    untestable, convention.</para><para>Second, while there are similarities between versioned code and versioned
+                    content, a major difference is that the documents as described here effectively
+                    need to include links addressing arbitrary versions of other resources in the
+                    VCS. As far as I understand git, a check-in in git represents a snapshot where
+                    any such links will point to a current file in that snapshot, not an historic
+                    one. </para></section><section xml:id="section_osh_zkx_l4"><title>Notations for Related Content</title><para>Regarding the notion of translations as renderings of an original, a reviewer
+                    kindly linked to the <emphasis>Akoma Ntoso</emphasis> XML vocabulary for legal
+                    documents, specifically its URI namespace conventions for handling related
+                    content (see <xref linkend="id-akomantoso"/>).</para><para>Using URN abstractions (see <xref linkend="section_csw_2m4_5n"/> and <xref linkend="id-abstraction-addition"/>) provides me with a useful way to describe the relationships I had in mind,
+                    namely versions of original-language resources and their translations, and how
+                    they relate to each other. Akoma Ntoso provides a fascinating and complex
+                    alternative, going well beyond my relatively uncomplicated naming conventions. I
+                    mention them here for comparison, but do not intend to implement them as naming
+                    conventions.</para><para>There are, of course, many other naming conventions in use for XML document
+                    management. Worth mentioning is the S1000D standard's Data Module Code, used to
+                    identify reusable content in an S1000D system. It is of particular interest
+                    because it provides a physical location of the component being described, in
+                    addition to mere document handling formalia.</para><para>My point here is that both of these conventions, as well as many others, are
+                    feasible, but none, including my simple URN scheme, is necessarily more right
+                    than the other. The idea here is to provide a suitable identifier that includes
+                    a version and localisation information, used when uniquely identifying
+                    resources.</para></section><section xml:id="section_qt2_zqx_l4"><title>Terminology</title><para>The terms <quote>stage</quote> and <quote>staging</quote> are, perhaps,
+                    unfortunate, as they are in no way unique to what I propose in this paper. Git,
+                    for example, uses the term <quote>staging area</quote>, which may cause some
+                    confusion (for more, see <xref linkend="id-git-staging"/> and <xref linkend="id-git-index"/>).</para><para>The git staging area, however, is an indexing area for a commit to which you
+                    can add the files you wish to commit in any way you want to, before they are
+                    committed, while <emphasis>every</emphasis> stage discussed here, regardless of
+                    level, is intended to be a <emphasis>recorded next step</emphasis> after a
+                    commit. The point here is to enable any number of levels of usable versions;
+                    git's staging area should not be regarded as a <quote>recorded level</quote>
+                    other than in terms of determining versioned content.</para></section></section><section xml:id="section_lk2_sfx_l4"><title>Future Work</title><para>There are several things I want to do with all this:</para><itemizedlist><listitem><para>Doing a basic eXist implementation of the version handling itself is
+                        rather obvious, of course. I don't know if it is a case of chronic naïvety
+                        or something else, but I think it really shouldn't be all that hard to do in
+                        XQuery and an XSLT stylesheet or two. I'm not entirely sure of the parts
+                        that involve addressing eXist versions, but I remain hopeful.</para></listitem><listitem><para>Handling the first save and subsequent first check-in. A new document
+                        should start in the <quote>save</quote> stage and be checked in to the next
+                        stage and finally the first stable stage<footnote><para>If that version is <quote>0</quote> or <quote>1</quote>is probably
+                                a matter of agreed-upon conventions.</para></footnote>.</para></listitem><listitem><para>I want to test Extended XLink for the version map and project markup,
+                        because I think it would be a good fit. </para></listitem><listitem><para>Also, I think doing a basic Extended XLink implementation for linking
+                        inside eXist would be both interesting and fun, as well as make it easier to
+                        use standard markup languages such as DocBook or DITA in such an
+                        implementation, without changing either of them but helping implement the
+                        version handling that is the topic of this paper.</para></listitem></itemizedlist></section></section><bibliography><title>Bibliography</title><bibliomixed xml:id="id-existdb-versioning">"eXist Versioning Extensions". Part of the eXist
+            DB documentation. <link xlink:href="http://www.exist-db.org/exist/apps/doc/versioning.xml" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.exist-db.org/exist/apps/doc/versioning.xml</link>
+        </bibliomixed><bibliomixed xml:id="id-db-triggers">"Configuring Database Triggers". Part of the eXist DB
+                documentation. <link xlink:href="http://exist-db.org/exist/apps/doc/triggers.xml" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://exist-db.org/exist/apps/doc/triggers.xml</link>
+        </bibliomixed><bibliomixed xml:id="id-xlink-spec"><quote>XML Linking Language (XLink) Version 1.1</quote>,
+            editors Steve DeRose, Eve Maler, David Orchard and Norman Walsh. <link xlink:href="http://www.w3.org/TR/xlink11/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/xlink11/</link>
+        </bibliomixed><bibliomixed xml:id="id-semantic-profiling">Nordström, Ari. <quote>Semantic Profiling Using
+                Indirection</quote>. Presented at Balisage: The Markup Conference 2013, Montréal,
+            Canada, August 6 - 9, 2013. In Proceedings of Balisage: The Markup Conference 2013.
+            Balisage Series on Markup Technologies, vol. 10 (2013).
+            doi:<biblioid class="doi">10.4242/BalisageVol10.Nordstrom01</biblioid>. <link xlink:href="http://www.balisage.net/Proceedings/vol10/html/Nordstrom01/BalisageVol10-Nordstrom01.html" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.balisage.net/Proceedings/vol10/html/Nordstrom01/BalisageVol10-Nordstrom01.html</link>
+        </bibliomixed><bibliomixed xml:id="id-git-index-format"><quote>The Git Index</quote>. <link xlink:href="http://schacon.github.io/gitbook/7_the_git_index.html" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://schacon.github.io/gitbook/7_the_git_index.html</link></bibliomixed><bibliomixed xml:id="id-windchill-multilevel"><quote>PTC Windchill Multi-Level Versioning
+                Labels</quote>. <link xlink:href="https://firstrobotics.ptc.com/Windchill-WHC/index.jspx?id=ViewVersionConvertUtilAbout&amp;action=show" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">https://firstrobotics.ptc.com/Windchill-WHC/index.jspx?id=ViewVersionConvertUtilAbout&amp;action=show</link></bibliomixed><bibliomixed xml:id="id-git-staging"><quote>The Staging Area</quote> (a <quote>git
+                ready</quote> blog post on January 9 2009. <link xlink:href="http://gitready.com/beginner/2009/01/18/the-staging-area.html" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://gitready.com/beginner/2009/01/18/the-staging-area.html</link></bibliomixed><bibliomixed xml:id="id-git-index"><quote>What’s The Deal With The Git Index?</quote> <link xlink:href="http://www.gitguys.com/topics/whats-the-deal-with-the-git-index/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.gitguys.com/topics/whats-the-deal-with-the-git-index/</link></bibliomixed><bibliomixed xml:id="id-akomantoso"><quote>The Akoma Ntoso Naming Convention</quote>. <link xlink:href="http://www.akomantoso.org/release-notes/akoma-ntoso-3.0-schema/naming-conventions-1" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.akomantoso.org/release-notes/akoma-ntoso-3.0-schema/naming-conventions-1</link></bibliomixed></bibliography></article>

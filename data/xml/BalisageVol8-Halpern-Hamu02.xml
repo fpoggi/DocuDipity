@@ -1,0 +1,635 @@
+<?xml version="1.0" encoding="UTF-8"?><article xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink" version="5.0-subset Balisage-1.3"><title>
+    TCS tcs: Tata Consultancy Services trash compactor script
+  </title><subtitle>
+    Design considerations in the implementation of a boil-this-corpus-down-to-a-sample-document tool
+  </subtitle><info><confgroup><conftitle>Balisage: The Markup Conference 2012</conftitle><confdates>August 7 - 10, 2012</confdates></confgroup><abstract><para>
+        Creation of representative sample(s) of a large document collection can be automated using XSLT.
+        Such samples will be useful for analysis, as a preliminary document analysis step in vocabulary redesign
+        or conversion and to guide design of storage, editing, and transformation processing.
+        Design goals are: to work intuitively with default configuration and no schema, produce plausible output,
+        and produce a range of outputs from a large representative set to a short but highly complex sample document.
+        The technique can be conceptualized in passes: annotate structures as original or redundant;
+        keep wrappers to accommodate original markup found lower in the hierarchy;
+        retain required children and attributes; and collapse similar structures.
+        Possible settings include redundancy thresholds, text compression techniques, target length, schema-awareness,
+        schema intuitions, how much context to preserve around kept elements, and whether similar structures should be collapsed (overlaid).
+      </para></abstract><author><personname><firstname>Charlie</firstname><surname>Halpern-Hamu</surname></personname><personblurb><para>
+          Charlie has been working with structured text since 1991.
+          During this time, he has acted as a content and systems architect, programmer, systems integrator, consultant,
+          mentor, best-practices coordinator, trainer, book editor, project lead, department manager, and vice president.
+          His consulting and training work has taken him all over North America
+          as well as visits to South America, Europe, Australia and China.
+          Charlie has a PhD in Computer Science from the University of Toronto and an MBA from Heriot-Watt University.
+          He's good at making complex systems easy to understand. Or so he claims.
+        </para></personblurb><affiliation><jobtitle>Senior Solutions Architect</jobtitle><orgname>Tata Consultancy Services</orgname></affiliation><email>charlie.hamu@tcs.com</email></author><legalnotice><para>© Copyright 2012, Tata Consultancy Services.</para><para>Disclaimer: All views expressed in the publication are of the author and Tata Consultancy Services (TCS) does not warrant, either expressly or implied, the accuracy, appropriateness of the information in the publication. TCS disclaims any responsibility for content error, omissions and any responsibility associated with relying on the information provided in the publication.</para></legalnotice><keywordset role="author"><!-- made up by me --><keyword>sample documents</keyword><keyword>sampling</keyword><!-- from Balisage concept list --><keyword>big data</keyword><keyword>interoperability</keyword><keyword>quality</keyword><!-- from Balisage specifiations list --><!-- <keyword>XML</keyword> silly in this context --><keyword>XSLT</keyword><!-- from Balisage list --><keyword>modelling</keyword><keyword>querying</keyword><keyword>software-based processing</keyword><keyword>transforming</keyword></keywordset></info><section><title>
+      Context
+    </title><para>
+      Sample documents play a critical role in the development of most XML systems.
+    </para><para>
+      But good sample documents are difficult to generate.
+      There seem to be three basic approaches, each with its difficulties:
+      <orderedlist><listitem><para>
+            <emphasis role="bold">Craft.</emphasis>
+            Artfully crafting sample documents by hand is usually a labor-intensive path
+            to an artificial-feeling result.
+            Hand-crafted samples can be especially frustrating when they go stale,
+            when even minor schema changes necessitate significant rework.
+          </para></listitem><listitem><para>
+            <citation linkend="Mad_Libs"><emphasis role="bold"><trademark>Mad Libs.</trademark></emphasis></citation>
+            Automatically-generated samples are often so random and disconnected from reality
+            that they are difficult for humans to comprehend and use.
+            Based on all the possibilities of a schema, they include many combinations
+            that simply would not occur in real life.
+            The schema provides no guidance about the kinds of content
+            that would make sense in each element, so contents are unfamiliar nonsense.
+          </para></listitem><listitem><para>
+            <emphasis role="bold">Curation.</emphasis>
+            Thoughtfully choosing some sample documents from a larger set of available documents
+            is the approach most similar to the approach presented by this paper.
+            The difficulty is that most XML corpora are like war:
+            long stretches of boredom punctuated by moments of mildly increased interest.
+            It's easy to miss those documents that have interesting, unusual markup.
+            And it's easy to miss the interesting, unusual markup even within the documents chosen.
+          </para></listitem></orderedlist>
+    </para><para>
+      There is often a tension between brevity and completeness.
+      It's easiest for a human to understand a shorter, simpler documents.
+      Including more elements, in more contexts, requires longer, more complex documents.
+    </para></section><section><title>
+      Alternatives
+    </title><para>
+      Before this paper was presented on Wednesday of the
+      <citation linkend="Balisage">Balisage conference,</citation>
+      there was a discussion of approaches to creating sample documents
+      at the preceding
+      <citation linkend="QA-QC">symposium on QA and QC</citation>
+      on the Monday.
+      The following alternatives were listed:
+      <itemizedlist><listitem><para>
+            <emphasis role="bold">Dale Waldt</emphasis>
+            suggested starting with all XPaths
+            (presumably FQGI, fully qualified generic identifier, ancestry paths) in a larger set,
+            and finding an example of each.
+          </para></listitem><listitem><para>
+            <emphasis role="bold">Paul Ryan</emphasis>
+            said he automated the extraction of all XPaths
+            (again, presumably FQGIs) and automatically created Lorem Ipsum text.
+          </para></listitem><listitem><para>
+            <emphasis role="bold">Murray Maloney</emphasis>
+            spoke of running all variations, as determined by the possibilities allowed by the Schema.
+          </para></listitem><listitem><para>
+            <emphasis role="bold">John Cowan</emphasis>
+            talked about how, with LexisNexis, it was easy to get a firehose blast of volumes of data.
+            He talked about crafting a sample document that was actually true facts, though a constructed sample.
+          </para></listitem><listitem><para>
+            <emphasis role="bold">Robert Stuart</emphasis>
+            advised against real, or real-looking data,
+            having once had an intelligence agency get upset with him
+            when he to closely simulated, using public sources, the look of secret documents.
+          </para></listitem><listitem><para>
+            <emphasis role="bold">Syd Bauman</emphasis>
+            said that when he needs a set of test documents to exercise a collection,
+            he typically starts by cutting out the uninteresting TEI header metadata,
+            and then keeping the first few paragraphs of each of several document.
+            When he needs to generate test data about an instance
+            he tends to need to be much pickier about which bits he keeps,
+            and, in general, he does this by hand.
+          </para><para>
+            For the cases where content could not be shared,
+            Syd also mentioned that <emphasis role="bold">Elliotte Rusty Harold</emphasis>
+            had presented an XML Randomizer that worked like a neutron bomb on XML documents
+            (my inappropriate analogy), scrambling the content but leaving the structures intact.
+            <citation linkend="Harold">[Harold]</citation>
+          </para></listitem><listitem><para>
+            <emphasis role="bold">Debbie Lapeyre</emphasis>
+            warned against taking the first ten pages,
+            and relayed a anecdote in which the last thousand pages were very different
+            from the first ten.
+          </para></listitem><listitem><para>
+            <emphasis role="bold">Ian Gorman</emphasis>
+            described taking all available content as the universe from which to choose.
+            If I understood correctly, this is the approach automated by the current paper.
+          </para></listitem></itemizedlist>
+    </para></section><section><title>
+      Goals
+    </title><para>
+      The primary goal of this project is a tool to boil large sets of XML data
+      down to smaller samples.
+      The samples should maintain as much as possible of the variety and complexity
+      of markup patterns, and remove as much as possible of the useless repetitions.
+    </para><para>
+      Subsidiary design goals include:
+      <itemizedlist><listitem><para>
+            <emphasis role="bold">Plausible results.</emphasis>
+            The hope is that the results will feel natural: compact, but recognizable.
+          </para></listitem><listitem><para>
+            <emphasis role="bold">Good defaults.</emphasis>
+            The default parameter settings should hit some kind of sweet spot.
+            Is it presumptious to imagine that such a sweet spot exists?
+            I imagine it to be something like this:
+            one can say that the sample is
+            <quote>complete</quote>
+            and that at the same time it is manageably short.
+          </para></listitem><listitem><para>
+            <emphasis role="bold">Single dial.</emphasis>
+            Given the trade-offs between brevity and completeness,
+            it would be nice to have a single parameter that simultaneously adjusted
+            all the other parameters towards one extreme or the other.
+          </para></listitem><listitem><para>
+            <emphasis role="bold">Ease over perfection.</emphasis>
+            If the occassional result is invalid, because of a wrong guess
+            about required elements, that's probably okay.
+          </para></listitem><listitem><para>
+            <emphasis role="bold">Use information from schema.</emphasis>
+            If there is a schema available, it would be nice to take advantage of it.
+            The goal would not to be to include elements only because they exist in the schema,
+            but to avoid deleting elements that are required by the schema.
+          </para></listitem><listitem><para>
+            <emphasis role="bold">Intuit schema.</emphasis>
+            My guess is that in most real-life situations,
+            required elements can be easily intuited.
+            For example, if every
+            <code>section</code>
+            contains a
+            <code>title,</code>
+            it's reasonable to guess that
+            <code>title</code>
+            is required in
+            <code>section.</code>
+            Of course this rule of thumb can fail in one of two ways:
+            <orderedlist><listitem><para>
+                  <emphasis role="bold">False positive.</emphasis>
+                  It could be the case that every
+                  <code>section</code>
+                  in a sample contains a
+                  <code>title,</code>
+                  but only by chance. But even in this case, there's no denying that
+                  a representative sample will contain a
+                  <code>title</code>
+                  for every
+                  <code>section.</code>
+                </para></listitem><listitem><para>
+                  <emphasis role="bold">False negative.</emphasis>
+                  It could be that the content model is more complicated, that
+                  <emphasis role="ital">either</emphasis>
+                  <code>number</code>
+                  or
+                  <code>title</code>
+                  is required on every
+                  <code>section.</code>
+                  As a result, the intuition will fail, and conclude
+                  <emphasis role="ital">both</emphasis>
+                  <code>number</code>
+                  and
+                  <code>title</code>
+                  to be optional.
+                  I haven't had enough real-life experience with the tool yet
+                  to conclude how much trouble this will create.
+                </para></listitem></orderedlist>
+          </para></listitem></itemizedlist>
+    </para></section><section><title>
+      Algorithm
+    </title><para>
+      The algorithm, as implemented, involves multiple passes:
+      <orderedlist><listitem><para>
+            <emphasis role="bold">Annotate with signatures.</emphasis>
+            This present implementation uses an attribute in a special namespace,
+            <code>tcs:signature</code>
+            to record the characteristics we're using to determine
+            what counts as the same and what counts as different.
+            This is configurable, and includes some combination of ancestry,
+            previous siblings, element name, attributes specified and child elements.
+          </para><para>
+            Because of the choice to use an attribute,
+            it's easiest to annotate only elements,
+            not attributes, processing-instructions or comments.
+            In an attempt to increase efficiency, a signature-to-element key was introduced.
+            This introduced the possibility of using the same key mechanism
+            to annotate attributes, processing instructions and comments.
+          </para><para>
+            The current implementation uses this first pass to shorten the text nodes.
+            The reasoning is that there will be less text passing through the subsequent passes.
+            This is really for ease of debugging: it actually seems to slow the process.
+          </para></listitem><listitem><para>
+            <emphasis role="bold">Mark unique elements.</emphasis>
+            The next pass is to indicate a small number of each signature to keep.
+            As implemented the first one (or two or more ... configurable)
+            of each unique-signature element is kept,
+            but there's no requirement that the first elements be kept.
+          </para></listitem><listitem><para>
+            <emphasis role="bold">Mark wrapping elements.</emphasis>
+            If an element is to be kept, obviously all its ancestor elements must be kept.
+            The current implementation marks these ancestors in a separate pass.
+          </para></listitem><listitem><para>
+            <emphasis role="bold">Mark required children.</emphasis>
+            For all the elements that are to be kept,
+            certain child elements need to be kept, as they are required ...
+            or guessed to be.
+          </para><para>
+            In addition, this is a good time to mark inline elements
+            mixed in with the text of the elements that are being kept.
+            The reason for doing this is to maintain the sense of the retained text.
+            If not, it's likely we'll lose
+            the second and subsequent emphasized words in a sentence.
+          </para></listitem><listitem><para>
+            <emphasis role="bold">Prune unneeded elements.</emphasis>
+            The final pass removes those elements that haven't been marked to be kept.
+            The current implementation keeps all atrributes
+            and also text, processing instruction and comment children of kept elements.
+          </para></listitem></orderedlist>
+    </para></section><section><title>
+      Efficiency
+    </title><para>
+      In the course of developing the current implementation,
+      several efficiency issues were encountered.
+      Not all have yet been resolved.
+      <itemizedlist><listitem><para>
+            <emphasis role="bold">Regex text trimming.</emphasis>
+            The current implementation keeps the first few words and the last few words
+            of each text node. The regular expression processing to acheive this appears
+            to be slow. My guess is that it has to do with backtracking, and might be
+            improved by simply taking the first few words and not looking to keep the last.
+          </para></listitem><listitem><para>
+            <emphasis role="bold">Best time to trim text.</emphasis>
+            In the naïve expectation that reducing the amount of text
+            to be processed by subsequent passes would be an efficiency gain,
+            the first pass does the trimming of the text nodes.
+            But only a small number of text nodes are retained in the end,
+            so it turns out to be more efficient to prune the tree first
+            before abbreviating the text nodes.
+          </para><para>
+            The truth is that the most useful results might come from untrimmed text.
+          </para></listitem><listitem><para>
+            <emphasis role="bold">N-squared comparison to previous elements.</emphasis>
+            Unlike text trimming, which isn't essential to the process,
+            finding unique signatures is the purpose of the script, so it can't be skipped.
+            The first implementation of the script used a comparison of the current
+            <code>tcs:signature</code>
+            with all the
+            <code>tcs:signatures</code>
+            on the with
+            <code>preceding</code>
+            axis.
+            This obviously introduces an order
+            <emphasis role="ital">n</emphasis>
+            <superscript>2</superscript>
+            inefficiency.
+            The second attempt involved using a
+            <code>key</code>
+            to map signatures to elements,
+            and an
+            <code>intersect</code>
+            to detect if the set of similar signatures
+            includes elements that overlap with the
+            <code>preceding</code>
+            axis.
+            This is someone more efficient, but on the same order.
+          </para><para>
+            In order to work with large data sets, this needs to be resolved.
+            The current solution is to use a non-XSLT streaming pass.
+            The current implementation is not XML-aware, programmed using Perl regular expressions.
+            It could be done using a streaming XML parser,
+            but unless there are
+            <code>tcs:signature</code>
+            attributes that aren't actually markup in the documents, there will be no problem.
+          </para></listitem><listitem><para>
+            <emphasis role="bold">Multiple passes vs complicated XPath.</emphasis>
+            The current implementation consists of several passes as outlined above.
+            In order to accommodate a non-XSLT streaming pass in the middle,
+            the first pass is in a separate script from the last passes.
+            It's almost certainly the case that several of these calculations
+            could be strung together in a more complicated XPath expression.
+            This might be easier to understand, or not.
+            And it might be more efficient, or not.
+            I imagine it might be elegant, in a way.
+          </para></listitem></itemizedlist>
+    </para></section><section><title>
+      Parameters
+    </title><para>
+      The following parameters have been implemented:
+      <itemizedlist><listitem><para>
+            <emphasis role="bold">Ancestor count.</emphasis>
+            How much context should be included in an element's signature?
+            Measured on a scale of zero to infinity, with 0 representing no ancestry,
+            1 representing the the parent of the current element,
+            2 representing the grandparent and parent,
+            7 presumed to be the largest number ever needed short of
+            8 which is taken to represent infinity (at a ninety-degree angle).
+            Infinity seems to be a good default,
+            as some XML processing operates on fully-qualified generic identifiers.
+            Also, it's common for deeply nested elements have a tendency
+            to stress stylesheets and other processing.
+          </para></listitem><listitem><para>
+            <emphasis role="bold">Preceding-sibling count.</emphasis>
+            How many preceding siblings should be included in an element's signature?
+            A good default seems to be 1, looking only at the closest preceding sibling.
+          </para></listitem><listitem><para>
+            <emphasis role="bold">Self count.</emphasis>
+            Should the element name itself be include in its own signature?
+            Surely the answer should be yes in most applications.
+            For consistency, this parameter is included, on a scale from 0 (no) to 1 (yes).
+          </para></listitem><listitem><para>
+            <emphasis role="bold">Attribute count.</emphasis>
+            Should the element's specified attributes count as part of its signature?
+            Measured on a scale of 0 (no) to 8 (all of them),
+            with no sensible meaning for the numbers in between.
+            The current script has a bug in that it doesn't sort the attribute names as it should.
+            A good default seems to be to include the attributes names.
+          </para></listitem><listitem><para>
+            <emphasis role="bold">Child count.</emphasis>
+            How many children should be included an element's signature?
+            Again, this parameter is measured on a scale of 0 = none to 8 = infinity.
+            The children are counted out in document order.
+            The thought here is to distinguish between a
+            <code>section</code>
+            that starts with a
+            <code>number</code>
+            from a
+            <code>section</code>
+            that starts with a
+            <code>title.</code>
+            An overlapping effect can sometimes also be achieved by using using the preceding-sibling parameter:
+            including a
+            <code>section</code>
+            not on its own merits,
+            but because it contains a
+            <code>title</code>
+            that follows a
+            <code>number.</code>
+          </para></listitem><listitem><para>
+            <emphasis role="bold">Start words count.</emphasis>
+            How many words should kept at the start when abbreviating a text node?
+          </para></listitem><listitem><para>
+            <emphasis role="bold">Middle words count.</emphasis>
+            What is the minimum number of words to delete from the middle of a text node?
+            If there are less than this number of words in the middle, don't abbreviate.
+          </para></listitem><listitem><para>
+            <emphasis role="bold">End words count.</emphasis>
+            How many words should be kept at the end when abbreviating a text node?
+            So, a text node is not abbreviated unless it contains start + middle + end words.
+            Though these parameters are still available in the full code,
+            more readable results are found more efficiently by simply taking the first
+            <quote>sentence</quote>
+            of each text node.
+            This is the approach taken in the simplified code below.
+          </para></listitem><listitem><para>
+            <emphasis role="bold">Repetition count.</emphasis>
+            How many times would we like to see each signature?
+            Since we may want to reduce a very large corpus to a still large sample,
+            it doesn't make sense to follow the silly pattern of the other parameters,
+            insisting that after 7 comes infinity.
+            One discovery, working with the tool,
+            is that the most effective way to get a bulkier sample
+            is to include higher values for the various context parameters.
+            This way, in addition to being simply bulkier,
+            the extra included elements will show more variety.
+            For this reason, the chosen default value is 1.
+          </para></listitem><listitem><para>
+            <emphasis role="bold">Show deletions.</emphasis>
+            Should comments be left in the sample to indicate where elements have been pruned?
+            It can be helpful, when working with a smaller sample,
+            to have indication of where elements have been deleted from the larger source.
+            As implemented, the integer parameter is interpreted as a Boolean.
+            But it might make sense to interpret as a number:
+            showing some number of comments before stopping.
+            To avoid overwhelming results, the default value is 0 = no.
+          </para></listitem><listitem><para>
+            <emphasis role="bold">Debug signatures.</emphasis>
+            Should the intermediate element signatures be shown in the final output?
+            Like with the parameters above and below,
+            it would make sense to interpret this value as a integer,
+            rather than as a Boolean.
+            The default value here is 0, meaning no
+            <code>tcs:signatures</code>
+            are shown.
+          </para></listitem><listitem><para>
+            <emphasis role="bold">Debug marks.</emphasis>
+            Should the intermediate
+            <code>tcs:mark</code>
+            attributes be shown?
+            Again, this integer parameter might make better sense interpreted as a count,
+            rather than interpreted as a Boolean.
+            The
+            <code>tcs:mark</code>
+            attributes are added to all elements that are to be kept,
+            with the value indicating the reason.
+            Reasons include that the element had a unique signature
+            (or was within the specified repetition count),
+            that the element had a descendent that was to be kept,
+            that the element was known or guessed to be a required child of a kept element,
+            or that the element was an textual inline in the middle of kept text.
+            The default value is 0, meaning no intermediate
+            <code>tcs:mark</code>
+            attributes are shown.
+          </para></listitem></itemizedlist>
+    </para><para>
+      The following parameters have been designed, but not yet implemented:
+      <itemizedlist><listitem><para>
+            <emphasis role="bold">Collapse parallel structures.</emphasis>
+          </para></listitem><listitem><para>
+            <emphasis role="bold">Target length.</emphasis>
+          </para></listitem><listitem><para>
+            <emphasis role="bold">Schema information.</emphasis>
+          </para></listitem><listitem><para>
+            <emphasis role="bold">Text abbreviation.</emphasis>
+          </para></listitem></itemizedlist>
+    </para></section><section><title>
+      Code
+    </title><para>
+      To illustrate the key concepts, a reference implementation is presented here.
+      This version of the script is stripped of comments, parameters and efficiencies.
+      Please contact the author for the current revision of the full script.
+      <programlisting xml:space="preserve">
+&lt;?xml version='1.0' encoding='UTF-8'?&gt;
+&lt;!-- TCS = Tata Consultancy Services; tcs = trash compactor script. --&gt;
+&lt;!-- For brevity, this version is missing comments, parameters and efficiencies. --&gt;
+&lt;transform xmlns='http://www.w3.org/1999/XSL/Transform' version='2.0'
+           xmlns:xs='http://www.w3.org/2001/XMLSchema'
+           xmlns:tcs='mailto:charlie.hamu@tcs.com'&gt;
+    &lt;template match='/'&gt;
+        &lt;variable name='signed'&gt;
+            &lt;apply-templates select='node()' mode='sign' /&gt;
+        &lt;/variable&gt;
+        &lt;variable name='marked'&gt;
+            &lt;apply-templates select='$signed' mode='mark' /&gt;
+        &lt;/variable&gt;
+        &lt;variable name='wrapped'&gt;
+            &lt;apply-templates select='$marked' mode='wrap' /&gt;
+        &lt;/variable&gt;
+        &lt;variable name='needed'&gt;
+            &lt;apply-templates select='$wrapped' mode='need' /&gt;
+        &lt;/variable&gt;
+        &lt;variable name='needed-2'&gt;
+            &lt;apply-templates select='$needed' mode='need' /&gt;
+        &lt;/variable&gt;
+        &lt;variable name='wanted'&gt;
+            &lt;apply-templates select='$needed-2' mode='want' /&gt;
+        &lt;/variable&gt;
+        &lt;variable name='pruned'&gt;
+            &lt;apply-templates select='$wanted' mode='prune' /&gt;
+        &lt;/variable&gt;
+        &lt;sequence select='$pruned' /&gt;
+    &lt;/template&gt;
+    &lt;template match='*' mode='sign'&gt;
+        &lt;copy&gt;
+            &lt;attribute name='tcs:signature' select='ancestor::*/name(),
+                                                    preceding-sibling::*[1]/name(),
+                                                    name(),
+                                                    @*/name(),
+                                                    *[1]/name()' /&gt;
+            &lt;copy-of select='@*' /&gt;
+            &lt;apply-templates select='node()' mode='sign' /&gt;
+        &lt;/copy&gt;
+    &lt;/template&gt;
+    &lt;template match='*' mode='mark'&gt;
+        &lt;copy&gt;
+            &lt;if test='not(preceding::*[@tcs:signature = current()/@tcs:signature])'&gt;
+                &lt;attribute name='tcs:mark' select='"keep"' /&gt;
+            &lt;/if&gt;
+            &lt;copy-of select='@*' /&gt;
+            &lt;apply-templates select='node()' mode='mark' /&gt;
+        &lt;/copy&gt;
+    &lt;/template&gt;
+    &lt;template match='*' mode='wrap'&gt;
+        &lt;copy&gt;
+            &lt;if test='not(@tcs:mark) and *//@tcs:mark'&gt;
+                &lt;attribute name='tcs:mark' select='"wrap"' /&gt;
+            &lt;/if&gt;
+            &lt;copy-of select='@*' /&gt;
+            &lt;apply-templates select='node()' mode='wrap' /&gt;
+        &lt;/copy&gt;
+    &lt;/template&gt;
+    &lt;template match='*' mode='want'&gt;
+        &lt;copy&gt;
+            &lt;copy-of select='@*' /&gt;
+            &lt;if test='not(@tcs:mark) and ../@tcs:mark
+                      and text()[normalize-space() ne ""]
+                      and ../text()[normalize-space() ne ""]'&gt;
+                &lt;attribute name='tcs:mark' select='"want"' /&gt;
+            &lt;/if&gt;
+            &lt;apply-templates select='node()' mode='want' /&gt;
+        &lt;/copy&gt;
+    &lt;/template&gt;
+    &lt;template match='*' mode='need'&gt;
+        &lt;copy&gt;
+            &lt;if test='not(@tcs:mark)
+                      and ../@tcs:mark
+                      and not(preceding-sibling::*[name() eq current()/name()])
+                      and not(//*[name() eq current()/../name()
+                                  and not(*[name() eq current()/name()])])'&gt;
+                &lt;attribute name='tcs:mark' select='"need"' /&gt;
+            &lt;/if&gt;
+            &lt;copy-of select='@*' /&gt;
+            &lt;apply-templates select='node()' mode='need' /&gt;
+        &lt;/copy&gt;
+    &lt;/template&gt;
+    &lt;template match='*' mode='prune'&gt;
+        &lt;if test='@tcs:mark'&gt;
+            &lt;copy&gt;
+                &lt;copy-of select='@* except @tcs:*' /&gt;
+                &lt;apply-templates select='node()' mode='prune' /&gt;
+            &lt;/copy&gt;
+        &lt;/if&gt;
+    &lt;/template&gt;
+    &lt;template match='text()' mode='prune'&gt;
+        &lt;value-of select='replace(.,"\.\s.+","...","s")' /&gt;
+    &lt;/template&gt;
+    &lt;template match='comment() | processing-instruction()' mode='#all'&gt;
+        &lt;copy /&gt;
+    &lt;/template&gt;
+&lt;/transform&gt;</programlisting>
+    </para></section><section><title>
+      Discussion
+    </title><para>
+      This paper was presented at Balisage 2012.
+      <citation linkend="Balisage">[Balisage]</citation>
+      In the discussion after, the following points were raised by attendees.
+      <itemizedlist><listitem><para>
+            <emphasis role="bold">Pointers.</emphasis>
+            It would be nice to link the samples, element-by-element, back to the full corpus,
+            so that you could see the full context if curious.
+          </para></listitem><listitem><para>
+            <emphasis role="bold">Randomize.</emphasis>
+            Liam Quinn suggested that if you are taking a small sample from a larger set,
+            it would be nice to be be able to randomize the selection,
+            rather than just taking the first examples of each markup combination.
+          </para></listitem><listitem><para>
+            <emphasis role="bold">Log the seed.</emphasis>
+            As a follow-on suggestion, Lee says to log the seed used for the random selection,
+            so that it can be recreated as required.
+          </para></listitem><listitem><para>
+            <emphasis role="bold">Redo from back.</emphasis>
+            Wendell Piez observed that in order to avoid redundant elements,
+            in which for example, the first paragraph is included because we've never seen a paragraph before,
+            but the second paragraph is included because it contains an inline,
+            we can run the algorithm twice: once front to back and then a second time back to front.
+          </para></listitem><listitem><para>
+            <emphasis role="bold">XQuery.</emphasis>
+            There seemed to be general consensus that multiple passes were the natural approach,
+            and that any attempt to collapse this into a single XPath expression or XQuery was misguided.
+          </para></listitem><listitem><para>
+            <emphasis role="bold">Xmlsh.</emphasis>
+            David Lee said the individual passes could be run together with xmlsh.
+            This would be especially relevant if the inefficient have-I-seen-this-before pass
+            were recast using another programming language.
+          </para></listitem><listitem><para>
+            <emphasis role="bold">Efficiency.</emphasis>
+            Michael Sperberg-McQueen said that the
+            <emphasis role="ital">n</emphasis><superscript>2</superscript>
+            inefficiency could be solved, even in XSLT 1.0, using keys and Muenchian method. <citation linkend="Tennison">[Tennison]</citation>
+          </para></listitem><listitem><para>
+            <emphasis role="bold">Accummulators.</emphasis>
+            Abel Braaksma said that XSLT 3.0 accumulators were designed to solve problems
+            just like the have-I-seen-this-before inefficiency, and took the example back to the XSLT working group.
+          </para><para>
+            My initial intuition was to add the current element's signature to the accumulated set
+            as the element starts. But this is too soon, as we need to know about all preceding elements,
+            not including the one we're on. On the other had, updating the accumulator at the end of the element
+            would be too late, as we would not have had its signature as we reviewed all of its descendants.
+            The naive fix would be to somehow put the current element's signature
+            <quote>on deck</quote>
+            so that it can be folded in to the accumulated list of all signatures
+            as soon we hit the start of the next element.
+            Rather than building this data structure ourselves,
+            the elegant choice seems to be to avoid the temptation
+            to add the
+            <emphasis role="ital">current</emphasis>
+            element's signature to the accumulated set,
+            but to rather add the
+            <emphasis role="ital">immediately preceding</emphasis>
+            element's signature to the accumulator.
+          </para></listitem></itemizedlist>
+    </para></section><bibliography><title>
+      References
+    </title><bibliomixed xml:id="Balisage">
+      <emphasis role="ital">Balisage: The Markup Conference,</emphasis>
+      2012 August 7-10, Hotel Europa, Montreal, Canada,
+      <link xlink:href="http://balisage.net/Proceedings/vol8/contents.html" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://balisage.net/Proceedings/vol8/contents.html</link>
+      (accessed 2012 August 17).
+    </bibliomixed><bibliomixed xml:id="Harold">
+      Harold, Elliote Rusty.
+      Paper:
+      <quote>Obsuring XML,</quote>
+      <emphasis role="ital">Proceedings of Extreme Markup Languages</emphasis>
+      2005 August 1-5, Montreal, Canada.
+      <link xlink:href="http://conferences.idealliance.org/extreme/html/2005/Harold01/EML2005Harold01.html" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://conferences.idealliance.org/extreme/html/2005/Harold01/EML2005Harold01.html</link>
+      Presentation:
+      <quote>Randomizing XML,</quote>
+      <link xlink:href="http://www.cafeconleche.org/slides/extreme/randomizer/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://cafeconleche.org/slides/extreme/randomizer</link>
+      (accessed 2012 August 20).
+    </bibliomixed><bibliomixed xml:id="Mad_Libs">
+      Penguin Group (USA).
+      <quote>Mad Libs,</quote>
+      <link xlink:href="http://www.madlibs.com/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://madlibs.com</link>
+      (Accessed 2012 August 20).
+    </bibliomixed><bibliomixed xml:id="QA-QC">
+      <emphasis role="ital">International Symposium on Quality Assurance and Quality Control in XML,</emphasis>
+      2012 August 6, Hotel Europa, Montreal, Canada,
+      <link xlink:href="http://balisage.net/QA-QC" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://balisage.net/QA-QC</link>
+      (accessed 2012 August 17).
+    </bibliomixed><bibliomixed xml:id="Tennison">
+      Tennison, Jeni.
+      <quote>Grouping using the Muenchian Method,</quote>
+      <link xlink:href="http://jenitennison.com/xslt/grouping/muenchian.html" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://jenitennison.com/xslt/grouping/muenchian.html</link>
+      (accessed 2012 August 17).
+    </bibliomixed></bibliography></article>

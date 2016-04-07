@@ -1,0 +1,487 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?><classedDocument><article xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink" class="po-hcontainer e0 e0" version="5.0-subset Balisage-1.2"><title class="po-block e1 e1"><textual class="po-textual">Processing Arbitrarily Large XML using a Persistent DOM</textual></title><info class="po-record e2 e2"><confgroup class="po-record e3 e3"><conftitle class="po-field e4 e4"><textual class="po-textual">Balisage: The Markup Conference 2010</textual></conftitle><confdates class="po-field e5 e5"><textual class="po-textual">August 3 - 6, 2010</textual></confdates></confgroup><abstract class="po-container e6 e6"><para class="po-block e7 e7"><textual class="po-textual">As the adoption of XML reaches more and more application domains, data sizes increase,
+        and efficient XML handling gets more and more important. Many applications face scalability
+        problems due to the overhead of XML parsing, the difficulty of effectively finding
+        particular XML nodes, or the sheer size of XML documents, which nowadays can easily exceed
+        gigabytes of data. </textual></para><para class="po-block e8 e8"><textual class="po-textual">In particular the latter issue can make certain tasks seemingly impossible to handle, as
+        many applications depend on parsing XML documents completely into a Document Object Model
+        (DOM) memory structure. Parsing XML into a DOM typically requires close to or even more
+        memory as the serialized XML would consume, thus making it prohibitively expensive to handle
+        XML documents in the gigabyte range. Recent research and development suggests that it is
+        possible to modify these applications to run a wide range of tasks in a streaming fashion,
+        thus limiting the memory consumption of individual applications. However this requires not
+        only changes in the underlying tools, but often also in user code, such as XSLT style
+        sheets. These required changes can often be unintuitive and complicate user code. </textual></para><para class="po-block e9 e9"><textual class="po-textual">A different approach is to run applications against an efficient, persistent, hard-disk
+        backed DOM implementation that does not require entire documents to be in memory at a time.
+        This talk will discuss such a DOM implementation, EMC's xDB, showing how to use binary XML
+        and efficient backend structures to provide a standards compliant, non-memory-backed,
+        transactional DOM implementation, with little overhead compared to regular memory-based
+        DOMs. It will also give performance comparisons and show how to run existing applications
+        transparently against xDB's DOM implementation, using XSLT stylesheets as an example.
+      </textual></para></abstract><author class="po-record e10 e10"><personname class="po-record e11 e11"><firstname class="po-field e12 e12"><textual class="po-textual">Martin</textual></firstname><surname class="po-field e13 e13"><textual class="po-textual">Probst</textual></surname></personname><personblurb class="po-container e14 e14"><para class="po-block e15 e15"><textual class="po-textual">Martin Probst is a senior software engineer at EMC, working on EMC Documentum xDB. He
+          has been working on XML databases and XQuery in particular since 2004. Martin holds a MSc.
+          in Software Engineering from Hasso Plattner Institute in Potsdam, Germany.</textual></para></personblurb></author><legalnotice class="po-container e16 e16"><para class="po-block e17 e17"><textual class="po-textual">Copyright © 2010 by EMC Corporation.  All rights reserved.</textual></para></legalnotice></info><section class="po-hcontainer e18 e18"><title class="po-block e19 e19"><textual class="po-textual">Introduction</textual></title><para class="po-block e20 e20"><textual class="po-textual">As the adoption of XML reaches more and more application domains, data sizes increase, and
+      efficient XML handling gets more and more important. Many applications face scalability
+      problems due to the overhead of XML parsing, the difficulty of effectively finding particular
+      XML nodes, or the sheer size of XML documents, which nowadays can exceed gigabytes of
+      data.</textual></para><para class="po-block e21 e21"><textual class="po-textual">Parsing a sample 20 MB XML document</textual><footnote class="po-popup e22 e22"><para class="po-block e23 e23"><textual class="po-textual">Encoded as UTF-8 text. In UTF-16, the same document (as expected) takes about 40
+          MB.</textual></para></footnote><textual class="po-textual"> containing Wikipedia document abstracts into a DOM tree using the Xerces library
+      roughly consumes about 100 MB of RAM. Other document model implementations</textual><footnote class="po-popup e24 e24"><para class="po-block e25 e25"><textual class="po-textual">While technically, DOM is the name of a particular standardized XML document model
+          programming interface, for the sake of this paper, any document model implementation is
+          equivalent. We are concerned with how to store XML documents as navigable structures, not
+          any particular programming interface against them. As the DOM is the most prevalent
+          document model interface, we use the term interchangeably.</textual></para></footnote><textual class="po-textual"> such as Saxon's TinyTree are more memory efficient; parsing the same document in
+      Saxon consumes about 50 MB of memory. These numbers will vary with document contents, but
+      generally the required memory scales linearly with document size, and is typically a
+      single-digit multiple of the file size on disk. Extrapolating from these (unscientific)
+      numbers, we can easily see that handling documents that range in the hundreds of megabytes
+      will easily outgrow available memory on today's workstations, that typically have several
+      gigabytes of memory available. Even when documents do not outgrow available memory, memory use
+      is a concern in many applications, particularly in servers processing multiple requests in
+      parallel.</textual></para><para class="po-block e26 e26"><textual class="po-textual">Parsing the 20 MB XML file into xDB requires 16 MB of disk space. The amount of memory
+      required is not related to document size and can be very small (in the kilobyte range).</textual></para><section class="po-hcontainer e27 e27"><title class="po-block e28 e28"><textual class="po-textual">Related Work</textual></title><para class="po-block e29 e29"><textual class="po-textual">One approach to overcome memory issues is to perform streaming operations in very
+        specific situations. Peng and Chawathe (</textual><xref class="po-milestone e30 e30" linkend="bib.pengchwathe"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">) present a
+        streaming implementation for a limited subset of XPath operations, Florescu, Hillery et al.
+          (</textual><xref class="po-milestone e31 e31" linkend="bib.florescuhillery"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">) achieve the same for XQuery; the Streaming
+        Transformations for XML (STX) language defines a language similar to XSLT geared at streamed
+        execution (</textual><xref class="po-milestone e32 e32" linkend="bib.stx"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">); and the unreleased XSLT 2.1 specification will
+        contain special syntax to allow a limited streaming execution mode (</textual><xref class="po-milestone e33 e33" linkend="bib.xslt21"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">).</textual></para><para class="po-block e34 e34"><textual class="po-textual">However, streaming is a very limiting programming model. Many real world XML
+        applications require access to preceding or following nodes, like the title of the section a
+        node is contained in. To achieve streaming execution, the above approaches have to exclude
+        or severly limit commonly used operations like backwards navigating axes.</textual></para><para class="po-block e35 e35"><textual class="po-textual">Another approach is to use databases to store XML documents, moving them out of memory
+        to secondary storage. There is a wide range of literature on the topic, with early efforts
+        focusing on shredding XML documents to store them in relational databases, either in tables
+        tailored to a specific XML schemata, or in a generic structure (</textual><xref class="po-milestone e36 e36" linkend="bib.xmlshred"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">). As requiring schemata upfront contradicted user expectations and a generic database
+        layout results in too many join operations for common hierarchy navigation, later approaches
+        propose a variety of numbering schemes to encode the document structure (</textual><xref class="po-milestone e37 e37" linkend="bib.exist"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">). While different solutions with different features exist, these
+        numbering schemes generally support resolving at least some structural queries based on the
+        numbering. Early schemes required re-numbering on document modifications, later ones
+        overcome this limitation (</textual><xref class="po-milestone e38 e38" linkend="bib.ordpath"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">).</textual></para><para class="po-block e39 e39"><textual class="po-textual">Using databases with numbering schemes, we can overcome main memory limitations for
+        storage and search. However the question of how to efficiently process potentially large XML
+        documents in application code remains.</textual></para></section><section class="po-hcontainer e40 e40"><title class="po-block e41 e41"><textual class="po-textual">Contributions</textual></title><para class="po-block e42 e42"><textual class="po-textual">This paper presents a different approach: a persistent, hard-disk based DOM that can
+        store arbitrarily large XML documents and provides read/write access to them through the
+        regular Java DOM API without using a node numbering scheme. Regular XML applications can use
+        the familiar DOM programming model and the wealth of available XML tools relying on the DOM
+        interface. This paper is based on EMC Documentum xDB's implementation of the presented
+        concepts.</textual></para><para class="po-block e43 e43"><textual class="po-textual">xDB differs from other persistent XML stores and other persistent DOM implementations in
+        that it is optimized for direct DOM access. Navigation operations corresponding to the
+        common DOM operations are executed in constant time comparable to main-memory based DOM
+        implementations. xDB, unlike other XML databases, does not use a node numbering scheme but
+        relies on indexes for fast value lookups.</textual></para><para class="po-block e44 e44"><textual class="po-textual">We extensively describe xDB's data organization and storage layout, with a particular
+        focus on efficient encoding of node data. We provide performance comparisons with two
+        different main memory DOM implementations.</textual></para></section></section><section class="po-hcontainer e45 e45"><title class="po-block e46 e46"><textual class="po-textual">Document Model Storage Structure</textual></title><section class="po-hcontainer e47 e47"><title class="po-block e48 e48"><textual class="po-textual">Traditional Document Model Implementation</textual></title><para class="po-block e49 e49"><textual class="po-textual">DOM implementations (or any document model) usually create classes for the various XML
+        node types, and have fields to store the node's properties, like the node name, the list of
+        children, the parent node, and so on.</textual></para><para class="po-block e50 e50"><xref class="po-milestone e51 e51" linkend="fig.elementImpl"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual"> shows a typical DOM element implementation, ignoring
+        any inheritance chain and inlining all fields for the sake of simplicity. We can see that
+        the Element node keeps references to other nodes in the tree, some basic references like the
+        first child and the next sibling to implicitly form the tree itself, and some to enhance
+        navigation speed, like the parent reference or the previous sibling reference, that could be
+        emulated using the basic references.</textual></para><figure class="po-container e52 e52" xml:id="fig.elementImpl"><title class="po-block e53 e53"><textual class="po-textual">A typical DOM Element Implementation (simplified)</textual></title><mediaobject class="po-container e54 e54"><imageobject class="po-container e55 e55"><imagedata class="po-meta e56 e56" fileref="../../../vol5/graphics/Probst01/Probst01-001.png"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></imagedata></imageobject></mediaobject></figure><para class="po-block e57 e57"><textual class="po-textual">There are many different ways of representing an XML document, differing in memory
+        consumption, navigation speed for particular axes, whether the document can be modified
+        after parsing, and so on. Some implementations avoid storing immediate object references to
+        limit the number of objects held in memory, but still store the complete document in memory.
+        However they all rely on the assumption that the complete document is parsed at once, and
+        kept in memory while operating on it.</textual></para><para class="po-block e58 e58"><textual class="po-textual">This leads to the observed limitations in supported document size caused by memory
+        exhaustion.</textual></para></section><section class="po-hcontainer e59 e59"><title class="po-block e60 e60"><textual class="po-textual">Disk based DOM architecture</textual></title><para class="po-block e61 e61"><textual class="po-textual">Our DOM implementation avoids this limitation by storing a binary representation of an
+        XML document on the hard disk. While this representation avoids keeping the whole document
+        in memory at all times, it is still directly navigable from the programming interface,
+        without requiring re-parsing or buffering parts of the document during program execution.
+        Documents are also mutable — nodes can modified after initial parsing, again without
+        requiring the whole document to be in memory.</textual></para><para class="po-block e62 e62"><textual class="po-textual">Nodes are identified using a 64 bit number and stored in data pages that allocate
+        individual nodes in slots. The first 54 bit of a node identifier point to the page, the
+        latter 10 bits identify a slot within a particular page. As the pages are stored in files in
+        the file system, within the first 54 bits, 20 bits are used to identify a particular file
+        used for storage. Node identifiers directly point to the physical location of a node; there
+        is no indirection between node identifiers and physical node location (see </textual><xref class="po-milestone e63 e63" linkend="sect.dom-modifications"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual"> for a detailed discussion of the impact on updates).
+        xDB node identifiers can be considered "physical identifiers".</textual></para><para class="po-block e64 e64"><textual class="po-textual">This approach is quite different from other XML databases, that typically use a node
+        numbering scheme to identify nodes, separating the logical node identifier from its physical
+        identifier/location. A node numbering scheme can be helpful to answer unbounded structural
+        queries, such as the XPath </textual><code class="po-atom e65 e65"><textual class="po-textual">/bib//book//author</textual></code><textual class="po-textual">. On the other hand, such
+        numbering schemes only help evaluating queries over a large node set; navigating within
+        individual nodes in a DOM-like fashion will probably be slower due to the additional
+        indirection required (i.e., typically an index lookup by node ID). We assert that unbounded
+        structural queries are rare in actual applications. Applications typically either search for
+        specific pieces of information, or process a complete document or document fragment.
+          </textual><emphasis class="po-inline e66 e66"><textual class="po-textual">Searching</textual></emphasis><textual class="po-textual"> within XML can be mapped to value based indexes, while
+          </textual><emphasis class="po-inline e67 e67"><textual class="po-textual">processing</textual></emphasis><textual class="po-textual"> XML commonly means visiting more or less every node of the
+        document, thus requiring efficient navigation. xDB provides configurable index structures
+        that can answer combined structure and value queries (e.g. </textual><code class="po-atom e68 e68"><textual class="po-textual">/bib//book[author/lastname
+          = 'Doe']</textual></code><textual class="po-textual">) to support efficient searching for nodes. To process nodes once they have
+        been found, xDB resorts to efficient navigation using physical node identifiers.</textual></para><para class="po-block e69 e69"><textual class="po-textual">Pages are of configurable size but should be identical in size to the underlying file
+        system's page size, for reasons of data consistency in write operations</textual><footnote class="po-popup e70 e70"><para class="po-block e71 e71"><textual class="po-textual">When flushing data to disk, it is only guaranteed that an individual page is written
+            atomically. Thus, if your data pages are larger than the file system data page, you
+            might risk partially-written pages in the case of system failures.</textual></para></footnote><textual class="po-textual">. This means pages are usually 4 kilobytes (Windows, Linux, Mac OS X) or 8
+        kilobytes (certain UNIXes).</textual></para><para class="po-block e72 e72"><textual class="po-textual">Individual XML documents can spread across any number of physical files, pages, and
+        slots, but always use at least one complete page; pages are not shared between multiple
+        documents. The minimum storage size consumed by a document is thus one page (typically 4
+        kilobytes). The theoretical maximum size for an individual document is the number of
+        possible files times the number of pages in a file, times the individual page size. A
+        database configured with just a single file can thus (assuming 4096 bytes page size, using
+        non-SI prefixes) hold documents up to 2</textual><superscript class="po-atom e73 e73"><textual class="po-textual">34</textual></superscript><textual class="po-textual"> *
+          2</textual><superscript class="po-atom e74 e74"><textual class="po-textual">12</textual></superscript><textual class="po-textual"> bytes = 2</textual><superscript class="po-atom e75 e75"><textual class="po-textual">46</textual></superscript><textual class="po-textual"> ≈ 64
+        terabytes in size; an ideally configured database with 2</textual><superscript class="po-atom e76 e76"><textual class="po-textual">20</textual></superscript><textual class="po-textual"> files
+        could theoretically hold 2</textual><superscript class="po-atom e77 e77"><textual class="po-textual">66</textual></superscript><textual class="po-textual"> bytes ≈ 64 exabytes. The
+        attentive reader will have precluded that we have not been able to test the implementation
+        with exabytes of storage. This is left as an exercise to the first customer reaching that
+        database size. Databases with dozens of terabytes of data are common in customer
+        deployments.</textual></para><para class="po-block e78 e78"><textual class="po-textual">These theoretical storage limits refer to the size of documents in xDB's internal,
+        proprietary binary XML format. We will show that this does not necessarily correspond to
+        regular serialized XML size, but is typically comparable or slightly less.</textual></para><section class="po-hcontainer e79 e79"><title class="po-block e80 e80"><textual class="po-textual">Storage Layout</textual></title><para class="po-block e81 e81"><textual class="po-textual">xDB's storage layout is depicted in </textual><xref class="po-milestone e82 e82" linkend="fig.storageLayout"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">. Pages are
+          stored in one of potentially many data files grouped together in segments. Data files are
+          cached in main memory within a data structure called page cache. Each page contains
+          multiple slots, which in turn store individual nodes. Slot size is not fixed - different
+          nodes, even of the same type, can have different lengths. Slot allocation information is
+          stored in an administrative section within the data page, giving start and end locations
+          for each slot.</textual></para><figure class="po-container e83 e83" xml:id="fig.storageLayout"><title class="po-block e84 e84"><textual class="po-textual">Storage Layout in xDB</textual></title><mediaobject class="po-container e85 e85"><imageobject class="po-container e86 e86"><imagedata class="po-meta e87 e87" fileref="../../../vol5/graphics/Probst01/Probst01-002.png"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></imagedata></imageobject></mediaobject></figure><para class="po-block e88 e88"><textual class="po-textual">The layout of an individual slot depends on the node's type. Storage layout is defined
+          through an XML dialect, which is then used to generate Java source code through an XSL
+          transformation as part of the build process.</textual></para></section><section class="po-hcontainer e89 e89"><title class="po-block e90 e90"><textual class="po-textual">Node Structure</textual></title><para class="po-block e91 e91"><textual class="po-textual">xDB stores node trees much like other DOM implementations, spanning a tree through
+          first-child and next-sibling pointers. The major difference is that xDB takes great care
+          to reduce the size of objects, and that xDB directly operates on byte arrays to store
+          nodes.</textual></para><para class="po-block e92 e92"><textual class="po-textual">
+          </textual><xref class="po-milestone e93 e93" linkend="fig.elementHeader"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual"> shows the bit layout of the two bytes comprising an
+          XML Element header. All nodes start with a sequence of bits determining the node type. The
+          most common nodes (elements and text nodes) only need two bits of storage for the type, as
+          their type codes are </textual><code class="po-atom e94 e94"><textual class="po-textual">01</textual></code><textual class="po-textual"> and </textual><code class="po-atom e95 e95"><textual class="po-textual">00</textual></code><textual class="po-textual">. Other node types are stored
+          using longer bit sequences starting with a bit </textual><code class="po-atom e96 e96"><textual class="po-textual">1</textual></code><textual class="po-textual">. The following bits all
+          represent booleans, indicating the presence or absence of fields in the elements storage
+          and other properties of the node and its storage layout. This reduces on-disk storage
+          consumption for elements that do not have children or siblings and documents that do not
+          use various features like namespaces, post schema validation infoset (PSVI) information,
+          and so on. The bit fields read only and namespace node handle two special cases. Inlined
+          entity reference nodes are marked as read only to protect against incorrect modifications,
+          thus the bit field. Additionally, xDB supports DOM Level 1 documents that do not have
+          namespace support. For those documents, compliant DOM implementations must return
+            </textual><code class="po-atom e97 e97"><textual class="po-textual">null</textual></code><textual class="po-textual"> for calls to the namespace-aware methods like
+            </textual><code class="po-atom e98 e98"><textual class="po-textual">getLocalName()</textual></code><textual class="po-textual">. If the bit is set to </textual><code class="po-atom e99 e99"><textual class="po-textual">0</textual></code><textual class="po-textual">, xDB will return
+            </textual><code class="po-atom e100 e100"><textual class="po-textual">null</textual></code><textual class="po-textual"> on those calls. </textual></para><figure class="po-container e101 e101" xml:id="fig.elementHeader"><title class="po-block e102 e102"><textual class="po-textual">DOM Element Header</textual></title><mediaobject class="po-container e103 e103"><imageobject class="po-container e104 e104"><imagedata class="po-meta e105 e105" fileref="../../../vol5/graphics/Probst01/Probst01-003.png"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></imagedata></imageobject></mediaobject></figure><para class="po-block e106 e106"><textual class="po-textual">For an element, this header is followed by the following, partially optional fields: </textual><itemizedlist class="po-table e107 e107"><listitem class="po-container e108 e108"><para class="po-block e109 e109"><textual class="po-textual">Parent reference</textual></para></listitem><listitem class="po-container e110 e110"><para class="po-block e111 e111"><textual class="po-textual">Next sibling reference (optional)</textual></para></listitem><listitem class="po-container e112 e112"><para class="po-block e113 e113"><textual class="po-textual">Previous sibling reference (optional)</textual></para></listitem><listitem class="po-container e114 e114"><para class="po-block e115 e115"><textual class="po-textual">First child reference (optional)</textual></para></listitem><listitem class="po-container e116 e116"><para class="po-block e117 e117"><textual class="po-textual">Last child reference (optional)</textual></para></listitem><listitem class="po-container e118 e118"><para class="po-block e119 e119"><textual class="po-textual">Local name code (integer)</textual></para></listitem><listitem class="po-container e120 e120"><para class="po-block e121 e121"><textual class="po-textual">Namespace URI code (integer, optional)</textual></para></listitem><listitem class="po-container e122 e122"><para class="po-block e123 e123"><textual class="po-textual">Prefix name code (integer, optional)</textual></para></listitem><listitem class="po-container e124 e124"><para class="po-block e125 e125"><textual class="po-textual">First attribute reference (optional)</textual></para></listitem><listitem class="po-container e126 e126"><para class="po-block e127 e127"><textual class="po-textual">Primitive type name code (integer, optional)</textual></para></listitem><listitem class="po-container e128 e128"><para class="po-block e129 e129"><textual class="po-textual">Complete type name code (integer, optional)</textual></para></listitem><listitem class="po-container e130 e130"><para class="po-block e131 e131"><textual class="po-textual">PSVI properties (integer, optional)</textual></para></listitem></itemizedlist><textual class="po-textual">
+        </textual></para><para class="po-block e132 e132"><textual class="po-textual">These fields following this header can have different types: 32 bit numbers, 64 bit
+          numbers, node references as relative 64 bit node IDs, strings, and string lists. The
+          presence of optional fields if governed by their respective bit field in the element
+          header. If a field is absent, it takes no storage space at all and retrieving it will
+          return a specified default value, for example </textual><code class="po-atom e133 e133"><textual class="po-textual">null</textual></code><textual class="po-textual"> for node references or
+            </textual><code class="po-atom e134 e134"><textual class="po-textual">-1</textual></code><textual class="po-textual"> for undefined namebase codes.</textual></para><para class="po-block e135 e135"><textual class="po-textual">Another storage size optimization is the </textual><code class="po-atom e136 e136"><textual class="po-textual">First Child next?</textual></code><textual class="po-textual"> bit field. If
+          true, the following node on the data page is the first child of this node, allowing us not
+          to store the node ID. This reflects the observation that most XML documents are parsed
+          once and rarely modified. In that case, the parsing process will cause an element's
+          children to be stored directly following the element within the data page.</textual></para><para class="po-block e137 e137"><textual class="po-textual">xDB stores all different DOM node types using this scheme, exploiting the various
+          optimizations possible for different node types - for example, attribute nodes do not need
+          a type field as their type is implicitly known at the place where they are
+          referenced.</textual></para></section><section class="po-hcontainer e138 e138"><title class="po-block e139 e139"><textual class="po-textual">Encoding of Primitives</textual></title><para class="po-block e140 e140"><textual class="po-textual">All numeric fields, i.e. integers, longs, and node references, are stored using
+          run-length encoded numbers. This means that, for example, a 64 bit number that would
+          normally consume 8 bytes of storage space will be compressed depending on its actual
+          magnitude. Values below </textual><code class="po-atom e141 e141"><textual class="po-textual">0x80</textual></code><textual class="po-textual"> (128 decimal) take only one byte of storage
+          space, values below </textual><code class="po-atom e142 e142"><textual class="po-textual">0x4000</textual></code><textual class="po-textual"> (16384 decimal) take only two bytes, and so on.
+          This significantly reduces storage size as node references are not stored as the complete
+          node ID, but as the relative offset to the current node ID, giving small numbers even in
+          large databases. Node references are additionally left shifted and then complemented if
+          negative so that small negative offsets are stored as small positive numbers, giving a
+          more compressed number. Because nodes are typically added in batch (either during parsing,
+          or during larger modifications), nodes usually reference other nodes that are very close
+          to them on the data pages. This means we can typically store node references in a byte or
+          two. The same applies to the 32 bit numbers used for namebase codes (see </textual><link class="po-inline e143 e143" linkend="sect.namebase-codes" xlink:actuate="onRequest" xlink:show="new" xlink:type="simple"><textual class="po-textual">below</textual></link><textual class="po-textual">).</textual></para><para class="po-block e144 e144"><textual class="po-textual">Text data from XML text nodes, CDATA sections, and attribute values is stored using an
+          encoding scheme similar to UTF-8. In UTF-8 encoded text, it is always possible to identify
+          whether a byte is starting a new Unicode codepoint, or if it is part of a multi-byte
+          encoded codepoint that started earlier. To support this, UTF-8 'wastes' some bits that
+          could otherwise be used to encode the codepoints themselves more compact. xDB does not
+          need this functionality as our storage layout explicitly marks start and end of strings,
+          allowing us to encode text data a bit compacter. Text data longer than a single database
+          page is stored using special text-only database pages to avoid the overhead of page
+          administration.</textual></para><para class="po-block e145 e145"><textual class="po-textual">String lists, such as the value of attributes of type NMTOKENS, are stored as a list
+          of zero-byte separated strings.</textual></para></section><section class="po-hcontainer e146 e146" xml:id="sect.namebase-codes"><title class="po-block e147 e147"><textual class="po-textual">Namebase Codes</textual></title><para class="po-block e148 e148"><textual class="po-textual">xDB stores node names using a so-called namebase, a table mapping integer codes to
+          individual NCNames. This both reduces storage size and replaces string comparisons with
+          simple integer comparisons for name comparisons. URI, prefix, and local name are stored
+          separately to speed up queries using wildcard XPath name tests like </textual><code class="po-atom e149 e149"><textual class="po-textual">prefix:*</textual></code><textual class="po-textual">.
+          While namespace prefixes are not significant according to the XML infoset standard and
+          standards like XPath, they are significant in other standards, like the DOM. Because of
+          this, and because of the user expectation to have complete document fidelity, we store the
+          namespace prefix.</textual></para></section><section class="po-hcontainer e150 e150" xml:id="sect.dom-modifications"><title class="po-block e151 e151"><textual class="po-textual">Modifications</textual></title><para class="po-block e152 e152"><textual class="po-textual">Modifying a node simply means modifying the underlying data page, to reflect the
+          changes that are made to the node. All DOM operations, such as </textual><code class="po-atom e153 e153"><textual class="po-textual">replaceNode</textual></code><textual class="po-textual">,
+          are directly reflected in the underlying byte arrays.</textual></para><para class="po-block e154 e154"><textual class="po-textual">A problem with the very condensed layout of nodes is that a node might require more
+          storage space than available in its slot after an update. For example, if we add a child
+          element to an XML element node that was previously empty, the element will need more
+          storage space. In the simple case, the space in the data page that is immediately
+          following the element is unused, and we can simply grow the element.</textual></para><para class="po-block e155 e155"><textual class="po-textual">In the complex case however, the space following the element node is already used by
+          another node, and we cannot grow the node. At the same time, we cannot simply store the
+          element at a different place and free the originally used storage space, as other nodes
+          will be directly pointing to the current location of the node. If we were to move a node,
+          we would have to update all existing pointers to this node, which is a potentially very
+          expensive operation, requiring the complete database to be scanned.</textual></para><para class="po-block e156 e156"><textual class="po-textual">To avoid this, xDB replaces the current node store with a forwarding pointer that will
+          always be small enough to fit in the available space. The pointer references the actual
+          location of the node in the database, and all operations on nodes are safeguarded by a
+          check for a forwarding reference.</textual></para><para class="po-block e157 e157"><textual class="po-textual">This scheme has the drawback that documents receiving many update operations can
+          fragment over time. It is possible to create degenerate cases where many nodes will be
+          replaced by forwarding pointers. Again, the observation is that most XML documents are
+          parsed exactly once and hardly ever modified.</textual></para></section><section class="po-hcontainer e158 e158" xml:id="sect.implementation"><title class="po-block e159 e159"><textual class="po-textual">Implementation</textual></title><para class="po-block e160 e160"><textual class="po-textual">Nodes are represented at runtime by regular Java objects. The node storage layout is
+          defined by an XML file that also specifies class name, super class, and the class this
+          node is owned by (e.g. document for most DOM nodes). In the build process, an XSLT
+          stylesheet transforms these XML definitions into a Java source file, by convention ending
+          in 'Store' (e.g. </textual><code class="po-atom e161 e161"><textual class="po-textual">DomElementStore</textual></code><textual class="po-textual">). The Java file defines an abstract class
+          that provides getters and setters for the node's fields operating directly on the page
+          byte array. This is then extended by a concrete class that provides the public API for a
+          given DOM node, e.g. </textual><code class="po-atom e162 e162"><textual class="po-textual">DomElement</textual></code><textual class="po-textual">. This class then implements the respective
+            </textual><code class="po-atom e163 e163"><textual class="po-textual">org.w3c.dom</textual></code><textual class="po-textual"> interface, typically along several other xDB specific ones.
+          That allows us to keep generated and handwritten code separate.</textual></para><para class="po-block e164 e164"><textual class="po-textual">From a Java perspective, every DOM node object instance references only the page (as a
+          Java object) and the slot (as an int), thus instantiated DOM node objects consume,
+          depending on JVM implementation and CPU architecture, between 16 and 32 bytes of main
+          memory. The page object references the byte array storing page data only through a level
+          of indirection, so even if a DOM node is instantiated in a Java program, the underlying
+          data page can be swapped out by the cache manager.</textual></para><para class="po-block e165 e165"><textual class="po-textual">Method calls on a DOM interface cause the data page to be obtained (and loaded into
+          memory, if necessary), after which we decode the requested information through a sequence
+          of bit operations. The traditional "fields" of an XML element like children, node name,
+          etc. are never cached. This allows us to keep the memory footprint of a Java application
+          minimal - only DOM nodes directly referenced by a user program are actually kept in
+          memory.</textual></para><para class="po-block e166 e166"><xref class="po-milestone e167 e167" linkend="code.get-first-child"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual"> shows the Java code retrieving the first child
+          of a DOM element node, pretty printed and simplified from the original, generated version.
+          The actual code is guarded by a method that checks permissions and whether the current
+          transaction is open or interrupted.</textual></para><para class="po-block e168 e168"><textual class="po-textual">The code then retrieves the byte array holding the data of the page where the node is
+          stored. This might trigger the page to be swapped in if needed. The code then determines
+          the start and end offsets of this node within the data page. If the node is marked as a
+          forwarding object, the code will retrieve the actual data page and update start and end
+          offsets (not shown).</textual></para><para class="po-block e169 e169"><textual class="po-textual">In the series of </textual><code class="po-atom e170 e170"><textual class="po-textual">if</textual></code><textual class="po-textual"> statements afterwards, we check the bit fields in the
+          first byte of the element header, referenced by </textual><code class="po-atom e171 e171"><textual class="po-textual">a[start]</textual></code><textual class="po-textual">. The first
+          comparison checks the third bit ("First Child null?") and returns null if true, the second
+          comparison checks if "First Child Next?". In that case, the </textual><code class="po-atom e172 e172"><textual class="po-textual">diff</textual></code><textual class="po-textual"> (offset of
+          the first child node relative to this node) is one — it is the next node on this
+          page. Otherwise, we have to actually read the node reference, by first finding it in the
+          storage and putting the position in the variable </textual><code class="po-atom e173 e173"><textual class="po-textual">fs</textual></code><textual class="po-textual">. First we add two to skip
+          the element header (two bytes). Because we don't know the length of the first reference
+          (the parent), we then read the long, and skip as many bytes as it consumes in storage
+            (</textual><code class="po-atom e174 e174"><textual class="po-textual">packedLongLen()</textual></code><textual class="po-textual">). The next two references are optional, so we check
+          whether they are present using bit comparisons again, and skip ahead if they are present.
+          Afterwards we read the actual difference, convert the transformed relative difference
+          back, and add it to our current node identifier (</textual><code class="po-atom e175 e175"><textual class="po-textual">getPageAndSlot()</textual></code><textual class="po-textual"> in the
+          code), retrieve a page object and compute the slot from the number. The call to
+            </textual><code class="po-atom e176 e176"><textual class="po-textual">DomNode.newDomNode()</textual></code><textual class="po-textual"> will inspect the type field of the referenced object
+          and return a new instance of the appropriate subclass, pointing to the new node ID.</textual></para><figure class="po-container e177 e177" xml:id="code.get-first-child" xreflabel=""><title class="po-block e178 e178"><textual class="po-textual">Retrieving the first child of an element (Java)</textual></title><programlisting class="po-block e179 e179" xml:space="preserve"><textual class="po-textual">DomNode getFirstChildRef() {
+  Page slotpage = getPage();
+  byte[] a = slotpage.getDataReadOnly();
+  int slot = getSlot();
+  int offset = getOffset(a, slot);
+  int start = Page.unpack2(a, offset);
+  int end = Page.unpack2(a, offset - 2);
+  if (a[start] &lt;= FORWARD_OBJECT) {
+    // handle forwarded objects by updating a, start, and end
+  }
+
+  long diff;
+  if ((a[start] &amp; 1 &lt;&lt; 3) != 0) {
+    return null;
+  } else if ((a[start] &amp; 1 &lt;&lt; 2) != 0) {
+    diff = 1L;
+  } else {
+    int fs = start;
+    fs += 2;
+    fs += packedLongLen(a, fs);
+    if ((a[start + 1] &amp; 1 &lt;&lt; 7) == 0)
+      fs += packedLongLen(a, fs);
+    if ((a[start + 1] &amp; 1 &lt;&lt; 6) == 0)
+      fs += packedLongLen(a, fs);
+
+    assert fs &lt; end;
+    diff = getRelDiff(unpackLong(a, fs));
+  }
+  long id = getPageAndSlot() + diff;
+  Page idpage = getPageFromPS(id);
+  int idslot = getSlotFromPS(id);
+
+  return DomNode.newDomNode(idpage, idslot);
+}</textual></programlisting></figure><para class="po-block e180 e180"><textual class="po-textual">Because we don't reference or cache constructed child objects, in xDB's DOM
+          implementation one logical node might be represented by many different Java object
+          instances. This is in line with the W3C DOM specification that requires users to compare
+          nodes for identity using the function </textual><code class="po-atom e181 e181"><textual class="po-textual">isSameNode()</textual></code><textual class="po-textual">, but sometimes surprising
+          to programmers that expect a simple equality comparison (</textual><code class="po-atom e182 e182"><textual class="po-textual">node1 == node2</textual></code><textual class="po-textual">) to
+          be sufficient. Modifications to logical nodes are immediately reflected by all Java DOM
+          node instances, because they are reflected in the underlying byte arrays.</textual></para><para class="po-block e183 e183"><textual class="po-textual">The amount of work needed for something as simple as retrieving the first child of an
+          element might seem staggering, but the time these bit shift operations take is quite small
+          in practice, as we will show in </textual><xref class="po-milestone e184 e184" linkend="sect.performance"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">.</textual></para><section class="po-hcontainer e185 e185"><title class="po-block e186 e186"><textual class="po-textual">On Disk Layout Example</textual></title><para class="po-block e187 e187"><xref class="po-milestone e188 e188" linkend="code.on-disk-layout"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual"> shows a simple example document, and the
+            binary representation of the first two elements on disk in the canonical hex formatting.
+            The bytes surrounding the two elements are blanked out as they are of no
+            interest.</textual></para><para class="po-block e189 e189"><textual class="po-textual">The document root element, </textual><code class="po-atom e190 e190"><textual class="po-textual">&lt;address_list/&gt;</textual></code><textual class="po-textual">, is stored in the five
+            bytes on the first line. The first two bytes, representing the element header, indicate
+            that this is a regular element node with no sibling or attributes, but a first and a
+            last child, the first child being the immediately following node on the page. These
+            bytes are then followed by the parent offset (encoded as </textual><code class="po-atom e191 e191"><textual class="po-textual">01</textual></code><textual class="po-textual">, meaning an
+            offset of -1, i.e. the previous node), the offset of the last child (</textual><code class="po-atom e192 e192"><textual class="po-textual">70</textual></code><textual class="po-textual">),
+            and the namebase code of the local name (</textual><code class="po-atom e193 e193"><textual class="po-textual">00</textual></code><textual class="po-textual">).</textual></para><para class="po-block e194 e194"><textual class="po-textual">The document was parsed with the </textual><code class="po-atom e195 e195"><textual class="po-textual">element-content-whitespace</textual></code><textual class="po-textual"> option
+            disabled, so the white space characters preceding the first </textual><code class="po-atom e196 e196"><textual class="po-textual">&lt;address/&gt;</textual></code><textual class="po-textual">
+            element were stripped and did not result in a DOM text node.</textual></para><para class="po-block e197 e197"><textual class="po-textual">The first </textual><code class="po-atom e198 e198"><textual class="po-textual">&lt;address/&gt;</textual></code><textual class="po-textual"> element is stored in 8 bytes. The header
+            indicates that all node reference fields are present, except for the previous sibling.
+            This is then followed by the encoded offset of the parent (again, -1), the next sibling
+              (</textual><code class="po-atom e199 e199"><textual class="po-textual">1a</textual></code><textual class="po-textual">), the offsets of first and last child (</textual><code class="po-atom e200 e200"><textual class="po-textual">04</textual></code><textual class="po-textual"> and
+              </textual><code class="po-atom e201 e201"><textual class="po-textual">16</textual></code><textual class="po-textual">), the namespace code (</textual><code class="po-atom e202 e202"><textual class="po-textual">01</textual></code><textual class="po-textual">), and the offset of the first
+            attribute (</textual><code class="po-atom e203 e203"><textual class="po-textual">02</textual></code><textual class="po-textual">, meaning +1).</textual></para><figure class="po-container e204 e204" xml:id="code.on-disk-layout"><title class="po-block e205 e205"><textual class="po-textual">On disk layout of a sample document</textual></title><programlisting class="po-block e206 e206" xml:space="preserve"><textual class="po-textual">&lt;address_list&gt;
+  &lt;address id='1'&gt;
+    &lt;firstname&gt;...&lt;/firstname&gt;
+    ...
+  &lt;/address&gt;
+  ...
+&lt;/addresslist&gt;
+
+0001e0d0  __ __ __ __ __ __ __ __  __ __ __ </textual><emphasis class="po-inline e207 e207"><textual class="po-textual">15 ff 01 70 00</textual></emphasis><textual class="po-textual">  |ttmjtu2/ynm...p.|
+0001e0e0  </textual><emphasis class="po-inline e208 e208"><textual class="po-textual">10 7f 01 1a 04 16 01 02</textual></emphasis><textual class="po-textual">  __ __ __ __ __ __ __ __  |........?...B...|</textual></programlisting></figure><para class="po-block e209 e209"><textual class="po-textual">The root element </textual><code class="po-atom e210 e210"><textual class="po-textual">&lt;address_list/&gt;</textual></code><textual class="po-textual"> consumes 29 bytes of disk storage
+            when stored as regular XML on disk in UTF-8 (opening and closing tag). In xDB's binary
+            format, it shrinks to 5 bytes, plus 4 bytes for the slot information (not shown above),
+            plus a certain amount of storage for the namebase entry which is shared among all
+            elements with the same name. The more complex </textual><code class="po-atom e211 e211"><textual class="po-textual">&lt;address/&gt;</textual></code><textual class="po-textual"> element
+            consumes 19 vs 8 bytes. This reduction in size depends on the document and the use of
+            XML features, such as validation and namespaces. However we can see that in particular
+            elements containing predominantly elements will shrink in size.</textual></para><para class="po-block e212 e212"><textual class="po-textual">The original addresslist XML document consumed 1138 bytes of disk space, 975 bytes
+            with ignorable whitespace removed. The binary document representation consumes 768 bytes
+            (within a 4kb page), giving a bloat factor of ~0.78. These numbers can greatly vary from
+            document to document, depending on factors such as namespace use, number of nodes, and
+            so on. The general experience with XML documents is that the bloat factor will typically
+            be around 0.9, giving a 10% compression.</textual></para></section></section></section></section><section class="po-hcontainer e213 e213"><title class="po-block e214 e214"><textual class="po-textual">Memory Consumption</textual></title><para class="po-block e215 e215"><textual class="po-textual">As mentioned above, in xDB DOM nodes are only shallow pointers into the data storage. The
+      data itself is stored in files, and partially paged into memory in a page cache. These pages
+      are kept in Java byte arrays at runtime and DOM operations directly operate on the byte
+      arrays. As DOM nodes only indirectly reference these byte arrays, the database engine is free
+      to evict data pages from the cache and/or load other cache pages in.</textual></para><para class="po-block e216 e216"><textual class="po-textual">A JVM running an xDB database server will allocate a fixed amount of memory to the xDB
+      page cache, similar to other databases. The amount of memory taken is configurable, and the
+      database can run correctly with only one data page of cache memory. However, again like other
+      databases, less cache memory means more page faults, which in turn means slower operation. The
+      ideal amount of memory to allocate for cache pages is difficult to determine, as more cache
+      memory will mean that less memory is available to the regular Java application code. A very
+      large cache will thus cause more garbage collection runs, which will again slow down the
+      application. Depending on the application, the available Java heaps space might even get
+      exhausted if it is mostly consumed by xDB cache pages. As a rule of thumb, users are advised
+      to allocate half of the Java heap to the database cache, which works well in most
+      cases.</textual></para><para class="po-block e217 e217"><textual class="po-textual">xDB's page cache uses a combination of Least Recently Used (LRU) and an aging cache
+      scheme. This means that if the cache has to evict a page, it will attempt to first evict pages
+      that have not been used for a long time, but prefer evicting pages that have been used few
+      times over pages that have been used frequently. If a user program uses a piece of data
+      frequently and also scans a large set of data, only referencing every page once, this means
+      that the cache will not be completely overwritten by the large scan.</textual></para><para class="po-block e218 e218"><textual class="po-textual">Beyond the amount of memory allocated for the page cache, xDB itself uses some memory for
+      internal data structures like the cache itself, administrative data for background threads,
+      and so on. The amount of memory used for these data structures is however fixed, and not
+      proportional to the size of documents or other structures contained in the library. A full xDB
+      database server can run in a JVM with 16 megabytes of RAM allocated to it.</textual></para><para class="po-block e219 e219"><textual class="po-textual">Because xDB does not force DOM structures to stay in memory, applications can perform DOM
+      operations on documents of effectively arbitrary size. However it is still possible to write
+      the user application in a way that causes memory exhaustion. For example, a program traversing
+      a large document and adding all DOM nodes it encounters to a data structure will exhaust
+      memory, because it keeps the individual DOM node objects from being garbage collected. Our
+      experience however shows that such programs are a not common.</textual></para></section><section class="po-hcontainer e220 e220"><title class="po-block e221 e221"><textual class="po-textual">Programming Model</textual></title><para class="po-block e222 e222"><textual class="po-textual">xDB is a compliant implementation of the W3C DOM level 3 standard. xDB's DOM nodes
+      implement the relevant Java interfaces of the </textual><code class="po-atom e223 e223"><textual class="po-textual">org.w3c.dom</textual></code><textual class="po-textual"> package, including the
+      extensions for loading and saving documents (DOM LS).</textual></para><para class="po-block e224 e224"><textual class="po-textual">This means that program code written against the familiar classes, such as e.g.
+        </textual><code class="po-atom e225 e225"><textual class="po-textual">org.w3.dom.Element</textual></code><textual class="po-textual">, will work without modification when using xDB. The only
+      differences in program code will be in the way the initial Document instance is
+      obtained.</textual></para><para class="po-block e226 e226"><xref class="po-milestone e227 e227" linkend="code.document-reference"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual"> shows a sample code snippet operating on an
+      xDB-backed DOM. The code first obtains an </textual><code class="po-atom e228 e228"><textual class="po-textual">XhiveDriverIf</textual></code><textual class="po-textual">, which is the main Java
+      entry point to all xDB operations. After initializing the driver, which will start background
+      threads and allocate the page cache, the code creates a new </textual><code class="po-atom e229 e229"><textual class="po-textual">XhiveSessionIf</textual></code><textual class="po-textual">, which
+      represents the context of transactional operations. The code then begins a new transaction,
+      retrieves a document that is stored in the database's root library</textual><footnote class="po-popup e230 e230"><para class="po-block e231 e231"><textual class="po-textual">xDB databases are structured like UNIX file systems; all documents are contained in
+          libraries, which in turn belong to other libraries, and the complete database is
+          descendant of a root library.</textual></para></footnote><textual class="po-textual">. The object representing the document implements the
+        </textual><code class="po-atom e232 e232"><textual class="po-textual">org.w3c.dom.Document</textual></code><textual class="po-textual"> interface. Any program code written for any Java DOM
+      implementation can now operate on the document. In particular, XSLT engines that support DOM
+      documents (i.e. all Java XSLT engines) can transparently perform transformations on these
+      documents. All changes to the document will be persisted in the </textual><code class="po-atom e233 e233"><textual class="po-textual">session.commit()</textual></code><textual class="po-textual">
+      call, or rolled back on </textual><code class="po-atom e234 e234"><textual class="po-textual">session.rollback()</textual></code><textual class="po-textual">, if the user code throws an unexpected
+      exception. Multiple transactions can operate on database and library contents concurrently in
+      complete isolation. xDB transactions are of serializable isolation level and conform to the
+      ACID properties.</textual></para><figure class="po-container e235 e235" xml:id="code.document-reference"><title class="po-block e236 e236"><textual class="po-textual">Obtaining a Document reference from xDB</textual></title><programlisting class="po-block e237 e237" xml:space="preserve"><textual class="po-textual">XhiveDriverIf driver = XhiveDriverFactory.getDriver("xhive://localhost:1235");
+driver.init();
+XhiveSessionIf session = driver.createSession();
+session.connect("username", "password", "Database");
+session.begin();
+try {
+  XhiveLibraryIf rootLibrary = session.getDatabase().getRoot();
+  org.w3c.dom.Document document = rootLibrary.get("somedocument.xml");
+  // operate on document
+  session.commit();
+} finally {
+  if (session.isOpen()) session.rollback();
+  session.terminate();
+  driver.close();  
+}</textual></programlisting></figure><para class="po-block e238 e238"><textual class="po-textual">xDB locks database contents to avoid concurrent modifications. Locking happens on a
+      per-document basis; parallel transactions can modify separate documents concurrently, but if a
+      document is already locked by another transaction, the transaction will block. Deadlocks are
+      resolved by selecting a victim, whose transaction will be cancelled and rolled back.</textual></para></section><section class="po-hcontainer e239 e239" xml:id="sect.performance"><title class="po-block e240 e240"><textual class="po-textual">Performance Comparisons</textual></title><para class="po-block e241 e241"><textual class="po-textual">While the indirection of storage and the bit operations cause a certain overhead,
+      performance is comparable to other DOM implementations. Some synthetic benchmarks</textual><footnote class="po-popup e242 e242"><para class="po-block e243 e243"><textual class="po-textual">These benchmarks, as all benchmarks, should be taken with a grain of salt. We do not
+          claim that these benchmarks hold much scientific significance or represent performance in
+          your particular XML application. Readers should also be aware that there is always bias if
+          an implementer tests his own implementation. However the results should give a rough
+          impression of the overhead associated with this DOM implementation model.</textual></para></footnote><textual class="po-textual"> show that common XML operations take on the order of twice as long in execution as
+      in other implementations, while requiring significantly less memory. XSL transformations on
+      gigabyte-sized XML documents are possible and run in reasonable time.</textual></para><para class="po-block e244 e244"><textual class="po-textual">All the following benchmarks have been run on a MacBook Pro 2.8 GHz Core 2 Duo machine
+      with 4 GB of DDR3 RAM and a solid state disk drive. The Java implementation was Apple's
+      modified distribution of the Sun HotSpot JVM in server mode (</textual><code class="po-atom e245 e245"><textual class="po-textual">-server</textual></code><textual class="po-textual">), giving 512
+      MB of RAM if not otherwise indicated (</textual><code class="po-atom e246 e246"><textual class="po-textual">-Xmx512M</textual></code><textual class="po-textual">). All times were measured after
+      running the benchmark code several times in a warmup phase to account for Just-In-Time
+      compilation (JIT). All implementation tests were run in a clean JVM to avoid skewing results
+      through the effects of class loading and the different compilation results it can produce.
+      After warmup, individual benchmarks were run 100 times (except for the long running large XSLT
+      transformation tests, which were run 10 times each); results are given as the average runtime
+      with standard deviation.</textual></para><para class="po-block e247 e247"><textual class="po-textual">The three implementations used were Saxon 9.2.0.6 Home Edition, xDB 10.0.0, Xerces 2.10.0,
+      and Xalan 2.7.1.</textual></para><section class="po-hcontainer e248 e248"><title class="po-block e249 e249"><textual class="po-textual">Parsing</textual></title><para class="po-block e250 e250"><textual class="po-textual">An important performance benchmark in XML processing is parsing XML documents. In this
+        benchmark, we parsed a 20 MB XML document of Wikipedia article titles, URLs, abstracts, and
+        links. The document has a relatively simple, flat structure, with an element for every
+        document that has several children for the document's details.</textual></para><table class="po-container e251 e251"><caption class="po-container e252 e252"><para class="po-block e253 e253"><textual class="po-textual">Parsing a 20 MB XML document</textual></para></caption><thead class="po-container e254 e254"><tr class="po-table e255 e255"><th class="po-field e256 e256"><textual class="po-textual">Implementation</textual></th><th class="po-field e257 e257"><textual class="po-textual">Average Runtime (ms)</textual></th><th class="po-field e258 e258"><textual class="po-textual">Standard Deviation (ms)</textual></th></tr></thead><tbody class="po-table e259 e259"><tr class="po-table e260 e260"><td class="po-block e261 e261"><textual class="po-textual">Saxon</textual></td><td class="po-block e262 e262"><textual class="po-textual">696</textual></td><td class="po-block e263 e263"><textual class="po-textual">45</textual></td></tr><tr class="po-table e264 e264"><td class="po-block e265 e265"><textual class="po-textual">xDB</textual></td><td class="po-block e266 e266"><textual class="po-textual">1388</textual></td><td class="po-block e267 e267"><textual class="po-textual">8</textual></td></tr><tr class="po-table e268 e268"><td class="po-block e269 e269"><textual class="po-textual">xDB (-Xmx64M)</textual></td><td class="po-block e270 e270"><textual class="po-textual">1565</textual></td><td class="po-block e271 e271"><textual class="po-textual">7</textual></td></tr><tr class="po-table e272 e272"><td class="po-block e273 e273"><textual class="po-textual">Xerces</textual></td><td class="po-block e274 e274"><textual class="po-textual">624</textual></td><td class="po-block e275 e275"><textual class="po-textual">98</textual></td></tr></tbody></table><para class="po-block e276 e276"><textual class="po-textual">xDB's parser and DOM implementation take about twice as long to parse a document,
+        probably due to the conversions necessary for xDB's internal storage. The lower standard
+        deviation compared to the other two implementations is most likely because xDB creates less
+        objects in memory, and thus is affected less by Java garbage collection.</textual></para><para class="po-block e277 e277"><textual class="po-textual">Reducing the available memory to 64 megabytes, the other two implementations failed
+        parsing the document due to memory exhaustion. xDB's parsing time increases, as the parsed
+        document will no longer easily fit the available cache memory and parts have to be paged
+        out. If we increase document size further or decrease available memory more, the parsing
+        process will be effectively limited by the throughput of the hard disk.</textual></para><para class="po-block e278 e278"><textual class="po-textual">More thorough scalability tests of xDB XML parsing can be found in a whitepaper by
+        Jeroen van Rotterdam (</textual><xref class="po-milestone e279 e279" linkend="bib.xdbperformance"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">)</textual></para></section><section class="po-hcontainer e280 e280"><title class="po-block e281 e281"><textual class="po-textual">DOM navigation</textual></title><para class="po-block e282 e282"><textual class="po-textual"> In this test, we walk the document from the parsing test using DOM navigation, or in
+        the case of Saxon using it's XDM data model. The tests performs an in-order visit of all
+        nodes in the document, retrieving text values for attributes and text nodes, and node names
+        for nodes that have a name (elements, attributes, processing instructions). The numbers for
+        Saxon are not entirely comparable, as the code uses a different document object model to
+        achieve the same task. Document parsing time is not included in the numbers.</textual></para><table class="po-container e283 e283"><caption class="po-container e284 e284"><para class="po-block e285 e285"><textual class="po-textual">Walking a 20 MB XML DOM</textual></para></caption><thead class="po-container e286 e286"><tr class="po-table e287 e287"><th class="po-field e288 e288"><textual class="po-textual">Implementation</textual></th><th class="po-field e289 e289"><textual class="po-textual">Average Runtime (ms)</textual></th><th class="po-field e290 e290"><textual class="po-textual">Standard Deviation (ms)</textual></th></tr></thead><tbody class="po-table e291 e291"><tr class="po-table e292 e292"><td class="po-block e293 e293"><textual class="po-textual">Saxon</textual></td><td class="po-block e294 e294"><textual class="po-textual">78.6</textual></td><td class="po-block e295 e295"><textual class="po-textual">1.1</textual></td></tr><tr class="po-table e296 e296"><td class="po-block e297 e297"><textual class="po-textual">xDB</textual></td><td class="po-block e298 e298"><textual class="po-textual">204.2</textual></td><td class="po-block e299 e299"><textual class="po-textual">0.8</textual></td></tr><tr class="po-table e300 e300"><td class="po-block e301 e301"><textual class="po-textual">xDB (-Xmx64M)</textual></td><td class="po-block e302 e302"><textual class="po-textual">348.9</textual></td><td class="po-block e303 e303"><textual class="po-textual">0.8</textual></td></tr><tr class="po-table e304 e304"><td class="po-block e305 e305"><textual class="po-textual">Xerces</textual></td><td class="po-block e306 e306"><textual class="po-textual">95.8</textual></td><td class="po-block e307 e307"><textual class="po-textual">0.4</textual></td></tr></tbody></table><para class="po-block e308 e308"><textual class="po-textual">Again, processing takes about twice as long on xDB's DOM implementation. Runtime
+        increases slightly with constrained memory.</textual></para></section><section class="po-hcontainer e309 e309"><title class="po-block e310 e310"><textual class="po-textual">XSL transformation</textual></title><para class="po-block e311 e311"><textual class="po-textual">In this test, we transform the aforementioned document using a simple XSLT 1.0
+        stylesheet. We use the Saxon and Xalan XSLT implementations, both on their native DOM
+        implementations (Xerces for Xalan), and both on xDB's DOM implementation.</textual></para><para class="po-block e312 e312"><textual class="po-textual">We can again see that xDB's DOM is slower than the XSLT processor's native
+        implementations, but again the overhead is tolerable. Saxon performs slightly worse than
+        Xalan on xDB's DOM; initial investigation suggest this might be due to Saxon's DOM driver
+        that operates on DOM node lists, which are computationally expensive as they have to be live
+        lists, directly reflecting any changes in the parent node. This is problematic in an
+        implementation such as xDB, where single logical DOM nodes can be represented by many
+        different objects. In addition, xDB does not maintain a list with all children of a node, so
+        that indexed access to a child within a DOM list is not O(1) in all cases.</textual></para><table class="po-container e313 e313"><caption class="po-container e314 e314"><para class="po-block e315 e315"><textual class="po-textual">XSLT transformation of a 20 MB XML document</textual></para></caption><thead class="po-container e316 e316"><tr class="po-table e317 e317"><th class="po-field e318 e318"><textual class="po-textual">Implementation</textual></th><th class="po-field e319 e319"><textual class="po-textual">Average Runtime (ms)</textual></th><th class="po-field e320 e320"><textual class="po-textual">Standard Deviation (ms)</textual></th></tr></thead><tbody class="po-table e321 e321"><tr class="po-table e322 e322"><td class="po-block e323 e323"><textual class="po-textual">Saxon</textual></td><td class="po-block e324 e324"><textual class="po-textual">90</textual></td><td class="po-block e325 e325"><textual class="po-textual">6</textual></td></tr><tr class="po-table e326 e326"><td class="po-block e327 e327"><textual class="po-textual">xDB (Xalan)</textual></td><td class="po-block e328 e328"><textual class="po-textual">160</textual></td><td class="po-block e329 e329"><textual class="po-textual">4</textual></td></tr><tr class="po-table e330 e330"><td class="po-block e331 e331"><textual class="po-textual">xDB (Saxon)</textual></td><td class="po-block e332 e332"><textual class="po-textual">251</textual></td><td class="po-block e333 e333"><textual class="po-textual">10</textual></td></tr><tr class="po-table e334 e334"><td class="po-block e335 e335"><textual class="po-textual">Xalan (Xerces)</textual></td><td class="po-block e336 e336"><textual class="po-textual">155</textual></td><td class="po-block e337 e337"><textual class="po-textual">17</textual></td></tr></tbody></table><para class="po-block e338 e338"><textual class="po-textual">We performed the same test on an identically structured document of 900 MB. Neither
+        Saxon nor Xalan were able to parse the document, even with 3.5 GB of memory available.
+        Running Xalan on xDB exhausted memory as well, as the implementation appears to copy some of
+        the DOM structure into it's own data structures, exhausting memory in the process.</textual></para><para class="po-block e339 e339"><textual class="po-textual">Running Saxon on top of xDB's DOM implementation managed to transform the document in
+        reasonable time. Both with a large (512 MB) and a small heap (64 MB), the document was
+        transformed in less than a minute. Available memory has no noticeable impact on performance;
+        runtime is effectively limited by IO throughput as xDB loads cache pages from the disk. This
+        also explains the supra-linear runtime growth from 250 ms for a 20 MB document to 45 seconds
+        for a 900 MB document; the first test exclusively uses heap memory, while the second test is
+        limited at least in part by disk performance.</textual></para><table class="po-container e340 e340"><caption class="po-container e341 e341"><para class="po-block e342 e342"><textual class="po-textual">XSLT transformation of a 900 MB document using Saxon on an xDB DOM with different
+            Java heap sizes</textual></para></caption><thead class="po-container e343 e343"><tr class="po-table e344 e344"><th class="po-field e345 e345"><textual class="po-textual">Available JVM Heap Memory</textual></th><th class="po-field e346 e346"><textual class="po-textual">Average Runtime (seconds)</textual></th><th class="po-field e347 e347"><textual class="po-textual">Standard Deviation (seconds)</textual></th></tr></thead><tbody class="po-table e348 e348"><tr class="po-table e349 e349"><td class="po-block e350 e350"><textual class="po-textual">64 MB</textual></td><td class="po-block e351 e351"><textual class="po-textual">47</textual></td><td class="po-block e352 e352"><textual class="po-textual">1</textual></td></tr><tr class="po-table e353 e353"><td class="po-block e354 e354"><textual class="po-textual">512 MB</textual></td><td class="po-block e355 e355"><textual class="po-textual">45</textual></td><td class="po-block e356 e356"><textual class="po-textual">2</textual></td></tr></tbody></table><para class="po-block e357 e357"><textual class="po-textual">Interestingly, runtime profiling of these simple XSLT transformations shows that
+        significant time (15-20%) is spent looking up element names by their namebase code. This
+        could be entirely avoided if the DOM API provided an interface to create an implementation
+        specific node name matcher. That would not only allow us to avoid the namebase lookup but
+        also reduce relatively expensive string comparisons on node names to integer comparisons on
+        namebase codes in xDB's case.</textual></para></section><section class="po-hcontainer e358 e358"><title class="po-block e359 e359"><textual class="po-textual">Discussion</textual></title><para class="po-block e360 e360"><textual class="po-textual">The benchmark results show that xDB's hard-disk backed DOM implementation is slower than
+        alternative main memory based implementations for small document sizes. On the other hand,
+        our scheme makes it possible to handle documents of sizes that simply cannot be processed
+        using main memory implementations. Beyond that, xDB ofcourse offers many other database
+        features that might be useful to users.</textual></para><para class="po-block e361 e361"><textual class="po-textual">The fact that xDB performs well compared to a DOM implementation such as Xerces might be
+        surprising, given that, when navigating to the first child of an element, a Xerces DOM node
+        can simply return the value of a field (or the first value of an array) where xDB has to
+        perform a whole series of bit manipulations. We believe that this is an effect of a modern
+        processor's memory hierarchy. As CPU internal caches and clock rates are significantly
+        faster than main memory access, modern CPUs spend most of their clock cycles waiting for
+        memory to be loaded into the CPU's cache (</textual><xref class="po-milestone e362 e362" linkend="bib.manegoldmemory"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">, </textual><xref class="po-milestone e363 e363" linkend="bib.cacheconcious"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">). xDB's compact storage layout sacrifices several CPU
+        operations for reduced memory use, but those CPU operations can execute in the time a CPU
+        would normally spend waiting for memory to be loaded. Because related nodes are allocated in
+        contiguous byte arrays, it is also more likely that the CPU already holds the memory
+        location for the next node in a cache line.</textual></para><para class="po-block e364 e364"><textual class="po-textual">Note that these benchmarks assume a document that is parsed once to be processed, and
+        then discarded. In real world applications, documents will often be processed many times.
+        Because of its persistent storage, xDB can avoid re-parsing documents over and over again,
+        giving substantial benefits for such applications.</textual></para></section></section><section class="po-hcontainer e365 e365"><title class="po-block e366 e366"><textual class="po-textual">Conclusion</textual></title><para class="po-block e367 e367"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></para></section><bibliography class="po-hcontainer e368 e368"><title class="po-block e369 e369"><textual class="po-textual">Bibliography</textual></title><bibliomixed class="po-block e370 e370" xml:id="bib.pengchwathe" xreflabel="Peng05"><textual class="po-textual">F Peng, S S Chawathe: XSQ: A Streaming
+      XPath Engine. ACM Trans. Database Syst (2005). doi: </textual><biblioid class="po-atom e371 doi e371"><textual class="po-textual">10.1145/1071610.1071617</textual></biblioid></bibliomixed><bibliomixed class="po-block e372 e372" xml:id="bib.florescuhillery" xreflabel="Florescu03"><textual class="po-textual">Daniela Florescu, Chris
+      Hillery, Donald Kossmann, Paul Lucas, Fabio Riccardi, Till Westmann, Michael J. Carey, Arvind
+      Sundararajan, Geetika Agrawal: The BEA Streaming XQuery Processor. The VLDB Journal
+      (2003)</textual></bibliomixed><bibliomixed class="po-block e373 e373" xml:id="bib.stx" xreflabel="STX"><textual class="po-textual">Streaming Transformations for XML. Homepage, on
+      the web at </textual><link class="po-inline e374 e374" xlink:actuate="onRequest" xlink:href="http://stx.sourceforge.net/" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://stx.sourceforge.net/</textual></link></bibliomixed><bibliomixed class="po-block e375 e375" xml:id="bib.xslt21" xreflabel="Kay10"><textual class="po-textual">Michael Kay: XSL Transformations (XSLT) 2.1.
+      World Wide Web Consortium Working Draft (2010), on the web at </textual><link class="po-inline e376 e376" xlink:actuate="onRequest" xlink:href="http://www.w3.org/TR/xslt-21/" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://www.w3.org/TR/xslt-21/</textual></link></bibliomixed><bibliomixed class="po-block e377 e377" xml:id="bib.ordpath" xreflabel="ONeil04"><textual class="po-textual">P. O’Neil, E. O’Neil, S. Pal, I. Cseri, G.
+      Schaller, and N. Westbury. ORDPATH: Insert-Friendly XML Node Labels. SIGMOD,
+      2004. doi: </textual><biblioid class="po-atom e378 doi e378"><textual class="po-textual">10.1145/1007568.1007686</textual></biblioid></bibliomixed><bibliomixed class="po-block e379 e379" xml:id="bib.exist" xreflabel="Meier02"><textual class="po-textual">Wolfgang Meier: eXist: An Open Source Native
+      XML Database. NODe Workshop (2002) </textual></bibliomixed><bibliomixed class="po-block e380 e380" xml:id="bib.manegoldmemory" xreflabel="Manegold00"><textual class="po-textual">Manegold, S., Boncz, P.A., and
+      Kersten, M.L: Optimizing database architecture for the new bottleneck: memory access. VLDB
+      Journal (2000)</textual></bibliomixed><bibliomixed class="po-block e381 e381" xml:id="bib.cacheconcious" xreflabel="Chilimbi99"><textual class="po-textual">T. M. Chilimbi, B. Davidson J. R.
+      Larus: Cache-conscious structure layout. ACM Sigplan Notices (1999). doi: </textual><biblioid class="po-atom e382 doi e382"><textual class="po-textual">10.1145/301631.301633</textual></biblioid></bibliomixed><bibliomixed class="po-block e383 e383" xml:id="bib.xmlshred" xreflabel="Tatarinov02"><textual class="po-textual">I. Tatarinov, S. D. Viglas, K. Beyer,
+      J. Shanmugasundaram, E. Shekita, C. Zhang: Storing and Querying Ordered XML Using a Relational
+      Database System. SIGMOD (2002). doi: </textual><biblioid class="po-atom e384 doi e384"><textual class="po-textual">10.1145/564691.564715</textual></biblioid></bibliomixed><bibliomixed class="po-block e385 e385" xml:id="bib.xdbperformance" xreflabel="vanRotterdam09"><textual class="po-textual">J. van Rotterdam: EMC
+      Documentum xDB 9.0 Scalability Tests. Whitepaper, on the web at </textual><link class="po-inline e386 e386" xlink:actuate="onRequest" xlink:href="http://www.emc.com/collateral/software/white-papers/h4662-xdb-performance-wp.pdf" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://www.emc.com/collateral/software/white-papers/h4662-xdb-performance-wp.pdf</textual></link></bibliomixed></bibliography></article></classedDocument>

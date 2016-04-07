@@ -1,0 +1,603 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?><classedDocument><article xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink" class="po-hcontainer e0 e0" version="5.0-subset Balisage-1.2"><title class="po-block e1 e1"><textual class="po-textual">Schema Component Paths for Schema Analysis</textual></title><info class="po-record e2 e2"><confgroup class="po-record e3 e3"><conftitle class="po-field e4 e4"><textual class="po-textual">Balisage: The Markup Conference 2010</textual></conftitle><confdates class="po-field e5 e5"><textual class="po-textual">August 3 - 6, 2010</textual></confdates></confgroup><abstract class="po-container e6 e6"><para class="po-block e7 e7"><textual class="po-textual">Schema component paths define an XPath-like syntax for describing
+and navigating W3C XML Schema component models.  Canonical schema component
+paths provide a unique, string-comparable designator for each component in
+schema. MHSCD is a driver than can generate canonical schema component paths or
+non-canonical schema component paths to a certain depth, or locate a component
+or set of components in a schema given a schema component path.  
+        </textual></para><para class="po-block e8 e8"><textual class="po-textual">Component paths can be applied to various schema analysis
+tasks. The set of canonical schema component paths provides a simple signature
+for a schema that is robust to differences in the physical organization of the
+schema document.  Comparing two such signatures gives a quick "what's changed
+between these two schema versions?" summary.  This signature can also be used
+for the calculation of basic schema complexity metrics, including basic counts
+of components of various types.
+        </textual></para></abstract><author class="po-record e9 e9"><personname class="po-record e10 e10"><firstname class="po-field e11 e11"><textual class="po-textual">Mary</textual></firstname><surname class="po-field e12 e12"><textual class="po-textual">Holstege</textual></surname></personname><personblurb class="po-container e13 e13"><para class="po-block e14 e14"><textual class="po-textual">Mary Holstege is Principal Engineer at Mark Logic
+Corporation.  She has worked as a software engineer in and around markup
+technologies for over 20 years.  She is a member of the W3C XML Schema and XML
+Query working groups, and an editor of the W3C XML Schema Component Designators
+and the XML Query Full Text specifications.  Mary Holstege holds a Ph.D. from
+Stanford University in Computer Science, for a thesis on document
+representation.</textual></para></personblurb><affiliation class="po-record e15 e15"><jobtitle class="po-field e16 e16"><textual class="po-textual">Principal Engineer</textual></jobtitle><orgname class="po-block e17 e17"><textual class="po-textual">Mark Logic Corporation</textual></orgname></affiliation><email class="po-field e18 e18"><textual class="po-textual">mary.holstege@marklogic.com</textual></email></author><legalnotice class="po-container e19 e19"><para class="po-block e20 e20"><textual class="po-textual">Copyright © 2010 Mary Holstege</textual></para></legalnotice></info><section class="po-hcontainer e21 e21"><title class="po-block e22 e22"><textual class="po-textual">Introduction</textual></title><para class="po-block e23 e23"><textual class="po-textual">XML Schemas have become artifacts that play
+  a role in many software projects. Software is generated or driven from them.
+  While there is a long history of work on software metrics and analysis, work 
+  is only beginning on understanding the XML Schemas as software
+  artifacts in their own right.
+    </textual></para><para class="po-block e24 e24"><textual class="po-textual">This paper introduces schema component paths, a specification under
+  development by the W3C, and shows how they can be used to tame some of 
+  the complexity of the XML Schema model itself, and provide the 
+  basis of some XML Schema metrics and analysis tools.
+    </textual></para></section><section class="po-hcontainer e25 e25"><title class="po-block e26 e26"><textual class="po-textual">Schema Component Paths</textual></title><para class="po-block e27 e27"><textual class="po-textual">Schema component paths, or SCPs, define an
+  XPath-like syntax for describing and navigating W3C XML Schema </textual><citation class="po-atom e28 e28" linkend="xsd"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></citation><textual class="po-textual"> component models. Certain schema component paths define the
+  minimal path to each specific component in the component model: these are the
+  canonical schema component paths.
+      </textual></para><para class="po-block e29 e29"><textual class="po-textual">The XML Schema component model is complex, with many
+  asymmetries and special cases. A particular assembled schema consists
+  of a rooted graph of components and property records typically assembled from
+  one or more schema documents.  Property records are used to encapsulate
+  certain compound properties, but are not themselves considered schema
+  components. 
+  Schema components and property records have properties, some of which are
+  simple values, and some of which are other schema components and properties.
+  For the purposes of schema component paths, component-valued
+  properties define labelled arcs between schema components. Each labelled arc
+  defined a different axis of traversal from one component to another. Some axes
+  select more than one component. To distinguish the components that an axis
+  selects, SCPs use name tests and positional predicates: the name test matches
+  components by their name and namespace URI and positional predicates count
+  components in order.  
+      </textual></para><para class="po-block e30 e30"><textual class="po-textual">Syntactically, a SCP resembles an XPath expression: the path consists
+  of a sequence of steps separated by a slash ('/'), where each step consists of
+  an axis name, a double-colon ('::') separator, a name test, and possibly a
+  predicate surrounded by square brackets ('[' and ']').  In the case of SCPs the
+  only predicate available is the numerical positional predicate: an integer.
+  Again, as with XPath expressions, various axis abbreviations are available.
+  Complete details are available in the specification </textual><citation class="po-atom e31 e31" linkend="scds"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></citation><textual class="po-textual">.
+      </textual></para><figure class="po-container e32 e32" xml:id="fig_scp1"><programlisting class="po-block e33 e33" xml:space="preserve"><textual class="po-textual">
+  /schemaElement::p:outer/type::0/schemaAttribute::p:inner
+  /type::p:second/model::sequence/schemaElement::p:duplicate[2]/type::*
+  /p:outer/~0/@p:inner
+  /~p:second/model::sequence/p:duplicate[2]/~*
+  </textual></programlisting><caption class="po-container e34 e34"><para class="po-block e35 e35"><textual class="po-textual">Some SCPs</textual></para></caption></figure><para class="po-block e36 e36"><textual class="po-textual">Figure </textual><xref class="po-milestone e37 e37" linkend="fig_scp1"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual"> shows some SCPs.  
+  The first SCP selects an
+  attribute declaration named 'inner' for an
+  element declaration named 'outer' whose type is a locally defined anonymous
+  type.  The path starts at the root of the assembled schema ('/') and then
+  traverses the schemaElement axis ('schemaElement::') with a name test
+  ('p:outer'). The name test matches an element declaration whose local name is
+  'outer' and whose namespace URI matches the namespace bound to the prefix
+  'p'. The path continues through the type axis ('type::') with a name test
+  ('0') that in this case matches a type definition with no name ('0' being the
+  indicator for this case). 
+  Finally the schemaAttribute axis is traversed to select the
+  attribute declaration whose name matches 'p:inner'. 
+      </textual></para><para class="po-block e38 e38"><textual class="po-textual">The second SCP selects the type of the second element
+  declaration named 'duplicate' in the sequence within the type definition named
+  'second'. The path starts at the root of the assembled schema ('/'), traverses
+  through the type axis and then the model axis ('model::').
+  Here the test ('sequence') matches 
+  a model group's kind (sequence vs. choice vs. all) and selects only sequence
+  model groups. Then the schemaElement axis is traversed. The
+  predicate on this axis ('[2]') selects the second element declaration with the
+  name 'duplicate' in the namespace bound to 'p': this can only be the case if
+  there are two local element declarations.  Finally, the type axis is traversed
+  and a wildcard name test ('*') is applied, which will match the type
+  definition, regardless of type.
+      </textual></para><para class="po-block e39 e39"><textual class="po-textual">
+  The third and fourth SCPs are abbreviated versions of the first and
+  second, using the tilde '~' abbreviation for the type axis, the use of
+  the bare name as an abbreviation for the schemaElement axis, and the use of the
+  at sign ('@') as an abbreviation for the schemaAttribute axis.
+      </textual></para><para class="po-block e40 e40"><textual class="po-textual">Table </textual><xref class="po-milestone e41 e41" linkend="table_axes"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual"> summarizes the schema component axes.  Not all axes apply to canonical paths, and some axes apply only against the XML Schema 1.1 </textual><citation class="po-atom e42 e42" linkend="xsd11"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></citation><textual class="po-textual"> component model.
+      </textual></para><table class="po-container e43 e43" xml:id="table_axes"><caption class="po-container e44 e44"><para class="po-block e45 e45"><textual class="po-textual">Schema Component Path Axes</textual></para></caption><tr class="po-table e46 e46"><th class="po-field e47 e47"><textual class="po-textual">Axis</textual></th><th class="po-field e48 e48"><textual class="po-textual">Meaning</textual></th></tr><tr class="po-table e49 e49"><th class="po-field e50 e50" colspan="2"><textual class="po-textual">Axes appearing in canonical paths</textual></th></tr><tr class="po-table e51 e51"><td class="po-block e52 e52"><textual class="po-textual">schemaAttribute</textual></td><td class="po-block e53 e53"><textual class="po-textual">Attribute declaration</textual></td></tr><tr class="po-table e54 e54"><td class="po-block e55 e55"><textual class="po-textual">schemaElement</textual></td><td class="po-block e56 e56"><textual class="po-textual">Element declaration</textual></td></tr><tr class="po-table e57 e57"><td class="po-block e58 e58"><textual class="po-textual">type</textual></td><td class="po-block e59 e59"><textual class="po-textual">Type definition</textual></td></tr><tr class="po-table e60 e60"><td class="po-block e61 e61"><textual class="po-textual">attributeGroup</textual></td><td class="po-block e62 e62"><textual class="po-textual">Named attribute group definition</textual></td></tr><tr class="po-table e63 e63"><td class="po-block e64 e64"><textual class="po-textual">group</textual></td><td class="po-block e65 e65"><textual class="po-textual">Named model group definition</textual></td></tr><tr class="po-table e66 e66"><td class="po-block e67 e67"><textual class="po-textual">identityConstraint</textual></td><td class="po-block e68 e68"><textual class="po-textual">Identity constraint definition</textual></td></tr><tr class="po-table e69 e69"><td class="po-block e70 e70"><textual class="po-textual">key</textual></td><td class="po-block e71 e71"><textual class="po-textual">Referenced key in identity constraint definition</textual></td></tr><tr class="po-table e72 e72"><td class="po-block e73 e73"><textual class="po-textual">notation</textual></td><td class="po-block e74 e74"><textual class="po-textual">Notation declaration</textual></td></tr><tr class="po-table e75 e75"><td class="po-block e76 e76"><textual class="po-textual">model</textual></td><td class="po-block e77 e77"><textual class="po-textual">Model group</textual></td></tr><tr class="po-table e78 e78"><td class="po-block e79 e79"><textual class="po-textual">anyAttribute</textual></td><td class="po-block e80 e80"><textual class="po-textual">Attribute wildcard</textual></td></tr><tr class="po-table e81 e81"><td class="po-block e82 e82"><textual class="po-textual">any</textual></td><td class="po-block e83 e83"><textual class="po-textual">Wildcard</textual></td></tr><tr class="po-table e84 e84"><td class="po-block e85 e85"><textual class="po-textual">facet</textual></td><td class="po-block e86 e86"><textual class="po-textual">Constraining or fundamental facet</textual></td></tr><tr class="po-table e87 e87"><td class="po-block e88 e88"><textual class="po-textual">annotation</textual></td><td class="po-block e89 e89"><textual class="po-textual">Annotation</textual></td></tr><tr class="po-table e90 e90"><td class="po-block e91 e91"><textual class="po-textual">assertion</textual></td><td class="po-block e92 e92"><textual class="po-textual">Assertion (1.1 component model only)</textual></td></tr><tr class="po-table e93 e93"><td class="po-block e94 e94"><textual class="po-textual">alternative</textual></td><td class="po-block e95 e95"><textual class="po-textual">Type alternative (1.1 component model only)</textual></td></tr><tr class="po-table e96 e96"><th class="po-field e97 e97" colspan="2"><textual class="po-textual">Axes appearing in non-canonical paths</textual></th></tr><tr class="po-table e98 e98"><td class="po-block e99 e99"><textual class="po-textual">component</textual></td><td class="po-block e100 e100"><textual class="po-textual">Any component</textual></td></tr><tr class="po-table e101 e101"><td class="po-block e102 e102"><textual class="po-textual">currentComponent</textual></td><td class="po-block e103 e103"><textual class="po-textual">The current component</textual></td></tr><tr class="po-table e104 e104"><td class="po-block e105 e105"><textual class="po-textual">substitutionGroup</textual></td><td class="po-block e106 e106"><textual class="po-textual">The substitution group head of an element declaration</textual></td></tr><tr class="po-table e107 e107"><td class="po-block e108 e108"><textual class="po-textual">baseType</textual></td><td class="po-block e109 e109"><textual class="po-textual">The base type of a type definition</textual></td></tr><tr class="po-table e110 e110"><td class="po-block e111 e111"><textual class="po-textual">primitiveType</textual></td><td class="po-block e112 e112"><textual class="po-textual">The primitive type of a simple type definition</textual></td></tr><tr class="po-table e113 e113"><td class="po-block e114 e114"><textual class="po-textual">itemType</textual></td><td class="po-block e115 e115"><textual class="po-textual">The item type of a list simple type definition</textual></td></tr><tr class="po-table e116 e116"><td class="po-block e117 e117"><textual class="po-textual">memberType</textual></td><td class="po-block e118 e118"><textual class="po-textual">A member type of a union simple type definition</textual></td></tr><tr class="po-table e119 e119"><td class="po-block e120 e120"><textual class="po-textual">particle</textual></td><td class="po-block e121 e121"><textual class="po-textual">A particle in a model group</textual></td></tr><tr class="po-table e122 e122"><td class="po-block e123 e123"><textual class="po-textual">attributeUse</textual></td><td class="po-block e124 e124"><textual class="po-textual">An attribute use (local attribute declaration)</textual></td></tr><tr class="po-table e125 e125"><td class="po-block e126 e126"><textual class="po-textual">scope</textual></td><td class="po-block e127 e127"><textual class="po-textual">The complex type definition, attribute group definition, or model group definition defining the scope of a local element or attribute declaration</textual></td></tr><tr class="po-table e128 e128"><td class="po-block e129 e129"><textual class="po-textual">context</textual></td><td class="po-block e130 e130"><textual class="po-textual">The complex type definition, attribute declaration, or element declaration defining the context of a local type definition</textual></td></tr></table><para class="po-block e131 e131"><textual class="po-textual">There is one privileged path to each component in the schema, the
+  canonical schema component path. Intuitively, the canonical SCP of a component
+  is the SCP that minimally describes that component and only that component.
+  For example, the SCP for a global type definition is the SCP that traverses
+  solely the type axis from the root; the SCP for a local type definition 
+  is the SCP for the element declaration that governs the type definition,
+  extended by traversing the type axis. Canonical paths restrict traversals to
+  certain axes, sometimes based on complex constraints involving other components
+  (particularly the base type component), and eliminating abbreviations and
+  wildcarding wherever possible.  Every canonical SCP is the extension of an
+  existing SCP with an allowable step, plus the canonical SCP for component that
+  represents the whole schema, whose canonical SCP is a slash ('/'). 
+      </textual></para><para class="po-block e132 e132"><textual class="po-textual">The set of canonical paths can be generated for an assembled schema
+  by traversing the component graph from the root, gathering up canonical SCPs,
+  and extending them through allowable transitions.  Figure 
+  </textual><xref class="po-milestone e133 e133" linkend="fig_canonical"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual"> shows a small schema and its canonical SCPs,
+  excluding the canonical SCPs for the built-in schema components that are
+  present in every assembled schema. 
+      </textual></para><figure class="po-container e134 e134" xml:id="fig_canonical"><programlisting class="po-block e135 e135" xml:space="preserve"><textual class="po-textual">
+  
+  &lt;xs:schema targetNamespace="http://www.w3.org/xmlschema-ref/example1"
+   xmlns="http://www.w3.org/xmlschema-ref/example1"
+   xmlns:xs="http://www.w3.org/2001/XMLSchema"
+   elementFormDefault="qualified"&gt;
+ 
+    &lt;xs:complexType name="registered-query"&gt;
+      &lt;xs:complexContent&gt;
+        &lt;xs:extension base="query"&gt;
+          &lt;xs:sequence&gt;
+            &lt;xs:element ref="id" minOccurs="0" maxOccurs="unbounded"/&gt;
+            &lt;xs:element ref="option" minOccurs="0" maxOccurs="unbounded"/&gt;
+          &lt;/xs:sequence&gt;
+          &lt;xs:attribute name="weight" type="weight" use="optional"/&gt;
+        &lt;/xs:extension&gt;
+      &lt;/xs:complexContent&gt;
+    &lt;/xs:complexType&gt;
+ 
+    &lt;xs:element name="registered-query" type="registered-query"
+                substitutionGroup="query"/&gt;
+ 
+    &lt;xs:simpleType name="id"&gt;
+      &lt;xs:restriction base="xs:unsignedLong"/&gt;
+    &lt;/xs:simpleType&gt;
+ 
+    &lt;xs:element name="id" type="id"/&gt;
+ 
+    &lt;xs:element name="option" type="option"/&gt;
+ 
+    &lt;xs:simpleType name="option"&gt;
+      &lt;xs:restriction base="xs:string"&gt;
+        &lt;xs:enumeration value="stemmed"/&gt;
+        &lt;xs:enumeration value="unstemmed"/&gt;
+        &lt;xs:enumeration value="wildcarded"/&gt;
+        &lt;xs:enumeration value="unwildcarded"/&gt;
+      &lt;/xs:restriction&gt;
+    &lt;/xs:simpleType&gt;
+ 
+    &lt;xs:complexType name="query"&gt;
+      &lt;xs:annotation&gt;
+        &lt;xs:documentation&gt;Any query.&lt;/xs:documentation&gt;
+        &lt;xs:appinfo/&gt;
+      &lt;/xs:annotation&gt;
+      &lt;xs:complexContent&gt;
+        &lt;xs:restriction base="xs:anyType"&gt;
+          &lt;xs:anyAttribute processContents="lax"/&gt; 
+        &lt;/xs:restriction&gt;
+      &lt;/xs:complexContent&gt;
+    &lt;/xs:complexType&gt;
+ 
+    &lt;xs:element name="query" type="query" abstract="true"/&gt;
+ 
+    &lt;xs:simpleType name="weight"&gt;
+      &lt;xs:restriction base="xs:double"&gt;
+        &lt;xs:minInclusive value="0"/&gt;
+      &lt;/xs:restriction&gt;
+    &lt;/xs:simpleType&gt;
+  &lt;/xs:schema&gt;
+  
+      </textual></programlisting><programlisting class="po-block e136 e136" xml:space="preserve"><textual class="po-textual">
+  /
+  /schemaElement::p:registered-query
+  /schemaElement::p:option
+  /schemaElement::p:id
+  /schemaElement::p:query
+  /type::p:registered-query
+  /type::p:registered-query/model::sequence
+  /type::p:registered-query/schemaAttribute::weight
+  /type::p:option
+  /type::p:option/facet::enumeration
+  /type::p:id
+  /type::p:weight
+  /type::p:weight/facet::minInclusive
+  /type::p:query
+  /type::p:query/anyAttribute::*
+      </textual></programlisting><caption class="po-container e137 e137"><para class="po-block e138 e138"><textual class="po-textual">Schema and its canonical paths</textual></para></caption></figure><para class="po-block e139 e139"><textual class="po-textual">The set of canonical SCPs for a schema give us a quick summary of
+  basic facts of the schema.  In this case we can see that the schema has
+  four top-level element declarations, five top-level
+  type definitions, two constraining facets, one model group, and one local
+attribute declaration. The schema appears to be written in the Garden of Eden
+style, because there are no anonymous type definitions.
+    </textual></para><para class="po-block e140 e140"><textual class="po-textual">Note, however, that the canonical SCPs (and indeed, SCPs in general)
+do not currently include information about non-component properties of the 
+components, such as occurrence indicators or value constraints. Clearly such
+properties provide important information about a schema, and their absence
+is a serious limitation to using SCPs alone. The SCP specification does define
+an accessor syntax, but declines to define any specific accessors or their
+semantics.
+    </textual></para><section class="po-hcontainer e141 e141"><title class="po-block e142 e142"><textual class="po-textual">Comparison with Extended XPaths</textual></title><para class="po-block e143 e143"><textual class="po-textual">Coates and Dui </textual><citation class="po-atom e144 e144" linkend="xsddiff"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></citation><textual class="po-textual"> present the idea of 
+  using "extended XPaths" for XML Schema differencing.  As with schema component
+  paths, these extended XPaths use an XPath-like syntax to traverse the
+  component model for an assembled schema. The paper presents how these
+  paths can be used to compare schemas for changes.
+    </textual></para><para class="po-block e145 e145"><textual class="po-textual">A key difference between the extended XPaths and schema component 
+  paths is simply that there is no specification of the rules for generation 
+  and interpretation of the extended XPaths, while schema component paths are
+  defined in a public formal specification.
+    </textual></para><para class="po-block e146 e146"><textual class="po-textual">Still, some differences are clear:</textual></para><orderedlist class="po-table e147 e147"><listitem class="po-container e148 e148"><para class="po-block e149 e149"><textual class="po-textual">Extended XPaths include information about non-component 
+  properties, such as occurrence indicators (minOccurs and maxOccurs), value 
+  constraints (default values), and facet values.  A predicate style of 
+  representation is used.</textual></para></listitem><listitem class="po-container e150 e150"><para class="po-block e151 e151"><textual class="po-textual">Extended XPaths focus on paths for elements and 
+   attributes, with annotations for certain kinds of type
+information.</textual></para></listitem><listitem class="po-container e152 e152"><para class="po-block e153 e153"><textual class="po-textual">Schema component paths includes a definition of canonical
+paths; these paths distinguish shared components from locally defined
+ones.</textual></para></listitem><listitem class="po-container e154 e154"><para class="po-block e155 e155"><textual class="po-textual">Schema component paths cover all component types, including named
+   model groups and attribute groups.</textual></para></listitem></orderedlist><para class="po-block e156 e156"><textual class="po-textual">There are strengths and weaknesses to both approaches.</textual></para><itemizedlist class="po-table e157 e157"><listitem class="po-container e158 e158"><para class="po-block e159 e159"><textual class="po-textual">Including 
+    non-component properties in the path means that metrics or differences that
+    depend on those properties can be calculated using the paths alone. For
+    example, a canonical path-based schema difference will report no change
+    in the schema if the default value for an attribute changes, or if one
+    schema requires 1 or more occurrences of an element instead of 0 or more.
+    Schema component paths are therefore insufficient to detect such
+    differences. The predicate style of representation makes these properties
+    manifest in the paths, which makes the information more immediately
+    accessible than relying on something else to use accessors to fetch the
+values and compute information based on those values.
+    </textual></para></listitem><listitem class="po-container e160 e160"><para class="po-block e161 e161"><textual class="po-textual">A central aim of complexity metrics is to measure reuse.
+Distinguishing between paths that involve shared components, such as 
+those inherited from base types or named groups, is therefore essential to
+compute such metrics. Extended XPaths cannot be used to compute such metrics
+because by design they elide such differences.
+    </textual></para></listitem><listitem class="po-container e162 e162"><para class="po-block e163 e163"><textual class="po-textual">The design of extended XPaths captures differences that make a
+difference to validation outcomes, but not other kinds of differences. If the
+purpose of computing the difference between two schemas is to determine if some
+inadvertent material change has been made to the set of documents that are
+valid per the schema, this approach is preferable. One need not be
+bothered to review changes that do not materially affect outcomes.
+    </textual></para></listitem></itemizedlist><para class="po-block e164 e164"><textual class="po-textual">In the sections that follow we will look at how to apply SCPs to 
+perform various schema analysis tasks, with some comparison to extended
+XPaths.
+    </textual></para></section></section><section class="po-hcontainer e165 e165"><title class="po-block e166 e166"><textual class="po-textual">Analyzing Schemas</textual></title><section class="po-hcontainer e167 e167"><title class="po-block e168 e168"><textual class="po-textual">Schema Signatures</textual></title><para class="po-block e169 e169"><textual class="po-textual">The set of canonical SCPs for a given schema provides a useful 
+schema signature.  This signature can be identify schemas that are functionally
+the same, robustly in the face of differences in physical organization of the
+schema documents, ordering of declarations within those schema documents and
+the presence of extraneous information such as comments. Furthermore, the text
+format of a list of canonical SCPs is simple enough that it can be processed
+with simple tools, such as Unix command line tools, to analyze the schema and
+compare it with other schemas.
+      </textual></para><figure class="po-container e170 e170" xml:id="fig_sig"><programlisting class="po-block e171 e171" xml:space="preserve"><textual class="po-textual"> 
+      canonicals example.xsd | sort -f/ -s -k2,2 
+      </textual></programlisting><caption class="po-container e172 e172"><para class="po-block e173 e173"><textual class="po-textual">Computing a schema signature</textual></para></caption></figure><para class="po-block e174 e174"><textual class="po-textual">This schema signature procedure performs a stable sort on the
+second field only (which is to say, the first step after the root), so top level
+schema components will appear with their names in order by component type,
+while model groups will not be reshuffled. In the case of sequence model
+groups, it is important to preserve the order of the particles because a change
+in the ordering constitutes a significant difference. However, this means that
+ordering changes in choice or all groups will produce different signatures even
+though these changes do not materially affect the schema.
+Similarly the reordering of attributes would also produce a different signature.
+Alternatively, a global sort could be used, with the opposite weakness of
+giving equivalent signatures to two schemas that differ in the order of
+particles in a sequence model group.
+      </textual></para></section><section class="po-hcontainer e175 e175"><title class="po-block e176 e176"><textual class="po-textual">Schema Differences</textual></title><para class="po-block e177 e177"><textual class="po-textual">Determining what has changed between two versions by looking at the
+schema documents themselves can be a daunting task. Simple file differencing
+can include lots of irrelevant detail, or can be stymied by a reorganization of
+the partitioning of the schema across multiple schema documents. A comparison
+of the two schema signatures is much easier to grasp and doesn't suffer from
+these problems.
+      </textual></para><figure class="po-container e178 e178" xml:id="fig_diff"><programlisting class="po-block e179 e179" xml:space="preserve"><textual class="po-textual"> 
+      canonicals example_v1.xsd | sort -f/ -s -k2,2 &gt; 1.out
+      canonicals example_v2.xsd | sort -f/ -s -k2,2 &gt; 2.out
+      echo "*********** New in $xsd2"
+      diff -w 1.out 2.out | grep '&gt;' | sed 's/^&gt; //'
+      echo "*********** Removed from $xsd2"
+      diff -w 1.out 2.out | grep '&lt;' | sed 's/^&lt; //'
+      </textual></programlisting><caption class="po-container e180 e180"><para class="po-block e181 e181"><textual class="po-textual">Comparing schema versions</textual></para></caption></figure><figure class="po-container e182 e182" xml:id="fig_cts_42"><programlisting class="po-block e183 e183" xml:space="preserve"><textual class="po-textual"> 
+*********** New in example_v2.xsd
+/schemaElement::p:cluster
+/schemaElement::p:clustering
+/schemaElement::p:clustering/type::0
+/schemaElement::p:clustering/type::0/model::choice
+/schemaElement::p:complete
+/schemaElement::p:max-terms
+/schemaElement::p:min-weight
+/schemaElement::p:options
+/schemaElement::p:options/type::0
+/schemaElement::p:options/type::0/model::choice
+/schemaElement::p:score
+/schemaElement::p:term/type::0/model::sequence
+/schemaElement::p:term/type::0/schemaAttribute::fitness
+/schemaElement::p:term/type::0/schemaAttribute::confidence
+/schemaElement::p:use-db-config
+/type::p:cluster
+/type::p:cluster/schemaAttribute::id
+/type::p:cluster/schemaAttribute::parent-id
+/type::p:cluster/schemaAttribute::label
+/type::p:cluster/schemaAttribute::count
+/type::p:cluster/schemaAttribute::nodes
+/type::p:nodes
+/type::p:nodes/facet::finite
+/type::p:score-kind
+/type::p:score-kind/facet::enumeration
+*********** Removed from example_v2.xsd
+      </textual></programlisting><caption class="po-container e184 e184"><para class="po-block e185 e185"><textual class="po-textual">A sample schema difference report</textual></para></caption></figure><para class="po-block e186 e186"><textual class="po-textual">
+      A schema difference based on a canonical schema component path signature
+will be sensitive to additions and deletions of elements and attributes, the
+introduction of new named types or groups, or a switch in compositor type.
+A change in base type will be seen as a second order effect: by what impact it
+has on the derived type. Such a schema difference will be insensitive to
+changes in occurrence or value constraints, or in facet values.  
+     </textual></para><para class="po-block e187 e187"><textual class="po-textual">A schema difference based on extended XPaths
+will also be sensitive to additions and deletions of elements and attributes
+and switches in compositor types. It will also pick up differences in
+occurrence and value constraints and in facet values. A change in base type
+will be directly visible, but the introduction of new types will be visible as
+a second order effect and only if the new type is actually used within the
+schema. The introduction or removal of named model group and attribute groups,
+or the switching of an element from being local to being global will be
+invisible.</textual></para><para class="po-block e188 e188"><textual class="po-textual">From the point of view of knowing what the changes are that
+materially affect the set of valid documents, the extended XPath approach is
+clearly preferable. The lack of non-component properties on schema component
+paths is a serious weakness in this respect. Facet values and occurrence
+constraints have an obvious effect on validation and changes to them count as
+important changes. Augmenting the schema component path model to make such
+values manifest as predicates, as extended XPaths do, would be a good step 
+forward. On the other hand, from the point of view of knowing about
+substantive changes to the usability of the schema by other schemas or for
+non-validation purposes, the schema component path approach of enumerating
+canonical paths for all components makes sense. When an XML Schema is imported
+into an XQuery module, for example, all the types are present and available,
+even ones not used in any content model.  Augmenting extended XPaths to capture
+information about all components would be a positive step forward for that
+technique. 
+      </textual></para></section><section class="po-hcontainer e189 e189"><title class="po-block e190 e190"><textual class="po-textual">Schema Metrics</textual></title><para class="po-block e191 e191"><textual class="po-textual">Schema signatures can be used to calculate schema complexity
+metrics.  Compared to the large body of work on software metrics, little has
+been done on schema metrics.  Neither is there clear consensus of what the
+useful metrics should be.
+     </textual></para><para class="po-block e192 e192"><textual class="po-textual">
+A paper by Lammel, Kitsis, and Remy </textual><citation class="po-atom e193 e193" linkend="metrics1"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></citation><textual class="po-textual"> examines
+a number of counts and metrics
+and computes them against a corpus of actual schemas, as an attempt to
+characterize the usage patterns found in practice.  The paper begins with basic
+counts against the XML document, and then to XML Schema aware
+counts of the number of global element and attribute declarations, global
+complex and simple type definitions, and named model group and attribute group
+definitions. The paper argues against the simple sum of global element
+declarations and global complex type definitions as a metric of schema size on
+the grounds that this measure is sensitive to schema construction styles: a
+Russian Doll schema would always rank as small (one global element declaration)
+no matter how deeply nested its inner element declarations became.  The paper
+moves on to counts of local element declarations and type definitions, and
+proposes a simple size metric that is purely the count of all complex type
+definitions. 
+     </textual></para><para class="po-block e194 e194"><textual class="po-textual">
+The authors then attempt to apply define something akin to 
+McCabe </textual><citation class="po-atom e195 e195" linkend="mccabe"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></citation><textual class="po-textual"> complexity measures for XML Schemas.  The
+metric combines the number of branches in choice model groups, the number of
+non-default occurrence constraints (minOccurs or maxOccurs something other than
+1), the number of references to a substitution group head, the number of
+references to a global type definition, the number of nillable attributes, and
+the number of global element declarations.  
+      </textual></para><para class="po-block e196 e196"><textual class="po-textual">Additional metrics are defined for code-oriented and
+instance-oriented breadth and depth.  The depth metrics incorporate such
+features as the number of particles in content models or the number of
+"parties": the difference is that the code-oriented depth metric counts a
+reference to a named model group as 1, but the instance-oriented depth metric
+counts all the particles obtained by the reference.  The code-oriented depth
+metric counts the amount of nesting of element declarations in the schema. 
+      </textual></para><table class="po-container e197 e197" xml:id="tab_metrics1"><caption class="po-container e198 e198"><para class="po-block e199 e199"><textual class="po-textual">Summary of metrics in </textual><citation class="po-atom e200 e200" linkend="metrics1"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></citation></para></caption><tr class="po-table e201 e201"><td class="po-block e202 e202"><textual class="po-textual">File size kB or lines of code</textual></td></tr><tr class="po-table e203 e203"><td class="po-block e204 e204"><textual class="po-textual">XML nodes: total</textual></td></tr><tr class="po-table e205 e205"><td class="po-block e206 e206"><textual class="po-textual">XML annotation nodes: total</textual></td></tr><tr class="po-table e207 e207"><td class="po-block e208 e208"><textual class="po-textual">Element declarations: #global, #local, total</textual></td></tr><tr class="po-table e209 e209"><td class="po-block e210 e210"><textual class="po-textual">Complex type definitions: #global, #local, total</textual></td></tr><tr class="po-table e211 e211"><td class="po-block e212 e212"><textual class="po-textual">Simple type definitions: #global, #local, total</textual></td></tr><tr class="po-table e213 e213"><td class="po-block e214 e214"><textual class="po-textual">Named model group definitions: #global, total</textual></td></tr><tr class="po-table e215 e215"><td class="po-block e216 e216"><textual class="po-textual">Attribute group definitions: #global, total</textual></td></tr><tr class="po-table e217 e217"><td class="po-block e218 e218"><textual class="po-textual">Attribute declarations: #global, #local, total</textual></td></tr><tr class="po-table e219 e219"><td class="po-block e220 e220"><textual class="po-textual">McCabe cyclomatic complexity for XML Schema</textual></td></tr><tr class="po-table e221 e221"><td class="po-block e222 e222"><textual class="po-textual">Code-oriented breadth and depth</textual></td></tr><tr class="po-table e223 e223"><td class="po-block e224 e224"><textual class="po-textual">Instance-oriented breadth and depth</textual></td></tr></table><para class="po-block e225 e225"><textual class="po-textual">
+A paper by McDowell, Schmidt, and Yue </textual><citation class="po-atom e226 e226" linkend="metrics2"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></citation><textual class="po-textual"> proposes
+various schema complexity and quality
+metrics: counts of complex type declarations (broken down by the type of the
+content model), simple type declarations, annotations, derived complex types,
+global type declarations, the average number of attributes per type
+declaration, the number of references to global types, the number of unbounded
+elements, the average range in bounds for bounded elements ("multiplicity"),
+the average number of restrictions per simple type, and the fan-in and fan-out
+of element declarations.
+      </textual></para><para class="po-block e227 e227"><textual class="po-textual">
+Overall complexity and quality indexes apply weighting factors to various
+measures to give an overall score.  The quality index combines the ratio of
+simple to complex type declarations, the percentage of annotations over total
+number of element declarations, the average restrictions per simple type
+declaration, percentage of derived complex type declarations of the total
+number of complex type declarations, the average bounded multiplicity size, 
+and the average number of attributes per type declaration.  The complexity
+index combines the number of unbounded elements, the element fanning, the
+number of complex type declarations, the number of simple type declarations,
+and the average number of attributes per complex type declaration.
+      </textual></para><table class="po-container e228 e228" xml:id="tab_metrics2"><caption class="po-container e229 e229"><para class="po-block e230 e230"><textual class="po-textual">Summary of metrics in </textual><citation class="po-atom e231 e231" linkend="metrics2"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></citation></para></caption><tr class="po-table e232 e232"><td class="po-block e233 e233"><textual class="po-textual">Annotation nodes: total</textual></td></tr><tr class="po-table e234 e234"><td class="po-block e235 e235"><textual class="po-textual">Element declarations: #global, #local, #references</textual></td></tr><tr class="po-table e236 e236"><td class="po-block e237 e237"><textual class="po-textual">Complex type definitions: #global, #local, total, #simple,
+#mixed, #element-only, #derived</textual></td></tr><tr class="po-table e238 e238"><td class="po-block e239 e239"><textual class="po-textual">Simple type definitions: total, restrictions/total</textual></td></tr><tr class="po-table e240 e240"><td class="po-block e241 e241"><textual class="po-textual">Attributes: average per complex type</textual></td></tr><tr class="po-table e242 e242"><td class="po-block e243 e243"><textual class="po-textual">Elements: average bounded element multiplicity, fanning</textual></td></tr><tr class="po-table e244 e244"><td class="po-block e245 e245"><textual class="po-textual">Quality index</textual></td></tr><tr class="po-table e246 e246"><td class="po-block e247 e247"><textual class="po-textual">Complexity index</textual></td></tr></table><para class="po-block e248 e248"><textual class="po-textual">There is some overlap in these metrics, such as basic counts in the
+number of different kinds of components, but in the main these are two very
+different takes on what kind of information might be interesting or useful to
+measure.
+      </textual></para><para class="po-block e249 e249"><textual class="po-textual">Many of these metrics can be readily calculated from the schema
+signature.  For example the number of element declarations can be determined by
+counting the number of canonical SCPs containing 'schemaElement::' as the last
+step, the number of global element declarations is the number of canonical SCPs
+beginning with '/schemaElement::' but not containing two slashes, and the
+number of local element declarations is the number of canonical SCPs containing
+'schemaElement::' somewhere other than at the start.  
+      </textual></para><figure class="po-container e250 e250" xml:id="fig_calc"><programlisting class="po-block e251 e251" xml:space="preserve"><textual class="po-textual">
+# Total number of global element declarations
+canonicals example.xsd | grep '^/schemaElement::[^/]*$' | wc -l
+# Total number of local element declarations
+canonicals example.xsd | grep '[^/].*/schemaElement::[^/]*$' | wc -l
+# Total number of element declarations
+canonicals example.xsd | grep 'schemaElement::[^/]*$' | wc -l
+# Type definitions
+canonicals example.xsd | grep 'type::[^/]*$' | wc -l
+# Attribute declarations
+canonicals example.xsd | grep 'schemaAttribute::[^/]*$' | wc -l
+# Named model group definitions
+canonicals example.xsd | grep 'group::[^/]*$' | wc -l
+# Attribute group definitions
+canonicals example.xsd | grep 'attributeGroup::[^/]*$' | wc -l
+# Notation declarations
+canonicals example.xsd | grep 'notation::[^/]*$' | wc -l
+# Identity constraint definitions
+canonicals example.xsd | grep 'identityConstraint::[^/]*$' | wc -l
+# Total number of components
+canonicals example.xsd | wc -l 
+      </textual></programlisting><caption class="po-container e252 e252"><para class="po-block e253 e253"><textual class="po-textual">Computing simple count metrics</textual></para></caption></figure><para class="po-block e254 e254"><textual class="po-textual">Many of the metrics listed above to not lend themselves well to a
+simple schema-signature-based approach.
+      Certain kinds of metrics do not lend then well to a SCP-based
+approach at all: certainly those that rely on the XML representation of
+the schema rather than the schema itself such as the number of XML nodes, for
+example. 
+      </textual></para><para class="po-block e255 e255"><textual class="po-textual">SCPs do not distinguish directly between simple and complex type
+definitions because they form a single symbol space in XML Schema: one can have
+both an element declaration and a type definition named 'example', but not both
+a simple and complex type definition with that name.  If there is a canonical
+SCP where a facet axis follows a type definition, we know that the type is a
+simple type; if there is a canonical SCP where a model axis or attribute axis
+follows a type definition, we know that the type is a complex type. Otherwise,
+we can't tell from the SCPs alone.  
+      </textual></para><para class="po-block e256 e256"><textual class="po-textual">Another class of metrics that are not readily
+computable from canonical SCPs are certain kinds of inbound counts: the number
+of uses of global element declarations, the number of uses of a substitution
+group head, and so forth.  Similarly, statistics that distinguish particles
+that derive from references to named model groups from the rest cannot be
+computed with canonical SCPs alone, as the schema component model records that
+information through through the scope property. In any case, if the content
+model has a reference to a global element declaration, this will not create a
+canonical SCP for that particle: the canonical SCP for the element declaration
+is the top-level one.
+      </textual></para><para class="po-block e257 e257"><textual class="po-textual">In addition, since non-component properties of schema components
+are not reflected in the SCPs, any statistic that depends on the value of such
+a property cannot be computed with SCPs alone.  The the unbounded element 
+multiplicity from </textual><xref class="po-milestone e258 e258" linkend="metrics2"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual"> and the cyclomatic complexity from
+</textual><xref class="po-milestone e259 e259" linkend="metrics1"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">, which look at the minOccurs and maxOccurs, fall
+into this class.
+      </textual></para><para class="po-block e260 e260"><textual class="po-textual">Coates and Dui </textual><citation class="po-atom e261 e261" linkend="xsddiff"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></citation><textual class="po-textual"> did not look at 
+metrics in their paper, but surely many metrics can be calculated using their
+extended XPaths as well. Counts of components of various types would be
+difficult: the distinction between element and attribute declarations seems to
+be manifest only in the how the type predicates are represented, the
+apparent loss of information about named groups suggests that not only will
+named groups not be counted at all, but some over-counting of element and
+attribute declarations is likely. Similarly, types cannot be accurately
+counted. In general the extended XPath approach is not conducive to measuring
+component reuse, which is an important aspect of schemas to measure.
+On the other hand, extended XPaths provide information that can be
+used to compute metrics that depend on occurrence constraints.
+      </textual></para><para class="po-block e262 e262"><textual class="po-textual">At this point, the reader will be excused for thinking that things
+are looking grim for the use of SCPs for obtaining serious schema metrics.  All
+is not lost, however.  First, many of these statistics can be computed by using
+non-canonical SCPs to select a particular set of components, and counting
+against that set.  Where the metrics need the values of properties of
+particular components, the ability to select components using a non-canonical
+SCP needs to be augmented with an ability to inspect or query the properties.
+For example, the particle axis can be used to count number of particles in
+content models, the scope axis can be used to distinguish particles derived
+from named model groups from local ones, and the substitutionGroup axis can be
+used to count references to substitution group heads.
+Second, since it is far from clear which statistics to use to examine schema
+size, complexity, or quality, a more fruitful approach may be to see what
+statistics we </textual><emphasis class="po-inline e263 e263"><textual class="po-textual">can</textual></emphasis><textual class="po-textual"> compute from SCPs and see what they show
+us. Some metrics can be replaced by similar metrics that are more amenable to
+calculation via SCPs. For example, looking at the ratio of SCPs containing a
+type definition as an intermediate step against the number of SCPs representing
+a type definition (that is, whose final step is a type axis) gets at similar
+schema characteristics as element fanning.
+      </textual></para><para class="po-block e264 e264"><textual class="po-textual">The simplest measure obtainable from the schema signature is a
+simple count of how many canonical paths there are for a particular schema.
+A schema with a high level of reuse of global declarations and definitions will
+result in fewer canonical paths.  Suppose there are two schemas, one of which
+defines a global element declaration and uses it in two places, and one of
+which defines a local element declaration in each place.  The first schema will
+have one canonical SCP for the global element declaration, while the second
+will have a canonical SCP for each local element declaration. Each reuse of
+the global declaration leads to one less canonical SCP in the schema.
+If two schemas have a similar number of declarations, the one with fewer paths
+is the simpler.
+      </textual></para><para class="po-block e265 e265"><textual class="po-textual">An interesting extension of the path count can be obtained by
+generating SCPs along the canonical axes to a particular depth, but not
+worrying about the other whether the SCP is canonical or not.  For example, if
+a content model references a global element declaration, a SCP that extends the
+content model's SCP through the schemaElement axis would not be a canonical
+one (the canonical SCP is the one directly from the root to the global element
+declaration), but it would be a level 1 extension to a canonical SCP.
+A level 2 extension to a canonical SCP is the addition of one more step through
+a canonical axis to a level 1 extension to a canonical SCP, and so on.
+In some simple data-oriented schemas, the set of canonical SCPs is no different
+from the set of level 1 extensions. At the other extreme, schemas where
+content models for different elements recursively refer to each other can have
+a set of level 1 extensions substantially larger than the set of canonical
+SCPs. The growth in the number of paths as the level increases is a measure of
+the inter-relatedness of the components in the schema, and high growth can be
+the sign of a schema that has many dependencies and is therefore more complex.
+    </textual></para><para class="po-block e266 e266"><textual class="po-textual">Calculation of the total and average number of steps in the SCPs can
+also be computed readily. A higher average path length indicates less
+component reuse and more local definitions, more complex content
+models, or more additional constraints on simple type. In short: a more complex
+schema. Again, the growth of this measure for level N extensions gives some
+indication of the inter-relatedness of the components in the schema.
+    </textual></para><table class="po-container e267 e267" xml:id="fig_stats"><caption class="po-container e268 e268"><para class="po-block e269 e269"><textual class="po-textual">Statistics for a selection of schemas</textual></para></caption><tr class="po-table e270 e270"><th class="po-field e271 e271"><textual class="po-textual">Schema</textual></th><th class="po-field e272 e272"><textual class="po-textual">Elements</textual></th><th class="po-field e273 e273"><textual class="po-textual">Types</textual></th><th class="po-field e274 e274"><textual class="po-textual">Attributes</textual></th><th class="po-field e275 e275"><textual class="po-textual">E+T+A</textual></th><th class="po-field e276 e276"><textual class="po-textual">Paths</textual></th><th class="po-field e277 e277"><textual class="po-textual">Path length</textual></th><th class="po-field e278 e278"><textual class="po-textual">Level 10 paths</textual></th><th class="po-field e279 e279"><textual class="po-textual">Level 10 path length</textual></th></tr><tr class="po-table e280 e280"><td class="po-block e281 e281"><textual class="po-textual">XSLT 2.0</textual></td><td align="right" class="po-block e282 e282"><textual class="po-textual">52</textual></td><td align="right" class="po-block e283 e283"><textual class="po-textual">93</textual></td><td align="right" class="po-block e284 e284"><textual class="po-textual">185</textual></td><td align="right" class="po-block e285 e285"><textual class="po-textual">330</textual></td><td align="right" class="po-block e286 e286"><textual class="po-textual">481</textual></td><td align="right" class="po-block e287 e287"><textual class="po-textual">3.56</textual></td><td align="right" class="po-block e288 e288"><textual class="po-textual">1850</textual></td><td align="right" class="po-block e289 e289"><textual class="po-textual">6.54</textual></td></tr><tr class="po-table e290 e290"><td class="po-block e291 e291"><textual class="po-textual">XHTML 1.1</textual></td><td align="right" class="po-block e292 e292"><textual class="po-textual">97</textual></td><td align="right" class="po-block e293 e293"><textual class="po-textual">119</textual></td><td align="right" class="po-block e294 e294"><textual class="po-textual">230</textual></td><td align="right" class="po-block e295 e295"><textual class="po-textual">446</textual></td><td align="right" class="po-block e296 e296"><textual class="po-textual">1682</textual></td><td align="right" class="po-block e297 e297"><textual class="po-textual">3.81</textual></td><td align="right" class="po-block e298 e298"><textual class="po-textual">923374</textual></td><td align="right" class="po-block e299 e299"><textual class="po-textual">13.58</textual></td></tr><tr class="po-table e300 e300"><td class="po-block e301 e301"><textual class="po-textual">XMLSpec</textual></td><td align="right" class="po-block e302 e302"><textual class="po-textual">178</textual></td><td align="right" class="po-block e303 e303"><textual class="po-textual">226</textual></td><td align="right" class="po-block e304 e304"><textual class="po-textual">139</textual></td><td align="right" class="po-block e305 e305"><textual class="po-textual">543</textual></td><td align="right" class="po-block e306 e306"><textual class="po-textual">1087</textual></td><td align="right" class="po-block e307 e307"><textual class="po-textual">3.22</textual></td><td align="right" class="po-block e308 e308"><textual class="po-textual">10889</textual></td><td align="right" class="po-block e309 e309"><textual class="po-textual">10.09</textual></td></tr><tr class="po-table e310 e310"><td class="po-block e311 e311"><textual class="po-textual">SDocBook</textual></td><td align="right" class="po-block e312 e312"><textual class="po-textual">119</textual></td><td align="right" class="po-block e313 e313"><textual class="po-textual">282</textual></td><td align="right" class="po-block e314 e314"><textual class="po-textual">785</textual></td><td align="right" class="po-block e315 e315"><textual class="po-textual">1186</textual></td><td align="right" class="po-block e316 e316"><textual class="po-textual">1574</textual></td><td align="right" class="po-block e317 e317"><textual class="po-textual">3.19</textual></td><td align="right" class="po-block e318 e318"><textual class="po-textual">4183690</textual></td><td align="right" class="po-block e319 e319"><textual class="po-textual">12.41</textual></td></tr><tr class="po-table e320 e320"><td class="po-block e321 e321"><textual class="po-textual">FpML 4.4</textual></td><td align="right" class="po-block e322 e322"><textual class="po-textual">1972</textual></td><td align="right" class="po-block e323 e323"><textual class="po-textual">889</textual></td><td align="right" class="po-block e324 e324"><textual class="po-textual">262</textual></td><td align="right" class="po-block e325 e325"><textual class="po-textual">3123</textual></td><td align="right" class="po-block e326 e326"><textual class="po-textual">7313</textual></td><td align="right" class="po-block e327 e327"><textual class="po-textual">3.85</textual></td><td align="right" class="po-block e328 e328"><textual class="po-textual">73110</textual></td><td align="right" class="po-block e329 e329"><textual class="po-textual">9.59</textual></td></tr><tr class="po-table e330 e330"><td class="po-block e331 e331"><textual class="po-textual">GML 3.2</textual></td><td align="right" class="po-block e332 e332"><textual class="po-textual">1063</textual></td><td align="right" class="po-block e333 e333"><textual class="po-textual">1137</textual></td><td align="right" class="po-block e334 e334"><textual class="po-textual">1717</textual></td><td align="right" class="po-block e335 e335"><textual class="po-textual">3917</textual></td><td align="right" class="po-block e336 e336"><textual class="po-textual">6386</textual></td><td align="right" class="po-block e337 e337"><textual class="po-textual">3.22</textual></td><td align="right" class="po-block e338 e338"><textual class="po-textual">61249</textual></td><td align="right" class="po-block e339 e339"><textual class="po-textual">8.58</textual></td></tr></table><para class="po-block e340 e340"><xref class="po-milestone e341 e341" linkend="fig_stats"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual"> shows some metrics for an
+assortment of schemas. XMLSpec (the vocabulary
+used to write W3C specifications) and XHTML are relatively
+simple document-oriented vocabularies and measured as the sum of element
+declarations, attribute declarations, and type declarations they are of
+roughly comparable size.  Simplified DocBook, a somewhat more extensive 
+document-oriented vocabulary, is about twice as large by this measure.
+In terms of paths, however, DocBook is smaller than XHTML and about only about 
+one and a half times the size of XMLSpec.
+</textual></para><para class="po-block e342 e342"><textual class="po-textual">GML and FpML are both highly structured data-oriented schemas. 
+Which is more complex?  FpML has more elements, but GML has a larger E+T+A 
+count.  FpML has more paths and a larger average path length. E+T+A speaks
+to what one needs to know about a schema to fully make use of it in a processing
+environment such as XSLT or XQuery, while the path count speaks to the 
+burden on a schema maintainer.
+</textual></para><para class="po-block e343 e343"><textual class="po-textual">
+While the average path length for canonical SCPs does not vary
+greatly, the growth in average path length for level 10 paths is quite
+substantial.
+The differences in level 10 extensions is astonishing, however: simplified
+DocBook produces two orders of magnitudes more level 10 extensions than
+XMLSpec and one order of magnitude more than XHTML, 
+despite the fact that XMLSpec is larger in terms of the element/type/attribute 
+count and not drastically smaller in terms of the canonical
+SCP count and XHTML is larger in terms of the canonical SCP count. 
+It appears that the main reason for this is that XMLSpec and XHTML make use of 
+substitution groups and named model and attribute groups, while simplified 
+DocBook uses large choice groups instead.
+    </textual></para><table class="po-container e344 e344" xml:id="fig_reusable"><caption class="po-container e345 e345"><para class="po-block e346 e346"><textual class="po-textual">Reusable components in a selection of schemas</textual></para></caption><tr class="po-table e347 e347"><th class="po-field e348 e348"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></th><th class="po-field e349 e349" colspan="4"><textual class="po-textual">Global</textual></th><th class="po-field e350 e350" rowspan="2"><textual class="po-textual">E+T+A Global/Total</textual></th><th class="po-field e351 e351" colspan="2"><textual class="po-textual">Named Groups</textual></th><th class="po-field e352 e352" rowspan="2"><textual class="po-textual">Substitution Group Heads</textual></th></tr><tr class="po-table e353 e353"><th class="po-field e354 e354"><textual class="po-textual">Schema</textual></th><th class="po-field e355 e355"><textual class="po-textual">Elements</textual></th><th class="po-field e356 e356"><textual class="po-textual">Types</textual></th><th class="po-field e357 e357"><textual class="po-textual">Attributes</textual></th><th class="po-field e358 e358"><textual class="po-textual">E+T+A</textual></th><th class="po-field e359 e359"><textual class="po-textual">Model</textual></th><th class="po-field e360 e360"><textual class="po-textual">Attribute</textual></th></tr><tr class="po-table e361 e361"><td class="po-block e362 e362"><textual class="po-textual">XSLT 2.0</textual></td><td align="right" class="po-block e363 e363"><textual class="po-textual">52</textual></td><td align="right" class="po-block e364 e364"><textual class="po-textual">28</textual></td><td align="right" class="po-block e365 e365"><textual class="po-textual">4</textual></td><td align="right" class="po-block e366 e366"><textual class="po-textual">84</textual></td><td align="right" class="po-block e367 e367"><textual class="po-textual">0.25</textual></td><td align="right" class="po-block e368 e368"><textual class="po-textual">2</textual></td><td align="right" class="po-block e369 e369"><textual class="po-textual">2</textual></td><td align="right" class="po-block e370 e370"><textual class="po-textual">3</textual></td></tr><tr class="po-table e371 e371"><td class="po-block e372 e372"><textual class="po-textual">XHTML 1.1</textual></td><td align="right" class="po-block e373 e373"><textual class="po-textual">97</textual></td><td align="right" class="po-block e374 e374"><textual class="po-textual">98</textual></td><td align="right" class="po-block e375 e375"><textual class="po-textual">1</textual></td><td align="right" class="po-block e376 e376"><textual class="po-textual">196</textual></td><td align="right" class="po-block e377 e377"><textual class="po-textual">0.44</textual></td><td align="right" class="po-block e378 e378"><textual class="po-textual">57</textual></td><td align="right" class="po-block e379 e379"><textual class="po-textual">141</textual></td><td align="right" class="po-block e380 e380"><textual class="po-textual">0</textual></td></tr><tr class="po-table e381 e381"><td class="po-block e382 e382"><textual class="po-textual">XMLSpec</textual></td><td align="right" class="po-block e383 e383"><textual class="po-textual">178</textual></td><td align="right" class="po-block e384 e384"><textual class="po-textual">6</textual></td><td align="right" class="po-block e385 e385"><textual class="po-textual">14</textual></td><td align="right" class="po-block e386 e386"><textual class="po-textual">198</textual></td><td align="right" class="po-block e387 e387"><textual class="po-textual">0.36</textual></td><td align="right" class="po-block e388 e388"><textual class="po-textual">17</textual></td><td align="right" class="po-block e389 e389"><textual class="po-textual">168</textual></td><td align="right" class="po-block e390 e390"><textual class="po-textual">16</textual></td></tr><tr class="po-table e391 e391"><td class="po-block e392 e392"><textual class="po-textual">SDocBook</textual></td><td align="right" class="po-block e393 e393"><textual class="po-textual">119</textual></td><td align="right" class="po-block e394 e394"><textual class="po-textual">119</textual></td><td align="right" class="po-block e395 e395"><textual class="po-textual">0</textual></td><td align="right" class="po-block e396 e396"><textual class="po-textual">238</textual></td><td align="right" class="po-block e397 e397"><textual class="po-textual">0.20</textual></td><td align="right" class="po-block e398 e398"><textual class="po-textual">0</textual></td><td align="right" class="po-block e399 e399"><textual class="po-textual">0</textual></td><td align="right" class="po-block e400 e400"><textual class="po-textual">0</textual></td></tr><tr class="po-table e401 e401"><td class="po-block e402 e402"><textual class="po-textual">FpML 4.4</textual></td><td align="right" class="po-block e403 e403"><textual class="po-textual">110</textual></td><td align="right" class="po-block e404 e404"><textual class="po-textual">888</textual></td><td align="right" class="po-block e405 e405"><textual class="po-textual">0</textual></td><td align="right" class="po-block e406 e406"><textual class="po-textual">998</textual></td><td align="right" class="po-block e407 e407"><textual class="po-textual">0.32</textual></td><td align="right" class="po-block e408 e408"><textual class="po-textual">69</textual></td><td align="right" class="po-block e409 e409"><textual class="po-textual">1</textual></td><td align="right" class="po-block e410 e410"><textual class="po-textual">11</textual></td></tr><tr class="po-table e411 e411"><td class="po-block e412 e412"><textual class="po-textual">GML 3.2</textual></td><td align="right" class="po-block e413 e413"><textual class="po-textual">631</textual></td><td align="right" class="po-block e414 e414"><textual class="po-textual">660</textual></td><td align="right" class="po-block e415 e415"><textual class="po-textual">14</textual></td><td align="right" class="po-block e416 e416"><textual class="po-textual">1305</textual></td><td align="right" class="po-block e417 e417"><textual class="po-textual">0.33</textual></td><td align="right" class="po-block e418 e418"><textual class="po-textual">7</textual></td><td align="right" class="po-block e419 e419"><textual class="po-textual">15</textual></td><td align="right" class="po-block e420 e420"><textual class="po-textual">114</textual></td></tr></table><para class="po-block e421 e421"><textual class="po-textual">As we can see in </textual><xref class="po-milestone e422 e422" linkend="fig_reusable"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">, 
+there is a wide range in the utilization of reusable 
+schema components. Global elements and types are broadly used, but global
+attributes are rare. Where attribute reuse is desired, it is accomplished (in
+these schemas at least), through named attribute groups. Substitution groups
+and named model groups seem to restrict both level 10 path counts and lengths.
+</textual></para></section></section><section class="po-hcontainer e423 e423"><title class="po-block e424 e424"><textual class="po-textual">Conclusion</textual></title><para class="po-block e425 e425"><textual class="po-textual">Schema component paths provide a characterization of the structure of
+schemas that is insensitive to details of the XML representation and
+partitioning into multiple files.  They can be used as the basis to analyze and
+compare schemas, and to compute metrics of schema size and complexity. This
+paper attempts to sketch some of the possibilities in these areas. Fuller
+metrics and analysis could by obtained by following the lead of extended XPaths
+and including non-component accessors on the paths as well. 
+    </textual></para><para class="po-block e426 e426"><textual class="po-textual">These metrics calculated in this paper are suggestive and seem to
+capture interesting differences in schema designs, but a more systematic study 
+is warranted.</textual></para></section><appendix class="po-hcontainer e427 e427"><title class="po-block e428 e428"><textual class="po-textual">Tools</textual></title><para class="po-block e429 e429"><textual class="po-textual">MHSCD </textual><citation class="po-atom e430 e430" linkend="mhscd"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></citation><textual class="po-textual"> is a set of Java tools for
+manipulating schema component paths. Both a SCP generator and a locator 
+API (which provides information about component properties) is included. 
+It was used to generate the examples of schema component paths in this paper 
+and is available under a Creative Commons Attribution license. 
+	</textual></para><para class="po-block e431 e431"><textual class="po-textual">The schema component path specification </textual><citation class="po-atom e432 e432" linkend="scds"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></citation><textual class="po-textual"> is
+currently under development by the W3C (as of this writing at the Candidate
+Recommendation phase). Readers are invited to review and
+comment on that specification.
+	</textual></para></appendix><bibliography class="po-hcontainer e433 e433"><title class="po-block e434 e434"><textual class="po-textual">References</textual></title><bibliomixed class="po-block e435 e435" xml:id="xsddiff" xreflabel="Coates10"><textual class="po-textual">
+    Anthony B. Coates and Daniel Dui.
+    </textual><emphasis class="po-inline e436 e436"><textual class="po-textual">"Full Impact" Schema Differencing</textual></emphasis><textual class="po-textual">.
+    Conference proceedings XML Prague 2010.
+    </textual></bibliomixed><bibliomixed class="po-block e437 e437" xml:id="mhscd" xreflabel="MHSCD"><textual class="po-textual">
+    Mary Holstege. MHSCD, available at 
+</textual><link class="po-inline e438 e438" xlink:actuate="onRequest" xlink:href="http://www.mathling.com/xsd/scds.html" xlink:show="new" xlink:title="MHSCD" xlink:type="simple"><textual class="po-textual">http://www.mathling.com/xsd/scds.html</textual></link><textual class="po-textual">.
+    </textual></bibliomixed><bibliomixed class="po-block e439 e439" xml:id="metrics1" xreflabel="Lammel05"><textual class="po-textual">
+    Ralf Lammel, Stan Kitsis, and Dave Remy. 
+    </textual><emphasis class="po-inline e440 e440"><textual class="po-textual">Analysis of XML schema usage</textual></emphasis><textual class="po-textual">.
+    Conference Proceedings XML 2005.
+    </textual></bibliomixed><bibliomixed class="po-block e441 e441" xml:id="mccabe" xreflabel="McCabe76"><textual class="po-textual">
+    T.J. McCabe. 
+    </textual><emphasis class="po-inline e442 e442"><textual class="po-textual">A Measure of Complexity</textual></emphasis><textual class="po-textual">.
+    IEEE Transactions on Software Engineering, 2(4), pp. 308-320, 
+    December 1976.
+    </textual></bibliomixed><bibliomixed class="po-block e443 e443" xml:id="metrics2" xreflabel="McDowell04"><textual class="po-textual">
+    Andrew McDowell, Chris Schmidt, and Kwon-Bun Yue.
+    </textual><emphasis class="po-inline e444 e444"><textual class="po-textual">Analysis and Metrics of XML Schema</textual></emphasis><textual class="po-textual">.
+     Proceedings of the 2004 International Conference on Software Engineering Research and Practice. Volume 2.
+    </textual></bibliomixed><bibliomixed class="po-block e445 e445" xml:id="xsd11" xreflabel="XSD11"><textual class="po-textual">
+    W3C: Shudi (Sandy) Gao 高殊镝, C. M. Sperberg-McQueen, and Henry S. Thompson, editors. 
+    </textual><emphasis class="po-inline e446 e446"><textual class="po-textual">W3C XML Schema Definition Language (XSD) 1.1 Part 1: Structures.</textual></emphasis><textual class="po-textual">
+    Last Call Working Draft. W3C, December 2009.
+    </textual><link class="po-inline e447 e447" xlink:actuate="onRequest" xlink:href="http://www.w3.org/TR/2009/WD-xmlschema11-1-20091203/" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://www.w3.org/TR/2009/WD-xmlschema11-1-20091203/</textual></link><textual class="po-textual">
+	</textual></bibliomixed><bibliomixed class="po-block e448 e448" xml:id="scds" xreflabel="SCD"><textual class="po-textual">
+    W3C: Mary Holstege and Asir S. Vedamuthu, editors.
+    </textual><emphasis class="po-inline e449 e449"><textual class="po-textual">W3C XML Schema Definition Language (XSD): Component Designators.</textual></emphasis><textual class="po-textual">
+    Candidate Recommendation. W3C, January 2010.
+    </textual><link class="po-inline e450 e450" xlink:actuate="onRequest" xlink:href="http://www.w3.org/TR/2010/CR-xmlschema-ref-20100119/" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://www.w3.org/TR/2010/CR-xmlschema-ref-20100119/</textual></link><textual class="po-textual">
+    </textual></bibliomixed><bibliomixed class="po-block e451 e451" xml:id="xsd" xreflabel="XSD10"><textual class="po-textual">
+    W3C: Henry S. Thompson, Murray Maloney, David Beech, and Noah Mendelsohn, editors.
+    </textual><emphasis class="po-inline e452 e452"><textual class="po-textual">XML Schema Part 1: Structures Second Edition</textual></emphasis><textual class="po-textual">.
+    W3C, October 2004. 
+    </textual><link class="po-inline e453 e453" xlink:actuate="onRequest" xlink:href="http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/</textual></link><textual class="po-textual">
+    </textual></bibliomixed></bibliography></article></classedDocument>

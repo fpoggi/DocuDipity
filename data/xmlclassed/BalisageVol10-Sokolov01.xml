@@ -1,0 +1,584 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?><classedDocument><article xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink" class="po-hcontainer e0 e0" version="5.0-subset Balisage-1.3"><title class="po-block e1 e1"><textual class="po-textual">Indexing Queries in Lux</textual></title><info class="po-record e2 e2"><confgroup class="po-record e3 e3"><conftitle class="po-field e4 e4"><textual class="po-textual">Balisage: The Markup Conference 2013</textual></conftitle><confdates class="po-field e5 e5"><textual class="po-textual">August 6 - 9, 2013</textual></confdates></confgroup><abstract class="po-container e6 e6"><para class="po-block e7 e7"><textual class="po-textual">
+        Query optimizers often mystify database users: sometimes queries
+        run quickly and sometimes they don’t. An intuitive grasp of what
+        will work well in an optimizer is often gained only after trial,
+        error, inductive logic (i.e. educated guessing), and sometimes
+        propitiatory sacrifice. This paper tries to lift the veil by
+        describing work on Lux, a new indexed XQuery search engine built
+        using Saxon and Lucene, which is freely available under an
+        open-source license. Lux optimizes queries by rewriting them as
+        equivalent (but usually faster) indexed queries, so its results are
+        easier for a user to understand than the abstract query plans
+        produced by some optimizers. Lucene-based QName and path indexes
+        prove useful in speeding up XQuery execution by Saxon.
+      </textual></para></abstract><author class="po-record e8 e8"><personname class="po-record e9 e9"><firstname class="po-field e10 e10"><textual class="po-textual">Michael</textual></firstname><surname class="po-field e11 e11"><textual class="po-textual">Sokolov</textual></surname></personname><personblurb class="po-container e12 e12"><para class="po-block e13 e13"><textual class="po-textual">
+        Michael Sokolov is a software developer and data architect.  He has
+        been creating online reference and reading platforms since 1999,
+        first at iFactory, and since 2013 as part of Safari Books Online.
+        He is fascinated by the ways humans interact with large texts via
+        computer and works on document and text processing, indexing, and
+        search. Michael was the data and search architect for the OED
+        online's relaunch in 2010, and in previous lives worked on speech
+        recognition, internationalization, object databases, and in the
+        remote past, computer vision.
+      </textual></para></personblurb><affiliation class="po-record e14 e14"><jobtitle class="po-field e15 e15"><textual class="po-textual">Senior Architect</textual></jobtitle><orgname class="po-block e16 e16"><textual class="po-textual">Safari Books Online</textual></orgname></affiliation><email class="po-field e17 e17"><textual class="po-textual">sokolov@falutin.net</textual></email><link class="po-inline e18 e18" xlink:actuate="onRequest" xlink:href="http://luxdb.org/" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://luxdb.org/</textual></link></author><legalnotice class="po-container e19 e19"><para class="po-block e20 e20"><textual class="po-textual">Copyright © V. Michael Sokolov 2013</textual></para></legalnotice></info><section class="po-hcontainer e21 e21"><title class="po-block e22 e22"><textual class="po-textual">Why another XML search engine?</textual></title><para class="po-block e23 e23"><textual class="po-textual">
+      So first: why? There are a number of excellent XQuery databases
+      available, both commercial and free ones, even open source.  Some of
+      our motivation was historical; for a variety of reasons we ended up
+      with a number of applications built on top of a Solr/Lucene data store.
+      We keep XML in these indexes, and we can define XPath indexes, but our
+      query syntax is limited to Lucene's simple query languages, which are
+      not at all XML aware.  So we wanted to be able to use XQuery in an
+      efficient way with these pre-existing data stores.
+    </textual></para><para class="po-block e24 e24"><textual class="po-textual">
+      </textual><mediaobject class="po-container e25 e25"><imageobject class="po-container e26 e26"><imagedata class="po-meta e27 e27" fileref="../../../vol10/graphics/Sokolov01/Sokolov01-001.png" format="png"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></imagedata></imageobject></mediaobject><textual class="po-textual">
+      The diagram shows the PubFactory architecture.  Interactions with the
+      DB are done using its native API.  For MarkLogic and eXist, this is
+      all XQuery.  Solr's APIs are a mixture of Lucene query language and a
+      thin Java API that wraps a number of HTTP REST calls.  When using an
+      XML-aware database, The XML Indexer component is not required.  We
+      created this component to work with Solr, which provides full text
+      indexes and typed indexes (for strings, numbers, dates, geolocations
+      and so on).
+    </textual></para><para class="po-block e28 e28"><textual class="po-textual">
+      This system design has a lot of nice features: it enabled us to
+      accomplish most of what we needed with a leaner technology stack, and
+      we gained a degree of power and flexibility by doing so, since we had
+      Java programmers on staff who could fill in the missing bits.  But
+      having done this we also had to grapple with some missing conveniences
+      that those programmers were somewhat reliant on.
+    </textual></para><para class="po-block e29 e29"><textual class="po-textual">
+      We knew from the beginning that we would miss the </textual><emphasis class="po-inline e30 e30"><textual class="po-textual">ad
+      hoc</textual></emphasis><textual class="po-textual"> query capabilities that both MarkLogic, and eXist,
+      which we had been using, provided.  We had come to rely on CQ and the
+      eXist sandbox: what would take their place?  The Solr admin query
+      interface is a truly impoverished replacement for these.  In fact it
+      has recently gotten a facelift, but the query interface is
+      essentially unchanged: you have no opportunity to operate on the
+      results beyond selecting which fields are returned.  Worse still, all
+      of our indexes would have to be computed in advance.  MarkLogic
+      provides a great feature for </textual><emphasis class="po-inline e31 e31"><textual class="po-textual">ad hoc</textual></emphasis><textual class="po-textual"> querying,
+      which I think they call the "universal index." This index provides
+      for lookup by word (ie full text search) and value (exact match)
+      constrained by the name of containing elements and attributes.
+    </textual></para><para class="po-block e32 e32"><textual class="po-textual">
+      So Lux was really born out of this need for an </textual><emphasis class="po-inline e33 e33"><textual class="po-textual">ad
+      hoc</textual></emphasis><textual class="po-textual"> query capability, something akin to what Micah Dubinko
+      presented at Balisage last year in </textual><link class="po-inline e34 e34" xlink:actuate="onRequest" xlink:href="http://www.balisage.net/Proceedings/vol8/html/Dubinko01/BalisageVol8-Dubinko01.html" xlink:show="new" xlink:type="simple"><textual class="po-textual">Exploring
+      the Unknown</textual></link><textual class="po-textual">.  Our first thought was something like this: "Hey,
+      Saxon provides an XQuery capability, and Solr provides indexing and
+      storage: all we need to do is marry them, and presto! We'll have an
+      indexed XQuery tool." It turned out though that there was a lot more
+      work required to produce a usable version of that than it appeared at
+      first blush.  This is the story.
+    </textual></para></section><section class="po-hcontainer e35 e35"><title class="po-block e36 e36"><textual class="po-textual">Lux Architecture</textual></title><para class="po-block e37 e37"><textual class="po-textual">
+      A quick overview of the Lux internal software design provides context
+      for the XQuery indexing optimizations that are the main topic of this
+      paper.
+    </textual></para><mediaobject class="po-container e38 e38"><imageobject class="po-container e39 e39"><imagedata class="po-meta e40 e40" fileref="../../../vol10/graphics/Sokolov01/Sokolov01-002.png" format="png"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></imagedata></imageobject></mediaobject><variablelist class="po-table e41 e41"><varlistentry class="po-record e42 e42"><term class="po-block e43 e43"><textual class="po-textual">Evaluator</textual></term><listitem class="po-container e44 e44"><para class="po-block e45 e45"><textual class="po-textual">the highest-level abstraction in Lux.  It contains the
+        other objects listed below (and the underlying Saxon objects) and
+        provides a central access point for all Lux functionality, but in
+        particular provides the evaluate(query) method.
+      </textual></para></listitem></varlistentry><varlistentry class="po-record e46 e46"><term class="po-block e47 e47"><textual class="po-textual">Compiler</textual></term><listitem class="po-container e48 e48"><para class="po-block e49 e49"><textual class="po-textual">compiles XQuery expressions into an executable form</textual></para></listitem></varlistentry><varlistentry class="po-record e50 e50"><term class="po-block e51 e51"><textual class="po-textual">SaxonTranslator</textual></term><listitem class="po-container e52 e52"><para class="po-block e53 e53"><textual class="po-textual">translates expressions from Saxon's internal Expression
+        tree structure to Lux's AbstractExpression tree structure.</textual></para></listitem></varlistentry><varlistentry class="po-record e54 e54"><term class="po-block e55 e55"><textual class="po-textual">PathOptimizer</textual></term><listitem class="po-container e56 e56"><para class="po-block e57 e57"><textual class="po-textual">rewrites AbstractExpression to make use of Lux indexes</textual></para></listitem></varlistentry><varlistentry class="po-record e58 e58"><term class="po-block e59 e59"><textual class="po-textual">FunctionLibrary</textual></term><listitem class="po-container e60 e60"><para class="po-block e61 e61"><textual class="po-textual">Provides index-aware XQuery functions</textual></para></listitem></varlistentry><varlistentry class="po-record e62 e62"><term class="po-block e63 e63"><textual class="po-textual">XmlIndexer</textual></term><listitem class="po-container e64 e64"><para class="po-block e65 e65"><textual class="po-textual">Indexes XML documents, generating Lucene field values</textual></para></listitem></varlistentry><varlistentry class="po-record e66 e66"><term class="po-block e67 e67"><textual class="po-textual">Searcher</textual></term><listitem class="po-container e68 e68"><para class="po-block e69 e69"><textual class="po-textual">Searches the Lucene index, returning matching documents stored there</textual></para></listitem></varlistentry><varlistentry class="po-record e70 e70"><term class="po-block e71 e71"><textual class="po-textual">XML Highlighter</textual></term><listitem class="po-container e72 e72"><para class="po-block e73 e73"><textual class="po-textual">Highlights terms in a document matching a search query</textual></para></listitem></varlistentry><varlistentry class="po-record e74 e74"><term class="po-block e75 e75"><textual class="po-textual">Query Parser</textual></term><listitem class="po-container e76 e76"><para class="po-block e77 e77"><textual class="po-textual">Parses queries in Lux's extended Lucene query language and its XML form</textual></para></listitem></varlistentry></variablelist></section><section class="po-hcontainer e78 e78"><title class="po-block e79 e79"><textual class="po-textual">Query optimization with indexes</textual></title><para class="po-block e80 e80"><textual class="po-textual">
+      When executing queries in a setting with a large amount of data,
+      indexes are critical.  A properly indexed query may execute in less
+      than a millisecond while the same query, unoptimized, could easily
+      take so long that it would effectively never complete.  In Lux,
+      queries are implicitly executed with the entire contents of the index
+      as their context: more precisely, wherever there is an absolute
+      expression (a path rooted at "/"), Lux inserts, conceptually, a call
+      to </textual><code class="po-atom e81 e81"><textual class="po-textual">collection()</textual></code><textual class="po-textual">, the function that returns all
+      documents.  This approach has been adopted in other databases; we've
+      attempted to provide a familiar environment.
+    </textual></para><para class="po-block e82 e82"><textual class="po-textual">
+      Sometimes users exercise control over the indexes that are generated
+      and how they are used to resolve queries.  XSLT's key functionality
+      is an example of this.  In other cases, like SQL databases, users
+      specify the indexes and hope they've chosen the right ones that will
+      nudge the optimizer to speed up their queries. And sometimes indexes
+      are created and used with little or no user intervention at all. This
+      is an ideal situation when it works, but nearly impossible to get
+      right all the time in a general case where queries are expressed in a
+      complex language such as XQuery. There are two main difficulties:
+      knowing which indexes might be useful enough to justify the cost of
+      creating them, and then actually applying those indexes to optimize
+      queries.
+    </textual></para><para class="po-block e83 e83"><textual class="po-textual">
+      Our philosophy is to provide as much automatic help as possible, so
+      the user doesn't have to think, but to get out of the way when the
+      user tells us they want manual control.
+      </textual><orderedlist class="po-table e84 e84"><listitem class="po-container e85 e85"><para class="po-block e86 e86"><textual class="po-textual">
+          Provide basic indexes that can be applied automatically and
+          relied on to provide value for a wide range of queries.
+        </textual></para></listitem><listitem class="po-container e87 e87"><para class="po-block e88 e88"><textual class="po-textual">
+          Give the user clear information about the output of the
+          optimizer. Sometimes the optimizer can be tricked by otherwise
+          insignificant syntactic constructs, like variables. If the user
+          is made aware of this, they can often rectify the situation by
+          rewriting their queries.
+        </textual></para></listitem><listitem class="po-container e89 e89"><para class="po-block e90 e90"><textual class="po-textual">
+          Allow the user to specify indexes explicitly: users can be relied
+          on to know when there are especially interesting sequences to be
+          indexed.
+        </textual></para></listitem><listitem class="po-container e91 e91"><para class="po-block e92 e92"><textual class="po-textual">
+          Provide users with query constructs that reference the indexes
+          directly. This way users can take over when the optimizer fails.
+        </textual></para></listitem></orderedlist><textual class="po-textual">
+      This paper addresses the first point primarily, exploring some
+      challenges we overcame providing the built-in indexes and optimizing
+      queries to use them, but it's important not to lose sight of the
+      bigger picture as well.
+    </textual></para><para class="po-block e93 e93"><textual class="po-textual">
+      It has become standard practice to index XML with the following kinds of
+      indexes:
+      </textual><itemizedlist class="po-table e94 e94"><listitem class="po-container e95 e95"><para class="po-block e96 e96"><textual class="po-textual">QName indexes</textual></para></listitem><listitem class="po-container e97 e97"><para class="po-block e98 e98"><textual class="po-textual">Path indexes</textual></para></listitem><listitem class="po-container e99 e99"><para class="po-block e100 e100"><textual class="po-textual">Full text indexes</textual></para></listitem><listitem class="po-container e101 e101"><para class="po-block e102 e102"><textual class="po-textual">QName value and/or text indexes</textual></para></listitem><listitem class="po-container e103 e103"><para class="po-block e104 e104"><textual class="po-textual">XPath indexes</textual></para></listitem></itemizedlist><textual class="po-textual">
+      These kinds of indexes are provided by </textual><link class="po-inline e105 e105" xlink:actuate="onRequest" xlink:href="http://docs.marklogic.com/guide/admin/text_index#chapter" xlink:show="new" xlink:type="simple"><textual class="po-textual">MarkLogic</textual></link><textual class="po-textual">,
+      </textual><link class="po-inline e106 e106" xlink:actuate="onRequest" xlink:href="http://exist-db.org/exist/apps/doc/indexing.xml" xlink:show="new" xlink:type="simple"><textual class="po-textual">eXist</textual></link><textual class="po-textual">
+      and </textual><link class="po-inline e107 e107" xlink:actuate="onRequest" xlink:href="http://docs.basex.org/wiki/Indexes#Resource_Index" xlink:show="new" xlink:type="simple"><textual class="po-textual">BaseX</textual></link><textual class="po-textual">,
+      </textual><link class="po-inline e108 e108" xlink:actuate="onRequest" xlink:href="http://msdn.microsoft.com/en-us/library/ms191497.aspx" xlink:show="new" xlink:type="simple"><textual class="po-textual">SQL
+      Server</textual></link><textual class="po-textual"> (Primary XML index covers paths and values; full text
+      is available, and Secondary index provides XPath), </textual><link class="po-inline e109 e109" xlink:actuate="onRequest" xlink:href="http://docs.oracle.com/cd/B28359_01/appdev.111/b28369/xdb_indexing.htm#CHDFCGGI" xlink:show="new" xlink:type="simple"><textual class="po-textual">Oracle</textual></link><textual class="po-textual">
+      and </textual><link class="po-inline e110 e110" xlink:actuate="onRequest" xlink:href="http://pic.dhe.ibm.com/infocenter/dzichelp/v2r2/topic/com.ibm.db2z10.doc.xml/src/tpc/db2z_indexxml.htm" xlink:show="new" xlink:type="simple"><textual class="po-textual">DB2</textual></link><textual class="po-textual">,
+      to name a few popular systems.  A review of the indexing capabilities
+      of these and other tools is beyond the scope of this paper, but it is
+      apparent that the index types described above are well-represented in
+      the field.
+    </textual></para><para class="po-block e111 e111"><textual class="po-textual">
+      Lux currently provides path, full text, element/attribute full text,
+      and xpath indexes.  We've done some work on an element/attribute
+      value index as well.  The optimizer generates search expressions
+      using the path indexes, and in some cases, the full text indexes and
+      XPath indexes.  The user can make explicit use of all the indexes for
+      search, optimized counting, and sorting by calling index-aware
+      functions provided in the Lux function library.
+    </textual></para><para class="po-block e112 e112"><textual class="po-textual">
+      There are a variety of optimizations using indexes we could imagine
+      applying in order to make a query go faster: Filtering the input
+      collection to include only "relevant" documents is the main one, and
+      it sounds simple enough, but there are a lot of specific cases to be
+      considered, and there is a real danger of over-optimizing and getting
+      incorrect results.  Optimizations tend to have a patchwork character,
+      and in order to stay on top of things, it's important to have a
+      formal framework we can use to prove to ourselves that the
+      optimizations are correct; that they preserve the correct results.
+    </textual></para><section class="po-hcontainer e113 e113"><title class="po-block e114 e114"><textual class="po-textual">Formal setting</textual></title><para class="po-block e115 e115"><textual class="po-textual">
+        Because XQuery is a functional language, it's natural to think of
+        queries as functions, and to apply the formalisms of functional
+        logic. In this light, query optimizations can be described formally
+        as a special kind of homomorphism </textual><footnote class="po-popup e116 e116"><para class="po-block e117 e117"><textual class="po-textual">A homomorphism is
+        a kind of mapping that preserves structure.</textual></para></footnote><textual class="po-textual"> over
+        the space of all queries.  A function is generally defined as a
+        mapping from one set to another: in this case from sequences of
+        documents to sequences of items. So in this terminology, two
+        queries are homomorphic if they represent the same mapping from
+        documents to items.  We won't take this formal setup very far, but
+        we note that homomorphism is preserved by composition. In other
+        words if two optimizations are "correct" independently, applying
+        both of them will still be "correct", in the sense of preserving
+        correct results, and we can apply them in whichever order we
+        choose.  This is important because it enables us to work on query
+        transformations independently, without worrying that making changes
+        in one place will suddenly cause problems to crop up somewhere
+        completely different.
+      </textual></para><para class="po-block e118 e118"><textual class="po-textual">
+        Defining optimization as a mapping from queries to queries has
+        another nice property: it means we can fairly easily show the user
+        what the optimized query is: it's just a different (hopefully
+        faster) query that returns the same result.  This is different from
+        the situation in some systems, where optimizations are completely
+        opaque to the user, or are presented as a kind of abstract "query
+        plan" that bears little or no resemblance to an actual query.  Of
+        course the user needs to be able to understand the optimized XQuery
+        form, but given that they wrote the original XQuery, it shouldn't
+        be too much of a stretch for them.
+      </textual></para></section><section class="po-hcontainer e119 e119"><title class="po-block e120 e120"><textual class="po-textual">Filtering the context</textual></title><para class="po-block e121 e121"><textual class="po-textual">
+        It is often the case that query expressions return an empty sequence
+        when evaluated in the context of a given document.  For example, the
+        query </textual><code class="po-atom e122 e122"><textual class="po-textual">//chapter[.//videoobject]/title</textual></code><textual class="po-textual"> returns the titles
+        of all (DocBook) chapters containing references to videos.  Suppose
+        our database contains 1000 books broken into a document for every
+        chapter.  Only a small fraction of these may actually contain videos,
+        but a naïve unoptimized implementation might have to load every one
+        of those documents into memory, parse them, evaluate the query on
+        them, only to return nothing. One of the main goals of the optimizer
+        is to filter the context early in the process, using indexes, so that
+        all this unnecessary work can be avoided.
+      </textual></para><para class="po-block e123 e123"><textual class="po-textual">
+        We said that we operate on the whole database by replacing "/" with
+        collection().  We can think of every query to be optimized then as
+        some function whose single argument is the sequence of all
+        documents.  What we'd like to be able to do is to filter out all
+        documents from that sequence that have no chance of contributing to
+        the query results.  Intuitively we know that the result of
+
+        </textual><blockquote class="po-container e124 e124"><para class="po-block e125 e125"><code class="po-atom e126 e126"><textual class="po-textual">
+          collection()//chapter[.//videoobject]/title
+        </textual></code></para></blockquote><textual class="po-textual">
+
+        will be the same as the result of:
+
+        </textual><blockquote class="po-container e127 e127"><para class="po-block e128 e128"><code class="po-atom e129 e129"><textual class="po-textual">
+          collection('chapters with videos (and titles)')//chapter[.//videoobject]/title
+        </textual></code></para></blockquote><textual class="po-textual">
+
+        Some XQuery expressions, and in particular path expressions, have
+        the nice property of commuting with sequences: that is, their
+        result sequence will be the sequence formed by applying the
+        expression to each element of the input sequence in turn.  Or, more
+        concisely:
+
+        </textual><blockquote class="po-container e130 e130"><para class="po-block e131 e131"><code class="po-atom e132 e132"><textual class="po-textual">
+          f(s1,s2,s3,...) === (f(s1), f(s2), f(s3), ...)
+        </textual></code></para></blockquote><textual class="po-textual">
+
+        Combining this with the fact that sequences don't nest, we get that
+        (for these functions):
+
+        </textual><blockquote class="po-container e133 e133"><para class="po-block e134 e134"><code class="po-atom e135 e135"><textual class="po-textual">
+          f(S) === f(s∈S | f(s) is not empty) 
+        </textual></code></para></blockquote><textual class="po-textual">
+
+        which just basically says that we only need to run the query on
+        documents that will return results - we can skip all the other ones
+        since they are irrelevant.
+
+      </textual></para><para class="po-block e136 e136"><textual class="po-textual">
+        This is very useful.  What it means is that if we can come up with
+        some index query that selects only those documents that return
+        results for a given XQuery, then we can use that to filter the
+        documents "up front," and save a lot of processing.  Actually it's
+        OK to retrieve more documents than we need, but the game is to
+        retrieve as few as possible without missing any important ones.  
+      </textual></para><para class="po-block e137 e137"><textual class="po-textual">
+        So that's goal #1 of the optimizer: for any XQuery, produce an
+        index query that minimizes the number of documents required to be
+        retrieved.  How do we do that?  The strategy is to devise indexes,
+        and queries, that match XQuery primitives like QNames and simple
+        comparisons, and then to combine those primitive queries when they
+        appear as part of more complex, composite expressions, like
+        sequences, boolean operators, set operators, FLWOR expressions and
+        so on. In particular what the Lux optimizer does is to perform a
+        depth-first walk of the syntax tree of a query, pushing, popping,
+        and combining index queries on a stack as it goes.  The
+        pseudo-logic of </textual><code class="po-atom e138 e138"><textual class="po-textual">optimize(xquery)</textual></code><textual class="po-textual"> goes something like
+        this:
+
+        </textual><programlisting class="po-block e139 e139" xml:space="preserve"><textual class="po-textual">
+            if (xquery has no children)
+              push a corresponding primitive index query
+            else 
+              let current-query = match-all
+              for each child expression
+                pop the child-query
+                if (child is absolute (contains a Root sub-expression: /))
+                  replace the Root with search(child-query)
+                else
+                  let current query = combine (current-query, child-query)
+              push current-query
+        </textual></programlisting><textual class="po-textual">
+      </textual></para></section><section class="po-hcontainer e140 e140"><title class="po-block e141 e141"><textual class="po-textual">Path Indexes</textual></title><para class="po-block e142 e142"><textual class="po-textual">
+        Let's look more closely at optimizing queries with path expressions
+        in them, since these expressions are uniquely characteristic of
+        querying tree-structured data like XML.  We've implemented
+        different kinds of structure-related indexes, and it's interesting
+        to compare what each one buys, and what it costs.
+      </textual></para><para class="po-block e143 e143"><textual class="po-textual">
+        The most basic approach that captures some document structure is
+        just to index all the names of all the elements and attributes (the
+        QNames) in each document.  If we do that, we can easily make sure
+        not to go looking for videos in documents that don't have them.  
+      </textual></para><para class="po-block e144 e144"><textual class="po-textual">
+        But the simple QName index doesn't really capture anything about
+        relationships of nodes within a document.  It feels like it ought
+        to be possible to search chapter titles independently from
+        searching book titles or section titles, for example, even if they
+        are all tagged with &lt;title&gt;, as in DocBook.  A natural thing
+        to do is to index the complete path of every named node. We've done
+        this by treating each path as a kind of "sentence" in which each
+        node name is a single word or token. Then using phrase queries and
+        similar queries based on token-proximity, we can express
+        constraints like </textual><code class="po-atom e145 e145"><textual class="po-textual">a/child::b</textual></code><textual class="po-textual">, </textual><code class="po-atom e146 e146"><textual class="po-textual">a//b</textual></code><textual class="po-textual"> (and
+        others) much more precisely.  With the simple QName index, it isn't
+        possible to write a query even for </textual><code class="po-atom e147 e147"><textual class="po-textual">//a//b</textual></code><textual class="po-textual"> that won't
+        match other irrelevant documents as well (such as
+        </textual><code class="po-atom e148 e148"><textual class="po-textual">&lt;b&gt;&lt;a/&gt;&lt;/b&gt;</textual></code><textual class="po-textual">).
+      </textual></para><para class="po-block e149 e149"><textual class="po-textual">
+        Here's a concrete example:
+      </textual></para><mediaobject class="po-container e150 e150"><imageobject class="po-container e151 e151"><imagedata class="po-meta e152 e152" fileref="../../../vol10/graphics/Sokolov01/Sokolov01-003.png" format="png"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></imagedata></imageobject></mediaobject><para class="po-block e153 e153"><textual class="po-textual">
+        The figure shows a syntax tree for the example expression roughly
+        as it would be expressed by the Saxon parser, in blue rectangles,
+        and in orange it shows the corresponding Lucene pseudo-query that
+        is generated by Lux.  Parent queries are formed by joining together
+        child queries using the recursive process described above.  The
+        combine() method alluded to there is somewhat complex for path
+        queries.  Its job is to characterize the relationship between two
+        child expressions and to generate as precisely as possible (ie
+        matching as few documents as possible, without missing any) a query
+        corresponding to the parent expression.  For the simple boolean
+        queries that are generated when only QName indexes are in use, this
+        is generally just a matter of deciding whether the children should
+        be AND-ed together or OR-ed together.  The choice is typically
+        dictated by the character of the parent expression: most are
+        restrictive and generate AND-queries, but some, like "or", "|", and
+        "union" conjoin their child expressions and generate OR-queries.
+      </textual></para><para class="po-block e154 e154"><textual class="po-textual">
+        Joining path queries also requires computing a distance between two
+        subexpressions.  The optimizer computes this distance when visiting
+        path expressions (a/b) and predicates (a[b]), translating
+        non-adjacent path axes like descendant, and intervening wildcard
+        steps like /*/*/ into corresponding phrase distances in the Lucene
+        proximity query.
+      </textual></para><para class="po-block e155 e155"><textual class="po-textual">
+        Once the optimizer has generated a Lucene query corresponding to an
+        XQuery expression, it replaces the collection() (or /) expression
+        with a call to Lux's search function, passing it the generated query
+        as its argument.
+      </textual></para><para class="po-block e156 e156"><textual class="po-textual">
+        One benefit of the Lux architecture is that it optimizes
+        expression trees that have already been optimized to some extent by
+        Saxon.  Saxon reduces a number of equivalent expressions to a
+        simpler canonical form, making it easier to perform the analysis
+        needed for optimization.  There are some drawbacks to this approach
+        as well: Saxon converts some expressions (like atomized sequences)
+        into internal forms that have no direct correspondence with
+        XQuery expressions, so some clever inferencing is required in those
+        cases to create an equivalent XQuery.
+      </textual></para><para class="po-block e157 e157"><textual class="po-textual">
+        Of course we can keep on devising more and more precise indexes.
+        Consider indexing every occurrence of every path, so that we keep a
+        count of each path as well: that should give us a handle on queries
+        involving positional predicates like </textual><code class="po-atom e158 e158"><textual class="po-textual">//title[2]</textual></code><textual class="po-textual">.  We
+        often want to know if there is a second same-named element since it
+        might violate a schema that requires a singleton.  Indexing paths
+        as phrases in Lucene doesn't really lend itself well to maintaining
+        this kind of statistic since the tokens in that case are QNames.
+        But if we index each complete path as a token (i.e. "/a/b/c" as a
+        single token, rather than "a b c" as three tokens associated by
+        position-proximity), then the index will maintain a term count for
+        us.
+      </textual></para><para class="po-block e159 e159"><textual class="po-textual">
+        We have made some experiments with these "path occurrence" queries.
+        The path queries become token queries, possibly involving
+        wildcards, rather than phrase queries.  The performance of the
+        resulting queries is roughly the same as the phrase-like queries
+        described before.  The promise of indexing positional predicates
+        proves difficult to realize, though.  In Lucene, the primary
+        function of term frequency counts is to compute relevance-ranking
+        scores: using them to </textual><emphasis class="po-inline e160 e160"><textual class="po-textual">filter</textual></emphasis><textual class="po-textual"> queries is much more involved,
+        requiring some deeper spelunking into Lucene's internals, but this
+        is a promising avenue for future work.
+      </textual></para></section><section class="po-hcontainer e161 e161"><title class="po-block e162 e162"><textual class="po-textual">Other optimizations</textual></title><para class="po-block e163 e163"><textual class="po-textual">The optimizer knows a few other tricks, beyond simply ignoring
+      irrelevant documents.
+      </textual></para><section class="po-hcontainer e164 e164"><title class="po-block e165 e165"><textual class="po-textual">Special Functions</textual></title><para class="po-block e166 e166"><textual class="po-textual">
+          In general, function calls are opaque to the optimizer, but it
+          does apply special optimizations for a few built-in XPath
+          functions: </textual><code class="po-atom e167 e167"><textual class="po-textual">root()</textual></code><textual class="po-textual">, </textual><code class="po-atom e168 e168"><textual class="po-textual">exists()</textual></code><textual class="po-textual">,
+          </textual><code class="po-atom e169 e169"><textual class="po-textual">empty()</textual></code><textual class="po-textual">, </textual><code class="po-atom e170 e170"><textual class="po-textual">count()</textual></code><textual class="po-textual"> and
+          </textual><code class="po-atom e171 e171"><textual class="po-textual">subsequence()</textual></code><textual class="po-textual">.
+        </textual></para><para class="po-block e172 e172"><textual class="po-textual">
+          </textual><code class="po-atom e173 e173"><textual class="po-textual">count()</textual></code><textual class="po-textual">, </textual><code class="po-atom e174 e174"><textual class="po-textual">exists()</textual></code><textual class="po-textual">, and
+          </textual><code class="po-atom e175 e175"><textual class="po-textual">empty()</textual></code><textual class="po-textual"> can be evaluated using indexes only, without
+          loading documents, when it can be determined that their arguments
+          are faithfully modeled by an appropriate query.  When this
+          inference can be made, the speedup is are often dramatic, so we
+          go to some lengths to track a few properties that characterize
+          the precision of the Lucene query that the optimizer generates.
+        </textual></para><para class="po-block e176 e176"><textual class="po-textual">
+          If we can prove that a given Lucene query retrieves *only* the
+          documents that produce XQuery results, no more and no fewer, then
+          we call the query </textual><emphasis class="po-inline e177 e177"><textual class="po-textual">minimal</textual></emphasis><textual class="po-textual">.  A minimal query
+          is the best we can do in terms of filtering the context set for
+          the query.  When their arguments' queries are minimal,
+          </textual><code class="po-atom e178 e178"><textual class="po-textual">exists()</textual></code><textual class="po-textual"> and </textual><code class="po-atom e179 e179"><textual class="po-textual">empty()</textual></code><textual class="po-textual"> are replaced by an
+          index-aware analogue, </textual><code class="po-atom e180 e180"><textual class="po-textual">lux:exists()</textual></code><textual class="po-textual">, which simply
+          checks whether any documents match a (Lucene) query (or its
+          negation, in the case of empty()).
+        </textual></para><para class="po-block e181 e181"><textual class="po-textual">
+          Another useful property that some queries have is that they only
+          return one result per document.  We call these
+          </textual><emphasis class="po-inline e182 e182"><textual class="po-textual">singular</textual></emphasis><textual class="po-textual">.  It's useful to track singularity
+          since a minimal, singular query can be counted efficiently, using
+          indexes only.  It's not always possible to tell whether a query's
+          result will be singular, but in some cases it is.  In particular,
+          if a query returns only documents (or root element nodes), then
+          it will be singular.  Lux recognizes that the </textual><code class="po-atom e183 e183"><textual class="po-textual">root()</textual></code><textual class="po-textual">
+          function is singular, and counts paths ending with
+          </textual><code class="po-atom e184 e184"><textual class="po-textual">/root()</textual></code><textual class="po-textual"> in an efficient manner.
+        </textual></para><para class="po-block e185 e185"><textual class="po-textual">
+          The </textual><code class="po-atom e186 e186"><textual class="po-textual">subsequence($seq,$start,$length)</textual></code><textual class="po-textual"> function provides
+          a fixed window into a larger sequence.  We can rely on the XQuery
+          processor's lazy evaluation to avoid retrieving documents beyond
+          the right edge of the window.  When the windowed sequence is
+          singular, we can also avoid loading the documents to the left of
+          the window by telling the Lucene searcher to skip the number of
+          documents indicated by subsequence's second argument.  Also note
+          that Saxon does us the favor of translating numeric predicates
+          ($sequence[10]) into subsequence function calls, so the same
+          optimization applies to those.
+        </textual></para></section><section class="po-hcontainer e187 e187"><title class="po-block e188 e188"><textual class="po-textual">Sorting</textual></title><para class="po-block e189 e189"><textual class="po-textual">
+          Sorting a sequence using an XQuery "order by" clause typically
+          requires the entire sequence to be loaded into memory in order to
+          evaluate the ordering expression for use in sorting, even if only
+          a subset of the documents will eventually contribute to the
+          overall query result (they may be filtered by subsequence() for
+          example). We can do better when the ordering expression has been
+          indexed.
+        </textual></para><para class="po-block e190 e190"><textual class="po-textual">
+          Lux can populate a Lucene field for any user-supplied XPath
+          expression, and exposes these fields in XQuery via the
+          </textual><code class="po-atom e191 e191"><textual class="po-textual">lux:key</textual></code><textual class="po-textual"> (formerly </textual><code class="po-atom e192 e192"><textual class="po-textual">lux:field-values</textual></code><textual class="po-textual">)
+          function.  When the optimizer finds a
+          </textual><code class="po-atom e193 e193"><textual class="po-textual">lux:key($field)</textual></code><textual class="po-textual"> call used as an ordering expression,
+          the field argument is used to order the Lucene query result.  In
+          general results can be ordered much more quickly this way.  Such
+          optimizations are applicable for single-valued fields with string
+          and numeric values.  They support empty least/greatest, and can
+          handle multiple fields.
+        </textual></para></section><section class="po-hcontainer e194 e194"><title class="po-block e195 e195"><textual class="po-textual">Range Comparisons</textual></title><para class="po-block e196 e196"><textual class="po-textual">
+          Lux optimizes range comparisons (=, !=, &lt;, &lt;=, &gt;, &gt;=, eq,
+          ne, gt, ge, le, lt) when one of the operands is a constant, and
+          the other is a call to lux:key() or can be proven to match an
+          indexed expression.  For example, if there is a string-valued
+          index called "book-id" on </textual><code class="po-atom e197 e197"><textual class="po-textual">//book/@id</textual></code><textual class="po-textual">, the expression
+          </textual><code class="po-atom e198 e198"><textual class="po-textual">//book[@id="isbn9780123456789"]</textual></code><textual class="po-textual"> would be optimized
+          into something like:
+          </textual><code class="po-atom e199 e199"><textual class="po-textual">lux:search("book-id:isbn9780123456789")</textual></code><textual class="po-textual">, and
+          evaluated using indexed lookup. There will be additional clauses
+          to the generated query, such as path constraints.  Also, equality
+          tests may be optimized using the built-in full text indexes.  In
+          the example above, a word-based query such as:
+          </textual><code class="po-atom e200 e200"><textual class="po-textual">&lt;@id:isbn9780123456789</textual></code><textual class="po-textual"> would be generated, which
+          would find the given isbn, ignoring text normalizations such as
+          case, in any id attribute.  These text queries are less selective
+          than the query based on the XPath index, but can often be
+          selective enough, depending on the structure of the documents.
+        </textual></para></section><section class="po-hcontainer e201 e201"><title class="po-block e202 e202"><textual class="po-textual">FLWOR expressions and variables</textual></title><para class="po-block e203 e203"><textual class="po-textual">
+          There are no special optimizations related to these constructs,
+          but they do present special problems.  Lux doesn't make any
+          attempt to apply constraints from where clauses, but since Saxon
+          converts most where clauses to predicates, this isn't a
+          significant drawback.  Variables are handled by keeping track of
+          variable bindings while the try is being optimized, and applying
+          any query constraints from a variable's bound expression to its
+          containing expression as if it were simply expanded in place.
+        </textual></para></section></section><section class="po-hcontainer e204 e204"><title class="po-block e205 e205"><textual class="po-textual">Results</textual></title><section class="po-hcontainer e206 e206"><title class="po-block e207 e207"><textual class="po-textual">Correctness</textual></title><para class="po-block e208 e208"><textual class="po-textual">
+          It's critical to ensure that an "optimized" query returns the same
+          results as the original, but it's not always so easy to prove that
+          a given optimization is homomorphic.  Sometimes we think we've done
+          so, but a counterexample arises. If we were better mathematicians,
+          perhaps we wouldn't need to, but as engineers, we take a pragmatic
+          approach and build lots of tests.
+        </textual></para><para class="po-block e209 e209"><textual class="po-textual">
+          XQTS was a great help, in resolving query translation issues, and
+          somewhat helpful in testing the optimizer.  But it isn't targeted
+          at testing queries to be run over large numbers of documents, so
+          we created our own test suite to ensure that our optimizations do
+          in fact improve query speed. In the course of doing this, we
+          uncovered numerous bugs, even though we had a nearly 100% pass
+          rate on XQTS.  You just can't have enough unit tests.
+        </textual></para></section><section class="po-hcontainer e210 e210"><title class="po-block e211 e211"><textual class="po-textual">Indexing Performance</textual></title><para class="po-block e212 e212"><textual class="po-textual">
+          Of course the whole point of this exercise is to improve query
+          performance.  No paper about optimization would be complete
+          without some measurements.  And we have been able to make
+          improvements.  In some ways it's uninteresting to look at
+          specific performance comparisons with and without index
+          optimizations, since the improvement (when there is one) can
+          usually be made arbitrarily large simply by adding more documents
+          to the database.  There are a few inferences to be drawn from the
+          numbers, though.
+        </textual></para><para class="po-block e213 e213"><textual class="po-textual">
+          Note on the test data: we used Jon Bosak's hamlet.xml (courtesy
+          of ibiblio.org) to generate a set of 6636 documents, one for each
+          element in the play's markup.  So there are a single PLAY
+          document, five ACT documents, and so on, in our test set.
+        </textual></para><para class="po-block e214 e214"><textual class="po-textual">
+          We evaluated the cost, in bytes, of enabling various indexing
+          options.  The size of the indexes is an important consideration
+          since it has an effect on memory consumption and on the amount of
+          disk I/O the system will need to perform when updating and
+          merging.  For the Hamlet test set, the relative sizes of the
+          index fields are given in the following table, in bytes, and as a
+          percentage of the size required to store the XML documents.
+        </textual></para><informaltable class="po-container e215 e215"><thead class="po-container e216 e216"><tr class="po-table e217 e217"><td class="po-block e218 e218"><textual class="po-textual">Index Option</textual></td><td class="po-block e219 e219"><textual class="po-textual">Size (in bytes)</textual></td><td class="po-block e220 e220"><textual class="po-textual">% of xml</textual></td></tr></thead><tr class="po-table e221 e221"><td class="po-block e222 e222"><textual class="po-textual">XML Storage</textual></td><td class="po-block e223 e223"><textual class="po-textual">1,346,560</textual></td><td class="po-block e224 e224"><textual class="po-textual">100%</textual></td></tr><tr class="po-table e225 e225"><td class="po-block e226 e226"><textual class="po-textual">Full Text</textual></td><td class="po-block e227 e227"><textual class="po-textual">1,765,376</textual></td><td class="po-block e228 e228"><textual class="po-textual">100%</textual></td></tr><tr class="po-table e229 e229"><td class="po-block e230 e230"><textual class="po-textual">Node Text</textual></td><td class="po-block e231 e231"><textual class="po-textual">1,770,496</textual></td><td class="po-block e232 e232"><textual class="po-textual">100%</textual></td></tr><tr class="po-table e233 e233"><td class="po-block e234 e234"><textual class="po-textual">Paths</textual></td><td class="po-block e235 e235"><textual class="po-textual">122,880</textual></td><td class="po-block e236 e236"><textual class="po-textual">100%</textual></td></tr><tr class="po-table e237 e237"><td class="po-block e238 e238"><textual class="po-textual">QNames</textual></td><td class="po-block e239 e239"><textual class="po-textual">88,064</textual></td><td class="po-block e240 e240"><textual class="po-textual">100%</textual></td></tr></informaltable><para class="po-block e241 e241"><textual class="po-textual">
+          The Full Text index includes all of the text, but no node name
+          information.  The Node Text index indexes each text token
+          together with its element (or attribute) context.  Note that the
+          sizes of the QName and Path indexes are fairly low relative to
+          the size of the documents themselves (also: the QName index isn't
+          needed if we have a Path index).  The next section shows the
+          effect of these indexes on query performance.
+        </textual></para></section><section class="po-hcontainer e242 e242"><title class="po-block e243 e243"><textual class="po-textual">Query Performance</textual></title><para class="po-block e244 e244"><textual class="po-textual"> 
+          The table below shows the time, in milliseconds, to evaluate a
+          certain query with different indexes enabled.  The queries were
+          repeated 500 times in order to smooth out the noise in the
+          measurements.  The column labeled </textual><emphasis class="po-inline e245 e245"><textual class="po-textual">baseline</textual></emphasis><textual class="po-textual">
+          represents an unfiltered baseline where every query is evaluated
+          against every document.  The </textual><emphasis class="po-inline e246 e246"><textual class="po-textual">qname</textual></emphasis><textual class="po-textual"> column
+          filtered documents using qname indexes, and the
+          </textual><emphasis class="po-inline e247 e247"><textual class="po-textual">path</textual></emphasis><textual class="po-textual"> shows results for path indexes.  The
+          </textual><emphasis class="po-inline e248 e248"><textual class="po-textual">%change</textual></emphasis><textual class="po-textual"> and </textual><emphasis class="po-inline e249 e249"><textual class="po-textual">difference</textual></emphasis><textual class="po-textual">
+          columns show the difference between qname and path indexing;
+          positive values indicate greater times for qname indexes.  The
+          queries have been sorted in descending order by this difference.
+        </textual></para><informaltable class="po-container e250 e250"><thead class="po-container e251 e251"><tr class="po-table e252 e252"><td class="po-block e253 e253"><textual class="po-textual">query</textual></td><td class="po-block e254 e254"><textual class="po-textual">baseline</textual></td><td class="po-block e255 e255"><textual class="po-textual">qname</textual></td><td class="po-block e256 e256"><textual class="po-textual">path</textual></td><td class="po-block e257 e257"><textual class="po-textual">%change</textual></td><td class="po-block e258 e258"><textual class="po-textual">difference</textual></td></tr></thead><tr class="po-table e259 e259"><td class="po-block e260 e260"><textual class="po-textual">/LINE</textual></td><td class="po-block e261 e261"><textual class="po-textual">444</textual></td><td class="po-block e262 e262"><textual class="po-textual">262</textual></td><td class="po-block e263 e263"><textual class="po-textual">185</textual></td><td class="po-block e264 e264"><textual class="po-textual">29.19</textual></td><td class="po-block e265 e265"><textual class="po-textual">76.48</textual></td></tr><tr class="po-table e266 e266"><td class="po-block e267 e267"><textual class="po-textual">//ACT/TITLE/root()//SCENE/TITLE/root()//SPEECH/TITLE/root()</textual></td><td class="po-block e268 e268"><textual class="po-textual">338</textual></td><td class="po-block e269 e269"><textual class="po-textual">31</textual></td><td class="po-block e270 e270"><textual class="po-textual">2</textual></td><td class="po-block e271 e271"><textual class="po-textual">92.01</textual></td><td class="po-block e272 e272"><textual class="po-textual">28.52</textual></td></tr><tr class="po-table e273 e273"><td class="po-block e274 e274"><textual class="po-textual">/ACT['content'=SCENE]</textual></td><td class="po-block e275 e275"><textual class="po-textual">318</textual></td><td class="po-block e276 e276"><textual class="po-textual">32</textual></td><td class="po-block e277 e277"><textual class="po-textual">8</textual></td><td class="po-block e278 e278"><textual class="po-textual">75.12</textual></td><td class="po-block e279 e279"><textual class="po-textual">24.04</textual></td></tr><tr class="po-table e280 e280"><td class="po-block e281 e281"><textual class="po-textual">/ACT//SCENE</textual></td><td class="po-block e282 e282"><textual class="po-textual">366</textual></td><td class="po-block e283 e283"><textual class="po-textual">40</textual></td><td class="po-block e284 e284"><textual class="po-textual">18</textual></td><td class="po-block e285 e285"><textual class="po-textual">55.62</textual></td><td class="po-block e286 e286"><textual class="po-textual">22.25</textual></td></tr><tr class="po-table e287 e287"><td class="po-block e288 e288"><textual class="po-textual">/ACT[SCENE='content']</textual></td><td class="po-block e289 e289"><textual class="po-textual">372</textual></td><td class="po-block e290 e290"><textual class="po-textual">29</textual></td><td class="po-block e291 e291"><textual class="po-textual">8</textual></td><td class="po-block e292 e292"><textual class="po-textual">70.46</textual></td><td class="po-block e293 e293"><textual class="po-textual">20.43</textual></td></tr><tr class="po-table e294 e294"><td class="po-block e295 e295"><textual class="po-textual">/ACT[.='content']</textual></td><td class="po-block e296 e296"><textual class="po-textual">360</textual></td><td class="po-block e297 e297"><textual class="po-textual">30</textual></td><td class="po-block e298 e298"><textual class="po-textual">9</textual></td><td class="po-block e299 e299"><textual class="po-textual">68.08</textual></td><td class="po-block e300 e300"><textual class="po-textual">20.42</textual></td></tr><tr class="po-table e301 e301"><td class="po-block e302 e302"><textual class="po-textual">/ACT/SCENE[.='content']</textual></td><td class="po-block e303 e303"><textual class="po-textual">333</textual></td><td class="po-block e304 e304"><textual class="po-textual">29</textual></td><td class="po-block e305 e305"><textual class="po-textual">9</textual></td><td class="po-block e306 e306"><textual class="po-textual">67.47</textual></td><td class="po-block e307 e307"><textual class="po-textual">19.57</textual></td></tr><tr class="po-table e308 e308"><td class="po-block e309 e309"><textual class="po-textual">/ACT/SCENE</textual></td><td class="po-block e310 e310"><textual class="po-textual">359</textual></td><td class="po-block e311 e311"><textual class="po-textual">35</textual></td><td class="po-block e312 e312"><textual class="po-textual">15</textual></td><td class="po-block e313 e313"><textual class="po-textual">55.61</textual></td><td class="po-block e314 e314"><textual class="po-textual">19.46</textual></td></tr><tr class="po-table e315 e315"><td class="po-block e316 e316"><textual class="po-textual">count(//ACT/SCENE/ancestor::document-node())</textual></td><td class="po-block e317 e317"><textual class="po-textual">151</textual></td><td class="po-block e318 e318"><textual class="po-textual">20</textual></td><td class="po-block e319 e319"><textual class="po-textual">0</textual></td><td class="po-block e320 e320"><textual class="po-textual">95.59</textual></td><td class="po-block e321 e321"><textual class="po-textual">19.12</textual></td></tr><tr class="po-table e322 e322"><td class="po-block e323 e323"><textual class="po-textual">number((/ACT/SCENE)[1])</textual></td><td class="po-block e324 e324"><textual class="po-textual">17</textual></td><td class="po-block e325 e325"><textual class="po-textual">23</textual></td><td class="po-block e326 e326"><textual class="po-textual">5</textual></td><td class="po-block e327 e327"><textual class="po-textual">74.62</textual></td><td class="po-block e328 e328"><textual class="po-textual">17.16</textual></td></tr><tr class="po-table e329 e329"><td class="po-block e330 e330"><textual class="po-textual">/ACT/text()</textual></td><td class="po-block e331 e331"><textual class="po-textual">379</textual></td><td class="po-block e332 e332"><textual class="po-textual">18</textual></td><td class="po-block e333 e333"><textual class="po-textual">8</textual></td><td class="po-block e334 e334"><textual class="po-textual">56.25</textual></td><td class="po-block e335 e335"><textual class="po-textual">10.13</textual></td></tr><tr class="po-table e336 e336"><td class="po-block e337 e337"><textual class="po-textual">/*[self::ACT/SCENE/self::*='content']</textual></td><td class="po-block e338 e338"><textual class="po-textual">366</textual></td><td class="po-block e339 e339"><textual class="po-textual">16</textual></td><td class="po-block e340 e340"><textual class="po-textual">6</textual></td><td class="po-block e341 e341"><textual class="po-textual">60.85</textual></td><td class="po-block e342 e342"><textual class="po-textual">9.74</textual></td></tr><tr class="po-table e343 e343"><td class="po-block e344 e344"><textual class="po-textual">/ACT//*</textual></td><td class="po-block e345 e345"><textual class="po-textual">323</textual></td><td class="po-block e346 e346"><textual class="po-textual">20</textual></td><td class="po-block e347 e347"><textual class="po-textual">10</textual></td><td class="po-block e348 e348"><textual class="po-textual">47.62</textual></td><td class="po-block e349 e349"><textual class="po-textual">9.52</textual></td></tr><tr class="po-table e350 e350"><td class="po-block e351 e351"><textual class="po-textual">/ACT</textual></td><td class="po-block e352 e352"><textual class="po-textual">342</textual></td><td class="po-block e353 e353"><textual class="po-textual">17</textual></td><td class="po-block e354 e354"><textual class="po-textual">9</textual></td><td class="po-block e355 e355"><textual class="po-textual">46.84</textual></td><td class="po-block e356 e356"><textual class="po-textual">7.96</textual></td></tr><tr class="po-table e357 e357"><td class="po-block e358 e358"><textual class="po-textual">/*[self::ACT/SCENE='content']</textual></td><td class="po-block e359 e359"><textual class="po-textual">321</textual></td><td class="po-block e360 e360"><textual class="po-textual">13</textual></td><td class="po-block e361 e361"><textual class="po-textual">5</textual></td><td class="po-block e362 e362"><textual class="po-textual">60.95</textual></td><td class="po-block e363 e363"><textual class="po-textual">7.92</textual></td></tr><tr class="po-table e364 e364"><td class="po-block e365 e365"><textual class="po-textual">//ACT|//SCENE</textual></td><td class="po-block e366 e366"><textual class="po-textual">497</textual></td><td class="po-block e367 e367"><textual class="po-textual">37</textual></td><td class="po-block e368 e368"><textual class="po-textual">35</textual></td><td class="po-block e369 e369"><textual class="po-textual">7.69</textual></td><td class="po-block e370 e370"><textual class="po-textual">2.85</textual></td></tr><tr class="po-table e371 e371"><td class="po-block e372 e372"><textual class="po-textual">//ACT</textual></td><td class="po-block e373 e373"><textual class="po-textual">334</textual></td><td class="po-block e374 e374"><textual class="po-textual">24</textual></td><td class="po-block e375 e375"><textual class="po-textual">21</textual></td><td class="po-block e376 e376"><textual class="po-textual">11.47</textual></td><td class="po-block e377 e377"><textual class="po-textual">2.75</textual></td></tr><tr class="po-table e378 e378"><td class="po-block e379 e379"><textual class="po-textual">//ACT[exists(SCENE)]</textual></td><td class="po-block e380 e380"><textual class="po-textual">334</textual></td><td class="po-block e381 e381"><textual class="po-textual">21</textual></td><td class="po-block e382 e382"><textual class="po-textual">18</textual></td><td class="po-block e383 e383"><textual class="po-textual">11.97</textual></td><td class="po-block e384 e384"><textual class="po-textual">2.51</textual></td></tr><tr class="po-table e385 e385"><td class="po-block e386 e386"><textual class="po-textual">(/)[.//ACT]</textual></td><td class="po-block e387 e387"><textual class="po-textual">390</textual></td><td class="po-block e388 e388"><textual class="po-textual">35</textual></td><td class="po-block e389 e389"><textual class="po-textual">33</textual></td><td class="po-block e390 e390"><textual class="po-textual">7.07</textual></td><td class="po-block e391 e391"><textual class="po-textual">2.47</textual></td></tr><tr class="po-table e392 e392"><td class="po-block e393 e393"><textual class="po-textual">//ACT[empty(SCENE)]</textual></td><td class="po-block e394 e394"><textual class="po-textual">521</textual></td><td class="po-block e395 e395"><textual class="po-textual">27</textual></td><td class="po-block e396 e396"><textual class="po-textual">24</textual></td><td class="po-block e397 e397"><textual class="po-textual">8.86</textual></td><td class="po-block e398 e398"><textual class="po-textual">2.39</textual></td></tr><tr class="po-table e399 e399"><td class="po-block e400 e400"><textual class="po-textual">for $doc in //ACT order by lux:field-values('sortkey', $doc) return $doc</textual></td><td class="po-block e401 e401"><textual class="po-textual">385</textual></td><td class="po-block e402 e402"><textual class="po-textual">39</textual></td><td class="po-block e403 e403"><textual class="po-textual">37</textual></td><td class="po-block e404 e404"><textual class="po-textual">5.27</textual></td><td class="po-block e405 e405"><textual class="po-textual">2.06</textual></td></tr><tr class="po-table e406 e406"><td class="po-block e407 e407"><textual class="po-textual">for $doc in //ACT order by $doc/lux:field-values('sortkey'),
+            $doc/lux:field-values('sk2') return $doc</textual></td><td class="po-block e408 e408"><textual class="po-textual">525</textual></td><td class="po-block e409 e409"><textual class="po-textual">26</textual></td><td class="po-block e410 e410"><textual class="po-textual">24</textual></td><td class="po-block e411 e411"><textual class="po-textual">7</textual></td><td class="po-block e412 e412"><textual class="po-textual">1.82</textual></td></tr><tr class="po-table e413 e413"><td class="po-block e414 e414"><textual class="po-textual">//ACT[.//SCENE]</textual></td><td class="po-block e415 e415"><textual class="po-textual">328</textual></td><td class="po-block e416 e416"><textual class="po-textual">37</textual></td><td class="po-block e417 e417"><textual class="po-textual">36</textual></td><td class="po-block e418 e418"><textual class="po-textual">4.17</textual></td><td class="po-block e419 e419"><textual class="po-textual">1.54</textual></td></tr><tr class="po-table e420 e420"><td class="po-block e421 e421"><textual class="po-textual">//ACT/@*</textual></td><td class="po-block e422 e422"><textual class="po-textual">265</textual></td><td class="po-block e423 e423"><textual class="po-textual">21</textual></td><td class="po-block e424 e424"><textual class="po-textual">20</textual></td><td class="po-block e425 e425"><textual class="po-textual">6.27</textual></td><td class="po-block e426 e426"><textual class="po-textual">1.32</textual></td></tr><tr class="po-table e427 e427"><td class="po-block e428 e428"><textual class="po-textual">subsequence (//ACT, 1, 10)</textual></td><td class="po-block e429 e429"><textual class="po-textual">275</textual></td><td class="po-block e430 e430"><textual class="po-textual">18</textual></td><td class="po-block e431 e431"><textual class="po-textual">17</textual></td><td class="po-block e432 e432"><textual class="po-textual">5.96</textual></td><td class="po-block e433 e433"><textual class="po-textual">1.07</textual></td></tr><tr class="po-table e434 e434"><td class="po-block e435 e435"><textual class="po-textual">(//ACT)[1]</textual></td><td class="po-block e436 e436"><textual class="po-textual">8</textual></td><td class="po-block e437 e437"><textual class="po-textual">14</textual></td><td class="po-block e438 e438"><textual class="po-textual">13</textual></td><td class="po-block e439 e439"><textual class="po-textual">7.54</textual></td><td class="po-block e440 e440"><textual class="po-textual">1.06</textual></td></tr><tr class="po-table e441 e441"><td class="po-block e442 e442"><textual class="po-textual">//ACT[not(SCENE)]</textual></td><td class="po-block e443 e443"><textual class="po-textual">291</textual></td><td class="po-block e444 e444"><textual class="po-textual">19</textual></td><td class="po-block e445 e445"><textual class="po-textual">18</textual></td><td class="po-block e446 e446"><textual class="po-textual">4.51</textual></td><td class="po-block e447 e447"><textual class="po-textual">0.86</textual></td></tr><tr class="po-table e448 e448"><td class="po-block e449 e449"><textual class="po-textual">not(//ACT/root()//SCENE)</textual></td><td class="po-block e450 e450"><textual class="po-textual">169</textual></td><td class="po-block e451 e451"><textual class="po-textual">1</textual></td><td class="po-block e452 e452"><textual class="po-textual">0</textual></td><td class="po-block e453 e453"><textual class="po-textual">50.89</textual></td><td class="po-block e454 e454"><textual class="po-textual">0.51</textual></td></tr><tr class="po-table e455 e455"><td class="po-block e456 e456"><textual class="po-textual">(for $doc in collection() return string ($doc/*/TITLE))[2]</textual></td><td class="po-block e457 e457"><textual class="po-textual">8</textual></td><td class="po-block e458 e458"><textual class="po-textual">10</textual></td><td class="po-block e459 e459"><textual class="po-textual">10</textual></td><td class="po-block e460 e460"><textual class="po-textual">3.9</textual></td><td class="po-block e461 e461"><textual class="po-textual">0.39</textual></td></tr><tr class="po-table e462 e462"><td class="po-block e463 e463"><textual class="po-textual">//ACT/SCENE[1]</textual></td><td class="po-block e464 e464"><textual class="po-textual">416</textual></td><td class="po-block e465 e465"><textual class="po-textual">22</textual></td><td class="po-block e466 e466"><textual class="po-textual">21</textual></td><td class="po-block e467 e467"><textual class="po-textual">1.08</textual></td><td class="po-block e468 e468"><textual class="po-textual">0.24</textual></td></tr><tr class="po-table e469 e469"><td class="po-block e470 e470"><textual class="po-textual">for $doc in //ACT order by $doc/lux:field-values('sortkey') return $doc</textual></td><td class="po-block e471 e471"><textual class="po-textual">280</textual></td><td class="po-block e472 e472"><textual class="po-textual">24</textual></td><td class="po-block e473 e473"><textual class="po-textual">24</textual></td><td class="po-block e474 e474"><textual class="po-textual">0.84</textual></td><td class="po-block e475 e475"><textual class="po-textual">0.20</textual></td></tr><tr class="po-table e476 e476"><td class="po-block e477 e477"><textual class="po-textual">not(//ACT)</textual></td><td class="po-block e478 e478"><textual class="po-textual">16</textual></td><td class="po-block e479 e479"><textual class="po-textual">1</textual></td><td class="po-block e480 e480"><textual class="po-textual">1</textual></td><td class="po-block e481 e481"><textual class="po-textual">18.88</textual></td><td class="po-block e482 e482"><textual class="po-textual">0.19</textual></td></tr><tr class="po-table e483 e483"><td class="po-block e484 e484"><textual class="po-textual">/node()</textual></td><td class="po-block e485 e485"><textual class="po-textual">236</textual></td><td class="po-block e486 e486"><textual class="po-textual">157</textual></td><td class="po-block e487 e487"><textual class="po-textual">157</textual></td><td class="po-block e488 e488"><textual class="po-textual">0.1</textual></td><td class="po-block e489 e489"><textual class="po-textual">0.16</textual></td></tr><tr class="po-table e490 e490"><td class="po-block e491 e491"><textual class="po-textual">/*/ACT</textual></td><td class="po-block e492 e492"><textual class="po-textual">314</textual></td><td class="po-block e493 e493"><textual class="po-textual">22</textual></td><td class="po-block e494 e494"><textual class="po-textual">21</textual></td><td class="po-block e495 e495"><textual class="po-textual">0.15</textual></td><td class="po-block e496 e496"><textual class="po-textual">0.03</textual></td></tr><tr class="po-table e497 e497"><td class="po-block e498 e498"><textual class="po-textual">(/)[.//*/@attr]</textual></td><td class="po-block e499 e499"><textual class="po-textual">459</textual></td><td class="po-block e500 e500"><textual class="po-textual">0</textual></td><td class="po-block e501 e501"><textual class="po-textual">0</textual></td><td class="po-block e502 e502"><textual class="po-textual">-180.29</textual></td><td class="po-block e503 e503"><textual class="po-textual">0.00</textual></td></tr><tr class="po-table e504 e504"><td class="po-block e505 e505"><textual class="po-textual">//*[@attr]</textual></td><td class="po-block e506 e506"><textual class="po-textual">414</textual></td><td class="po-block e507 e507"><textual class="po-textual">0</textual></td><td class="po-block e508 e508"><textual class="po-textual">0</textual></td><td class="po-block e509 e509"><textual class="po-textual">-6.53</textual></td><td class="po-block e510 e510"><textual class="po-textual">0.00</textual></td></tr><tr class="po-table e511 e511"><td class="po-block e512 e512"><textual class="po-textual">//*/@attr</textual></td><td class="po-block e513 e513"><textual class="po-textual">322</textual></td><td class="po-block e514 e514"><textual class="po-textual">0</textual></td><td class="po-block e515 e515"><textual class="po-textual">0</textual></td><td class="po-block e516 e516"><textual class="po-textual">53.42</textual></td><td class="po-block e517 e517"><textual class="po-textual">0.00</textual></td></tr><tr class="po-table e518 e518"><td class="po-block e519 e519"><textual class="po-textual">//ACT/@id</textual></td><td class="po-block e520 e520"><textual class="po-textual">338</textual></td><td class="po-block e521 e521"><textual class="po-textual">0</textual></td><td class="po-block e522 e522"><textual class="po-textual">0</textual></td><td class="po-block e523 e523"><textual class="po-textual">27.49</textual></td><td class="po-block e524 e524"><textual class="po-textual">0.00</textual></td></tr><tr class="po-table e525 e525"><td class="po-block e526 e526"><textual class="po-textual">//AND</textual></td><td class="po-block e527 e527"><textual class="po-textual">382</textual></td><td class="po-block e528 e528"><textual class="po-textual">0</textual></td><td class="po-block e529 e529"><textual class="po-textual">0</textual></td><td class="po-block e530 e530"><textual class="po-textual">-18.86</textual></td><td class="po-block e531 e531"><textual class="po-textual">0.00</textual></td></tr><tr class="po-table e532 e532"><td class="po-block e533 e533"><textual class="po-textual">//lux:foo</textual></td><td class="po-block e534 e534"><textual class="po-textual">455</textual></td><td class="po-block e535 e535"><textual class="po-textual">0</textual></td><td class="po-block e536 e536"><textual class="po-textual">0</textual></td><td class="po-block e537 e537"><textual class="po-textual">75.42</textual></td><td class="po-block e538 e538"><textual class="po-textual">0.00</textual></td></tr><tr class="po-table e539 e539"><td class="po-block e540 e540"><textual class="po-textual">//node()/@attr</textual></td><td class="po-block e541 e541"><textual class="po-textual">322</textual></td><td class="po-block e542 e542"><textual class="po-textual">0</textual></td><td class="po-block e543 e543"><textual class="po-textual">0</textual></td><td class="po-block e544 e544"><textual class="po-textual">32.51</textual></td><td class="po-block e545 e545"><textual class="po-textual">0.00</textual></td></tr><tr class="po-table e546 e546"><td class="po-block e547 e547"><textual class="po-textual">/ACT[@id=123]</textual></td><td class="po-block e548 e548"><textual class="po-textual">435</textual></td><td class="po-block e549 e549"><textual class="po-textual">0</textual></td><td class="po-block e550 e550"><textual class="po-textual">1</textual></td><td class="po-block e551 e551"><textual class="po-textual">-135.83</textual></td><td class="po-block e552 e552"><textual class="po-textual">0.00</textual></td></tr><tr class="po-table e553 e553"><td class="po-block e554 e554"><textual class="po-textual">/ACT[SCENE/@id=123]</textual></td><td class="po-block e555 e555"><textual class="po-textual">452</textual></td><td class="po-block e556 e556"><textual class="po-textual">0</textual></td><td class="po-block e557 e557"><textual class="po-textual">0</textual></td><td class="po-block e558 e558"><textual class="po-textual">-24.56</textual></td><td class="po-block e559 e559"><textual class="po-textual">0.00</textual></td></tr><tr class="po-table e560 e560"><td class="po-block e561 e561"><textual class="po-textual">count(/)</textual></td><td class="po-block e562 e562"><textual class="po-textual">287</textual></td><td class="po-block e563 e563"><textual class="po-textual">0</textual></td><td class="po-block e564 e564"><textual class="po-textual">1</textual></td><td class="po-block e565 e565"><textual class="po-textual">-197.15</textual></td><td class="po-block e566 e566"><textual class="po-textual">0.00</textual></td></tr><tr class="po-table e567 e567"><td class="po-block e568 e568"><textual class="po-textual">count(//ACT/ancestor::document-node())</textual></td><td class="po-block e569 e569"><textual class="po-textual">152</textual></td><td class="po-block e570 e570"><textual class="po-textual">0</textual></td><td class="po-block e571 e571"><textual class="po-textual">0</textual></td><td class="po-block e572 e572"><textual class="po-textual">66.07</textual></td><td class="po-block e573 e573"><textual class="po-textual">0.00</textual></td></tr><tr class="po-table e574 e574"><td class="po-block e575 e575"><textual class="po-textual">count(//ACT/root())</textual></td><td class="po-block e576 e576"><textual class="po-textual">165</textual></td><td class="po-block e577 e577"><textual class="po-textual">0</textual></td><td class="po-block e578 e578"><textual class="po-textual">0</textual></td><td class="po-block e579 e579"><textual class="po-textual">-49.56</textual></td><td class="po-block e580 e580"><textual class="po-textual">0.00</textual></td></tr><tr class="po-table e581 e581"><td class="po-block e582 e582"><textual class="po-textual">empty((/)[.//ACT and .//SCENE])</textual></td><td class="po-block e583 e583"><textual class="po-textual">15</textual></td><td class="po-block e584 e584"><textual class="po-textual">0</textual></td><td class="po-block e585 e585"><textual class="po-textual">0</textual></td><td class="po-block e586 e586"><textual class="po-textual">67.55</textual></td><td class="po-block e587 e587"><textual class="po-textual">0.00</textual></td></tr><tr class="po-table e588 e588"><td class="po-block e589 e589"><textual class="po-textual">empty(/)</textual></td><td class="po-block e590 e590"><textual class="po-textual">13</textual></td><td class="po-block e591 e591"><textual class="po-textual">0</textual></td><td class="po-block e592 e592"><textual class="po-textual">0</textual></td><td class="po-block e593 e593"><textual class="po-textual">-176.63</textual></td><td class="po-block e594 e594"><textual class="po-textual">0.00</textual></td></tr><tr class="po-table e595 e595"><td class="po-block e596 e596"><textual class="po-textual">empty(//ACT)</textual></td><td class="po-block e597 e597"><textual class="po-textual">14</textual></td><td class="po-block e598 e598"><textual class="po-textual">0</textual></td><td class="po-block e599 e599"><textual class="po-textual">0</textual></td><td class="po-block e600 e600"><textual class="po-textual">-377.25</textual></td><td class="po-block e601 e601"><textual class="po-textual">0.00</textual></td></tr><tr class="po-table e602 e602"><td class="po-block e603 e603"><textual class="po-textual">empty(//ACT) and empty(//SCENE)</textual></td><td class="po-block e604 e604"><textual class="po-textual">14</textual></td><td class="po-block e605 e605"><textual class="po-textual">0</textual></td><td class="po-block e606 e606"><textual class="po-textual">0</textual></td><td class="po-block e607 e607"><textual class="po-textual">-67.5</textual></td><td class="po-block e608 e608"><textual class="po-textual">0.00</textual></td></tr><tr class="po-table e609 e609"><td class="po-block e610 e610"><textual class="po-textual">empty(//ACT/root())</textual></td><td class="po-block e611 e611"><textual class="po-textual">470</textual></td><td class="po-block e612 e612"><textual class="po-textual">0</textual></td><td class="po-block e613 e613"><textual class="po-textual">0</textual></td><td class="po-block e614 e614"><textual class="po-textual">37.91</textual></td><td class="po-block e615 e615"><textual class="po-textual">0.00</textual></td></tr><tr class="po-table e616 e616"><td class="po-block e617 e617"><textual class="po-textual">empty(//ACT/root()//SCENE)</textual></td><td class="po-block e618 e618"><textual class="po-textual">448</textual></td><td class="po-block e619 e619"><textual class="po-textual">0</textual></td><td class="po-block e620 e620"><textual class="po-textual">0</textual></td><td class="po-block e621 e621"><textual class="po-textual">-78.32</textual></td><td class="po-block e622 e622"><textual class="po-textual">0.00</textual></td></tr><tr class="po-table e623 e623"><td class="po-block e624 e624"><textual class="po-textual">exists((/)[.//ACT and .//SCENE])</textual></td><td class="po-block e625 e625"><textual class="po-textual">10</textual></td><td class="po-block e626 e626"><textual class="po-textual">0</textual></td><td class="po-block e627 e627"><textual class="po-textual">0</textual></td><td class="po-block e628 e628"><textual class="po-textual">-185.37</textual></td><td class="po-block e629 e629"><textual class="po-textual">0.00</textual></td></tr><tr class="po-table e630 e630"><td class="po-block e631 e631"><textual class="po-textual">exists(/)</textual></td><td class="po-block e632 e632"><textual class="po-textual">13</textual></td><td class="po-block e633 e633"><textual class="po-textual">0</textual></td><td class="po-block e634 e634"><textual class="po-textual">0</textual></td><td class="po-block e635 e635"><textual class="po-textual">69.54</textual></td><td class="po-block e636 e636"><textual class="po-textual">0.00</textual></td></tr><tr class="po-table e637 e637"><td class="po-block e638 e638"><textual class="po-textual">exists(//ACT)</textual></td><td class="po-block e639 e639"><textual class="po-textual">10</textual></td><td class="po-block e640 e640"><textual class="po-textual">0</textual></td><td class="po-block e641 e641"><textual class="po-textual">0</textual></td><td class="po-block e642 e642"><textual class="po-textual">-53.78</textual></td><td class="po-block e643 e643"><textual class="po-textual">0.00</textual></td></tr><tr class="po-table e644 e644"><td class="po-block e645 e645"><textual class="po-textual">exists(//ACT) and exists(//SCENE)</textual></td><td class="po-block e646 e646"><textual class="po-textual">11</textual></td><td class="po-block e647 e647"><textual class="po-textual">0</textual></td><td class="po-block e648 e648"><textual class="po-textual">0</textual></td><td class="po-block e649 e649"><textual class="po-textual">64.64</textual></td><td class="po-block e650 e650"><textual class="po-textual">0.00</textual></td></tr><tr class="po-table e651 e651"><td class="po-block e652 e652"><textual class="po-textual">exists(//ACT/root())</textual></td><td class="po-block e653 e653"><textual class="po-textual">363</textual></td><td class="po-block e654 e654"><textual class="po-textual">0</textual></td><td class="po-block e655 e655"><textual class="po-textual">0</textual></td><td class="po-block e656 e656"><textual class="po-textual">0.86</textual></td><td class="po-block e657 e657"><textual class="po-textual">0.00</textual></td></tr><tr class="po-table e658 e658"><td class="po-block e659 e659"><textual class="po-textual">exists(//ACT/root()//SCENE)</textual></td><td class="po-block e660 e660"><textual class="po-textual">377</textual></td><td class="po-block e661 e661"><textual class="po-textual">0</textual></td><td class="po-block e662 e662"><textual class="po-textual">0</textual></td><td class="po-block e663 e663"><textual class="po-textual">79.15</textual></td><td class="po-block e664 e664"><textual class="po-textual">0.00</textual></td></tr><tr class="po-table e665 e665"><td class="po-block e666 e666"><textual class="po-textual">not((/)[.//ACT and .//SCENE])</textual></td><td class="po-block e667 e667"><textual class="po-textual">4</textual></td><td class="po-block e668 e668"><textual class="po-textual">0</textual></td><td class="po-block e669 e669"><textual class="po-textual">0</textual></td><td class="po-block e670 e670"><textual class="po-textual">4.59</textual></td><td class="po-block e671 e671"><textual class="po-textual">0.00</textual></td></tr><tr class="po-table e672 e672"><td class="po-block e673 e673"><textual class="po-textual">not(//ACT) and empty(//SCENE)</textual></td><td class="po-block e674 e674"><textual class="po-textual">5</textual></td><td class="po-block e675 e675"><textual class="po-textual">0</textual></td><td class="po-block e676 e676"><textual class="po-textual">1</textual></td><td class="po-block e677 e677"><textual class="po-textual">-205.65</textual></td><td class="po-block e678 e678"><textual class="po-textual">0.00</textual></td></tr><tr class="po-table e679 e679"><td class="po-block e680 e680"><textual class="po-textual">not(//ACT/root())</textual></td><td class="po-block e681 e681"><textual class="po-textual">352</textual></td><td class="po-block e682 e682"><textual class="po-textual">0</textual></td><td class="po-block e683 e683"><textual class="po-textual">0</textual></td><td class="po-block e684 e684"><textual class="po-textual">-17.33</textual></td><td class="po-block e685 e685"><textual class="po-textual">0.00</textual></td></tr><tr class="po-table e686 e686"><td class="po-block e687 e687"><textual class="po-textual">(for $doc in collection() return data($doc//TITLE))[2]</textual></td><td class="po-block e688 e688"><textual class="po-textual">15</textual></td><td class="po-block e689 e689"><textual class="po-textual">9</textual></td><td class="po-block e690 e690"><textual class="po-textual">9</textual></td><td class="po-block e691 e691"><textual class="po-textual">-0.69</textual></td><td class="po-block e692 e692"><textual class="po-textual">-0.06</textual></td></tr><tr class="po-table e693 e693"><td class="po-block e694 e694"><textual class="po-textual">subsequence (//ACT, 1, 1)</textual></td><td class="po-block e695 e695"><textual class="po-textual">13</textual></td><td class="po-block e696 e696"><textual class="po-textual">11</textual></td><td class="po-block e697 e697"><textual class="po-textual">11</textual></td><td class="po-block e698 e698"><textual class="po-textual">-1.52</textual></td><td class="po-block e699 e699"><textual class="po-textual">-0.17</textual></td></tr><tr class="po-table e700 e700"><td class="po-block e701 e701"><textual class="po-textual">//ACT[exists(.//SCENE)]</textual></td><td class="po-block e702 e702"><textual class="po-textual">347</textual></td><td class="po-block e703 e703"><textual class="po-textual">34</textual></td><td class="po-block e704 e704"><textual class="po-textual">35</textual></td><td class="po-block e705 e705"><textual class="po-textual">-0.9</textual></td><td class="po-block e706 e706"><textual class="po-textual">-0.31</textual></td></tr><tr class="po-table e707 e707"><td class="po-block e708 e708"><textual class="po-textual">not(/)</textual></td><td class="po-block e709 e709"><textual class="po-textual">15</textual></td><td class="po-block e710 e710"><textual class="po-textual">1</textual></td><td class="po-block e711 e711"><textual class="po-textual">2</textual></td><td class="po-block e712 e712"><textual class="po-textual">-35.76</textual></td><td class="po-block e713 e713"><textual class="po-textual">-0.36</textual></td></tr><tr class="po-table e714 e714"><td class="po-block e715 e715"><textual class="po-textual">//ACT[not(empty(.//SCENE))]</textual></td><td class="po-block e716 e716"><textual class="po-textual">340</textual></td><td class="po-block e717 e717"><textual class="po-textual">23</textual></td><td class="po-block e718 e718"><textual class="po-textual">23</textual></td><td class="po-block e719 e719"><textual class="po-textual">-1.84</textual></td><td class="po-block e720 e720"><textual class="po-textual">-0.42</textual></td></tr><tr class="po-table e721 e721"><td class="po-block e722 e722"><textual class="po-textual">//*/ACT/SCENE</textual></td><td class="po-block e723 e723"><textual class="po-textual">396</textual></td><td class="po-block e724 e724"><textual class="po-textual">35</textual></td><td class="po-block e725 e725"><textual class="po-textual">35</textual></td><td class="po-block e726 e726"><textual class="po-textual">-1.4</textual></td><td class="po-block e727 e727"><textual class="po-textual">-0.49</textual></td></tr><tr class="po-table e728 e728"><td class="po-block e729 e729"><textual class="po-textual">(/)[.//ACT][.//SCENE]</textual></td><td class="po-block e730 e730"><textual class="po-textual">340</textual></td><td class="po-block e731 e731"><textual class="po-textual">24</textual></td><td class="po-block e732 e732"><textual class="po-textual">24</textual></td><td class="po-block e733 e733"><textual class="po-textual">-2.89</textual></td><td class="po-block e734 e734"><textual class="po-textual">-0.69</textual></td></tr><tr class="po-table e735 e735"><td class="po-block e736 e736"><textual class="po-textual">count(//ACT/root()//SCENE)</textual></td><td class="po-block e737 e737"><textual class="po-textual">315</textual></td><td class="po-block e738 e738"><textual class="po-textual">34</textual></td><td class="po-block e739 e739"><textual class="po-textual">35</textual></td><td class="po-block e740 e740"><textual class="po-textual">-3.99</textual></td><td class="po-block e741 e741"><textual class="po-textual">-1.36</textual></td></tr><tr class="po-table e742 e742"><td class="po-block e743 e743"><textual class="po-textual">//ACT[SCENE='content']</textual></td><td class="po-block e744 e744"><textual class="po-textual">324</textual></td><td class="po-block e745 e745"><textual class="po-textual">32</textual></td><td class="po-block e746 e746"><textual class="po-textual">33</textual></td><td class="po-block e747 e747"><textual class="po-textual">-4.3</textual></td><td class="po-block e748 e748"><textual class="po-textual">-1.38</textual></td></tr><tr class="po-table e749 e749"><td class="po-block e750 e750"><textual class="po-textual">//SCENE[last()]</textual></td><td class="po-block e751 e751"><textual class="po-textual">623</textual></td><td class="po-block e752 e752"><textual class="po-textual">45</textual></td><td class="po-block e753 e753"><textual class="po-textual">46</textual></td><td class="po-block e754 e754"><textual class="po-textual">-3.24</textual></td><td class="po-block e755 e755"><textual class="po-textual">-1.46</textual></td></tr><tr class="po-table e756 e756"><td class="po-block e757 e757"><textual class="po-textual">//SCENE[1]</textual></td><td class="po-block e758 e758"><textual class="po-textual">626</textual></td><td class="po-block e759 e759"><textual class="po-textual">37</textual></td><td class="po-block e760 e760"><textual class="po-textual">39</textual></td><td class="po-block e761 e761"><textual class="po-textual">-4.57</textual></td><td class="po-block e762 e762"><textual class="po-textual">-1.69</textual></td></tr><tr class="po-table e763 e763"><td class="po-block e764 e764"><textual class="po-textual">/ancestor-or-self::node()</textual></td><td class="po-block e765 e765"><textual class="po-textual">285</textual></td><td class="po-block e766 e766"><textual class="po-textual">239</textual></td><td class="po-block e767 e767"><textual class="po-textual">241</textual></td><td class="po-block e768 e768"><textual class="po-textual">-0.77</textual></td><td class="po-block e769 e769"><textual class="po-textual">-1.84</textual></td></tr><tr class="po-table e770 e770"><td class="po-block e771 e771"><textual class="po-textual">//ACT/TITLE | //SCENE/TITLE| //SPEECH/TITLE</textual></td><td class="po-block e772 e772"><textual class="po-textual">425</textual></td><td class="po-block e773 e773"><textual class="po-textual">55</textual></td><td class="po-block e774 e774"><textual class="po-textual">57</textual></td><td class="po-block e775 e775"><textual class="po-textual">-3.87</textual></td><td class="po-block e776 e776"><textual class="po-textual">-2.13</textual></td></tr><tr class="po-table e777 e777"><td class="po-block e778 e778"><textual class="po-textual">/PLAY/(ACT|PERSONAE)/TITLE</textual></td><td class="po-block e779 e779"><textual class="po-textual">342</textual></td><td class="po-block e780 e780"><textual class="po-textual">19</textual></td><td class="po-block e781 e781"><textual class="po-textual">21</textual></td><td class="po-block e782 e782"><textual class="po-textual">-11.31</textual></td><td class="po-block e783 e783"><textual class="po-textual">-2.15</textual></td></tr><tr class="po-table e784 e784"><td class="po-block e785 e785"><textual class="po-textual">/*</textual></td><td class="po-block e786 e786"><textual class="po-textual">288</textual></td><td class="po-block e787 e787"><textual class="po-textual">310</textual></td><td class="po-block e788 e788"><textual class="po-textual">312</textual></td><td class="po-block e789 e789"><textual class="po-textual">-0.73</textual></td><td class="po-block e790 e790"><textual class="po-textual">-2.26</textual></td></tr><tr class="po-table e791 e791"><td class="po-block e792 e792"><textual class="po-textual">count(//ACT)</textual></td><td class="po-block e793 e793"><textual class="po-textual">222</textual></td><td class="po-block e794 e794"><textual class="po-textual">19</textual></td><td class="po-block e795 e795"><textual class="po-textual">21</textual></td><td class="po-block e796 e796"><textual class="po-textual">-12.14</textual></td><td class="po-block e797 e797"><textual class="po-textual">-2.31</textual></td></tr><tr class="po-table e798 e798"><td class="po-block e799 e799"><textual class="po-textual">//SCENE[2]</textual></td><td class="po-block e800 e800"><textual class="po-textual">571</textual></td><td class="po-block e801 e801"><textual class="po-textual">57</textual></td><td class="po-block e802 e802"><textual class="po-textual">60</textual></td><td class="po-block e803 e803"><textual class="po-textual">-4.65</textual></td><td class="po-block e804 e804"><textual class="po-textual">-2.65</textual></td></tr><tr class="po-table e805 e805"><td class="po-block e806 e806"><textual class="po-textual">//ACT[count(SCENE) = 0]</textual></td><td class="po-block e807 e807"><textual class="po-textual">253</textual></td><td class="po-block e808 e808"><textual class="po-textual">18</textual></td><td class="po-block e809 e809"><textual class="po-textual">21</textual></td><td class="po-block e810 e810"><textual class="po-textual">-17.2</textual></td><td class="po-block e811 e811"><textual class="po-textual">-3.10</textual></td></tr><tr class="po-table e812 e812"><td class="po-block e813 e813"><textual class="po-textual">/descendant-or-self::SCENE[1]</textual></td><td class="po-block e814 e814"><textual class="po-textual">452</textual></td><td class="po-block e815 e815"><textual class="po-textual">26</textual></td><td class="po-block e816 e816"><textual class="po-textual">30</textual></td><td class="po-block e817 e817"><textual class="po-textual">-13.43</textual></td><td class="po-block e818 e818"><textual class="po-textual">-3.49</textual></td></tr><tr class="po-table e819 e819"><td class="po-block e820 e820"><textual class="po-textual">//ACT[.='content']</textual></td><td class="po-block e821 e821"><textual class="po-textual">368</textual></td><td class="po-block e822 e822"><textual class="po-textual">27</textual></td><td class="po-block e823 e823"><textual class="po-textual">31</textual></td><td class="po-block e824 e824"><textual class="po-textual">-13.13</textual></td><td class="po-block e825 e825"><textual class="po-textual">-3.55</textual></td></tr><tr class="po-table e826 e826"><td class="po-block e827 e827"><textual class="po-textual">/self::node()</textual></td><td class="po-block e828 e828"><textual class="po-textual">292</textual></td><td class="po-block e829 e829"><textual class="po-textual">309</textual></td><td class="po-block e830 e830"><textual class="po-textual">314</textual></td><td class="po-block e831 e831"><textual class="po-textual">-1.58</textual></td><td class="po-block e832 e832"><textual class="po-textual">-4.88</textual></td></tr><tr class="po-table e833 e833"><td class="po-block e834 e834"><textual class="po-textual">number((/descendant-or-self::ACT)[1])</textual></td><td class="po-block e835 e835"><textual class="po-textual">364</textual></td><td class="po-block e836 e836"><textual class="po-textual">19</textual></td><td class="po-block e837 e837"><textual class="po-textual">25</textual></td><td class="po-block e838 e838"><textual class="po-textual">-30.09</textual></td><td class="po-block e839 e839"><textual class="po-textual">-5.72</textual></td></tr><tr class="po-table e840 e840"><td class="po-block e841 e841"><textual class="po-textual">/</textual></td><td class="po-block e842 e842"><textual class="po-textual">312</textual></td><td class="po-block e843 e843"><textual class="po-textual">347</textual></td><td class="po-block e844 e844"><textual class="po-textual">362</textual></td><td class="po-block e845 e845"><textual class="po-textual">-4.45</textual></td><td class="po-block e846 e846"><textual class="po-textual">-15.44</textual></td></tr><tr class="po-table e847 e847"><td class="po-block e848 e848"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></td><td class="po-block e849 e849"><textual class="po-textual">288.23</textual></td><td class="po-block e850 e850"><textual class="po-textual">34.52</textual></td><td class="po-block e851 e851"><textual class="po-textual">31.15</textual></td><td class="po-block e852 e852"><textual class="po-textual">9.76</textual></td><td class="po-block e853 e853"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></td></tr></informaltable><para class="po-block e854 e854"><textual class="po-textual">
+          It is clear that the path index is providing some benefit when
+          the queries contain paths with multiple named steps.  In other
+          cases there is sometimes some increase in query time - it's not
+          entirely clear why, but the absolute value of this increase tends
+          to be small.  It may be that there is some further improvement
+          possible by avoiding the use of positional queries when there are
+          not any useful path constraints in the query.
+        </textual></para></section><section class="po-hcontainer e855 e855"><title class="po-block e856 e856"><textual class="po-textual">Note on benchmarking</textual></title><para class="po-block e857 e857"><textual class="po-textual">
+          Some reviewers expressed the desire for comparative performance
+          benchmarks with other database systems.  We've known </textual><link class="po-inline e858 e858" xlink:actuate="onRequest" xlink:href="http://www.phrases.org.uk/meanings/Comparisons%20are%20odious.html" xlink:show="new" xlink:type="simple"><textual class="po-textual">since
+          at least 1440</textual></link><textual class="po-textual"> that "comparisons are odious," or, according
+          to Dogberry, in a later gloss, "odorous."  One would like the
+          data, but we don't feel well-placed to provide an objective
+          benchmark comparing our system against others.  The best I can
+          offer is that we observe comparable performance with other
+          indexed XQuery systems, and simply note that the key factor for
+          performance is to extend the cases where indexes can be applied.
+        </textual></para></section></section></section><section class="po-hcontainer e859 e859"><title class="po-block e860 e860"><textual class="po-textual">Conclusions</textual></title><para class="po-block e861 e861"><textual class="po-textual">
+      We described an XML search engine, Lux, based on Saxon and Lucene.
+      We gave an overview of how it optimizes queries, and we explored its
+      Path indexes in more depth.  Measurements show a substantial benefit
+      from using these indexes. For many queries the Path index can provide
+      additional benefit beyond what the QName index does, with a small
+      additional cost in terms of index size.  We also described some other
+      index-based optimizations that Lux applies.
+    </textual></para><para class="po-block e862 e862"><textual class="po-textual">
+      The indexing techniques described here are not unique to
+      Lux. Although we're not aware of any existing use of proximity
+      queries to match path constraints, it's a natural enough idea and is
+      almost certainly in use in other systems as well. The main innovation
+      here is the application of XML-unaware indexing technology to
+      accelerate XML-aware queries, and the new combination of existing
+      open source software packages to provide a reliable and powerful
+      indexing and query system.  Leveraging existing technology decreases
+      the amount of code that needs to be maintained and tested, and leads
+      to a high quality product with less effort than might otherwise be
+      required.
+    </textual></para></section><bibliography class="po-hcontainer e863 e863"><title class="po-block e864 e864"><textual class="po-textual">Bibliography</textual></title><bibliomixed class="po-block e865 e865"><textual class="po-textual">
+      </textual><link class="po-inline e866 e866" xlink:actuate="onRequest" xlink:href="http://www.balisage.net/Proceedings/vol8/html/Dubinko01/BalisageVol8-Dubinko01.html" xlink:show="new" xlink:type="simple"><textual class="po-textual">Exploring
+      the Unknown</textual></link><textual class="po-textual">, Micah Dubinko, 2012 Balisage conference proceedings, doi:</textual><biblioid class="po-atom e867 doi e867"><textual class="po-textual">10.4242/BalisageVol8.Dubinko01</textual></biblioid><textual class="po-textual">.
+    </textual></bibliomixed><bibliomixed class="po-block e868 e868"><textual class="po-textual">
+      </textual><link class="po-inline e869 e869" xlink:actuate="onRequest" xlink:href="http://docs.marklogic.com/guide/admin/text_index#chapter" xlink:show="new" xlink:type="simple"><textual class="po-textual">MarkLogic Admin Guide</textual></link><textual class="po-textual">
+    </textual></bibliomixed><bibliomixed class="po-block e870 e870"><textual class="po-textual">
+      </textual><link class="po-inline e871 e871" xlink:actuate="onRequest" xlink:href="http://exist-db.org/exist/apps/doc/indexing.xml" xlink:show="new" xlink:type="simple"><textual class="po-textual">eXist indexing documentation</textual></link><textual class="po-textual">
+    </textual></bibliomixed><bibliomixed class="po-block e872 e872"><textual class="po-textual">
+      </textual><link class="po-inline e873 e873" xlink:actuate="onRequest" xlink:href="http://docs.basex.org/wiki/Indexes#Resource_Index" xlink:show="new" xlink:type="simple"><textual class="po-textual">BaseX Indexes</textual></link><textual class="po-textual">
+    </textual></bibliomixed><bibliomixed class="po-block e874 e874"><textual class="po-textual">
+      </textual><link class="po-inline e875 e875" xlink:actuate="onRequest" xlink:href="http://msdn.microsoft.com/en-us/library/ms191497.aspx" xlink:show="new" xlink:type="simple"><textual class="po-textual">SQL
+      Server XML index documentation</textual></link><textual class="po-textual">
+    </textual></bibliomixed><bibliomixed class="po-block e876 e876"><textual class="po-textual">
+      </textual><link class="po-inline e877 e877" xlink:actuate="onRequest" xlink:href="http://docs.oracle.com/cd/B28359_01/appdev.111/b28369/xdb_indexing.htm#CHDFCGGI" xlink:show="new" xlink:type="simple"><textual class="po-textual">Oracle XML index documentation</textual></link><textual class="po-textual">
+    </textual></bibliomixed><bibliomixed class="po-block e878 e878"><textual class="po-textual">
+      </textual><link class="po-inline e879 e879" xlink:actuate="onRequest" xlink:href="http://www.ibiblio.org/xml/examples/shakespeare/" xlink:show="new" xlink:type="simple"><textual class="po-textual">Shakespeare in XML</textual></link><textual class="po-textual">
+    </textual></bibliomixed><bibliomixed class="po-block e880 e880"><textual class="po-textual">
+      </textual><link class="po-inline e881 e881" xlink:actuate="onRequest" xlink:href="http://luxdb.org/" xlink:show="new" xlink:type="simple"><textual class="po-textual">Lux web site (high-level
+      documentation)</textual></link><textual class="po-textual">
+    </textual></bibliomixed><bibliomixed class="po-block e882 e882"><textual class="po-textual">
+      </textual><link class="po-inline e883 e883" xlink:actuate="onRequest" xlink:href="http://github.com/msokolov/lux/" xlink:show="new" xlink:type="simple"><textual class="po-textual">Lux repository (source code and documentation)</textual></link><textual class="po-textual">
+    </textual></bibliomixed></bibliography></article></classedDocument>

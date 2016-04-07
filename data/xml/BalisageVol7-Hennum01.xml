@@ -1,0 +1,693 @@
+<?xml version="1.0" encoding="UTF-8"?><article xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink" version="5.0-subset Balisage-1.3"><title>Tag Libraries for XSLT and XQuery</title><info><confgroup><conftitle>Balisage: The Markup Conference 2011</conftitle><confdates>August 2 - 5, 2011</confdates></confgroup><abstract><para>XML has mature tools for validation, transformation, and query,
+but current tools require a level of programming skills that many users
+who need dynamic documents do not have. Using the organizational pattern
+of tag libraries (borrowed from Java tag libraries), we propose to divide
+responsibilities for dynamic documents between two classes of people.
+Tag-library developers implement query, transformation, or component formatting
+for predefined tags in a library; document authors create dynamic documents
+by embedding elements from the tag library in HTML, XSL-FO, or other documents;
+when the document is processed, elements from the tag library are replaced
+by automatically generated content. A callback mechanism allows the document author
+to pass document fragments to the tag library for parameterization. Document authors
+can use tag libraries in ways not foreseen by the tag library developers and
+can combine tag libraries from different developers. A robust tag-library solution
+will foster better collaboration between XML developers and creators of XML documents.
+</para></abstract><author><personname><firstname>Erik</firstname><surname>Hennum</surname></personname><personblurb><para>Erik Hennum is a Senior Engineer at MarkLogic Corporation. He has worked with XML and RDF representations for document repositories and processing over 10 years including projects with taxonomy definition and subject classification. He was a member of the OASIS DITA Technical Committee from inception to the DITA 1.2 specification.</para></personblurb><affiliation><jobtitle>Senior Application Engineer</jobtitle><orgname>MarkLogic Inc.</orgname></affiliation><email>efhennum@gmail.com</email></author><author><personname><firstname>Vyacheslav</firstname><surname>Zholudev</surname></personname><personblurb><para>Vyacheslav Zholudev graduated in May 2007 from Saint-Petersburg State University, Russia with a Master degree
+    in Computer Science.  He is continuing his studies at Jacobs University Bremen as a Ph.D. student.  Since
+    September of 2007 he has been working in the KWARC research group (Knowledge Adaptation and Reasoning for
+    Content) under the supervision of Prof. Michael Kohlhase.</para></personblurb><affiliation><jobtitle>PhD Student</jobtitle><orgname>Jacobs University Bremen</orgname></affiliation><email>v.zholudev@jacobs-university.de</email></author><legalnotice><para>Copyright © 2011 Erik Hennum and Vyacheslav Zholudev</para></legalnotice></info><section xml:id="sec-intro"><title>Introduction</title><para>XML provides mature facilities for processing and presenting information.
+The solution developer's toolkit includes
+XSLT (see <xref linkend="XSL2"/>) to transform XML documents from one vocabulary
+to another, 
+XQuery (see <xref linkend="XQ1"/>) to retrieve and modify persisted XML documents
+for applications, and
+XHTML (see <xref linkend="XH"/>) and XSL-FO to present information on the screen or
+in print.
+These standards have become essential tools for web applications,
+publishing pipelines, electronic interchange, and many other challenges.
+Having successfully addressed such fundamental challenges,
+the XML community can now refine the toolkit.
+In particular, the XML community can consider whether lessons learned by other
+communities could have benefits for the XML technology portfolio. 
+</para><para>The experience of the Java community with tag libraries offers
+one such opportunity.  Java introduced tag libraries to broaden
+the appeal of an existing, successful technology, JSP (Java Server Pages)
+(see <xref linkend="JSP"/>).
+Widespread adoption exposed a fundamental issue with JSP:  
+JSP required skill levels that limited the set of users who could
+define dynamic documents and, by exposing robust programming capabilities,
+provided for a poor separation of concerns.
+The Java community solved these problems by introducing tag libraries.</para><para>In the Java technology stack, tag libraries are function libraries
+called by embedding a markup vocabulary (the tags) within documents.
+The approach is open-ended in that each tag library supplies its own
+markup vocabulary.
+</para><para>The canonical example of a tag library retrieves rows from a database
+for layout and styling in a document. The following example fragment has
+a single <code>taglib:attendees</code> tag:
+</para><programlisting xml:space="preserve">
+&lt;html:table&gt;
+    &lt;taglib:attendees&gt;
+        &lt;html:tr&gt;
+            &lt;html:td&gt;${last-name}&lt;/html:td&gt;
+            &lt;html:td&gt;${first-name}&lt;/html:td&gt;
+        &lt;/html:tr&gt;
+    &lt;/taglib:attendees&gt;
+&lt;/html:table&gt;
+</programlisting><para>The <code>taglib:attendees</code> tag calls a function in a tag library
+(whose Java implementation is omitted here).  The function implementation retrieves
+attendees from a database and repeats the content of the tag for each attendee.
+When generating output from the tag content, the function replaces the embedded
+<code>${last-name}</code> and <code>${first-name}</code> expressions with the
+last name and first name values for the currently processed attendee.  Thus,
+a generated result document would resemble the following example:</para><programlisting xml:space="preserve">
+&lt;html:table&gt;
+        ...
+        &lt;html:tr&gt;
+            &lt;html:td&gt;Fitzgerald&lt;/html:td&gt;
+            &lt;html:td&gt;Elena&lt;/html:td&gt;
+        &lt;/html:tr&gt;
+        &lt;html:tr&gt;
+            &lt;html:td&gt;Green&lt;/html:td&gt;
+            &lt;html:td&gt;Alfonso&lt;/html:td&gt;
+        &lt;/html:tr&gt;
+        &lt;html:tr&gt;
+            &lt;html:td&gt;Hutz&lt;/html:td&gt;
+            &lt;html:td&gt;Egberto&lt;/html:td&gt;
+        &lt;/html:tr&gt;
+        ...
+&lt;/html:table&gt;
+</programlisting><para>As the example shows, the tag library approach provides for 
+a useful division of responsibilities.
+The tag library developer is responsible for packaging functionality (often
+information retrieval and manipulation as in the example but also a widget gallery
+or anything else that can be executed with a simple interface) as an embeddable
+vocabulary.
+The tag document author is responsible for assembling the tag library vocabulary
+with static elements (often providing style and layout specifications) to produce
+a dynamic document.
+By fostering collaboration between these audiences, tag libraries extend
+the reach of both participants.
+The Java community has confirmed the value of this collaboration with comprehensive
+toolkits such as JSF (Java Server Faces).
+</para><para>While XSLT and XQuery have always had the ability to combine
+literal result elements with dynamic content, the XML technology stack
+currently lacks a complete solution for providing this kind of division
+of responsibilities.
+This paper proposes adapting the Java Tag Library approach by implementing
+<emphasis>tag libraries</emphasis> in XSLT or XQuery and making use
+of tag vocabularies in XHTML, XSL-FO, or other XML documents.
+We use <emphasis>XSTag</emphasis> (for XML Style Tags) as the working title
+for this variant on the tag library approach.
+</para></section><section xml:id="sec-concepts"><title>Essential Terms, Concepts, and Limitations</title><para>The introduction made casual use of several terms that we summarize
+more formally here:
+</para><variablelist><varlistentry><term>tag</term><listitem><para>An XML element that can be embedded in a document to call
+a function in a tag library to produce dynamic XML result nodes.
+</para></listitem></varlistentry><varlistentry><term>tag vocabulary</term><listitem><para>The tag element set that declares the functions
+exposed by a tag library.</para></listitem></varlistentry><varlistentry><term>tag library</term><listitem><para>A function library (typically implemented in XSLT or XQuery)
+exposed by means of a tag vocabulary.  (Note that this sense of the term differs
+from other senses such as the documentation for an XML vocabulary.)</para></listitem></varlistentry><varlistentry><term>host vocabulary</term><listitem><para>A static XML vocabulary for documents; typically a presentation 
+vocabulary such as XHTML or XSL-FO.</para></listitem></varlistentry><varlistentry><term>tag document</term><listitem><para>A document that mixes a host vocabulary and the tag vocabularies
+from one or more tag libraries, potentially with other dynamic constructs such as
+embedded XPath expressions and XSTag statements (a small set of flow control,
+evaluation, and constructor statements equivalent to the core statements
+from Java Tag Libraries).  Because the tag vocabularies are not part of the 
+host vocabulary, tag documents are typically well formed rather than validated.
+In practice, this limitation is not burdensome because the generated result
+document should be inspected anyway after most changes to the tag document.
+</para></listitem></varlistentry><varlistentry><term>handler</term><listitem><para>A document fragment that is supplied by the tag document but 
+parameterized by the tag library.  The <xref linkend="sec-intro"/>
+gives a handler example in the content of the <code>taglib:attendees</code> tag,
+which is a document fragment that receives the last-name and first-name parameters
+from the tag library.
+A tag library can support handlers for any kind of event that might occur
+during the execution of the tag including different phases of execution
+or different element types encountered. 
+</para></listitem></varlistentry><varlistentry><term>tag processor</term><listitem><para>An engine that reads a tag document and one or more tag libraries and 
+generates a result document. 
+        </para></listitem></varlistentry><varlistentry><term>result document</term><listitem><para>A document produced by processing the dynamic elements within
+a tag document. A result document can be validated with the schema of the
+host vocabulary.
+</para></listitem></varlistentry></variablelist><para>The essential features of the XSTag approach are as follows:
+</para><itemizedlist><listitem><para>Simplicity of the tag document.  By constructing documents with
+special XML elements instead of programming with calls and variable assignments,
+people with less expertise can successfully generate dynamic documents.
+In particular, the use of special XML elements puts the emphasis
+on the semantics of the tag rather than the syntax of the tag call.
+From the perspective of the tag document author, the XML element
+effectively is the call to a function (without needing any other annotations).
+</para></listitem><listitem><para>Assembly of tag libraries by the tag document.  This feature
+removes the need for programming expertise to produce new combinations of libraries and
+thus maximizes the potential reuse of tag libraries.
+(UNIX pipes provide a good demonstration of the benefitss of assembly by the consumer.)
+</para></listitem><listitem><para>Both pull and push processing (see <xref linkend="PUSHPULL"/>) in the tag
+document. Tags let the tag document pull processing defined in a tag library,
+while handlers let the tag library push processing control to the tag document.
+Having both pull and push capabilities adds some conceptual complexity but
+simplifies tag documents for cases similar to the example in the introduction.
+In particular, handlers give the tag document author the ability
+to interleave tags from different tag libraries at the fine-grained level in ways
+unforeseen by the tag library developer.
+</para></listitem></itemizedlist><para>The XSTag approach is not a solution for every document processing challenge.
+The tag library approach is designed for producing dynamic documents (especially HTML)
+through layout and configuration or styling of components and data provided
+by reusable libraries.
+In particular, handlers are sufficient for push processing of a pre-defined set
+of events that occur during execution of one tag.  
+Handlers don't provide a good tool for transformation of a complex document
+from one large vocabulary into a different vocabulary.
+</para><para>Before explaining our approach in detail, we review some existing solutions
+for document authors.
+</para></section><section><title>Related Work</title><para>Several XML initiatives address the challenges of dynamic documents,
+including:
+</para><variablelist><varlistentry><term>Simplified Stylesheets</term><listitem><para>XSLT provides Simplified Stylesheets (see <xref linkend="XSL2"/>) as a method
+for embedding XSLT statements inside a result element at the root level of a document.
+Limited to the statements valid within an XSLT template, Simplified Stylesheets
+cannot include or import other stylesheets and cannot provide matching templates.
+In addition, template calls in Simplified Stylesheets use the xsl:call statement
+and thus emphasize the XSLT syntax of the call.
+</para><para>As a result, Simplified Stylesheets have some key limitations
+with respect to the simplicity of the document, to assembly of libraries by a document,
+and to push processing defined in a document.
+An additional stylesheet can include or import Simplified Stylesheets
+but this approach requires programming expertise to integrate documents
+and libraries.
+</para></listitem></varlistentry><varlistentry><term>Cocoon XSP</term><listitem><para>XSP (see <xref linkend="XSP"/>) provides a method for replacing placeholders
+in XML documents with the results from Java logic using bindings defined with XSLT.
+Because Cocoon runs in a Java web application environment, the primary focus of XSP is leveraging 
+Java capabilities for producing content within XML documents.
+</para></listitem></varlistentry><varlistentry><term>XBL</term><listitem><para>XBL (see <xref linkend="XBL2"/>) provides flexible aggregation
+of content fragments and of client resources such as JavaScript methods.
+XBL has seen only partial implementation and limited adoption, perhaps because the
+sophistication of the binding mechanisms is challenging for document authors.
+</para></listitem></varlistentry><varlistentry><term>Template placeholder replacement</term><listitem><para>The general approach of writing stylesheets to replace placeholders
+in a template document with dynamically generated content
+was worked out ten years ago (see <xref linkend="XSTEMP"/>).
+RunDMC (see <xref linkend="RDMC"/>) is a more recent XSLT-based framework exemplifying
+the approach.
+RunDMC includes the ability to parameterize dynamic generation with content supplied
+by the placeholder.
+While encouraging simple documents, template placeholders typically don't address
+assembly of libraries by a document or push processing defined in a document.
+These tasks typically remain the responsibility of the template processor,
+minimizing the potential for a library approach.
+</para></listitem></varlistentry><varlistentry><term>XForms</term><listitem><para>XForms (see <xref linkend="XForms"/>) supports forms interaction
+with a separation of model, view, and controller.  Such interactions are behaviors
+of the runtime document.  Thus, XForms solves a fundamentally different
+problem than dynamic composition of the runtime document.  For instance,
+a tag library could encapsulate the XForm model, view, and bindings
+for a form, providing a simpler interface for inserting the form into
+the document.  As another example, a tag library could encapsulate alternative
+event handlers, providing a gallery of options of predefined behaviors for a
+specific form.
+</para></listitem></varlistentry></variablelist></section><section><title>Similarities and Differences Between XSTag and Java Tag Libraries</title><para>While borrowing heavily from Java Tag Libraries, XSTag also differs
+in some important ways:
+</para><variablelist><varlistentry><term>Expression language</term><listitem><para>Java Tag Libraries can embed a simple expressions in attribute values or
+element content. Scenarios for use of expressions include:
+</para><itemizedlist><listitem><para>Evaluating variables</para></listitem><listitem><para>Manipulating string, numeric, and date values</para></listitem><listitem><para>Extracting values from XML documents</para></listitem><listitem><para>Copying portions of XML documents</para></listitem></itemizedlist><para>XSTag follows XQuery in supporting delimited XPath expressions
+in both attribute value and element content (thus differing from XSLT,
+which allows delimited XPath expressions only in attribute values).
+</para></listitem></varlistentry><varlistentry><term>Basic Statements</term><listitem><para>Java Tag Libraries provide a reserved XML vocabulary for basic statements
+within a tag document including capturing the result of an expression
+in a variable, conditional branching, looping and so on.
+</para><para>These statements have equivalents in the XSLT statements allowed within
+a template including xsl:choose, xsl:if, and xsl:variable.  
+While tag libraries can minimize the need for such statements, 
+the availability of such statements can have practical importance as a workaround.
+</para></listitem></varlistentry><varlistentry><term>Function Binding</term><listitem><para>Java Tag Libraries use declarations to associate
+XML elements with Java functions.
+In an XML processing contexts, such indirection seems potentially confusing 
+instead of useful.
+Instead, XSTag binds a tag call in the tag document to a tag definition with the
+same QName in the tag library.
+</para></listitem></varlistentry><varlistentry><term>Handlers and Parameters</term><listitem><para>Java Tag Libraries refer to a handler as a <emphasis>tag body</emphasis>.
+In Java Tag Libraries, a tag can have at most one handler.
+The Java tag body is also a closure with respect to the tag document
+in that variables in scope within the tag document can be evaluated
+in the tag body.
+</para><para>While the limitation to one handler is adequate for regular relational data,
+a single handler is not enough to process an XML tree structure or complex
+XML data vocabularies.
+XSLT has template match rules and XQuery has typeswitch expressions for this reason.
+To process XML content with a tag, different dynamic content must be produced
+for different elements.
+For that reason, XSTag allows multiple handlers for a single tag
+and permits atomic values or XML nodes as parameters.
+</para></listitem></varlistentry><varlistentry><term>Tag Document Inclusion</term><listitem><para>Java Tag Libraries have inclusion statements to insert
+one tag document inside another tag document.
+Such inclusion statements resemble a tag call.
+Rather that introduce two different kinds of tag calls,
+XSTag supports reuse of document fragments through basic tag libraries
+with tags that merely return a static document fragment.
+</para></listitem></varlistentry></variablelist><para>Having reviewed alternative strategies and Java Tag Libraries
+background, we now introduce our approach for processing tag libraries.
+</para></section><section><title>Tag Processors</title><para>The <emphasis>tag processor</emphasis> is responsible for
+parsing the tag document and imported tag libraries and 
+producing <emphasis>a result document</emphasis>.  Whether implemented
+by interpretting the sources or by preprocessing and then executing XSLT, XQuery, or
+some other language, the steps for producing a result document are conceptually similar:
+</para><orderedlist><listitem><para>The tag processor descends the XML tree of a tag document, defining variables  
+           in scope within a branch. Those variable are outside any tag call and, essentially, are constants.
+           The tag processor also evaluates any expressions outside of a tag call, replacing each expression
+           with its result. 
+        </para></listitem><listitem><para>When the tag processor reaches a tag call, it performs evaluation and replacement
+          on expressions outside of any handler.  We call this phase <emphasis>the time of the call.</emphasis>
+          Conceptually, for any expression within a handler, the tag processor replaces any variable
+          defined outside the handler with its value at the time of the call.
+          That is, a handler is a closure with respect to the tag document outside
+          the tag call.
+        </para></listitem><listitem><para>As the tag processor is executing the tag, when the processor 
+          reaches a call to a handler, the processor evaluates the expressions 
+          in the handler, replacing parameters of the handler with their values before
+          replacing each expression with its result.
+          This phase is called <emphasis>the time of handler processing</emphasis>.
+        </para></listitem></orderedlist><para>As shown in <xref linkend="workflow-illo"/>, a tag processor can be
+implemented in XSLT as a preprocessor that generates XSLT modules for execution
+by a general-purpose XSLT processor; a parallel approach is possible in XQuery.
+</para><figure xml:id="workflow-illo" xreflabel="Workflow"><title>Tag Processing Workflow</title><mediaobject><imageobject><imagedata format="png" fileref="../../../vol7/graphics/Hennum01/Hennum01-001.png"/></imageobject></mediaobject><caption><para>Preprocessing a tag document and tag libraries and
+then executing XSLT or XQuery.</para></caption></figure></section><section><title>XSTag Syntax</title><para>Due to the division of responsibilities, 
+    tag libraries and tag documents have different audiences and thus
+    different syntax. 
+    </para><section xml:id="sec-xstag-top"><title>Top-Level Elements of Tag Libraries</title><para>The XSTag statements in the tag library and tag document have
+a namespace to distinguish them from other XML vocabularies.   
+(For our prototype, we have used <code>http://code.google.com/p/xstag/ns/2011/</code>.)
+Throughout the paper, the XSTag namespace is indicated with the prefix <code>xst</code>.
+</para><para>Tag libraries can be implemented using a basic statement set
+that all XSTag processors must support or using the language
+of the tag processor (either XSLT or XQuery in our prototype) to implement
+the tag.
+Basic and processor-specific tag libraries have similar declarations for
+the root element and its top-level child elements:
+      </para><variablelist><varlistentry><term><code>xst:taglib</code></term><listitem><para>The required root element, which must have an <code>version</code>
+            attribute identifying the level of the tag processor.
+            In addition, a processor-specific tag library must provide a <code>for</code> attribute identifying
+            the tag processor language (such as <code>xslt</code> or <code>xquery</code>).
+            A basic tag library may omit the <code>for</code> attribute or supply the <code>xstag</code> value
+            for the attribute.
+            </para></listitem></varlistentry><varlistentry><term><code>xst:import</code></term><listitem><para>An optional statement to import other libraries.  The body of tags
+            can call the functions or tags supplied by the imported library.
+            The <code>for</code> attribute identifies the tag processor when the import should only be resolved
+            for that processor.  If the <code>for</code> attribute is set to <code>xstag</code> or omitted,
+            the imported library is a basic tag library, and the import should always be resolved.
+            </para></listitem></varlistentry><varlistentry><term><code>xst:tag</code> and <code>xst:param</code></term><listitem><para>Declares a tag and its parameters. 
+The <code>name</code> attribute must supply 
+a QName, e.g. <code>&lt;xst:tag name="pref:myTag"&gt;...&lt;/xst:tag&gt;</code>, 
+where prefix <code>pref</code> is bound to some namespace, and <code>myTag</code> is the name of the tag.
+The tag element should have an <code>as</code> attribute to declare the return type of the tag,
+using any atomic or node type allowed in XPath.
+Omitting the <code>as</code> attribute is equivalent to specifying
+the <code>item()</code> XPath type and thus requiring calls to tolerate any item.
+</para><para>Similar to XSLT, parameters take a <code>name</code> attribute and
+can take the <code>as</code> attribute
+to declare any atomic or node type and a <code>select</code> attribute or content to declare a default value
+if the tag call does not pass the parameter.
+In addition, one of the tag parameter can have an <code>implicit</code> attribute set to true,
+which allows a shortcut in tag calls (please see <xref linkend="sec_tag-doc"/>).
+</para><para>In addition to the standard XPath atomic or node types, parameters can also have a
+<emphasis>handler</emphasis> type. A handler type resembles an XPath 2.1 function signature but requires
+a name for each parameter of the handler. The handler is required or optional on the tag call
+based on whether its signature has a required or optional return value.
+A tag's handler parameter may contain a default handler definition.
+</para></listitem></varlistentry></variablelist><para>Basic tag libraries and processor-specific tag libraries differ
+in the implementation of the body of the tag definition.
+        </para><section xml:id="sec_xstag-tl"><title>Basic Tag Libraries</title><para>Within a basic tag library, tag definitions are implemented with basic tag statements.
+        These statements are modeled on a subset of XSLT instead of introducing a new vocabulary
+        so that XSLT developers can easily write tag libraries and so that advanced document authors
+        who learn how to write basic tag libraries can progress to XSLT.
+        </para><variablelist><varlistentry><term>branching and looping</term><listitem><para><code>xst:choose/xst:when/xst:otherwise, xst:for-each, xst:if</code>
+            </para><para>The <code>xst:for-each</code> element differs from <code>xslt:for-each</code> in requiring
+            a <code>name</code> attribute for the current iterated item.</para></listitem></varlistentry><varlistentry><term>variables and evaluation</term><listitem><para><code>xst:content, xst:variable</code>
+            </para><para>Because XSLT has three alternatives (<code>xsl:copy-of, xsl:sequence, xsl:value-of</code>)
+            for inserting the result of an expression, we have introduced a <code>xst:content</code> statement
+            for inserting the result of an expression as content within an element.
+            </para></listitem></varlistentry><varlistentry><term>constructors</term><listitem><para><code>xst:attribute, xst:comment, xst:element, xst:namespace,
+              xst:processing-instruction, xst:text</code></para></listitem></varlistentry><varlistentry><term>calls</term><listitem><para><code>xst:call</code> with either the <code>name</code> attribute to call a function
+            in an imported function library (such as a callable template in an imported XSLT module or
+            a declared function in an imported XQuery library module), the <code>tag</code> attribute to call
+            a tag in the current library or an imported tag library, or the <code>handler</code> attribute
+            to call a handler passed by the tag call.
+            Similar to XSLT, the call can take <code>xst:with-param</code> subelements to pass
+            parameters.  When calling a tag, the call can also take <code>xst:with-handler</code> subelements
+	        to pass handlers to the called tag (similar to an XPath 2.1 function object).</para></listitem></varlistentry></variablelist><para>
+          A tag library can define a handler only as the default implementation for a handler parameter
+          (and not, for instance, as the content of a variable).  
+        </para><para>Intentionally less powerful than XSLT or XQuery, basic tag libraries provide functionality
+        that can be supported on any tag processor. 
+        Basic tag libraries can support reuse of headers and footers through simple tags
+        that take no parameters and return a document fragment.
+        </para></section><section xml:id="sec_xstag-ex"><title>Example of a Basic Tag Library</title><para>
+          As an example, we will use the typical XML example of a book store. 
+          For simplicity we consider a flat book structure in XML documents. Assume that we have multiple XML documents 
+          that contain  a list of books where each of those may contain the following information: 
+          a title, genre, multiple authors, a description, a publish date and price.
+          Some sample data in this structure:
+        </para><programlisting xml:space="preserve">
+      
+&lt;books id="publisherX"&gt;
+  &lt;book id="203"&gt; 
+    &lt;title&gt;XQuery Kick Start&lt;/title&gt; 
+    &lt;author&gt;James McGovern&lt;/author&gt; 
+    &lt;author&gt;...&lt;/author&gt;
+    ...    
+    &lt;genre&gt;Computer&lt;/genre&gt;    
+    &lt;year&gt;2010&lt;/year&gt; 
+    &lt;price&gt;46.99&lt;/price&gt;
+    &lt;description&gt; This book is about ... &lt;/description&gt;    
+  &lt;/book&gt;      
+&lt;/books&gt;
+            
+        </programlisting><para>
+        To support a book store use case, a basic tag library with a single tag definition might resemble
+        the following example: 
+      </para><programlisting xml:space="preserve">
+          
+&lt;xst:taglib version="0.2"
+  xmlns:fn  = "http://www.w3.org/2005/xpath-functions"
+  xmlns:xst = "http://code.google.com/p/xstag/ns/2011/"
+  xmlns:tag = "http://code.google.com/p/xstag/ns/demo/tag/books"&gt;
+
+  &lt;xst:tag name="tag:books" as="element()*"&gt;
+    &lt;!-- tag definition parameters --&gt; 
+    &lt;xst:param name="years" as="xs:gYear*"/&gt;
+    &lt;xst:param name="onBook" implicit="true"
+        as="handler($title as xs:string, $authors as xs:string+) 
+                    as element()?"&gt;
+      &lt;!-- default handler implementation --&gt;
+      &lt;tr&gt;
+        &lt;td&gt;&lt;xst:content select="$title"/&gt;&lt;/td&gt;
+        &lt;td&gt;&lt;xst:content select="fn:string-join($authors, '; ')"/&gt;&lt;/td&gt;
+      &lt;/tr&gt;
+    &lt;/xst:param&gt;
+    &lt;!-- The tag definition body --&gt;
+    &lt;!-- getting the books for the requested years --&gt;
+    &lt;xst:variable name="books" as="element()*"
+        select="document('books.xml')/books/book[fn:empty($years) or data(year)=$years]"/&gt;
+    &lt;!-- processing each book by calling the handler --&gt;
+    &lt;xst:for-each name="book" select="$books"&gt;
+      &lt;xst:call handler="$onBook"&gt;
+        &lt;xst:with-param name="title"   select="$book/title/fn:string(.)"/&gt;
+        &lt;xst:with-param name="authors" select="fn:string-join($book/author/fn:string(.), ', ')"/&gt;
+      &lt;/xst:call&gt;
+    &lt;/xst:for-each&gt;
+  &lt;/xst:tag&gt;
+&lt;/xst:taglib&gt;
+          
+      </programlisting><para>The above tag library contains only one tag definition that is bound to
+	namespace <code>http://code.google.com/p/xstag/ns/demo/tag/books</code> 
+    via the prefix <code>tag</code>. The <code>books</code> tag
+	takes two parameters:  a list of xs:gYear values that denote years
+	of publications and a handler parameter that, in turn, takes a title and
+	a list of authors. If a tag caller does not provide
+	a <emphasis>handler definition</emphasis> then the default implementation within the handler
+	is used.  In the example, the default
+	handler implementation returns an HTML table row that contains two columns: a book title and
+	concatenated list of authors.  The default handler assumes that the tag document will wrap
+	an HTML table around the call to the <code>books</code> tag.
+    </para><para>The handler definition body retrieves books based on
+	supplied years.
+	Then, for each retrieved book element, the tag definition body calls the
+	handler definition with the <code>title</code> and <code>authors</code>
+	parameters of the handler.    
+    </para></section><section><title>Processor-Specific Tag Libraries</title><para>A processor-specific tag library has the same 
+top-level statements (see <xref linkend="sec-xstag-top"/>) as
+a basic tag library including the tag declaration statements
+(that is, the <code>xst:tag</code> and <code>xst:param</code> statements).
+The root <code>xst:tag-lib</code> statement must have a <code>for</code>
+attribute identifying the processor-specific language
+of the tag library.
+The body of the tag definitions must be implemented
+in the processor-specific language.
+For instance, an XQuery-specific tag library uses XQuery statements
+after the <code>xst:param</code> elements inside the <code>xst:tag</code> definition.
+        </para><para>The only exception applies to calls to handlers. 
+The tag processor must be able to parse these calls, so calls to handlers must embed
+the <code>xst:call</code> statement where appropriate within the tag definition.
+        </para><para>  
+The example from <xref linkend="sec_xstag-ex"/> could be rewritten as an XQuery-specific
+tag library as follows:
+        </para><programlisting xml:space="preserve">
+
+&lt;xst:taglib version="0.2"
+  for="xquery"
+  xmlns:fn  = "http://www.w3.org/2005/xpath-functions"
+  xmlns:xst = "http://code.google.com/p/xstag/ns/2011/"
+  xmlns:tag = "http://code.google.com/p/xstag/ns/demo/tag/books"&gt;
+
+  &lt;xst:tag name="tag:books" as="element()*"&gt;
+    &lt;!-- tag definition parameters --&gt; 
+    &lt;xst:param name="years" as="xs:gYear*"/&gt;
+    &lt;xst:param name="onBook" implicit="true"
+        as="handler($title as xs:string, $authors as xs:string+) 
+                    as element()?"&gt;
+      &lt;!-- default handler implementation --&gt;
+      &lt;tr&gt;
+        &lt;td&gt;&lt;xst:content select="$title"/&gt;&lt;/td&gt;
+        &lt;td&gt;&lt;xst:content select="fn:string-join($authors, '; ')"/&gt;&lt;/td&gt;
+      &lt;/tr&gt;
+    &lt;/xst:param&gt;
+    &lt;!-- The tag definition body --&gt;
+    &lt;!-- getting the books for the requested years --&gt;
+    let $books as element()* :=
+        document('books.xml')/books/book[fn:empty($years) or data(year)=$years]
+    &lt;!-- processing each book by calling the handler --&gt;
+    for $book in $books
+    return
+      &lt;xst:call handler="$onBook"&gt;
+        &lt;xst:with-param name="title"   select="$book/title/fn:string(.)"/&gt;
+        &lt;xst:with-param name="authors" select="fn:string-join($book/author/fn:string(.), ', ')"/&gt;
+      &lt;/xst:call&gt;
+  &lt;/xst:tag&gt;
+&lt;/xst:taglib&gt;
+
+          </programlisting><para>The revision above does the same thing as the basic tag library but in XQuery.
+Reasons for using a processor-specific tag library
+include familiarity with the language as well as requirements that exceed
+the limited capabilities of basic tag libraries. 
+    </para></section></section><section xml:id="sec_tag-doc"><title>Tag Documents</title><para>A <emphasis>tag document</emphasis> calls a tag provided by a tag library
+      by embedding an XML element with the same QName as the tag.
+      The element making the tag call can have: <itemizedlist><listitem><para>Subelements or attributes that supply parameters of the tag.
+            </para></listitem><listitem><para>Subelements that supply handler definitions for handler parameters of the tag.
+The container subelement must take an <code>xst:handles</code> attribute that lists the parameters
+received by the handler. 
+</para><para>If the tag definition passes a parameter to the handler definition
+that the handler definition does need, the handler definition can simply ignore
+the parameter.  In particular, the <code>xst:handles</code>
+attribute does not have to list parameters that aren't used in the handler definition.
+The order of parameters in the <code>xst:handles</code>
+attribute does not matter.
+</para></listitem></itemizedlist>
+      </para><para>A tag document can only define handlers as part of a tag call. A tag call can be nested
+        within a handler.</para><para>If a tag has an implicit parameter (as explained in <xref linkend="sec-xstag-top"/>), the
+tag element can omit the subelement container and contain the content of the parameter
+directly. When containing the content of an implicit handler, the tag call must supply
+<code>xst:handles</code> attribute.</para><para>Variable scope is limited to following siblings and their descendants. Handlers can refer
+        to variables in scope. An example of a tag document: </para><programlisting xml:space="preserve">
+        
+&lt;html xst:version="0.2"
+  xmlns:xst = "http://code.google.com/p/xstag/ns/2011/"
+  xmlns:fn  = "http://www.w3.org/2005/xpath-functions"
+  xmlns:tag = "http://code.google.com/p/xstag/ns/demo/tag/books"
+  &gt;
+  &lt;!-- Importing a books tag library --&gt;
+  &lt;xst:import href="BooksTaglib.xstag"/&gt;
+  &lt;xst:variable name="years" select="(2010, 2009, 2008)"/&gt;
+  &lt;head&gt;
+      &lt;title&gt;Books for {$years} years&lt;/title&gt;
+  &lt;/head&gt;
+  &lt;body&gt;
+    &lt;table&gt;
+      &lt;tag:books years="{$years}" xst:handles="$title, $authors"&gt;
+        &lt;tr&gt;
+          &lt;td&gt;{$title}&lt;/td&gt;
+          &lt;td&gt;{fn:string-join($authors, ', ')}&lt;/td&gt;
+          &lt;td&gt;{fn:count($authors)}&gt;&lt;/td&gt;
+        &lt;/tr&gt;        
+      &lt;/tag:books&gt;
+    &lt;/table&gt;
+  &lt;/body&gt;
+&lt;/html&gt;
+
+      </programlisting><para>The example above creates an HTML document with a table of
+	books for particular years. This tag document makes use
+	of a tag library presented in <xref linkend="sec_xstag-tl"/>. 
+	First of all we import the tag library using the import statement:
+        <code>&lt;xst:import href="BooksTaglib.xstag"/&gt;</code>. 
+	In order to use tags from that library, the namespace for
+	the tag call element (<code>tag:books</code>) 
+	has to match the namespace for the tag definition element but does not have to have the
+	same prefix.
+      </para><para>Our tag has two parameters (refer to <xref linkend="sec_xstag-tl"/>
+	for more details): a sequence of publishing years and
+	a handler parameter that takes a string parameter for a title and a
+	sequence of strings for the list of authors.
+	The <code>tag:books</code> tag call contains
+	a <code>years</code> attribute to supply the <code>years</code> parameter
+	and content to supply the handler definition for the <code>onBook</code> handler parameter.
+      </para><para>The <code>xst:handles</code> attribute on the tag call identifies the set of parameters
+	that the handler expects the tag definition to pass.
+      </para><para>While a tag processor can check consistency by looking at both a tag
+	library and a tag document,
+	there are some advantages to having the <code>xst:handles</code> attribute:
+      </para><itemizedlist><listitem><para>By looking for the <code>xst:handles</code> attribute,
+a document author can find the handlers (for instance, after taking on 
+maintenance responsibility for someone else's  tag document).
+        </para></listitem><listitem><para>A tag processor can compare the parameters expected by a
+          handler definition with the parameters declared formally for the handler by the tag definition and detect
+          errors if, for instance, a change in the tag library invalidates the tag document.
+        </para></listitem><listitem><para>A tag processor can also check to confirm that every variable reference in
+          the tag document is in scope either within the tag document or as a parameter
+          of the handler definition.
+        </para></listitem></itemizedlist><para>The <code>xst:handles</code> attribute does not control the handler call 
+        from the tag definition to the handler definition. 
+        Instead, the handles attribute declares the tag document's expecations
+        for how the tag definition will call the handler (in this respect, similar
+        to a C external function signature for a function defined in a library). 
+      </para><para>Results of tag calls can be bound to some variables and those variables
+	can be reused in other tag calls.
+        </para></section></section><section><title>Tag Processor Implementation</title><para>Prototype XSLT and XQuery implementations of XSTag are available
+at <code>http://code.google.com/p/xstag/</code>.
+</para><para>The XSLT implementation makes use of Dimitre Novatchev's technique for 
+    dynamic templates (see <xref linkend="FXSL"/>):</para><itemizedlist><listitem><para>A tag call is preprocessed to a call passing a temporary XML document that has a
+      subelement for each handler and a subelement capturing the state of each variable
+      defined outside the call but referenced in a handler. </para></listitem><listitem><para>A handler is preprocessed to a match template for the handler subelement, assigning local
+      variables from the state subelements for each out of scope variable that is referenced in the
+      handler. </para></listitem><listitem><para> A tag template is preprocessed to a named template with a single parameter for the
+      temporary XML document and local variables for the handler subelements that (when not provided
+      by the temporary document) default to the content of the handler parameter. </para></listitem><listitem><para> A handler call is preprocessed to an apply on the handler subelement of the call
+      document. </para></listitem></itemizedlist><para>In the XQuery implementation:</para><itemizedlist><listitem><para> If the XQuery processor supports closures, a preprocessor can convert a handler into a
+      closure that is passed as part of the tag call. The preprocessor can treat the handlers in a
+      tag library as a function item parameter. </para></listitem><listitem><para> If the XQuery processor supports function items, a preprocessor can convert a handler
+      into function and pass the function to the tag. The preprocessor can also capture the state at
+      the point of call and restore the state within the constructed function by passing a temporary
+      XML document (as in the XSLT implementation). </para></listitem><listitem><para> Otherwise, a preprocessor can generate a copy of the tag library for each tag document,
+      generating a function for each handler from the tag document and passing and restoring the
+      state as a temporary XML document. 
+    </para></listitem></itemizedlist><para>Both the XSLT and XQuery implementations in the prototype have limitations,
+especially in their support for processor-specific tag libraries.
+</para></section><section><title>Potential Investigations</title><para>Tag library developers must provide guidance
+to tag document authors on the use of the library.
+To make that easier and more consistent, a mechanism similar to JavaDoc
+is important for maintaining documentation source within tag libraries
+and generating viewable documentation.
+Existing projects such as XSLTdoc <xref linkend="XSLD"/>
+or xqDoc <xref linkend="XQD"/>
+may be adaptable for this purpose.
+</para><para>All of the examples in this paper focus on events during
+single-pass generation of a result document within an XML processing
+environment.
+Other scenario are equally possible:
+</para><itemizedlist><listitem><para>For Client UI scenarios, a tag library could generate HTML documents
+that use JavaScript to process some handlers in response to UI events
+such as button clicks.
+</para></listitem><listitem><para>For AJAX scenarios, a tag library could generate HTML documents
+that process some handlers by connecting to a service on a server.
+</para></listitem></itemizedlist><para>More generally, tag documents and basic tag libraries with a simpler
+expression language than XPath could be converted to JavaScript and executed
+on the client.
+The advent of JavaScript-based XSLT and XQuery implementations also raises
+the possibility of using XPath in the browser.
+The specifics for processing some tag calls on document request, some tag calls
+entirely on the client, and some tags calls through AJAX requests requires
+more investigation.
+</para><para>Tag libraries benefit from the movement by the current draft
+XQuery and XSLT standards to support function objects.
+Where the processor supports function objects with closure over variables
+in scope for the function definition, handlers become trivial to implement.
+The current XQuery draft envisions such function objects.  The tag library
+approach suggests the value of such function objects for XSLT as well.
+</para><para>A more interesting possibility would be incorporating a tag library
+capability within the XSLT and XQuery standards as a shared definition (similar
+to XPath).  
+Tag library developers would benefit because (especially in XQuery)
+a more natural syntax could be specified for a processor-specific tag library
+that is difficult to support with a preprocessor.
+Tag document authors would also benefit from direct processing instead of
+preprocessing.
+For instance, type coercion errors during runtime processing could be traced
+directly to the tag document or tag library source for better debugging output.
+</para></section><section><title>Conclusion</title><para>Java Tag Libraries have seen wide adoption as a strategy
+for dynamic documents
+because of the division of responsibilities between tag document authors
+and tag library developers and because of the ability to combine tag libraries
+as needed for new solutions.
+In particular, the approach removes the need to write binding logic to add or
+change the libraries used in a document.
+</para><para>This paper demonstrates the feasibility of adapting the Java Tag Libraries
+approach for use with XML technologies.
+Tag libraries can support a set of data retrieval
+and manipulation functions as well as UI components.  Tag documents can support these
+functions by embedding tags within a presentation vocabulary such as XHTML or
+XSL-FO.  In particular, tag documents can pass handlers to tag libraries
+for parameterization of document content by the tag library.
+</para><para>Tag libraries can be implemented in either XSLT or XQuery, enlarging the
+environments in which tag libraries can be deployed as well as the pool
+of potential tag library developers.
+A tag document can be processed in both environments, allowing
+tag document authors to provide designs for either kind of environment without
+having to learn a new syntax.
+Through the contract of the tag signature -- the parameters and handlers
+and return type passed to the tag -- contributors can apply their distinct
+expertise to collaborate for information processing and presentation. 
+    </para></section><section xml:id="glossary"><title>Glossary</title><para>Some terms introduced in <xref linkend="sec-concepts"/>
+also appear here for completeness.</para><variablelist><varlistentry><term>tag document</term><listitem><para>A document that mixes a static XML vocabulary (such as XHTML or XSL-FO) with XPath
+          expressions, XML Simple Tag statements, and tags from one or more tag libraries to produce
+          dynamic documents.</para></listitem></varlistentry><varlistentry><term>tag library</term><listitem><para>A function library (typically implemented in XSLT or XQuery) that produces XML content
+          for a tag document. </para></listitem></varlistentry><varlistentry><term>simple tag statement</term><listitem><para/></listitem></varlistentry><varlistentry><term>tag call</term><listitem><para>An element in a tag document processed as a function call to a tag definition with the
+          same QName, supplying parameters with its attributes and content and replaced by the
+          return value from the tag definition.</para></listitem></varlistentry><varlistentry><term>tag definition</term><listitem><para>A function provided by a tag library that processes parameters to produce XML content.
+        </para></listitem></varlistentry><varlistentry><term>tag parameter</term><listitem><para>An atomic value, XML node (typically one or more elements), or handler definition
+          passed by a tag call to a tag definition to control production of the XML content or to
+          supply content for insertion into the XML content.</para></listitem></varlistentry><varlistentry><term>tag definition body</term><listitem><para>Content of a tag definition followed after declaration of all tag parameters. 
+          A tag definition body defines the logic how a tag call will be executed.
+        </para></listitem></varlistentry><varlistentry><term>parameter container</term><listitem><para>A subelement of the tag call supplying a tag parameter with its content; the
+          subelement has a namespace prefix that is the same as the prefix of the tag call and a
+          local name that's the same as the name of the tag parameter. </para></listitem></varlistentry><varlistentry><term>handler definition</term><listitem><para>An XML fragment that is passed as a tag parameter and that is processed with values
+          generated during execution of the tag definition; a callback.</para></listitem></varlistentry><varlistentry><term>handler definition call</term><listitem><para>Processing of a handler definition with values during execution of a tag
+          definition.</para></listitem></varlistentry><varlistentry><term>handler definition parameter</term><listitem><para>A value passed by the tag definition to a handler definition. </para></listitem></varlistentry><varlistentry><term>tag processor</term><listitem><para>
+          An implementation of the tag library and tag document functionality that takes them as an input and 
+          produces <emphasis>a result document</emphasis>. 
+        </para></listitem></varlistentry><varlistentry><term>result document</term><listitem><para>
+          A document produced by a tag processor based on tag libraries and a single tag document that import those libraries. 
+        </para></listitem></varlistentry></variablelist></section><bibliography><title>Bibliography</title><bibliomixed xml:id="FXSL">
+      Novatchev, Dimitre, Functional programming in XSLT using the FXSL library, In Proc. Of the
+Extreme Markup Languages Conference 2003, seen July 2011.
+      Available at <link xlink:type="simple" xlink:href="http://conferences.idealliance.org/extreme/html/2003/Novatchev01/EML2003Novatchev01.html#t2-2" xlink:show="new" xlink:actuate="onRequest">http://conferences.idealliance.org/extreme/html/2003/Novatchev01/EML2003Novatchev01.html#t2-2</link>.
+    </bibliomixed><bibliomixed xml:id="JSP">
+      JavaServer Pages Technology, seen July 2011.
+      Available at <link xlink:type="simple" xlink:href="http://www.oracle.com/technetwork/java/javaee/jsp/index.html" xlink:show="new" xlink:actuate="onRequest">http://www.oracle.com/technetwork/java/javaee/jsp/index.html</link>.
+    </bibliomixed><bibliomixed xml:id="PUSHPULL">
+      Push, Pull, Next!, Bob DuCharme, seen July 2011.
+      Available at <link xlink:type="simple" xlink:href="http://www.xml.com/pub/a/2005/07/06/tr.html" xlink:show="new" xlink:actuate="onRequest">http://www.xml.com/pub/a/2005/07/06/tr.html</link>.
+    </bibliomixed><bibliomixed xml:id="RDMC">
+      A peek inside RunDMC, seen July 2011.
+      Available at <link xlink:type="simple" xlink:href="http://developer.marklogic.com/blog/a-peek-inside-rundmc-part-2" xlink:show="new" xlink:actuate="onRequest">http://developer.marklogic.com/blog/a-peek-inside-rundmc-part-2</link>.
+    </bibliomixed><bibliomixed xml:id="XBL2">
+      XML Binding Language (XBL) 2.0, seen July 2011.
+      Available at <link xlink:type="simple" xlink:href="http://www.w3.org/TR/xbl/" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/xbl/</link>.
+    </bibliomixed><bibliomixed xml:id="XForms">
+      XForms 1.1, seen July 2011.
+      Available at <link xlink:type="simple" xlink:href="http://www.w3.org/TR/xforms/" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/xforms/</link>.
+    </bibliomixed><bibliomixed xml:id="XQ1">
+      XQuery 1.0: An XML Query Language (Second Edition), seen July 2011.
+      Available at <link xlink:type="simple" xlink:href="http://www.w3.org/TR/xquery/" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/xquery/</link>.
+    </bibliomixed><bibliomixed xml:id="XQ3">
+      XQuery 3.0: An XML Query Language (W3C Working Draft 14 June 2011), seen July 2011.
+      Available at <link xlink:type="simple" xlink:href="http://www.w3.org/TR/xquery-30/" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/xquery-30/</link>.
+    </bibliomixed><bibliomixed xml:id="XSL2">
+      XSL Transformations (XSLT) Version 2.0, seen July 2011.
+      Available at <link xlink:type="simple" xlink:href="http://www.w3.org/TR/xslt20/" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/xslt20/</link>.
+    </bibliomixed><bibliomixed xml:id="XSP">
+      XSP Logicsheet Guide, seen July 2011.
+      Available at <link xlink:type="simple" xlink:href="http://cocoon.apache.org/2.1/userdocs/xsp/logicsheet.html" xlink:show="new" xlink:actuate="onRequest">http://cocoon.apache.org/2.1/userdocs/xsp/logicsheet.html</link>.
+    </bibliomixed><bibliomixed xml:id="XSLD">
+      XSLTdoc - A Code Documentation Tool for XSLT, seen July 2011.
+      Available at <link xlink:type="simple" xlink:href="http://www.pnp-software.com/XSLTdoc/index.html" xlink:show="new" xlink:actuate="onRequest">http://www.pnp-software.com/XSLTdoc/index.html</link>.
+    </bibliomixed><bibliomixed xml:id="XQD">
+      XSLTdoc - A Code Documentation Tool for XSLT, seen July 2011.
+      Available at <link xlink:type="simple" xlink:href="http://xqdoc.org/xqdoc_comments_doc.html" xlink:show="new" xlink:actuate="onRequest">http://xqdoc.org/xqdoc_comments_doc.html</link>.
+    </bibliomixed><bibliomixed xml:id="XH">
+      XHTML 1.0: The Extensible HyperText Markup Language (Second Edition), seen July 2011.
+      Available at <link xlink:type="simple" xlink:href="http://www.w3.org/TR/xhtml1/" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/xhtml1/</link>.
+    </bibliomixed><bibliomixed xml:id="XSTEMP">
+      Style-free XSLT Style Sheets, Eric van der Vlist, seen July 2011.
+      Available at <link xlink:type="simple" xlink:href="http://www.xml.com/pub/a/2000/07/26/xslt/xsltstyle.html" xlink:show="new" xlink:actuate="onRequest">http://www.xml.com/pub/a/2000/07/26/xslt/xsltstyle.html</link>.
+    </bibliomixed></bibliography></article>

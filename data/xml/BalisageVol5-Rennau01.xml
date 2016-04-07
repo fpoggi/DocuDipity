@@ -1,0 +1,1653 @@
+<?xml version="1.0" encoding="UTF-8"?><article xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink" version="5.0-subset Balisage-1.2" xml:id="HR-23632987-8973"><title>Java Integration of XQuery - an Information Unit-Oriented Approach</title><info><confgroup><conftitle>Balisage: The Markup Conference 2010</conftitle><confdates>August 3 - 6, 2010</confdates></confgroup><abstract><para>An infrastructure for integrating XQuery into Java systems is described. 
+        The infrastructure comprises a new API (XQJPLUS, built on the standard API XQJ) 
+        and a tool for Java code generation. The basic idea of the approach is to deliver query 
+        results not in terms of query result items, but in terms of “information units”,
+        ready-to-use entities assembled from the result items. The assembly process is guided by control 
+        information embedded into the query result, so that the query controls exactly 
+        what will be delivered, and in which form. Information units can represent 
+        information in a great variety of forms, including many map types and 
+        custom objects. The information units produced by a query are collected into 
+        a special container ("info tray") which offers name-based, intuitive access
+        to the units. The query-specific structure of an info tray may be formally defined 
+        by a tray schema from which an "info shape" can be generated, a Java class representing 
+        a specific kind of info tray and offering compiler checked data access. 
+        Info trays also support data integration, as their possibly
+        very heterogeneous contents can be addressed in a uniform way, using path-like
+        expressions.
+      </para></abstract><author><personname><firstname>Hans-Jürgen</firstname><othername/><surname>Rennau</surname></personname><personblurb><para/></personblurb><affiliation><jobtitle>Senior programmer</jobtitle><orgname>bits - Büro für Informations-Technologie und Software GmbH</orgname></affiliation><email>rennau@bits-ac.com</email></author><legalnotice><para>Copyright © 2010 by the author.  Used with
+permission.</para></legalnotice><keywordset role="author"><keyword>XQuery</keyword><keyword>Java</keyword><keyword>XQJ</keyword></keywordset></info><section xml:id="Introduction"><title>Introduction</title><para>
+      To model information as XML offers remarkable advantages: the information is itemized in a way 
+      that endows each item with a name and an identity; each item has a context which in turn can be 
+      identified; and all items are exposed to navigation and querying.
+    </para><para>
+      These gains are not limited to the scope of single documents – they scale globally, 
+      thanks to the concepts of document URIs and namespaces. Using these concepts together 
+      makes it possible to fuse the total set of accessible XML resources into one single, 
+      homogeneous information space, within which document borders are crossed by single 
+      steps. Those resources need not store the data as XML: it suffices to 
+      <emphasis role="ital">expose</emphasis> them as XML, e.g. creating XML documents on the 
+      fly and supporting an XPath or XQuery interface. Relational databases, comma-delimited 
+      files and web services are all examples of resources which can be exposed as XML.
+    </para><para>
+      XQuery <xref linkend="W3C-XQuery"/> is a language designed to live in and work with
+      this XML-based information space. 
+      Many tasks of information processing can be handled by XQuery with amazing conciseness
+      and simplicity. Much software could delegate certain information processing tasks
+      to XQuery, thus using XQuery in a similar way to a client delegating processing tasks to a 
+      server. This integration is helped by the fact that XQuery is not constrained to 
+      produce XML. XQuery generates instances of the XDM data model, which means it can 
+      produce heterogeneous sequences of nodes and atomic values. So XQuery can deliver 
+      what is needed by its “clients” in a fine-tuned way.
+    </para><para>
+      Object-oriented programs are among those that can benefit from using XQuery. In the case of
+      Java programs, this possibility is made more attractive by the existence of a standardized
+      XQuery API – the XQJ <xref linkend="JSR-XQJ"/>. 
+      This API fully supports the fine-grained data exchange between the languages required 
+      to let XQuery deliver exactly what is needed - for example a sequence of numbers, and 
+      only that.
+    </para><para>
+      Imagine a Java application that must process large and complex XML resources. 
+      Assume a message describes an approaching freight train, and the message must serve as 
+      the data source for many kinds of information, like arrival times, properties and 
+      quantities of goods, numbers and technical details of wagons, etc. Efficiency is highest
+      and complexity is lowest if we let XQuery perform the largest possible chunks 
+      of processing, producing many of those “partial” results in a single pass.
+    </para><para>
+      The XQJ makes this possible in principle. It is very easy – although very tedious – 
+      to write the required Java code, using as input the XQuery result and producing as 
+      output the various objects desired (for instance documents, string collections, 
+      string-to-string maps, string-to-node maps, Properties objects, …). The code would 
+      iterate over the result items and handle them in accordance with their item type and the 
+      position in the result stream. (Yes, some agreement between Java developer and query 
+      author would be necessary in order to guide these decisions – e.g. “first the strings 
+      of code list #1, then an agreed upon separator element, then the terms of code list #2, 
+      then a separator, then alternating document names and document nodes”.)
+    </para><para>
+      In principle it is very easy, but it is very tedious, and it is extremely brittle: the 
+      slightest change in the query result – for example, a change in the sequence 
+      of the XML documents or code lists – will likely break the Java code. This breaking 
+      might easily go unnoticed, as the Java method might still produce sets and a map, 
+      only with incorrect content.
+    </para><para>
+      It's clear that the option to let the query produce complex multi-item results is 
+      problematic as long as there is no new channel opened through which the query author can 
+      push his intent clearly and explicitly “up” into the Java layer, structuring and associating 
+      content with meaning, as he would do within an XML document. This paper describes a new API, 
+      XQJPLUS, that addresses the issue of how XQuery can deliver structured, self-describing results 
+      in a secure and efficient way. Key aspects will be the simplicity, robustness and safety of 
+      the Java code, as well as the new responsibilities of the query code.
+    </para></section><section><title>Conceptual framework</title><para>
+      XML models information in terms of the Infoset and information items <xref linkend="W3C-Infoset"/>. 
+      XPath 2.0 extends the model and defines the XDM <xref linkend="W3C-XDM"/>, 
+      a model expressing information as a sequence of items which are nodes and/or atomic values.
+    </para><para>
+      The XDM is an achievement that can hardly be overestimated. It allows for representing all kinds 
+      of commonly used information in a unified, platform-independent way. However, 
+      computer programs are written in program languages, most of which cannot express XDM values 
+      directly. Therefore, XDM-supplied information must be “translated” into items of the computer language's 
+      internal data model. In Java, for example, the standard API for XQuery (XQJ) translates XDM items 
+      into a set of Java data items like primitive type items and objects of various types like 
+      String, Integer, QName, Element, etc. 
+    </para><para>
+      XQuery programs produce a sequence of XDM items. Integration of XQuery into other languages 
+      should translate the items one-to-one into language-native data items – which 
+      is what XQJ accomplishes. So far, so good. But is this enough?
+    </para><para>      
+      <emphasis role="ital"><emphasis role="bold">Information units</emphasis></emphasis>
+    </para><para>
+      Information <emphasis role="ital">items</emphasis> are not necessarily the desired 
+      <emphasis role="bold">information units</emphasis>. For instance, the unit actually 
+      wanted might be an array of strings, or a string-to-string map, a string-to-node map, 
+      a Properties object etc. Any language not based on the XDM itself will use units 
+      of information which are not an unambiguous one-to-one mapping of an XDM item type, 
+      but correspond to an aggregation or transformation of itemized information. In 
+      this sense, every computer language can be regarded as a specific information platform 
+      with its own set of information unit types.
+    </para><para>      
+      <emphasis role="ital"><emphasis role="bold">XQuery integration based on information units</emphasis></emphasis>
+    </para><para>
+      To maximize the benefits of XQuery integration, the assembly of information items 
+      into commonly used information units should not be left to individual applications, 
+      as this would amount to frequent reinvention of the wheel or, worse, cause unwillingness 
+      to integrate XQuery at all. An alternative would be an <emphasis role="bold">information 
+      unit-oriented API.</emphasis> This API should be able to deliver useful information 
+      units like string-to-string maps, implementing their assembly from query result items 
+      behind the API’s façade. But before attempting to design the assembly and retrieval of 
+      information units, the information content of such units should be modeled.    
+    </para><para>      
+      <emphasis role="ital"><emphasis role="bold">Information unit: properties</emphasis></emphasis>
+    </para><para>
+      An information unit contains information, but what properties does it have beside that? 
+      How about a name and meta data, how should the unit type be modeled? A good starting point is to model 
+      information units as components with properties.    
+    </para><para>      
+      <emphasis role="ital"><emphasis role="bold">Information unit: assembly</emphasis></emphasis>
+    </para><para>
+      Information units are not necessarily one-to-one mappings of the XDM items. In particular,
+      they may represent aggregations and transformations of XDM items. How are these items
+      assembled into information units? Probably the 
+      most general and flexible way is to apply the concept of “markup” to result sequences: 
+      the XQuery result augments the target information with meta information controlling the 
+      unit assembly.   
+    </para><para>      
+      <emphasis role="ital"><emphasis role="bold">Information unit: access via information tray</emphasis></emphasis>
+    </para><para>
+      XML exposes the information items as members of an Infoset, that is, as parts of a tree. 
+      What should be the structural unit that contains a number of information units? The 
+      approach described in this paper introduces the concept of an “information tray” 
+      (<emphasis role="bold">info tray</emphasis>, for short) which is a generic collection 
+      of information units, offering name-based access to information units as well as the 
+      possibility to expose them as nested structures. The word “tray” is meant to combine 
+      the idea of “tree” with a notion of convenience.
+    </para><para>      
+      <emphasis role="ital"><emphasis role="bold">Tray schema</emphasis></emphasis>
+    </para><para>
+      An info tray is a generic, name-aware data container, comparable to maps and XML 
+      documents. As with maps and documents, the meaning of names depends on the tray 
+      instance one is dealing with. Within a particular instance, the unit name 
+      “SampleDescription” might address a unit which is an element node, a name 
+      “ProjectActivities” might address a unit which is a string-to-string map, while 
+      a third name “DepartmentList” might address nothing, as it is not used by the tray. 
+      To express this situation, some kind of tray schema should define which names are 
+      used and what exactly they address. Note that if an XQuery program is designed to 
+      create a tray, the query result itself may be modeled in terms of a tray schema.   
+    </para><para>      
+      <emphasis role="ital"><emphasis role="bold">From info tray to info shape</emphasis></emphasis>
+    </para><para>
+      Consider an XQuery API delivering query results as info trays. Further consider 
+      the availability of a tray schema which defines for a particular query the names 
+      and data types of the information units which it produces. Then it is a small step 
+      to imagine that such a tray schema could be compiled into a query-specific variant 
+      of a tray which would expose an access interface exactly fitted to the available 
+      information units. Their names and types could be combined into signatures which 
+      exclude any name/type mismatches. Such a tray variant which represents the exact 
+      “shape” of the information produced by a particular query might be called an 
+      <emphasis role="bold">info shape</emphasis>. It would offer type-safe, 
+      compiler-guarded access to information units, for example like this:    
+      <programlisting xml:space="preserve">String getOrganizatonLongName();
+Map&lt;String,String&gt; getProjectActivities();</programlisting>
+    </para><para>
+      which amounts to a Java binding not of Infosets in terms of info items, but query 
+      results in terms of ready-to-use information units.
+    </para><para>      
+      <emphasis role="ital"><emphasis role="bold">Info path and info space</emphasis></emphasis>
+    </para><para>
+      Like an XML document, an info tray associates information with names and supports
+      the nesting of named information. When we associate the tray as a whole with a name, then
+      any information unit within a set of info trays can be described in terms of a simple
+      path consisting of a tray name and one or more unit names. If we add to this path a trailing 
+      part navigating <emphasis role="ital">into</emphasis> the unit, we arrive at the 
+      concept of an <emphasis role="bold">info path</emphasis> addressing
+      contents found in a set of info trays in a similar way to an XPath addressing the
+      contents of an XML document. Thus an <emphasis role="bold">info space</emphasis> 
+      simply denotes a set of info trays, associating each tray with a name.
+    </para></section><section><title>XQJPLUS</title><para>
+      The remainder of this paper introduces XQJPLUS, which is several things: an API and its 
+      implementation, a tool for generating Java components and, arguably, a style 
+      for integrating XQuery into Java. XQJPLUS is an attempt to elaborate and implement 
+      the conceptual framework sketched in the preceding section. The framework will serve 
+      as a reference when describing XQJPLUS, a single context within which to inspect 
+      various details.
+    </para><note><title>XQJPLUS is not limited to the use of info trays</title><para>
+         XQJPLUS offers many features which facilitate the work with XQJ and which are
+         independent of whether one actually uses info trays. Examples are a query 
+         registration facility, automatic adaptation of the query base URI to the 
+         query file URI, simplified parameter type handling, and simplified result 
+         retrieval in the case of homogeneously-typed query results. These aspects are 
+         ignored in the rest of this paper which concentrates on the possibilities 
+         offered by info trays and info shapes.         
+       </para></note></section><section xml:id="Getting-started-with-XQJPLUS"><title>Getting started with XQJPLUS - an illustrative example</title><para>
+      The goal of this section is to demonstrate how Java programs can be simplified by 
+      integrating XQuery in an “information unit-oriented way”, receiving from XQuery 
+      information in the form of named, ready-to-use entities. So the example 
+      should be studied with two questions in mind: How would I get the work done 
+      without XQuery? And how would I do it using XQuery, but without information 
+      unit-oriented access to the query result? See <xref linkend="USGS-evaluation-query"/>
+      for a complete listing of the XQuery program which performs the evaluations
+      used by the Java code.
+    </para><para>
+      The example considers the evaluation of data obtained from 
+      “National Water Information System (NWIS) Water-Quality Web Services”. See
+      <xref linkend="USGS-WS"/> for technical documentation on how to use these
+      web services. More specifically, we evaluate an XML file obtained from 
+      the NWIS Result Service. It contains water quality sampling results 
+      reported for the first three months of 2010, collected in the state 
+      of Minnesota. The data can be obtained from the following URI:
+      <programlisting xml:space="preserve">http://qwwebservices.usgs.gov/Result/search?organization=USGS-MN&amp;startDateLo=
+01-01-2010&amp;startDateHi=03-31-2010&amp;mimeType=xml</programlisting>
+    </para><para>      
+      See <xref linkend="USGS-example-data"/> for a sample of
+      the data. The structure can be summarized as a sequence of activity 
+      reports (<code>(&lt;Activity&gt;</code> elements), each one containing 
+      a description of the activity (<code>&lt;ActivityDescription&gt;</code>) 
+      and a sequence of result reports (<code>&lt;Result&gt;</code> 
+      elements). Let us start with a set of simple evaluations.
+    </para><section><title>A set of simple evaluations</title><para><emphasis role="ital"><emphasis role="bold">evaluation "projectIds"</emphasis></emphasis></para><para>
+        Desired result: a sorted list of project identifiers (<code>&lt;ProjectIdentifier&gt;</code>), 
+        delivered as a <code>SortedSet&lt;String&gt;</code> object. A string representation of 
+        the result might look like this:
+        <programlisting xml:space="preserve">
+860700319
+860700379
+NAWQA</programlisting>
+      </para><para><emphasis role="ital"><emphasis role="bold">evaluation “projectActivities”</emphasis></emphasis></para><para>
+        Desired result: a nested map, where outer keys are project identifiers, 
+        inner keys are timestamps (obtained by concatenating <code>&lt;ActivityStartDate&gt;</code> and 
+        <code>&lt;Time&gt;</code>) and inner values are activity identifiers. 
+      </para><para>
+       Desired result data type: <code>Map&lt;String, Map&lt;String,String&gt;&gt;</code>.
+        A string representation might look like this:       
+        <programlisting xml:space="preserve">
+860700319= (2 entries)
+   2010-01-21#10:20:00=sun1dmnspl.01.01000102
+   2010-02-09#09:30:00=sun1dmnspl.01.01000105
+   
+860700379= (1 entries)
+   2010-01-22#12:01:00=sun1dmnspl.01.01000103
+   
+NAWQA= (2 entries)
+   2010-01-20#09:20:00=sun1dmnspl.01.01000101
+   2010-02-10#11:00:00=sun1dmnspl.01.01000104</programlisting>
+      </para><para><emphasis role="ital"><emphasis role="bold">evaluation “fractionResults”</emphasis></emphasis></para><para>
+        Desired result: a nested map with outer keys specifying the sample kind 
+        (concatenation of <code>&lt;CharacteristicName&gt;</code> and 
+        <code>&lt;ResultSampleFractionText&gt;</code>), inner keys specifying the timestamp 
+        (concatenation of <code>&lt;ActivityStartDate&gt;</code> and <code>&lt;Time&gt;</code>) 
+        and inner values a list of result values (each one a concatenation of 
+        <code>&lt;ResultMeasureValue&gt;</code> and <code>&lt;MeasureUnitCode&gt;</code>) 
+        obtained for this combination of sample kind and time. 
+      </para><para>
+       Desired result data type: <code>Map&lt;String, Map&lt;String, String[]&gt;&gt;</code>.
+        A string representation might look like this:       
+        <programlisting xml:space="preserve">…
+Ammonia and ammonium/Dissolved=
+   2010-01-20#09:20:00=
+      0.49 [mg/l NH4]
+      0.384 [mg/l as N]
+   2010-01-21#10:20:00=
+      0.283 [mg/l as N]
+      0.36 [mg/l NH4]
+   2010-01-22#12:01:00=
+      0.08 [mg/l NH4]
+      0.062 [mg/l as N]
+   2010-02-09#09:30:00=
+      0.307 [mg/l as N]
+      0.40 [mg/l NH4]
+   2010-02-10#11:00:00=
+      0.55 [mg/l NH4]
+      0.431 [mg/l as N]
+   
+Ammonia and ammonium/Total=
+   2010-01-21#10:20:00=
+      0.29 [mg/l as N]
+      0.38 [mg/l NH4]
+   2010-02-09#09:30:00=
+      0.33 [mg/l as N]
+      0.42 [mg/l NH4]
+…</programlisting>
+      </para><para><emphasis role="ital"><emphasis role="bold">evaluation “activityResults”</emphasis></emphasis></para><para>
+        Desired result: a map associating <code>UsgsResult</code> object arrays with string keys. The 
+        key specifies the activity identifier and the objects are custom objects 
+        representing an activity as described by one <code>&lt;Activity&gt;</code> element. It is 
+        assumed that <code>UsgsResult</code> objects can be loaded from <code>&lt;Activity&gt;</code> 
+        element information items. 
+      </para><para>
+        Desired result data type: <code>Map&lt;String, UsgsResult[]&gt;</code>.
+        A string representation of the result might look like this:
+        <programlisting xml:space="preserve">
+key=sun1dmnspl.01.01000101
+result object:
+============================================
+ResultValueTypeName=Calculated
+ResultStatusIdentifier=Preliminary
+MeasureUnitCode=mg/l NH4
+AnalysisStartDate=--
+ResultSampleFractionText=Dissolved
+CharacteristicName=Ammonia and ammonium
+PreparationStartDate=--
+USGSPCode=71846
+ResultMeasureValue=0.49
+
+...</programlisting>
+      </para></section><section><title>Obtaining the results via info tray</title><para>
+        XQJPLUS offers the possibility to let the query create an info tray, 
+        a collection of information units which may be conveniently accessed. 
+        The following code snippet demonstrates how the evaluations defined in 
+        the preceding section might be performed from a Java developer’s perspective.
+        <programlisting xml:space="preserve">
+// *** prepare query
+// *****************
+xq.registerQueryFile(queryName, queryFile);
+
+// *** load info tray
+// ******************
+InfoTray tray = xq.execQuery2InfoTray(queryName, new FileInputStream(inputFile), null);
+
+// *** read results
+// *****************
+SortedSet&lt;String&gt; projectIds =                       tray.getStringSortedSetObject("projectIds");
+Map&lt;String, Map&lt;String, String&gt;&gt; projectActivities = tray.getNestedMapString2StringObject("projectActivities");
+Map&lt;String, Map&lt;String, String[]&gt;&gt; fractionResults = tray.getNestedMapString2StringsObject("fractionResults");
+Map&lt;String, Object[]&gt; activityResults =              tray.getMapString2CustomObjectsObject("activityResults");
+
+// *** process results
+// ******************* 
+// ...</programlisting>
+      </para><para>
+        The various results are “information units” which the Java code may 
+        conveniently pick from the tray: selecting the appropriate getter method 
+        (depending on the unit’s data type) and specifying the result name as a 
+        parameter.  
+      </para></section><section xml:id="Obtaining-via-info-shape"><title>Obtaining the results via generated info shape</title><para>
+        Using an info tray, Java code can contain two kinds of errors not
+        detected at compile time: using a wrong access method for a given
+        unit name, and using a unit name which does not occur at all in
+        the tray. If this is an issue, one may work with <emphasis role="ital">
+        info shapes</emphasis> instead of info trays. An info shape is a
+        query-specific Java class plus interfaces, providing type-safe 
+        access exactly tailored to fit the query results. The Java code 
+        is generated from a succinct “tray schema” describing the result. 
+        A minimal version of such a schema would just state the names and 
+        data types of the units, as well as a distribution of the units 
+        over one or more read interfaces. See <xref linkend="Tray-schema"/> 
+        for a listing of the schema used to generate the Java resources 
+        used in this section. The schema is compiled into two Java 
+        interfaces and a back-end Java class. As an example, 
+        an excerpt of interface <code>ProjectData</code> looks like this:      
+        <programlisting xml:space="preserve">
+public interface ProjectData {
+
+//data access
+    public SortedSet&lt;String&gt; getProjectIds() throws XQPException;
+    public Map&lt;String,Map&lt;String,String&gt;&gt; getProjectActivities() throws XQPException;
+
+//meta data access
+    public Map&lt;String,String&gt; getProjectIdsMetaData() throws XQPException;
+    public Map&lt;String,String&gt; getProjectActivitiesMetaData() throws XQPException;
+
+// more signatures left out …
+}</programlisting>
+      </para><para>
+        These generated Java components can be used for even simpler and safer 
+        Java access to the query results. This time, we let the query generate
+        an info shape, rather than an info tray. The info shape is an object
+        of the generated class <code>ResultReport</code>, from which we
+        obtain the interfaces: 
+        <programlisting xml:space="preserve">
+// *** create and load info shape
+// ******************************
+ResultReport resultReport = 
+   xq.execQuery2InfoShape(queryName, new FileInputStream(inputFile), null, new ResultReport());
+     
+ResultData  resultData  = resultReport.getInterfaceResultData();
+ProjectData projectData = resultReport.getInterfaceProjectData();</programlisting>
+        We use these interfaces to read the query results:
+        <programlisting xml:space="preserve">
+// *** read results
+// ****************
+SortedSet&lt;String&gt; projectIds                       = projectData.getProjectIds();
+Map&lt;String, Map&lt;String, String&gt;&gt; projectActivities = projectData.getProjectActivities();
+Map&lt;String, Map&lt;String, String[]&gt;&gt; fractionResults = resultData.getFractionResults();
+Map&lt;String, UsgsResult[]&gt; activityResults          = resultData.getActivityResults();	</programlisting>
+      </para><para>
+        When using such an info shape, rather than an info tray, mismatches between unit
+        name and the unit's data type are excluded. A further advantage is the 
+        delivery of custom objects as instances of their specific type, rather than 
+        instances of <code>Object</code>.
+      </para></section><section xml:id="Information-unit-oriented-access"><title>Information unit-oriented access</title><para>
+        Whether working with an info tray or an info shape - the API client deals with
+        information units, rather than information items. The units are named and have
+        a granularity adapted to the client's requirements, rather than being dictated by the
+        XQuery data model. <xref linkend="from-items-to-units"/> summarizes the process 
+        which enables this information unit-oriented access.
+      </para><figure xml:id="from-items-to-units"><title>From XDM items to information units</title><mediaobject><imageobject><imagedata format="jpg" fileref="../../../vol5/graphics/Rennau01/Rennau01-001.jpg" width="80%"/></imageobject></mediaobject><caption><para>Schematic representation of how query execution is coupled to the generation of an info tray. 
+              A query – myquery.xq – is executed and produces a sequence of XDM items. These are passed to the 
+              assembly machine, which transforms them into a set of named information units. The units are stored 
+              for later delivery. Delivery is enabled by a spectrum of get methods, each one dedicated to a 
+              specific unit data type.
+          </para></caption></figure></section><section xml:id="Example-summing-up"><title>Summing up</title><para>
+        The example demonstrated the possibility to supply Java code with the results of XQuery
+        evaluations in a convenient and intuitive way. What was the price to pay for this
+        convenience, how much effort had to be made in the XQuery layer? The query constructing
+        the info tray (or the info shape, if the tray schema was compiled into Java code)
+        comprises 111 lines of code, including comments. (See <xref linkend="USGS-evaluation-query"/> for a full listing.) An experienced 
+        XQuery developer can write the code in an hour or two. Adding in the fact that
+        on the Java developer's side no learning or understanding of XQuery was
+        required, leads to the conclusion that the integration of XQuery into Java may
+        offer an interesting perspective in general - and especially so if realized in an 
+        information unit-oriented way.
+      </para></section></section><section xml:id="Information-units"><title>Information units</title><para>
+      This section deals with several aspects of information units. It starts with an 
+      elaboration of the concept, followed by an overview of the data types which an information 
+      unit may represent.  The main part is a description how information units are assembled from 
+      XQuery result items. Finally, the use of meta data is explained.
+    </para><section><title>Concept</title><para>
+         The term <emphasis role="ital"><emphasis role="bold">information unit</emphasis></emphasis> 
+         should capture the idea of a convenient entity to use when 
+         accessing, processing or delivering information. Of course, what is convenient depends on 
+         the situation and on taste. But as a starting point one may postulate that XDM items – nodes 
+         and atomic values – certainly <emphasis role="ital">are</emphasis> information units, but 
+         not the only ones one might wish for. A node or, say, a string can be exactly what one wants 
+         to deal with. Note however the general limitation that the XDM model has only two ways 
+         to express aggregation: (a) by a tree structure found within the content of a node, and 
+         (b) by regarding a sequence of items as an XDM value. The first must be unravelled using 
+         tree navigation, and the second is a primitive collection approach. From an application 
+         programmer’s point of view, this may be insufficient.
+       </para><para><emphasis role="ital"><emphasis role="bold">Motivating example</emphasis></emphasis></para><para>
+        Consider the situation that some processing requires as input a particular string-to-string
+        mapping, for example mapping project identifiers to project names. Such a mapping can 
+        easily be represented by an XML structure, for example:
+        <programlisting xml:space="preserve">
+&lt;projects&gt;
+   &lt;project id=”…” name=”…”/&gt;
+   &lt;project id=”…” name=”…”/&gt;
+&lt;/projects&gt;</programlisting>
+      </para><para>
+        This ease of representation should not be confused with ease of usage. The Java type 
+        <code>Map&lt;String, String&gt;</code> is tailored exactly for the purpose of working 
+        with a string-to-string mapping. At least in situations where only key-based 
+        access is desired (as opposed to querying the sets of keys or values), the map may be 
+        considered simpler and more straightforward. After all, working with the XML 
+        representation one would have to be aware of three paths: one leading from the 
+        map root to the nodes representing map entries, one leading from the entry root 
+        to the key and one leading from the entry root to the value. (In the example, 
+        the paths would be “project”, “@id” and “@name”.) These paths would have to be 
+        supplied either by convention (for example using standardized element names 
+        “map” and “entry” and attribute names “key” and “value”), or by explicit meta 
+        information. So the XML representation needs meta 
+        information. Another aspect: the navigation from key to value can be 
+        achieved in different ways, e.g. via XPath or via DOM methods. So the XML 
+        representation is not unambiguous and explicit as to the appropriate usage 
+        style. Apart from that, the map access is probably more efficient. Taking 
+        these aspects together, one may conclude that XML’s wonderful ability to 
+        represent almost any kind of information does not imply that it is always 
+        the most appropriate format for using or processing that information. This is where 
+        “information units” come into play.
+      </para><para>
+        Before continuing, let's briefly compare the use of information units with data binding. 
+        Data binding replaces an XML structure by a one-to-one object 
+        representation. This is like a “push” model: the XML comes first and dictates 
+        the object representation, which is essentially a translation of the item tree 
+        into an object tree. Information units, on the other hand, constitute 
+        a “pull” model: what comes first is the desired representation of information; 
+        it is assembled by <emphasis role="ital">using</emphasis> XDM items, rather 
+        than echoing them.
+      </para><para><emphasis role="ital"><emphasis role="bold">Modelling information units</emphasis></emphasis></para><para>
+        An information unit encapsulates data. It should also contain information about the data, 
+        as becomes obvious when one considers an element information item as a general prototype of information 
+        units. An element has 
+        <itemizedlist><listitem><para>content, which is the data represented by its child nodes</para></listitem><listitem><para>a name, serving to distinguish it from other (sibling) elements</para></listitem><listitem><para>attributes, a set of named atomic values associated with the element</para></listitem><listitem><para>a type, which is a description of what kind of content to expect</para></listitem></itemizedlist>
+      </para><para>
+        XQJPLUS defines the following generic model of an information unit: it has
+        <itemizedlist><listitem><para>
+              <emphasis role="ital">content</emphasis>, which is an 
+              instance of a programming language's data type</para></listitem><listitem><para>
+              a <emphasis role="ital">name</emphasis>, serving to 
+              distinguish it from other, sibling units</para></listitem><listitem><para>
+              <emphasis role="ital">meta data</emphasis>, which is 
+              a set of named string values associated with the unit</para></listitem><listitem><para>
+              a <emphasis role="ital">type description</emphasis> 
+              composed of three components:</para><itemizedlist><listitem><para>a physical type (QName)</para></listitem><listitem><para>a semantic type (QName)</para></listitem><listitem><para>an implementation type (a string)</para></listitem></itemizedlist></listitem></itemizedlist>        
+        </para><para><emphasis role="ital"><emphasis role="bold">content</emphasis></emphasis></para><para>
+        XQJPLUS constrains the content to be a single Java object, or an array of Java objects.
+      </para><para><emphasis role="ital"><emphasis role="bold">name</emphasis></emphasis></para><para>
+        The name distinguishes an information unit among siblings. The concept of siblings relates to 
+        a collection of units, which is not an inherent part of the model of an information unit. XQJPLUS 
+        introduces a distinct concept – the info tray – to model collections of information units. So the 
+        name of an information unit serves to distinguish it from other units within the same info tray. 
+        Info trays will be discussed in <xref linkend="Information-tray"/>.
+      </para><para><emphasis role="ital"><emphasis role="bold">meta data</emphasis></emphasis></para><para>
+        Any information unit is associated with a set of named values, modelled as a 
+        QName-to-string mapping.
+      </para><para><emphasis role="ital"><emphasis role="bold">type description</emphasis></emphasis></para><para>
+        The type description comprises three names. The contents are guaranteed to be an instance of the
+        <emphasis role="ital"><emphasis role="bold">physical type</emphasis></emphasis>, which is the data
+        type defined in the programming language. 
+        Note that this may be an interface type or a base type of the data type that is used, 
+        in which case the underlying data type is only partially revealed by the physical type. The 
+        underlying type is however fully revealed by the <emphasis role="ital"><emphasis role="bold">
+        implementation type.</emphasis></emphasis> 
+      </para><para>
+        The <emphasis role="ital"><emphasis role="bold">semantic type</emphasis></emphasis> is a name meant to 
+        identify what the content “means”. For example, while the physical type may specify the content to be a string-to-string
+        map, the semantic type might identify the contents to be a mapping of project identifier to project name. To specify 
+        this, a name like “{http://www.example.com/ns/proj}projectIdTable” might be invented. Note that the semantic type 
+        only identifies by specifying a QName, it does not define or describe. XQJPLUS does not define the interpretation of the
+        semantic type.
+      </para><note><title>on physical type names</title><para>
+          XQJPLUS implements the integration of XQuery into Java – therefore the physical type amounts to a Java type. 
+          However, the concept of an information unit and its properties is not tied to a specific language, and XQJPLUS 
+          attempts to preserve the language-independence of the concept as far as possible. Therefore the physical  
+          type of an information unit is not defined to be a Java type name, but a QName representing an “abstract” type 
+          that might be implemented by different languages. For example, a string-to-string map can be represented by 
+          many other languages, too. The physical type name is “map_string_to_string_object”, while the corresponding 
+          Java type name is “<code>java.util.Map&lt;String,String&gt;</code>”. If, for example, a Perl implementation
+          of XQJPLUS existed, the corresponding Perl type name would probably be <code>Hash</code>.
+        </para><para>
+          The physical type is defined to be a QName. XQJPLUS uses physical type names without a namespace URI, 
+          suggesting this pattern: standard physical types are in no namespace; any custom physical type 
+          (that is, physical types introduced by project-specific extensions of XQJPLUS) must use a name 
+          with a namespace URI.
+        </para></note></section><section><title>Available physical types</title><para>
+        As the results of a query execution are delivered as information units, a key question is: what 
+        Java types are available? How is the concept of an information unit implemented in terms of Java 
+        types? If we compare XQJPLUS with a restaurant where the XQuery developer is the cook and the 
+        Java developer a potential guest, the range of available Java types is like the menu. Without 
+        a glance at that range, the value of XQJPLUS cannot be assessed.
+      </para><para>
+        <emphasis role="ital">Note:</emphasis> The preceding subsection introduced the notion of 
+        physical types which are mapped to Java type names. In the current subsection the Java type names 
+        are used, although the physical type is defined as a QName which is usually different 
+        from the Java type name.
+      </para><para>
+        As a starting point, consider the Java types which the underlying XQJ API delivers.
+      </para><para>
+        <table><caption><para>
+              <emphasis role="bold"><emphasis role="ital">Summary of Java types delivered by XQJ.</emphasis></emphasis>
+            </para></caption><col align="left" valign="top" span="1"/><col align="left" valign="top" span="1"/><thead><tr valign="top"><th align="left" valign="top">category</th><th align="left" valign="top">types</th></tr></thead><tbody><tr valign="top"><td><emphasis role="bold">atomic types</emphasis></td><td>Boolean, BigDecimal, BigInteger, Byte, Double, Duration, Float, Integer, Long, QName, Short, String, XMLGregorianCalendar</td></tr><tr valign="top"><td><emphasis role="bold">node types</emphasis></td><td>Document, Element, Attr, Text, Comment, ProcessingInstruction</td></tr></tbody></table>
+      </para><para>
+        This spectrum is included and extended by XQJPLUS.
+        <table><caption><para>
+              <emphasis role="bold"><emphasis role="ital">Summary of Java types delivered by XQJPLUS. 
+              Note that for each type a single object variant and an array variant is supported,
+              e.g. String and String[].</emphasis></emphasis>
+            </para></caption><col align="left" valign="top" span="1"/><col align="left" valign="top" span="1"/><thead><tr valign="top"><th align="left" valign="top">category</th><th align="left" valign="top">types</th></tr></thead><tbody><tr valign="top"><td><emphasis role="bold">atomic types</emphasis></td><td>Boolean, BigDecimal, BigInteger, Byte, Double, Duration, Float, Integer, Long, QName, Short, String, XMLGregorianCalendar</td></tr><tr valign="top"><td><emphasis role="bold">node types</emphasis></td><td>Document, Element, Attr, Text, Comment, ProcessingInstruction</td></tr><tr valign="top"><td valign="top"><emphasis role="bold">maps</emphasis></td><td valign="top">
+                <para>Map&lt;String,T&gt;, T=String, String[], Node, Node[], Boolean, Object, Object[]</para>
+                <para>Map&lt;String,Map&lt;String,T&gt;&gt;, T=String, String[], Node, Object</para>
+              </td></tr><tr valign="top"><td><emphasis role="bold">collections</emphasis></td><td>List&lt;String&gt;, List&lt;Node&gt;, Set&lt;String&gt;, Set&lt;Node&gt;, SortedSet&lt;String&gt;, Queue&lt;String&gt;</td></tr><tr valign="top"><td><emphasis role="bold">miscellaneous</emphasis></td><td>java.util.Properties</td></tr><tr valign="top"><td><emphasis role="bold">custom types</emphasis></td><td>(any type implementing LoadableFromXML)</td></tr><tr valign="top"><td><emphasis role="bold">exceptions</emphasis></td><td>InfoTrayLoadingException</td></tr><tr valign="top"><td><emphasis role="bold">info tray</emphasis></td><td>InfoTray</td></tr></tbody></table>
+
+      </para><para>
+        The extension compared to XQJ has four aspects:
+        <itemizedlist><listitem><para>XQJPLUS units can have either a single object type or an array type</para></listitem><listitem><para>XQJPLUS adds further type categories (maps, collections, …)</para></listitem><listitem><para>XQJPLUS units can have custom types (!)</para></listitem><listitem><para>XQJPLUS units can be nested (using InfoTray or InfoTray[] as physical types)</para></listitem></itemizedlist>
+      </para><para>  
+        <emphasis role="bold"><emphasis role="ital">support for array types</emphasis></emphasis>
+      </para><para>
+        The query result which XQJ delivers is one single, unstructured sequence of items. 
+        It is not possible to express any grouping of items into sub sequences. For example, 
+        if the result consists of 10 strings, there is no way to communicate explicitly that 
+        the first six strings should be viewed as one array, followed by a single item, 
+        followed by an array of three items. In XQJPLUS, on the other hand, the result could 
+        be delivered as three units, two of which are arrays.
+      </para><para>
+        <emphasis role="bold"><emphasis role="ital">added categories</emphasis></emphasis>
+      </para><para>
+        <emphasis role="ital">Map types</emphasis> are thought to be especially useful, 
+        as XML evaluations often yield information which can be modelled as a map. The map 
+        keys are strings, the map values can be strings, booleans, nodes or custom objects 
+        (see below). Maps can be simple or nested. <emphasis role="ital">Collection types</emphasis> 
+        are probably less important than maps, due to the general support for array 
+        types. The type <emphasis role="ital"><code>java.util.Properties</code></emphasis> is 
+        currently the only type of category "miscellaneous", but the addition of other types is 
+        intended. Admitting <emphasis role="ital">exception objects</emphasis> as information 
+        units enables query authors to communicate error conditions in a unified way.
+      </para><para>
+        <emphasis role="bold"><emphasis role="ital">custom types</emphasis></emphasis>
+      </para><para>
+        Information units can be custom type objects. Custom types are (presently) required to 
+        implement the interface <code>LoadableFromXML</code>, which is part of the main 
+        package of XQJPLUS. It contains a single method <code>loadFromXML</code> which 
+        loads an object with data received as an XML node. The construction of custom type 
+        objects will be discussed in a later section.
+      </para><para>
+        <emphasis role="bold"><emphasis role="ital">nested units</emphasis></emphasis>
+      </para><para>
+        An information unit may be an <code>InfoTray</code> object, which represents 
+        a collection of named information units. (See 
+        <xref linkend="Information-tray"/> for a discussion of info trays.) This amounts 
+        to supporting a type of unit which is a tree consisting of <code>InfoTray</code>
+        objects as internal nodes and non-<code>InfoTray</code> objects as leaf nodes.
+        In fact, a query result as a whole can be regarded as such a tree. Note that
+        the tree of info trays and non-tray leaves must not be confused with an
+        XML tree. A leaf of the latter contains an atomic value; a leaf of the
+        former may, for example, contain an XML document, or a mapping of strings to 
+        XML documents.
+      </para><para>
+        Information units are retrieved from an info tray by calling a specific getter method 
+        which has the unit’s physical type as return type. See <xref linkend="read-access"/> 
+        for more information about API access to information units.
+      </para></section><section xml:id="The-assembly-process-basics"><title>The assembly process - basics</title><para>
+         After deciding which physical types XQJPLUS must support, we can investigate their assembly.
+         The assembly is wholly controlled by the XQuery code. XQuery 
+         thus provides both the <emphasis role="ital">information content</emphasis> and the <emphasis role="ital">control information</emphasis> 
+         required to transform this content into a collection of information units.
+       </para><para>
+        Let us look at an example. The following XQuery snippet produces two result items – a 
+        <emphasis role="ital">control item</emphasis> and a <emphasis role="ital">data item</emphasis> - 
+        which together will command the assembly of an information unit consisting of a string-to-string map:
+        <programlisting xml:space="preserve">&lt;xqjp:part name="activityTimes" 
+           type="map_string_to_string_object"
+           entryPath="activity"
+           keyPath="@id"
+           valuePath="@time"
+           sematype="usgs:activityTimes" /&gt;,
+
+&lt;activities&gt;{
+   for $a in //Activity/ActivityDescription return
+      &lt;activity id="{$a/ActivityIdentifier}" 
+                time="{concat($a/ActivityStartDate, 'T', $a/ActivityStartTime/Time)}" /&gt;
+}&lt;/activities&gt;</programlisting>
+      </para><para>
+        The control item <code>&lt;xqjp:part&gt;</code> announces 
+        the construction of an information unit with name “activityTimes” and physical type 
+        “map_string_to_string_object”. This type name corresponds to the Java type 
+        <code>Map&lt;String,String&gt;</code>. The data to be written into the map follow 
+        in the next result item, which is a <emphasis role="ital">data item</emphasis>, 
+        rather than a control item. 
+        The assembly of the information unit (a map object) from the contents of the data item (an element node) is 
+        configured by the control item’s attributes “entryPath”, “keyPath” and “valuePath”. The values of these attributes 
+        are interpreted as XPath expressions. The entry path is applied to the data item’s root and leads to the nodes 
+        representing the map entries. The other paths are applied to these nodes, one at a time, yielding a map entry’s key 
+        and value, respectively.
+      </para><para>
+        Another example illustrates the mapping of a result item sequence to several information units. The query generates 
+        three information units, named “projectList”, “organizationProfiles” and “countActivities". To achieve this, it produces 
+        a stream of data items with control items interspersed.
+      </para><para>
+        <programlisting xml:space="preserve">&lt;xqjp:part name=”projectList” 
+           type=”strings”/&gt;, 
+distinct-values(//ProjectIdentifier),
+
+&lt;xqjp:part name=”organizationProfiles” 
+           type=”nodes”/&gt;
+&lt;orgProfile&gt;…&lt;/orgProfile&gt;,
+&lt;orgProfile&gt;…&lt;/orgProfile&gt;,
+&lt;orgProfile&gt;…&lt;/orgProfile&gt;,
+
+&lt;xqjp:part name=”countActivities” type=”integer”&gt;,
+count(//ActivityIdentifier)</programlisting>
+      </para><para>
+        The examples illustrate the basic rules of the assembly process. 
+      </para><para><emphasis role="ital"><emphasis role="bold">Rule #1: control information is placed in top-level control items</emphasis></emphasis></para><para>
+        Control information is contained by top-level control items. Each result item is either a data item or a control item. 
+        Data and control information is never mixed within result items.
+      </para><para><emphasis role="ital"><emphasis role="bold">Rule #2: special control items define information units</emphasis></emphasis></para><para>
+        Each information unit created by the query is defined by a control item (<code>&lt;xqjp:part&gt;</code> element) which specifies 
+        all unit properties: name, meta information, type (physical, semantic, implementation types). Exceptions to this 
+        rule are units defined to be an info tray. The assembly of such complex units is discussed in a special section.
+      </para><para><emphasis role="ital"><emphasis role="bold">Rule #3: the source data belonging to an information unit follow the unit’s definition</emphasis></emphasis></para><para>
+        The source data belonging to a unit are given by all the result items which immediately 
+        <emphasis role="ital">follow</emphasis> the unit-defining control item and come before the 
+        next control item. So the basic structure of a query result generating an 
+        info tray looks like this:
+        <programlisting xml:space="preserve">...
+&lt;xqjp:part name="x" type="..."/&gt;,
+- source data items for unit "x",
+
+&lt;xqjp:part name="y" type="..."/&gt;,
+- source data items for unit "y",
+
+&lt;xqjp:part name="z" type="..."/&gt;,
+- source data items for unit "z",
+...</programlisting>
+      </para><para>
+        Two exceptions to the rule are units which are themselves info trays and unit definitions 
+        which reference control variables (see next section).
+      </para><para>
+         <emphasis role="ital">Note:</emphasis> For a comprehensive list of all control items
+         defined by XQJPLUS, see <xref linkend="The-control-items"/>.
+      </para></section><section xml:id="The-assembly-process-advanced"><title>The assembly process - advanced</title><para><emphasis role="ital"><emphasis role="bold">Namespace context</emphasis></emphasis></para><para>
+        Unit assembly is often controlled by XPath expressions. The namespace context in which
+        to evaluate those expressions is created by special control items. Example:
+        <programlisting xml:space="preserve">
+&lt;xqjp:setNamespaceContext&gt;
+   &lt;xqjp:binding prefix="data" uri="http://qwwebservices.usgs.gov/schemas/WQX-Outbound/2_0/"/&gt;
+   &lt;xqjp:binding prefix="eval" uri="http://www.bits-ac.com/usgs"/&gt;
+&lt;/xqjp:setNamespaceContext&gt;</programlisting>
+      </para><para><emphasis role="ital"><emphasis role="bold">Control variables</emphasis></emphasis></para><para>
+        Since the data items of the query result are the source data for 
+        unit assembly, you may want to <emphasis role="ital"><emphasis role="bold">reuse
+        </emphasis></emphasis> source data in the assembly of different units. A simple example 
+        is a query which produces two string-to-string maps, where the second interchanges the 
+        keys and values used by the first – for example a “code2text” map and a “text2code” map. To 
+        achieve this without repeating the source data one may use control variables. A control 
+        variable is declared by a special control item (<code>&lt;xqjp:setVar&gt;</code>), which specifies 
+        a name and minimal type information (atomic or node, single value or sequence). During the 
+        assembly process, all data items following the declaration and preceding the next control 
+        item are bound to a variable of the declared name. Thereafter, they can be referenced 
+        by unit-defining control items (<code>&lt;xqjp:part&gt;</code>) via a special attribute (“source”). 
+        The following XQuery code illustrates this possibility by generating two maps backed by 
+        the same data item. Map “activity2time” is string-to-string, whereas the inverse map 
+        “time2activity” is string-to-string[]. Both maps are assembled from the contents of 
+        control variable “activityDates”.
+      </para><para>
+        <programlisting xml:space="preserve">(: set variable "activityDates" 
+ : ============================ :)
+&lt;xqjp:setVar name="activityDates" vtype="node" /&gt;,
+
+&lt;activityDates&gt;{
+   for $date in distinct-values(//ActivityStartDate)
+   let $activities := //ActivityStartDate[. eq $date]/../ActivityIdentifier
+   return 
+      &lt;activityDate date="{$date}"&gt;{$activities}&lt;/activityDate&gt;
+}&lt;/activityDates&gt;,
+
+(: define information units 
+ : ======================== :)
+&lt;xqjp:part name="time2activities" 
+           type="map_string_to_strings_object" 
+           sematype="wq:timeActivities"
+           impltype="java.util.TreeMap"
+           source="$activityDates"
+           entryPath="activityDate"
+           keyPath="@date"
+           valuePath="ActivityIdentifier" /&gt;,
+&lt;xqjp:part name="activity2time" 
+           type="map_string_to_string_object" 
+           sematype="wq:activityTimes"
+           source="$activityDates"
+           entryPath="activityDate/ActivityIdentifier"
+           keyPath="."
+           valuePath="../@date" /&gt;</programlisting>        
+      </para><para><emphasis role="ital"><emphasis role="bold">Information units that are themselves trays</emphasis></emphasis></para><para>
+        As an information unit may itself be an info tray, the result item stream must somehow 
+        delimit the begin and end of such an embedded tray. To do so, use a <code>&lt;xqjp:complexPartBegin&gt;
+        </code> and a <code>&lt;xqjp:complexPartEnd&gt;</code> control item. As an embedded tray is an 
+        information unit, the begin marker also plays the role of a unit-defining item. It must 
+        specify the unit name and may specify a semantic type and meta data, just like any other unit-defining item.
+      </para></section><section><title>The assembly process - how XQuery constructs Java custom objects</title><para>
+         As mentioned before, an information unit may contain custom objects, that is, objects of a type which is not a Java 
+         standard type. Here are a few physical types involving custom objects:
+        <variablelist><varlistentry><term>custom_object</term><listitem><para>single custom object</para></listitem></varlistentry><varlistentry><term>custom_objects</term><listitem><para>an array of custom objects</para></listitem></varlistentry><varlistentry><term>map_string_to_custom_object_object</term><listitem><para>a string-to-customObject map</para></listitem></varlistentry><varlistentry><term>map_string_to_custom_object_objects</term><listitem><para>an array of string-to-customObject maps</para></listitem></varlistentry><varlistentry><term>nested_map_string_to_custom_object_object</term><listitem><para>a string-to-(string-to-customObject) map</para></listitem></varlistentry></variablelist>        
+      </para><para>
+        Presently, XQJPLUS allows only those types as custom types which implement the interface 
+        <code>LoadableFromXML</code>. This interface is defined in the main package of 
+        XQJPLUS and contains a single method signature:
+        <programlisting xml:space="preserve">void loadFromXML(Node source);</programlisting>        
+      </para><para>
+        An underlying assumption is that the objects can be built in a two-step way, first instantiating them using a 
+        parameter-less default constructor, then calling the load method. Later versions of XQJPLUS may support 
+        other categories of custom types which can be constructed using different interfaces.
+      </para><para>
+        The actual custom type is a special construction attribute ( “customType”). This construction attribute is 
+        always required if the physical type involves custom objects. Example:
+        <programlisting xml:space="preserve">&lt;xqjp:part name="placeObjects" 
+           type="custom_objects"
+           customType="com.bits_ac.xqjplus.appl.Place"
+/&gt;,</programlisting>        
+      </para><para>
+        The query code has to provide the data source in the usual way, that is, either by subsequent data items or 
+        using the “source” attribute. The XML nodes to be used for loading the custom objects must of course provide 
+        the XML data structure expected by the particular custom type’s “loadFromXML” method.
+      </para></section><section><title>Meta data</title><para>
+         An information unit is associated with meta data, which are a set of named values. The names are QNames, and
+         the values are strings. The meta data fall into two groups: 
+         <itemizedlist><listitem><para><emphasis role="ital">standard meta data</emphasis> have XQJPLUS-defined semantics</para></listitem><listitem><para><emphasis role="ital">custom meta data</emphasis> have custom semantics</para></listitem></itemizedlist>
+       </para><para>
+        Most standard meta data are automatically assigned by XQJPLUS. Custom meta data are always assigned by the 
+        unit-defining control item.
+      </para><para><emphasis role="ital"><emphasis role="bold">Custom meta data</emphasis></emphasis></para><para>
+        Associating a unit with custom meta data is straightforward: they are specified either as attributes or as child 
+        elements of the unit-defining control item (<code>&lt;xqjp:part&gt;</code> or 
+        <code>&lt;xqjp:complexPartBegin&gt;</code>). The name of a meta data item is the respective attribute’s or 
+        element’s name; the value is its string value. If a meta data item is specified by an attribute, the 
+        attribute name must have a non-empty namespace URI. If a meta data item is specified as a child element, the 
+        element name may or may not be in a namespace.
+      </para><para>
+        The following example demonstrates the use of both, attributes and child elements:
+        <programlisting xml:space="preserve">&lt;xqjp:part name="startDates" 
+           type="string_sortedset_object" 
+           sematype="usgs:activityStartTimes"
+           bi:cr="{current-date()}" &gt;
+    &lt;bi:min&gt;{min($startDates)}&lt;/bi:min&gt;
+    &lt;bi:max&gt;{max($startDates)}&lt;/bi:max&gt;
+    &lt;meta:documentation&gt;The activity start dates, as reported by the NWIS result 
+    service.&lt;/meta:documentation&gt;
+&lt;/xqjp:part&gt;,)</programlisting>        
+      </para><para>
+        The definition of unit “startDates” specifies three custom meta data items (“cr”, “min” and “max”) and a 
+        standard meta data item “documentation”.
+      </para><para><emphasis role="ital"><emphasis role="bold">Standard meta data</emphasis></emphasis></para><para>
+        Standard meta data have a name in the namespace “http://www.bits-ac.com/xqjplus/meta”. With the exception of 
+        “documentation”, which is provided by the query in the same way as custom meta data, standard meta data are 
+        automatically assigned by XQJPLUS when transforming a query result into an info tray. Currently, there are four 
+        kinds of automatically assigned standard meta data: “length” and the three type specifications “ptype”, “stype”, 
+        “itype”.
+      </para><para><emphasis role="ital"><emphasis role="bold">Standard meta data item “length”</emphasis></emphasis></para><para>
+        It contains the number of objects contained by the unit: if the unit has an array type, it is the number of array items, 
+        otherwise it is “1” or “0” depending on whether the unit actually contains data or is empty.
+      </para><para><emphasis role="ital"><emphasis role="bold">Standard meta data “ptype”, “stype”, “itype”</emphasis></emphasis></para><para>
+        They contain the names of physical type, semantic type and implementation type, respectively. So the type information 
+        is available as meta data.
+      </para><para>
+        <emphasis role="ital"><emphasis role="bold">Note.</emphasis></emphasis> The implementation type can be 
+        specified by the unit-defining control item, using attribute “impltype”. Strictly speaking, this is not meta data 
+        information, but assembly control information. Therefore the value of “itype” may depend on the query text, 
+        although it is automatically assigned.
+      </para></section></section><section xml:id="Information-tray"><title>Information tray (info tray)</title><para>
+      When an information unit is created, it is placed on an information tray (info tray). 
+      This section introduces info trays. After defining the concept, the information flow into and out of the tray is described: 
+      the loading of a tray with information units, and the reading of units contained by the tray. The final subsection 
+      introduces tray-level meta data.
+    </para><section><title>Concept</title><para>
+         An info tray is a collection of information units. Viewed as a component, its only properties are 
+         <itemizedlist><listitem><para>
+               a partially ordered list of information units
+             </para></listitem><listitem><para>
+               tray-level meta data
+             </para></listitem><listitem><para>
+               an optional resource ID
+             </para></listitem></itemizedlist>
+        The list of <emphasis role="ital">information units</emphasis> 
+        is partially ordered, as the order of two information units is irrelevant if they have 
+        different names, but relevant if they have the same name. <emphasis role="ital">Meta data</emphasis>
+        are a set of named string values providing information about the tray.
+        The <emphasis role="ital">resource ID</emphasis> is a QName identifying the tray instance 
+        within a set of tray instances.  
+      </para><para>
+        The info tray concept is independent of the mechanisms of loading the tray. XQJPLUS represents the
+        general concept of an info tray by a class <code>InfoTray</code>; and it models the loading from 
+        an XQuery result by providing a subclass of <code>InfoTray</code> implementing such a loading method. Other 
+        subclasses of <code>InfoTray</code> might be developed which load the tray from, say, an XSLT or XProc result, 
+        or a set of delimited files or yet other kinds of data sources. Note that the read access methods are all harboured 
+        by the <code>InfoTray</code> level, as they reference only the assembled information units, never any information 
+        about the assembly process. In consequence, once the tray is loaded the actual loading mechanism is 
+        invisible from the Java perspective and may be replaced at any time. 
+      </para><para>
+        The interface of an info tray contains 
+        <itemizedlist><listitem><para>
+              a method for <emphasis role="ital">loading</emphasis> the information units from a data source
+            </para></listitem><listitem><para>
+              methods for <emphasis role="ital">adding</emphasis> information units
+            </para></listitem><listitem><para>
+              methods for <emphasis role="ital">reading</emphasis> information units
+            </para></listitem><listitem><para>a method for <emphasis role="ital">validating</emphasis> the info tray against a tray schema</para></listitem></itemizedlist>
+        The validation of an info tray will be dealt with in <xref linkend="Tray-validation"/>.
+      </para></section><section><title>The load process</title><para>
+         An info tray is loaded by adding information units one by one. The intended pattern is to let subclasses of
+         <code>InfoTray</code> define a data source-specific load method which assembles the units in a source-specific 
+         way and adds them to the tray by calling the base class’s <code>add</code> methods.
+       </para><para><emphasis role="ital"><emphasis role="bold"><code>add</code> methods</emphasis></emphasis></para><para>
+        The source-specific loading is made as simple as possible by arming <code>InfoTray</code> with a
+        comprehensive set of source-independent <code>add</code> methods. These methods receive a unit's completely assembled 
+        data content, along with meta data and unit name. For each supported physical type, there is a 
+        special <code>add</code> method. Some examples:
+        <programlisting xml:space="preserve">void addString(String partName, 
+               String content, 
+               Map&lt;String,String&gt; meta);
+
+void addStrings(String partName, 
+                String[] content, 
+                Map&lt;String,String&gt; meta);
+
+void addMapString2Node(String partName, 
+                       Map&lt;String,Node&gt; content, 
+                       Map&lt;String,String&gt; meta);</programlisting>
+        <emphasis role="ital"><emphasis role="bold">Note</emphasis></emphasis>: the semantic type is communicated 
+        as a meta data item, while the physical type is implied by the choice of the method and the implementation type is 
+        determined by the actual content.
+      </para><para><emphasis role="ital"><emphasis role="bold">load methods</emphasis></emphasis></para><para>
+        Source-dependent load methods are defined by subclasses of <code>InfoTray</code>. XQJPLUS provides 
+        the subclass <code>XQueryResponse</code>, defining a method
+        <programlisting xml:space="preserve">void loadXQuerySequence(XQSequence seq);</programlisting>
+        The method iterates over the result sequence, assembling information units as defined by the control items 
+        and adding them to the tray by calling the base class’s <code>add</code> methods.
+      </para></section><section xml:id="read-access"><title>Read access</title><para>
+         The info tray offers convenient read access to its information units. Access is always to one unit at a time. 
+         The access to a unit can be grouped as follows:
+         <itemizedlist><listitem><para>reading the unit contents</para></listitem><listitem><para>reading the unit type information</para></listitem><listitem><para>reading the unit meta data</para></listitem></itemizedlist>
+       </para><para>
+        The unit is usually specified by name – see below for details.
+      </para><para><emphasis role="ital"><emphasis role="bold">reading the unit contents</emphasis></emphasis></para><para>
+        For each supported physical type of information units, there is an access method returning an instance 
+        of the physical type and accepting as input a unit name. (Use Clark notation for names in a namespace.)
+        When there are several units with that name, the first is delivered. Examples for methods reading unit contents:
+        <programlisting xml:space="preserve">
+String        getString(String name);
+String[]      getStrings(String name);
+Node          getNode(String name);
+Node[]        getNodes(String name);
+Properties    getPropertiesObject(String name);
+Properties[]  getPropertiesObjects(String name);
+Object        getCustomObject(String name);
+InfoTray      getInfoTray(String name);
+Map&lt;String,String&gt;     getMapString2StringObject(String name);
+Map&lt;String,String[]&gt;   getMapString2StringsObject(String name);
+Map&lt;String,String[]&gt;[] getMapString2StringsObjects(String name);</programlisting>
+      </para><para>
+        A tray may indeed contain several units with the same name. In order to retrieve them, first 
+        obtain a cursor and then use it to iterate over those units. The code can rely on all units with 
+        a common name to have the same physical type, as a violation of this constraint would be detected during tray 
+        loading and generate an exception. In the following example code, the common physical type is a single node:
+        <programlisting xml:space="preserve">
+InfoTrayCursor cursor = getCursorByPartName("laboratory");
+while (cursor.hasNext()) {
+   Node currentUnit = getNode(cursor.next());
+   // process the contents …
+}</programlisting>
+      </para><para>
+        This pattern is based on the fact that for each physical type there is a second read method
+        expecting a unit index as input, rather than a unit name. The unit index is a non-negative number
+        identifying the unit within the tray independently of its name. 
+      </para><para>
+        <emphasis role="ital">Note:</emphasis> When using a unit name repeatedly, each unit with that name 
+        has its own meta data, just like any other unit.
+      </para><para><emphasis role="ital"><emphasis role="bold">reading the unit type information</emphasis></emphasis></para><para>
+        The info tray offers separate methods for reading a unit’s physical, semantic or implementation type. Only name-based 
+        access is offered, as the type information must not vary between units which have the same name.
+      </para><para><emphasis role="ital"><emphasis role="bold">reading the unit meta data</emphasis></emphasis></para><para>
+        Unit meta data can be retrieved on bloc as a <code>Map&lt;String,String&gt;</code>, on bloc as a 
+        <code>Map&lt;QName,String&gt;</code> or itemwise, specifying the meta data item name as a QName 
+        or a Clark string. As when reading unit content, the unit is identified either by name or by passing a cursor.
+      </para><para><emphasis role="ital"><emphasis role="bold">reading tray meta data</emphasis></emphasis></para><para>
+        Tray meta data are retrieved in a similar way as unit meta data. 
+      </para></section><section><title>Meta data</title><para>
+         Not only the individual information units are associated with meta data, but also the info tray as a whole (and  
+         implicitly, also any info shape generated for the info tray). Standard meta data are distinguished from custom 
+         meta data.
+       </para><para><emphasis role="ital"><emphasis role="bold">Custom meta data</emphasis></emphasis></para><para>
+        Tray-level custom meta data are specified via a dedicated control item (<code>&lt;xqjp:trayMeta&gt;</code>). The mapping of attributes and 
+         child elements to meta data items is the same as with unit-related meta data.
+      </para><para><emphasis role="ital"><emphasis role="bold">Standard meta data</emphasis></emphasis></para><para>
+        The namespace of tray-level standard meta data is the same as of unit-level ones. Two standard meta data items can be 
+        specified by the query – “documentation” and “name”. The latter is meant to identify the specific type of a tray created by 
+        a specific query, comparable to the name of an XML document’s root element. Other standard meta data items are 
+        assigned automatically. These are:
+        <itemizedlist><listitem><para>“length” specifies the number of top-level units</para></listitem><listitem><para>“unitNames” is the sorted set of top-level unit names, rendered as a white-space separated list</para></listitem></itemizedlist>
+      </para></section></section><section xml:id="Tray-schema"><title>Tray schema</title><para>
+      Like an XML document, an info tray has a structure that can be described independently of the actual data 
+      content. XQJPLUS supplies a simple XML vocabulary that can be used to specify a tray schema which may 
+      (a) constrain the tray structure, (b) control the generation of an <emphasis role="bold">
+      <emphasis role="ital">info shape</emphasis></emphasis>, which is Java code offering enhanced 
+      safety and convenience of data access. An info shape consists of a Java class
+      plus interfaces representing an info tray with a specific structure.
+    </para><section><title>Purpose</title><para>
+        There are three main purposes for creating a tray schema:
+        <itemizedlist><listitem><para>to facilitate the cooperation between Java developer and XQuery developer</para></listitem><listitem><para>to validate a tray instance, e.g. before starting to use it</para></listitem><listitem><para>to generate an info shape</para></listitem></itemizedlist>
+      </para><para><emphasis role="ital"><emphasis role="bold">Constraining the tray structure</emphasis></emphasis></para><para>
+        To constrain the tray structure, the following kinds of information can be expressed:
+        <itemizedlist><listitem><para>the names and types of contained information units</para></listitem><listitem><para>cardinality constraints referring to the repeated use of unit names</para></listitem><listitem><para>cardinality constraints referring to the contents of units</para></listitem><listitem><para>meta data constraints (tray-level and unit-level meta data)</para></listitem></itemizedlist>
+      </para><para><emphasis role="ital"><emphasis role="bold">Controlling the Java binding</emphasis></emphasis></para><para>
+        If the tray is used as input for generating Java code (or other language code), the tray schema must contain further 
+        information controlling the language binding. In case of Java code, this consists of class and interface names, 
+        as well as a distribution of the unit names over the supporting interfaces.
+      </para></section><section xml:id="Tray-schema-example"><title>A simple example</title><para>
+          Here is a minimal schema from which the info shape demonstrated in 
+          <xref linkend="Obtaining-via-info-shape"/> was generated:
+          <programlisting xml:space="preserve">
+&lt;ts:traySchema xmlns:ts="http://www.bits-ac.com/xqjplus/traySchema"
+               xmlns:java="http://www.bits-ac.com/xqjplus/traySchema/java-binding"&gt;
+
+   &lt;!-- ============== --&gt;
+   &lt;!-- tray structure --&gt;
+   &lt;!-- ============== --&gt;
+
+   &lt;ts:tray&gt;
+      &lt;ts:part name="fractionResults" type="nested_map_string_to_strings_object" /&gt;
+      &lt;ts:part name="activityResults" type="map_string_to_custom_objects_object" 
+               customType="com.bits_ac.xqjplus.appl.UsgsResult" /&gt;
+      &lt;ts:part name="projectIds" type="string_sortedset_object" /&gt;      
+      &lt;ts:part name="projectActivities" type="nested_map_string_to_string_object" /&gt;
+   &lt;/ts:tray&gt;
+
+   &lt;!-- ============ --&gt;
+   &lt;!-- Java binding --&gt;
+   &lt;!-- ============ --&gt;
+
+   &lt;!-- implementation class --&gt;
+   &lt;java:trayBinding className="ResultReport" 
+                     package="com.bits_ac.xqjplus.appl" &gt;
+
+   &lt;!-- interfaces --&gt;
+      &lt;java:iface name="ResultData" package="com.bits_ac.xqjplus.appl"&gt;
+         &lt;java:part ref="fractionResults"/&gt;
+         &lt;java:part ref="activityResults"/&gt;
+      &lt;/java:iface&gt;
+
+      &lt;java:iface name="ProjectData" package="com.bits_ac.xqjplus.appl"&gt;
+         &lt;java:part ref="projectIds"/&gt;
+         &lt;java:part ref="projectActivities"/&gt;
+      &lt;/java:iface&gt;
+   &lt;/java:trayBinding&gt;
+
+   &lt;!-- mapping customType =&gt; className --&gt;
+   &lt;java:customTypeBindings&gt;
+      &lt;java:customTypeBinding customType=".*" className="$1"/&gt;
+   &lt;/java:customTypeBindings&gt;
+&lt;/ts:traySchema&gt;</programlisting>
+        </para></section><section><title>Constraining meta data</title><para>
+          The structure part of the tray schema shown above is minimal, as it does not constrain the 
+          use of meta data. Meta data can be constrained by
+          <itemizedlist><listitem><para>stating names of mandatory meta data</para></listitem><listitem><para>constraining the values of meta data items</para></listitem><listitem><para>excluding the use of other meta data names apart from the schema-specified names</para></listitem></itemizedlist>
+      </para><para>
+        The following example adds more constraints:
+        <programlisting xml:space="preserve">&lt;ts:part name="projectIds" type="string_sortedset_object" 
+      unitOccurs="+" 
+      contentOccurs="?"&gt;
+   &lt;ts:meta name="bi:priorityRemark" use="required" /&gt;
+   &lt;ts:meta name="bi:projectCodeList" use="required" &gt;
+      &lt;ts:enumeration value="internal"/&gt;
+      &lt;ts:enumeration value="external"/&gt;
+   &lt;/ts:meta&gt;
+   &lt;ts:meta name="bi:source" use="optional"&gt;
+      &lt;ts:pattern value="usgs-..-\d{8}.xml"/&gt;
+   &lt;/ts:meta&gt;
+&lt;/ts:part&gt;</programlisting>
+      </para><para>
+        The “unitOccurs” attribute (which defaults to “1”) specifies that the tray may contain more than one unit with 
+        name “projectIds”. According to “contentOccurs” (also defaulting to “1”), each unit may contain zero or 
+        one data items. (Note that non-array physical types can have only “?” or “1” as value of “contentOccurs”.)  
+        Two meta data items are mandatory (“bi:priorityRemark” and “bi:projectCodeList”), for one of which 
+        value constraints are specified. The meta data item “bi:source” is optional, but when it occurs it 
+        must match the specified constraint.
+      </para><para>
+        By default, meta data are “open” – there may be more meta data than specified in the tray schema. To exclude 
+        this possibility, use the attribute “metaClosed" with a value of "true" on the <code>&lt;ts:part&gt;</code> element.
+      </para></section><section xml:id="Tray-validation"><title>Tray validation</title><para>
+      The <code>InfoTray</code> class offers a method <code>validate</code>, which validates the tray contents against a tray 
+      schema. Note that this validation ignores all schema parts relating to the language binding. If errors are detected, 
+      the validation writes one or more <code>InfoTrayLoadingException</code> units, so that after validation the
+      diagnostics can be read from those units.
+    </para><para>
+      The main purpose of validation is to support the development process. When the query has reached maturity, 
+      it should guarantee to either deliver a tray that conforms to the agreed upon schema, or it should itself construct 
+      <code>InfoTrayLoadingException</code> units with appropriate diagnostics. In other words it should not leave the
+      construction of exceptions to the validation. Following these steps for tray processing will help minimize problems:
+      <itemizedlist><listitem><para>
+            <emphasis role="ital">always</emphasis> check for buffered exceptions before starting to 
+            use the tray</para></listitem><listitem><para>in the pre-production phase call <code>validate</code> before checking for buffered exceptions; 
+            later this call can be removed
+          </para></listitem></itemizedlist>
+    </para><para>
+      Suggested sample code:
+      <programlisting xml:space="preserve">tray.validate();                   // remove this line when the underlying query has matured …
+if (tray.hasLoadingExceptions()) { // but ALWAYS check for buffered exceptions!
+   for (InfoTrayLoadingException e: tray.getLoadingExceptions()) {
+   // process exception ...
+} else {
+   // normal processing of tray contents ...
+}</programlisting>
+    </para></section></section><section><title>Info shape</title><section><title>Code generation</title><para>
+      Once a tray is constrained by a tray schema, the possible use of the tray is defined exactly, and exact 
+      answers are implied to the following questions: 
+      <itemizedlist><listitem><para>which unit names are available</para></listitem><listitem><para>which physical type belongs to a given unit name</para></listitem><listitem><para>which meta data items can be expected</para></listitem></itemizedlist>
+    </para><para>
+      If, for example, the tray schema determines that the unit name “projectIds” uses a physical type “strings”, then 
+      it is clear that data retrieval for this unit name (a) is possible and  (b) must use the getter variant which delivers 
+      a string array:
+      <programlisting xml:space="preserve">String[] pnames = tray.getStrings (“projectNames“);</programlisting>
+    </para><para>
+      To pass this unit name to a different getter method – say, the variant delivering a node – will 
+      result in an exception. From here it is a small step to generate a Java class which exposes the 
+      precise set of possible read methods, making their signatures error-proof by removing the name 
+      parameter as a parameter and shifting it into the method name:
+      <programlisting xml:space="preserve">String[] pnames = shape.getProjectNames();</programlisting>
+    </para><para>
+      This way, the name and physical type of the unit have become inseparable, excluding mismatches. The 
+      generated implementation of this method consists in a call of the generic tray method:
+      <programlisting xml:space="preserve">public String[] getProjectNames() throws XQPException {
+   return dataSource.getStrings("projectNames");
+}</programlisting>
+    </para><para>
+      Such code generation is supplied by the code generator of XQJPLUS. The code generator takes a tray schema as 
+      input and produces an <emphasis role="bold">info shape</emphasis>:
+      a  query-specific class which is backed by an <code>InfoTray</code> member and defines 
+      the specific access methods as described above. Along with this class, interfaces are generated according to the 
+      directions given in the tray schema.
+    </para></section><section><title>Info shape</title><para>
+      Whereas an info tray is a generic data container, an 
+      <emphasis role="ital">info shape</emphasis> is a specific data container, reflecting 
+      particular choices concerning the names and types of information units. Hence the name -
+      it reflects the particular "shape" resulting from those choices. As described in the
+      preceding section, info shapes are generated by the code generator of XQJPLUS.
+    </para><para>
+      To give an example, the simple tray schema shown in <xref linkend="Tray-schema-example"/> 
+      implies the following info shape:
+      <programlisting xml:space="preserve">
+public class ResultReport implements LoadableFromInfoTray, ResultData, ProjectData {
+    protected InfoTray dataSource;
+    ...
+//data access
+    public Map&lt;String,Map&lt;String,String[]&gt;&gt; getFractionResults()   throws XQPException {...}
+    public Map&lt;String,UsgsResult[]&gt;         getActivityResults()   throws XQPException {...}
+    public SortedSet&lt;String&gt;                getProjectIds()        throws XQPException {...}
+    public Map&lt;String,Map&lt;String,String&gt;&gt;   getProjectActivities() throws XQPException {...}
+
+//meta data access
+    public Map&lt;String,String&gt; getFractionResultsMetaData()   throws XQPException {...}
+    public Map&lt;String,String&gt; getActivityResultsMetaData()   throws XQPException {...}
+    public Map&lt;String,String&gt; getProjectIdsMetaData()        throws XQPException {...}
+    public Map&lt;String,String&gt; getProjectActivitiesMetaData() throws XQPException {...}
+
+//deliver interfaces  
+    public ResultData getInterfaceResultData() {...}
+    public ProjectData getInterfaceProjectData() {...}
+    ...
+}</programlisting>
+    </para><para>
+      The advantages for the Java developer are obvious – compiler-guarded access to the information unit with
+      no worries about using the right names and the right physical types. Further advantage: when 
+      a unit’s physical type uses custom objects, the generated method delivers instances of the custom type, 
+      rather than of type <code>Object</code>:
+      <programlisting xml:space="preserve">    public Map&lt;String,UsgsResult[]&gt; getActivityResults() throws XQPException {...}</programlisting>
+    </para><para>
+      The tray schema controls the generation of interfaces which contain only subsets of the info shape’s read 
+      methods. This approach parcels out the results of complex XQuery processing in such a way that Java components 
+      can reduce their dependence on the tray design: if the structure of the tray is changed, for example a unit is removed 
+      or added, the impact is limited to the users of particular interfaces.
+    </para></section></section><section><title>Info path and info space</title><para>
+      This section briefly explores how info trays create a new possibility of data integration. 
+      Note that this aspect of info trays does not depend on whether the trays are 
+      constructed by XQuery or any other means. Indirectly, however, the possibility of loading 
+      info trays with XQuery further increases the potential for data integration, as it favours 
+      the use of XML resources as input, a good approach to integration in the first place 
+      (compare <xref linkend="Introduction"/>).
+    </para><para>
+      The introduction of this paper emphasized the way XML and XPath together create a uniform 
+      information space encompassing any XML resource accessible via document URI. On the other 
+      hand, from an application programmer’s point of view it is often desirable to access 
+      information in formats other than XML documents – hence the concepts of information units 
+      and info trays described in this paper. And, of course, this also explains the popularity 
+      of data binding. So we can ask: do info trays fall out of that uniform information space, 
+      in a similar way to the products of data binding?
+    </para><para>
+      Compared with data binding, the introduction of info tray objects creates a radically different 
+      situation, as info trays are generic data containers. Trays identify their 
+      units by QNames, and so the contents of an info tray can be addressed by path 
+      expressions similar to XPath expressions. If we associate info trays as a 
+      whole with an identifying QName – call it a “resource ID” – we can collect any number of
+      info trays into a set so that the content of any one of those 
+      trays is addressable in a uniform way.
+    </para><para>
+      For this purpose XQJPLUS introduces the concepts of an 
+      <emphasis role="bold">info path</emphasis> and an 
+      <emphasis role="bold">info space</emphasis>, and it supplies the definition of an 
+      info tray with a property called resourceID, typed as a QName. 
+    </para><para><emphasis role="ital"><emphasis role="bold">Info space</emphasis></emphasis></para><para>
+      An info space is simply a set of info trays. Within the set, the resource IDs must be unique, 
+      so that an info space is essentially a mapping of resource IDs to owner trays. The name 
+      “info space” is meant to evoke the notion of navigation and uniform accessibility: any content 
+      of any member tray can be addressed in a uniform way, using info paths as detailed below.
+    </para><para><emphasis role="ital"><emphasis role="bold">Info path</emphasis></emphasis></para><para>
+      An info path is a string expression addressing data within an info space. Like an XPath, 
+      it is composed of steps, and the trailing part of it can in fact be a real XPath, as long as 
+      the info path points into an information unit containing nodes. Outwardly, an info path 
+      looks like an XPath: it is a sequence of steps, and these steps can be grouped into three 
+      consecutive sections:
+    </para><para>
+        <itemizedlist><listitem><para><emphasis role="bold">(1) tray selection</emphasis></para><para> - the first step identifies a particular 
+              info tray within the info space.
+            </para></listitem><listitem><para><emphasis role="bold">(2) information unit selection</emphasis></para><para> - one or more steps identify a particular information unit 
+              within the tray.
+            </para></listitem><listitem><para><emphasis role="bold">(3) intra-unit navigation</emphasis></para><para> - an optional 
+              trailing part of the info path navigates into the particular unit identified by the 
+              preceding steps.
+            </para></listitem></itemizedlist>  
+    </para><para>
+      See <xref linkend="example-infopath"/> for an example. 
+    </para><figure xml:id="example-infopath"><title>Example of an info path</title><mediaobject><imageobject><imagedata format="jpg" fileref="../../../vol5/graphics/Rennau01/Rennau01-002.jpg" width="50%"/></imageobject></mediaobject><caption><para>This info path selects the value of a map entry with key "Ammonium"; the map is
+            selected as a specific information unit found in a specific info tray.
+          </para></caption></figure><para>
+      The steps selecting info tray and information unit consist of QNames. The trailing steps
+      defining intra-unit navigation, on the other hand, have a syntax and semantics which 
+      are determined by the physical type of the unit in question. To achieve a precise
+      understanding of how an info path is decomposed and evaluated, consider this string:
+      <programlisting xml:space="preserve">infospace://a/b/c/d</programlisting>
+    </para><para>
+      The prefix “infospace://” indicates that the string represents an info path, rather than an XPath. 
+      The path is evaluated in the context of a specific info space. This 
+      space cannot be inferred from the path expression. The step “a” identifies a tray within 
+      that info space. The next step “b” identifies a unit within that tray. If this unit does 
+      not contain nested units (in other words, if it is not a tray or an array of trays), then 
+      the remaining steps “c/d” navigate into that unit. On the other hand, if the unit identified 
+      by “b” does contain nested units, than “c” identifies a unit within “b”, and the interpretation 
+      of the next step “d” again depends on the type of the unit identified by the preceding step. 
+      In summary, the unit selection comprises one or more steps, and it ends with the first step 
+      identifying a “primary unit”, a unit not containing other units. If this step is not the last 
+      step of the info path, the remaining steps constitute an intra-unit path; otherwise, the path 
+      identifies that unit as a whole, rather than parts of it.
+    </para><para>
+      As already mentioned, the semantics of the intra-unit path depend on the unit’s physical 
+      type. The following table gives a few examples.
+
+        <table><caption><para><emphasis role="bold"><emphasis role="ital">Interpretation of intra-unit paths - examples.</emphasis></emphasis></para></caption><col align="left" valign="top" span="1"/><col align="left" valign="top" span="1"/><thead><tr valign="top"><th align="left" valign="top">Unit type (physical)</th><th align="left" valign="top">Interpretation of the intra-unit path</th></tr></thead><tbody><tr valign="top"><td><emphasis role="bold">node</emphasis></td><td>XPath</td></tr><tr valign="top"><td><emphasis role="bold">string-to-string map</emphasis></td><td>step 1: map key; no further steps allowed</td></tr><tr valign="top"><td><emphasis role="bold">string-to-node map</emphasis></td><td>step 1: map key; remaining steps: XPath</td></tr><tr valign="top"><td><emphasis role="bold">string-to-(string-to-string map)</emphasis></td><td>step 1: outer map key; step 2: inner map key</td></tr><tr valign="top"><td><emphasis role="bold">string-to-(string-to-node map)</emphasis></td><td>step 1: outer map key; step 2: inner map key; remaining steps: XPath</td></tr><tr valign="top"><td><emphasis role="bold">properties</emphasis></td><td>property name</td></tr><tr valign="top"><td><emphasis role="bold">string</emphasis></td><td>not applicable</td></tr><tr valign="top"><td><emphasis role="bold">date</emphasis></td><td>not applicable</td></tr></tbody></table>
+    </para><para>
+      <emphasis role="ital">Note on multiplicity.</emphasis> The unit to which the intra-unit 
+      path must be applied can be a sequence of objects, rather than a single object. There 
+      are two sources of multiplicity: (i) several units can have the same name, and (ii) 
+      the physical type may be an object array, rather than a single object. If the intra-unit 
+      path is applied to more than one object, the evaluation is repeated for each one and the 
+      results are united. 
+    </para><para>
+      <emphasis role="ital">Note on step indexes and unit selection.</emphasis> For steps dedicated 
+      to unit selection, a special index syntax applies (for example: a/b[2.3]/c), allowing to target 
+      both sources of multiplicity (see above) separately. 
+    </para><para><emphasis role="ital"><emphasis role="bold">Class InfoSpace</emphasis></emphasis></para><para>
+      The XQJPLUS class <code>InfoSpace</code> represents an info space. Besides methods for adding 
+      and removing trays from the space, it offers several methods for evaluating info paths, 
+      distinguished by the result type (string, string array, node, node array), as well as a method 
+      for setting/extending the namespace context for info path evaluation. An 
+      <code>InfoSpace</code> object represents a collection of information which combines high flexibility 
+      (and possibly great heterogeneity) of information models with a unified, string-based access 
+      model. This makes <code>InfoSpace</code> objects an option for the design of highly configurable software: 
+      configurations supply info path strings which connect generic functionality to actual input 
+      collected from info spaces. As well as this, unified addressability of data supports data 
+      integration in general. Just as XPath provides this addressability for XML data, info path 
+      provides this addressability for info space data.
+    </para></section><section><title>The cooperation of Java and XQuery developers</title><para>
+      XQJPLUS is designed to facilitate the cooperation of the Java and XQuery developers. Typically, 
+      the cooperation between developers is based on interfaces. The “interface” to the XQuery 
+      developer’s work is a tray design, which can be formally captured by a tray schema. Optionally, 
+      this tray schema can in turn be compiled into a set of Java interfaces.  A suggested workflow is:
+      <orderedlist><listitem><para>The Java and XQuery developers discuss the information to be extracted from a set of XML resources.</para></listitem><listitem><para>
+            They design the tray and document it using a 
+            <emphasis role="ital">tray schema</emphasis>.
+          </para></listitem><listitem><para>The tray schema is compiled into an <emphasis role="ital">
+            info shape</emphasis>, a Java class and interfaces.</para></listitem><listitem><para>The XQuery developer writes a prototype query which produces a valid tray.</para></listitem><listitem><para>The Java developer can begin to code against the info shape.</para></listitem><listitem><para>
+            The XQuery developer produces incremental versions of the query, eventually
+            replacing the prototype with a real implemention.
+          </para></listitem></orderedlist>  
+    </para></section><section><title>Reusing XQJPLUS in other integration infrastructures</title><para>
+      XQuery is integrated by XQJPLUS in such a way as to maximize the 
+      possibility of reuse when developing other integration software that is based on information units. 
+      The prospect of reuse exists on three levels: changing the underlying 
+      XQuery API (currently: XQJ), changing the type of information resource (currently: XQuery) and 
+      changing the programming language integrating the information resource (currently: Java).
+    </para><para><emphasis role="ital"><emphasis role="bold">Replacing the XQJ API</emphasis></emphasis></para><para>
+      XQJPLUS is based on XQJ. However, it would be easy to create a version based on a different XQuery API, e.g. 
+      Saxon’s s9api <xref linkend="S9API"/>. Only the tray loading method would have to be adapted, and in doing so the
+      only part that would need to be changed is the “extraction” of a Java data item from the Java representation of an XDM item.
+    </para><para><emphasis role="ital"><emphasis role="bold">Replacing XQuery</emphasis></emphasis></para><para>
+      XQJPLUS integrates XQuery. A similar integration of other information resources, e.g. XSLT or 
+      XProc results, could reuse a major part of the software, namely the <code>InfoTray</code> class. In fact, only a 
+      new subclass of <code>InfoTray</code> would have to be created, which implements the loading of a tray from the
+      chosen type of information resource. In particular note that the generation of Java code (info shapes) does  
+      not need to be changed, as it is independent of the information resource underlying the tray. The major problem to 
+      be solved would be to control the assembly of information units: the control exerted by XQuery result items 
+      might prove difficult to attain with other sources. 
+    </para><para><emphasis role="ital"><emphasis role="bold">Replacing Java</emphasis></emphasis></para><para>
+      The integration of XQuery into other languages – e.g. C# or C++ - could be modelled on XQJPLUS. First, produce 
+      a language-specific version of <code>InfoTray</code>. Then implement the loading of the tray from an XQuery 
+      result, using the <code>InfoTray</code>’s generic <code>add</code> methods. Finally, extend the tray schema language 
+      by a new language binding vocabulary, and implement the code generation controlled by that vocabulary.
+    </para></section><section><title>Information units versus data binding</title><para>
+      Information units are read from an info tray or an info shape. In both cases, “getter” methods 
+      are used to obtain data originating from XML resources. This is an apparent similarity to data 
+      binding. But there are two fundamental differences.
+    </para><para>
+      <emphasis role="bold"><emphasis role="ital">evaluation versus repetition</emphasis></emphasis>
+    </para><para>
+      Info trays and shapes represent evaluation results, whereas the objects created by data binding 
+      represent the original resources, and echo their structure. Data binding essentially repeats 
+      information, rather than evaluates it.
+    </para><para>
+      <emphasis role="bold"><emphasis role="ital">information units versus items</emphasis></emphasis>
+    </para><para>
+      As data binding reflects the original information content, it also reflects its structure as a 
+      tree of atomic items. Information units, on the other hand, are entities designed to support 
+      the Java code in an optimal way, free to use alternatives to atomic values and trees.
+    </para><para>
+      These differences can be made less obvious by the many forms of customizing which different 
+      data binding technologies support. They introduce limited possibilities to avoid a one-to-one 
+      repetition of structure and information content. But this amounts to variations on the theme 
+      of repetition, rather than a transition from repetition to evaluation. This becomes especially 
+      clear when considering the price to be paid for any deviation from the structure and content 
+      implied by the original resource. 
+    </para><para>
+      If the main interest lies in accessing single items that can be identified by paths known at 
+      compile time – for example extracting parameters from a SOAP request or a configuration - data 
+      binding offers considerable advantages to the Java developer, whereas information units are of 
+      very limited use. But evaluating the XML resources and creating new information from them is an 
+      activity data binding is little concerned with. If such evaluation is important, XQuery in general, 
+      and XQuery-powered information units in particular offer an option that should be considered.
+    </para></section><section><title>Conclusion</title><para>
+      The integration of XQuery into Java may be viewed as a specimen of a very general kind of integration: 
+      the integration of “pure information processing” into object-oriented languages. Here, “pure information processing” 
+      denotes a side-effect free processing of information. As mentioned earlier, the W3C-developed XDM is a unified 
+      information model applicable to a vast spectrum of information, accessible to processing languages marked by 
+      precision, conciseness and efficiency. As a matter of fact, “information processing”, as it has become possible
+      thanks to the work done by W3C, is a new kind of program activity, which can be distinguished from other activities 
+      conceptually, and structurally factored out. It is a promising perspective to practise such separation where feasible, 
+      factoring out information processing, delegating it to specialized components – e.g. XQuery code – in as large chunks 
+      as possible, and integrating the results in a seamless way. This is an architectural pattern which XQJPLUS strives to 
+      support.
+    </para></section><section><title>Acknowledgements</title><para>
+      David A. Lee gave me advice concerning the technical preparation of the manuscript, and I-Lin Kuo
+      checked my use of the NWIS Water Quality Web Services. Lauren Wood helped me generously with the
+      English text, sacrificing much time to the elimination of errors and awkward phrasing. 
+      Xia Li helped me in every way: taking part in the technical preparation of the manuscript, 
+      reading drafts, discussing issues, making many valuable suggestions and simply encouraging 
+      me with her vivid, tireless interest. To all of you - thank you!
+    </para></section><appendix xml:id="USGS-example-data"><title>Sample of the data evaluated in the example section</title><para>
+      The data evaluated in <xref linkend="Getting-started-with-XQJPLUS"/> were obtained from 
+      the Result Service of “National Water Information System (NWIS) Water-Quality Web 
+      Services” <xref linkend="USGS-WS"/>. They contain water quality sampling results 
+      reported for the first three months of 2010, collected in the state of Minnesota, 
+      including both final and preliminary results. The data can be obtained from the 
+      following URI:
+      <programlisting xml:space="preserve">
+http://qwwebservices.usgs.gov/Result/search?organization=USGS-MN&amp;startDateLo=
+01-01-2010&amp;startDateHi=03-31-2010&amp;mimeType=xml</programlisting> 
+    </para><para>
+       Here comes a small sample of the data. "..." indicate left out parts.
+     </para><programlisting xml:space="preserve">
+&lt;WQX xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+     xmlns="http://qwwebservices.usgs.gov/schemas/WQX-Outbound/2_0/"
+     xsi:schemaLocation="http://qwwebservices.usgs.gov/schemas/WQX-Outbound/2_0/ 
+     http://qwwebservices.usgs.gov/schemas/WQX-Outbound/2_0/index.xsd"&gt;
+   &lt;Organization&gt;
+      &lt;OrganizationDescription&gt;
+         &lt;OrganizationIdentifier&gt;USGS-MN&lt;/OrganizationIdentifier&gt;
+         &lt;OrganizationFormalName&gt;USGS Minnesota Water Science Center&lt;/OrganizationFormalName&gt;
+      &lt;/OrganizationDescription&gt;
+      ...
+      &lt;Activity&gt;
+         &lt;ActivityDescription&gt;
+            &lt;ActivityIdentifier&gt;sun1dmnspl.01.01000101&lt;/ActivityIdentifier&gt;
+            &lt;ActivityTypeCode&gt;Sample-Routine&lt;/ActivityTypeCode&gt;
+            &lt;ActivityMediaName&gt;Water&lt;/ActivityMediaName&gt;
+            &lt;ActivityMediaSubdivisionName&gt;Surface Water&lt;/ActivityMediaSubdivisionName&gt;
+            &lt;ActivityStartDate&gt;2010-01-20&lt;/ActivityStartDate&gt;
+            &lt;ActivityStartTime&gt;
+               &lt;Time&gt;09:20:00&lt;/Time&gt;
+               &lt;TimeZoneCode&gt;CST&lt;/TimeZoneCode&gt;
+            &lt;/ActivityStartTime&gt;
+            &lt;ProjectIdentifier&gt;NAWQA&lt;/ProjectIdentifier&gt;
+            &lt;ActivityConductingOrganizationText&gt;U.S. Geological Survey-Water Resources 
+            Discipline&lt;/ActivityConductingOrganizationText&gt;
+            &lt;MonitoringLocationIdentifier&gt;USGS-05288705&lt;/MonitoringLocationIdentifier&gt;
+            &lt;ActivityCommentText&gt;A-0210094 Attention: Charlie Patton TPCN (2) TPCN filters: 50mL 
+            each&lt;/ActivityCommentText&gt;
+            &lt;HydrologicCondition&gt;Stable, low stage&lt;/HydrologicCondition&gt;
+            &lt;HydrologicEvent&gt;Under ice cover&lt;/HydrologicEvent&gt;
+         &lt;/ActivityDescription&gt;
+         &lt;SampleDescription&gt;
+            &lt;SampleCollectionMethod&gt;
+               &lt;MethodIdentifier&gt;15&lt;/MethodIdentifier&gt;
+               &lt;MethodIdentifierContext&gt;USGS parameter code 82398&lt;/MethodIdentifierContext&gt;
+               &lt;MethodName&gt;Equal width increment, non-isokinetic&lt;/MethodName&gt;
+            &lt;/SampleCollectionMethod&gt;
+            &lt;SampleCollectionEquipmentName&gt;Open-Mouth Bottle&lt;/SampleCollectionEquipmentName&gt;
+         &lt;/SampleDescription&gt;
+         &lt;Result&gt;
+            &lt;ResultDescription&gt;
+               &lt;CharacteristicName&gt;Depth&lt;/CharacteristicName&gt;
+               &lt;ResultMeasure&gt;
+                  &lt;ResultMeasureValue&gt;0.30&lt;/ResultMeasureValue&gt;
+                  &lt;MeasureUnitCode&gt;ft&lt;/MeasureUnitCode&gt;
+               &lt;/ResultMeasure&gt;
+               &lt;ResultStatusIdentifier&gt;Preliminary&lt;/ResultStatusIdentifier&gt;
+               &lt;ResultValueTypeName&gt;Actual&lt;/ResultValueTypeName&gt;
+               &lt;USGSPCode&gt;81903&lt;/USGSPCode&gt;
+            &lt;/ResultDescription&gt;
+            &lt;ResultLabInformation&gt;
+               &lt;LaboratoryName&gt;U.S. Geological Survey-Water Resources Discipline&lt;/LaboratoryName&gt;
+               &lt;AnalysisStartDate&gt;--&lt;/AnalysisStartDate&gt;
+            &lt;/ResultLabInformation&gt;
+            &lt;LabSamplePreparation&gt;
+               &lt;PreparationStartDate&gt;--&lt;/PreparationStartDate&gt;
+            &lt;/LabSamplePreparation&gt;
+         &lt;/Result&gt;
+         &lt;Result&gt;
+            &lt;ResultDescription&gt;
+               &lt;CharacteristicName&gt;Nitrite&lt;/CharacteristicName&gt;
+               &lt;ResultSampleFractionText&gt;Dissolved&lt;/ResultSampleFractionText&gt;
+               &lt;ResultMeasure&gt;
+                  &lt;ResultMeasureValue&gt;0.087&lt;/ResultMeasureValue&gt;
+                  &lt;MeasureUnitCode&gt;mg/l&lt;/MeasureUnitCode&gt;
+               &lt;/ResultMeasure&gt;
+               &lt;ResultStatusIdentifier&gt;Preliminary&lt;/ResultStatusIdentifier&gt;
+               &lt;ResultValueTypeName&gt;Calculated&lt;/ResultValueTypeName&gt;
+               &lt;USGSPCode&gt;71856&lt;/USGSPCode&gt;
+            &lt;/ResultDescription&gt;
+            &lt;ResultLabInformation&gt;
+               &lt;AnalysisStartDate&gt;--&lt;/AnalysisStartDate&gt;
+            &lt;/ResultLabInformation&gt;
+            &lt;LabSamplePreparation&gt;
+               &lt;PreparationStartDate&gt;--&lt;/PreparationStartDate&gt;
+            &lt;/LabSamplePreparation&gt;
+         &lt;/Result&gt;
+         &lt;Result&gt;
+            &lt;ResultDescription&gt;
+               &lt;CharacteristicName&gt;Nitrate&lt;/CharacteristicName&gt;
+               &lt;ResultSampleFractionText&gt;Dissolved&lt;/ResultSampleFractionText&gt;
+               &lt;ResultMeasure&gt;
+                  &lt;ResultMeasureValue&gt;1.66&lt;/ResultMeasureValue&gt;
+                  &lt;MeasureUnitCode&gt;mg/l&lt;/MeasureUnitCode&gt;
+               &lt;/ResultMeasure&gt;
+               &lt;ResultStatusIdentifier&gt;Preliminary&lt;/ResultStatusIdentifier&gt;
+               &lt;ResultValueTypeName&gt;Calculated&lt;/ResultValueTypeName&gt;
+               &lt;USGSPCode&gt;71851&lt;/USGSPCode&gt;
+            &lt;/ResultDescription&gt;
+            &lt;ResultLabInformation&gt;
+               &lt;AnalysisStartDate&gt;--&lt;/AnalysisStartDate&gt;
+            &lt;/ResultLabInformation&gt;
+            &lt;LabSamplePreparation&gt;
+               &lt;PreparationStartDate&gt;--&lt;/PreparationStartDate&gt;
+            &lt;/LabSamplePreparation&gt;
+         &lt;/Result&gt;       
+         &lt;Result&gt;
+            &lt;ResultDescription&gt;
+               &lt;CharacteristicName&gt;Ammonia and ammonium&lt;/CharacteristicName&gt;
+               &lt;ResultSampleFractionText&gt;Dissolved&lt;/ResultSampleFractionText&gt;
+               &lt;ResultMeasure&gt;
+                  &lt;ResultMeasureValue&gt;0.49&lt;/ResultMeasureValue&gt;
+                  &lt;MeasureUnitCode&gt;mg/l NH4&lt;/MeasureUnitCode&gt;
+               &lt;/ResultMeasure&gt;
+               &lt;ResultStatusIdentifier&gt;Preliminary&lt;/ResultStatusIdentifier&gt;
+               &lt;ResultValueTypeName&gt;Calculated&lt;/ResultValueTypeName&gt;
+               &lt;USGSPCode&gt;71846&lt;/USGSPCode&gt;
+            &lt;/ResultDescription&gt;
+            &lt;ResultLabInformation&gt;
+               &lt;AnalysisStartDate&gt;--&lt;/AnalysisStartDate&gt;
+            &lt;/ResultLabInformation&gt;
+            &lt;LabSamplePreparation&gt;
+               &lt;PreparationStartDate&gt;--&lt;/PreparationStartDate&gt;
+            &lt;/LabSamplePreparation&gt;
+         &lt;/Result&gt;
+         ...
+      ...
+   &lt;/Organization&gt;
+&lt;/WQX&gt;</programlisting></appendix><appendix xml:id="USGS-evaluation-query"><title>XQuery code performing the evaluations described in the example section</title><para>
+      The query performed the evaluations described in <xref linkend="Getting-started-with-XQJPLUS"/>.
+      It produces a sequence of control items (<code>&lt;xqjp:XXX&gt;</code>) and data items, which 
+      generic Java code (XQJPLUS) assembles into an info tray.
+    </para><programlisting xml:space="preserve">
+declare namespace xqjp="http://www.bits-ac.com/xqjplus/control";
+declare namespace meta="http://www.bits-ac.com/xqjplus/meta";
+declare default element namespace "http://qwwebservices.usgs.gov/schemas/WQX-Outbound/2_0/";
+
+declare variable $projectIds := 
+   for $n in distinct-values(//ActivityDescription/ProjectIdentifier)
+   order by $n return $n;
+
+(: *** namespace context *** 
+ : ========================= :)
+&lt;xqjp:setNamespaceContext&gt;
+   &lt;xqjp:binding prefix="data" uri="http://qwwebservices.usgs.gov/schemas/WQX-Outbound/2_0/"/&gt;
+   &lt;xqjp:binding prefix="meta" uri="http://www.bits-ac.com/xqjplus/meta"/&gt;
+   &lt;xqjp:binding prefix="usgs" uri="http://www.bits-ac.com/usgs"/&gt;
+&lt;/xqjp:setNamespaceContext&gt;,
+
+(: *** tray meta data *** 
+ : ====================== :)
+&lt;xqjp:trayMeta meta:name="balisageDemoTray"
+               meta:documentation="Creates the info tray used in section 'Getting started with XQJPLUS'."/&gt;,
+
+(: *** info unit "projectIds"
+ : ========================== :)
+&lt;xqjp:part name="projectIds" 
+           type="string_sortedset_object"
+           sematype="usgs:projectIds"/&gt;,
+$projectIds,
+
+(: *** info unit "projectActivities"
+ : ================================= :)
+&lt;xqjp:part name="projectActivities" 
+           type="nested_map_string_to_string_object"
+           impltype="java.util.TreeMap"
+           sematype="usgs:projectActivities"
+           outerEntryPath="data:project"
+           outerKeyPath="@id"
+           innerEntryPath="data:activity"
+           innerKeyPath="@time"
+           innerValuePath="@activityId"/&gt;,
+
+&lt;projectData&gt;{
+   for $p in $projectIds
+   let $myActivities := //Activity[ActivityDescription/ProjectIdentifier eq $p]
+   return
+      &lt;project id="{$p}"&gt;{
+         for $a in $myActivities
+         return
+            &lt;activity&gt;{
+               attribute time {$a/ActivityDescription/concat(ActivityStartDate, "#", ActivityStartTime/Time)},
+               attribute activityId {$a/ActivityDescription/ActivityIdentifier}
+            }&lt;/activity&gt;
+      }&lt;/project&gt;
+}&lt;/projectData&gt;,
+
+(: *** info unit "activityResults"
+ : ============================= :)
+&lt;xqjp:part name="activityResults" 
+           type="map_string_to_custom_objects_object"
+           impltype="java.util.TreeMap"
+           customType="com.bits_ac.xqjplus.appl.UsgsResult"
+           sematype="usgs:projectActivities"
+           entryPath="data:activity"
+           keyPath="@id"
+           valuePath="data:Result"/&gt;,
+
+&lt;resultObjects&gt;{
+   for $a in //Activity
+   return
+      &lt;activity id="{$a//ActivityIdentifier}"&gt;{$a/Result}&lt;/activity&gt;
+}&lt;/resultObjects&gt;,
+
+(: *** info unit "fractionResults"
+ : =============================== :)
+&lt;xqjp:part name="fractionResults" 
+           type="nested_map_string_to_strings_object"
+           impltype="java.util.TreeMap"
+           sematype="usgs:fractionResults"
+           outerEntryPath="data:fractionResults"
+           outerKeyPath="@name"
+           innerEntryPath="data:entry"
+           innerKeyPath="@time"
+           innerValuePath="data:result/@uvalue"/&gt;,
+
+&lt;allFractionResults&gt;{
+   for $f in distinct-values(//ResultDescription/CharacteristicName/string-join((., ../ResultSampleFractionText), "/"))
+   let $charName := replace($f, "/.*", "")
+   let $fractionText := if (contains($f, "/")) then replace($f, ".*/", "") else ()
+   let $myResults := //Result[ResultDescription/CharacteristicName eq $charName and (
+                      not($fractionText) and not(ResultDescription/ResultSampleFractionText)
+                      or ResultDescription/ResultSampleFractionText eq $fractionText)]
+   let $times :=  
+      for $t in distinct-values($myResults/../ActivityDescription/concat(ActivityStartDate, "#", ActivityStartTime/Time)) 
+      order by $t return $t
+   order by lower-case($f)
+   return
+      &lt;fractionResults name="{$f}"&gt;{
+         for $time in $times
+         let $myTimeResults := 
+            $myResults[../ActivityDescription/concat(ActivityStartDate, "#", ActivityStartTime/Time) eq $time]
+         order by $time
+         return
+            &lt;entry time="{$time}"&gt;{
+               for $r in $myTimeResults
+               let $rvalue := $r/ResultDescription/ResultMeasure/(ResultMeasureValue, MeasureUnitCode)
+               let $rvalue := 
+                  if ($rvalue) then $rvalue else $r/ResultLabInformation//(MeasureValue, MeasureUnitCode)
+               return
+                  &lt;result uvalue="{concat($rvalue[1], " [", $rvalue[2], "]")}"/&gt;
+            }&lt;/entry&gt;
+      }&lt;/fractionResults&gt;
+}&lt;/allFractionResults&gt;
+</programlisting></appendix><appendix xml:id="The-control-items"><title>The control items defined by XQJPLUS</title><para>
+         In <xref linkend="The-assembly-process-basics"/> and <xref linkend="The-assembly-process-advanced"/>
+         several code examples show how XQuery code controls the construction of an info tray. Those sections
+         describe the main principles. This appendix provides a brief description of all control items 
+         defined by XQJPLUS.
+       </para><para><emphasis role="bold"><emphasis role="ital"><code>xqjp:setNamespaceContext</code></emphasis></emphasis></para><para>
+        When interpreting namespace-sensitive contents of control items - e.g. construction attributes containing XPath
+        expressions, or attribute <code>sematype</code> which specifies the semantic type - XQJPLUS uses a special namespace context which 
+        is <emphasis role="ital">not</emphasis> the namespace context of the respective control item itself. This 
+        second namespace context is set or extended by <code>xqjp:setNamespaceContext</code> control items. 
+        Example:
+        <programlisting xml:space="preserve">
+&lt;xqjp:setNamespaceContext&gt;
+   &lt;xqjp:binding prefix="meta" uri="http://www.bits-ac.com/xqjplus/meta"/&gt;
+   &lt;xqjp:binding prefix="usgs" uri="http://www.bits-ac.com/usgs"/&gt;
+   &lt;xqjp:binding prefix="tns" uri="http://qwwebservices.usgs.gov/schemas/WQX-Outbound/2_0/"/&gt;
+&lt;/xqjp:setNamespaceContext&gt;</programlisting>
+      </para><para><emphasis role="ital"><emphasis role="bold"><code>xqjp:part</code></emphasis></emphasis></para><para>
+        The item defines an information unit. The name and physical type are given by the attributes “name” and “type”, and the semantic 
+        type and implementation type by “sematype” and “impltype”. Note that the latter can be used to control the type 
+        actually used to instantiate an interface, for example a collection interface. Construction attributes may control the 
+        assembly process; the range of construction attributes and their default values are specific to each physical type. 
+        A “source” attribute may reference the contents of a control variable as a data source. Further attributes must be in 
+        a namespace and specify the meta data of the unit. Child elements, if present, specify further meta data. Example:
+        <programlisting xml:space="preserve">&lt;xqjp:part xmlns:bi="http://www.bits-ac.com/usgs"
+           name="fractionResults" 
+           source="$fractionResults"
+           type="nested_map_string_to_strings_object"
+           sematype="bi:fractionResults"
+           impltype="java.util.TreeMap"
+           outerEntryPath="d:fractionResults"
+           outerKeyPath="@name"
+           innerEntryPath="d:entry"
+           innerKeyPath="@time"
+           innerValuePath="d:result/@uvalue"
+           bi:source="mn-20100101-200330"
+           bi:cr="{current-date()}"
+&gt;
+   &lt;laboratories&gt;{string-join(//LaboratoryName, “; “)&lt;/laboratories&gt;
+&lt;/xqjp:part&gt;</programlisting>
+      </para><para>
+        The defined unit has the name “fractionResults” (which has no namespace URI), a physical type corresponding 
+        to the Java type <code>Map&lt;String,&lt;String, String[]&gt;&gt;</code>, as well as semantic and implementation types as 
+        specified by the attributes “sematype” and “impltype”. The example specifies all five construction attributes 
+        defined for the actual physical type (“outerEntryPath”, “outerKeyPath”, “innerEntryPath”, “innerKeyPath”, 
+        “innerValuePath”) . If not specified, they would have defaulted to the values “*”, “@outerKey”, 
+        “*”, “@key” and “*”, respectively. As meta data, “bi:source”, “bi:cr” and “laboratories” are specified. Note
+        that a special namespace treatment is applied to namespace-sensitive contents, e.g. to construction attributes 
+        which are defined to contain an XPath expression - see preceding section.
+      </para><para><emphasis role="ital"><emphasis role="bold"><code>xqjp:setVar</code></emphasis></emphasis></para><para>
+        The item defines a control variable. The name and variable type are given by the attributes “name” and “vtype”. The variable 
+        type must be one of: node, nodes, string, strings. Example:
+        <programlisting xml:space="preserve">&lt;xqjp:setVar name="fractionResults" vtype="node"/&gt;</programlisting>
+      </para><para><emphasis role="ital"><emphasis role="bold"><code>xqjp:error</code></emphasis></emphasis></para><para>
+        The item signals an error which makes normal tray loading impossible. The item specifies an error code and detail information, 
+        both of which will be used on the Java side when constructing an exception object. The details are represented by the control 
+        item’s child elements. A special attribute “abort” specifies if the assembly process shall be continued or abandoned after 
+        processing this control item. (Continuation might be desirable in order to collect further error information.) Example:
+        <programlisting xml:space="preserve">&lt;xqjp:error code="SOURCE_NOT_AVAILABLE" abort=”true”&gt;
+   &lt;xqjp:sourceURI&gt;foo.xml&lt;/xqjp:sourceURI&gt;
+&lt;/xqjp:error&gt;</programlisting>
+      </para><para><emphasis role="ital"><emphasis role="bold"><code>xqjp:trayMeta</code></emphasis></emphasis></para><para>
+        The item provides tray-level meta data. The data can be specified by attributes or child elements, 
+        just like unit-level meta data are specified by an <code>&lt;xqjp:part&gt;</code> element. Note 
+        that the standard meta data “name” and “documentation” have names in the namespace 
+        {http://www.bits-ac.com/xqjplus/meta}. Example:
+        <programlisting xml:space="preserve">
+&lt;xqjp:trayMeta smeta:name="bi:usgsResultEvaluation"
+               bi:vsn="0.41"
+               xmlns:smeta=”http://www.bits-ac.com/xqjplus/meta”
+               xmlns:bi=”http://www.bits-ac.com/xqjplus/usgs”/&gt;</programlisting>
+      </para><para><emphasis role="ital"><emphasis role="bold"><code>xqjp:complexPartBegin</code></emphasis></emphasis></para><para>
+        The item opens the definition of a unit whose physical type is either a single info tray 
+        or an array of info trays. The name of the unit is given by attribute “name”, the physical 
+        type by attribute “type”. (The physical type must be either “infotray” or “infotrays”.) 
+        An attribute <code>sematype</code> may specify the semantic type, and further attributes 
+        and child elements may specify meta data of the unit in the same way as with 
+        <code>xqjp:part</code> items.
+        Examples:
+        <programlisting xml:space="preserve">&lt;xqjp:complexPartBegin name="msgEvaluations" type="infotrays"/&gt;,
+&lt;xqjp:complexPartBegin name="msgEvaluation" type="infotray" sematype="ws:eval" bi:vsn="1.0"/&gt;,</programlisting>        
+      </para><para><emphasis role="ital"><emphasis role="bold"><code>xqjp:complexPartEnd</code></emphasis></emphasis></para><para>
+        The item closes the definition of a unit which was opened by a preceding 
+        <code>&lt;xqjp:complexPartBegin&gt;</code> item. The unit closed is the innermost
+        unit not yet closed. There are no attributes allowed. Example:
+        <programlisting xml:space="preserve">&lt;xqjp:complexPartEnd /&gt;</programlisting>
+      </para></appendix><bibliography><title>Bibliography</title><bibliomixed xml:id="S9API" xreflabel="S9API">Michael Kay. Technical Documentation.
+      <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.saxonica.com/documentation/using-xquery/api-query.html</link>.</bibliomixed><bibliomixed xml:id="USGS-WS" xreflabel="USGS Web Services">U.S. Geological Survey (USGS).
+      Technical Documentation of USGS Water-Quality Web Services. 
+      <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://qwwebservices.usgs.gov/technical-documentation.html</link> .</bibliomixed><bibliomixed xml:id="W3C-Infoset" xreflabel="W3C Information Set">John Cowan and Richard Tobin, eds. 
+      XML Information Set W3C Recommendation 4 February 2004.
+      <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/xml-infoset/</link>.</bibliomixed><bibliomixed xml:id="W3C-XDM" xreflabel="W3C XDM">Mary Fernandez et al, eds. 
+      XQuery 1.0 and XPath 2.0 Data Model (XDM) W3C Recommendation 23 January 2007.
+      <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/xpath-datamodel/</link>.</bibliomixed><bibliomixed xml:id="W3C-XQuery" xreflabel="W3C XQuery">Scott Boag et al, eds. 
+      XQuery 1.0: An XML Query Language W3C Recommendation 23 January 2007.
+      <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/xquery/</link>.</bibliomixed><bibliomixed xml:id="JSR-XQJ" xreflabel="XQJ Spec">Jim Melton et al, eds. 
+      JSR 225: XQuery API for JavaTM (XQJ) 1.0 Specfication.
+      <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://jcp.org/en/jsr/detail?id=225</link>.</bibliomixed></bibliography></article>

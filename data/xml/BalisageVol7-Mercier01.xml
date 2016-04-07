@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="UTF-8"?><article xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink" version="5.0-subset Balisage-1.3"><title>Including XSLT stylesheets testing in continuous integration process</title><info><confgroup><conftitle>Balisage: The Markup Conference 2011</conftitle><confdates>August 2 - 5, 2011</confdates></confgroup><abstract><para> XSLT stylesheets are just like any other programming language code units: they
+                need to be written, debugged, refactored and tested. In these days of « Agility »,
+                refactoring and continuous integration play major roles in development process. How
+                to assert that XSLT stylesheets refactoring are still producing correct outputs? How
+                to early detect defects? This paper proposes a practical approach to include XSLT
+                stylesheets testing in continuous integration process, based on <link xlink:href="http://code.google.com/p/xspec/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">XSpec</link>, a <link xlink:href="http://en.wikipedia.org/wiki/Behavior_Driven_Development" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Behavior
+                    Driven Development</link> (BDD) framework for <link xlink:href="http://www.w3.org/TR/xslt20" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">XSLT</link>, and on Java helpers
+                provided by <link xlink:href="http://code.google.com/p/jxsl/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Jxsl</link>, a Java
+                XSL code library.</para></abstract><author><personname><firstname>Benoit</firstname><surname>Mercier</surname></personname><personblurb><para>Benoit Mercier has been working as researcher and analyst at the Franqus research group of the University of Sherbrooke (Quebec, Canada) since 2006 where he collaborates to the development of a new North American French dictionary. His main interests include computer linguistic, Free Software development and technology watch. His is also a European Commission official since 2000. He started and animated the Commission IT Network (CITnet), an internal collaboration platform for IT specialists (almost 2000 individuals) and is the author of the 2003-2006 version of the strategy for internal use of Open Source Software at the European Commission.</para></personblurb><email>benoit.mercier@usherbrooke.ca</email><affiliation><jobtitle>Analyst</jobtitle><orgname>Faculté des lettres et sciences humaines, Université de Sherbrooke</orgname></affiliation></author><legalnotice><para>Copyright © 2011 Benoit Mercier</para></legalnotice></info><section><title>Problem</title><para>Writing XSLT stylesheets is similar to writing code in any kind of programming
+            language. The aim is to build a working piece of code that will produce predictable
+            results to meet functional requirements. Software development is evolving at a fast
+            pace and more and more new methodologies are emerging in order to guide development
+            process. One of the key aspects shared by all these methodologies is testing, to
+            guarantee software behaviour predictability and consistency. To be really efficient and
+            useful, testing should be made easy for developers and tests scenario executions should
+            be triggered automatically as soon as code has been modified. This is nowadays part of a
+            common best practice called Continuous Integration (CI). But XSLT stylesheets are in a
+            poor relation in this context. There are few unit testing frameworks available for XSLT
+            and none of them are easily embeddable in CI processes and tools. </para><para>This paper tries to demonstrate that XSLT stylesheet testing can be made simple by
+            using the <link xlink:href="http://code.google.com/p/xspec/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">XSpec</link>
+            <link xlink:href="http://en.wikipedia.org/wiki/Behavior_Driven_Development" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Behavior
+                Driven Development</link> (BDD) framework for XSLT through the use of  <link xlink:href="http://code.google.com/p/jxsl/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Jxsl</link> Java wrapper library and can
+            be easily integrated into existing or new CI environment. It is an awareness-raising
+            document to help XSLT stylesheet developers to change their outlooks so as to foster the
+            adoption of testing as a new valuable tool at their disposal. </para></section><section><title>Solution</title><para>The proposed solution to achieve continuous integration of XSLT stylesheets adds three
+            possibly new components to the usual toolkit (IDE, version control system, etc.) used by
+            XSLT developers: <itemizedlist><listitem><para>an XSLT test framework;</para></listitem><listitem><para>a Java unit testing wrapper;</para></listitem><listitem><para>a continuous integration server.</para></listitem></itemizedlist></para><para>The following sections describe the selected tools and their respective roles in the
+            process.</para><section><title>XSLT test framework</title><para>This is the core of the solution. Writing tests should be easy, intuitive and
+                frictionless. XSpec framework meets these conditions[<xref linkend="xspec-01"/>]. BDD approach, tool quality,
+                authors and recent project activities have lead to its selection from among various
+                other projects like Juxy, XSLTUnit or UTF-X for instance.</para><para>The general idea is to write XSpec documents to describe stylesheet behaviours.
+                XSpec documents are XML documents which adhere to the <link xlink:href="http://code.google.com/p/xspec/source/browse/trunk/xspec.rnc" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">XSpec
+                    RELAX NG schema</link>. XSpec scenarios are straightforward to write for XSLT
+                developers. Stylesheet templates and functions can be tested against contextual data
+                (XML documents, fragments or mock object) by creating test scenarios. Here is a
+                sample XSpec file.</para><programlisting xml:space="preserve">
+&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+
+&lt;x:description xmlns:x="http://www.jenitennison.com/xslt/xspec" stylesheet="toHtmlWithIds.xsl"&gt;
+
+    &lt;x:scenario label="When processing a list of books"&gt;
+
+        &lt;!-- apply template rules to this element --&gt;
+        &lt;x:context href="xsltestengine-data/books-a.xml/&gt;
+
+        &lt;!-- check the result --&gt;
+        &lt;x:expect label="There must be 12 button to books" test="count(//button) = 12"/&gt;
+
+    &lt;/x:scenario&gt;
+
+&lt;/x:description&gt;
+
+            </programlisting><para>The precise way to write XSpec document is described in the official documentation
+                    [<xref linkend="xspec-02"/>].</para><para>Systematically writing XSpec test scenarios for each XSLT stylesheets produced is
+                a first step towards improving bug detection, guaranteeing compliance to
+                specifications, business and technical requirements, safer refactoring, etc. But
+                XSpec documents alone are not sufficient. Running tests is still under the sole
+                responsibility and good will of the developer. Tests should be run on a regular
+                basis to allow early error detection. Such systems exist and are widely used for
+                other programming languages. How could XSpec files be integrated in those existing
+                solutions?</para></section><section><title>Java unit testing wrapper</title><para>In order to be able to benefit from other languages testing tools availability,
+                XSpec test executions should be wrapped up in one of these languages. This is one of
+                the goals of the Jxsl project [<xref linkend="jxsl-01"/>]: to offer Java wrapper objects for XSpec test
+                configuration and executions.</para><para>Jxsl provides method to execute XSpec tests directly from Java code, one at a time
+                    (<emphasis role="ital">XspecTestScenarioRunner</emphasis>) or in batch mode
+                    (<emphasis role="ital">XspecTestSuiteRunner</emphasis>). This is useful for
+                embedding test executions in custom Java code. But Jxsl also contains wrapper for
+                the JUnit unit testing framework (TestNG support is coming). That means that an
+                existing Java project can add XSpec file testing to its standard JUnit test
+                suites.</para><para>To enable XSLT unit testing with XSpec in an existing Java project, it is as
+                simple as creating a new class in the project test package that extends <emphasis role="ital">XspecScenarioJUnitTest</emphasis> and to provide a Spring bean
+                configuration file called <emphasis role="ital"><link xlink:href="http://jxsl.googlecode.com/svn/trunk/src/test/resources/xspec-context.xml" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">xspec-context.xml</link></emphasis>. Here is a complete and functional
+                implementation. </para><programlisting xml:space="preserve">package com.mycompany.test.xspec;
+
+import com.servicelibre.jxsl.scenario.test.xspec.XspecScenarioJUnitTest;
+import java.io.File;
+
+public class XspecUnitTesting extends XspecScenarioJUnitTest {
+
+    public XspecUnitTesting(File xspecFile) {
+       super(xspecFile);
+    }
+}</programlisting><para>Jxsl offers a Maven archetype to get started quickly.  This archetype is also very
+                useful for non Java developers. Java 1.5+ JRE and Maven 2.9+ are required. The
+                archetype can be generated with the following command:</para><programlisting xml:space="preserve">
+mvn archetype:generate -DarchetypeGroupId=com.servicelibre  \
+                       -DarchetypeArtifactId=xspec-test \ 
+                       -DarchetypeVersion=0.1.5 \ 
+                       -DarchetypeCatalog=http://jxsl.googlecode.com/svn/trunk/archetypes                
+            </programlisting><para>The only things to configure to get started is the XSpec file locations . This is
+                achieved by editing the <code>src/test/resources/xspec-context.xml</code> file.
+                Tests can now be run with the following
+                command:<programlisting xml:space="preserve">mvn test</programlisting></para><para>XSpec test executions have now be integrated into some Java unit testing code in
+                order to benefit from all the tools available for triggering and monitoring standard
+                Java unit tests. The Maven project build from the archetype could also be used to
+                integrate XSpec testing in XML editor like Oxygen XML Editor (through External tools
+                configuration).</para></section><section><title>Build tool and continuous integration server</title><para>XSpec tests wrapped up in Java unit tests can now be triggered as part of a
+                standard Java project build process. Build tool like Maven does this automatically
+                by convention. Ant can be configured to run JUnit tests as follows :</para><programlisting xml:space="preserve">
+&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;project name="jxsl" default="test" basedir="."&gt;
+
+	&lt;target name="init"&gt;
+		&lt;property name="resources" location="${basedir}/../resources"/&gt;
+	&lt;/target&gt;
+
+	&lt;target name="test" depends="init"&gt;
+		&lt;echo&gt;basedir=${basedir}&lt;/echo&gt;
+		&lt;junit dir="${basedir}" fork="true" haltonerror="true" &gt;
+			&lt;test name="com.servicelibre.jxsl.scenario.test.xspec.XspecScenarioJUnitTest"/&gt;
+
+			&lt;classpath&gt;
+				&lt;pathelement path="${resources}/jxsl/jxsl-with-dependencies.jar"/&gt;
+				&lt;pathelement path="${user.home}/.m2/repository/net/sf/saxon/saxon/9.3.0.2j/saxon-9.3.0.2j.jar"/&gt;
+				&lt;path path="${basedir}"/&gt; &lt;!-- for xspec-context.xml Spring bean configuration file --&gt;
+			&lt;/classpath&gt;
+
+			&lt;formatter type="brief" usefile="false"/&gt;
+		&lt;/junit&gt;
+	&lt;/target&gt;
+
+&lt;/project&gt;
+
+            </programlisting><para>Today, not having a CI server in place when doing software development is almost
+                like not using a version control system: a risky bet.  CI server ensures, at least,
+                that code are regularly built and tested successfully in a clean environment
+                (understand « not on the developer computer ») .  There are several popular CI
+                servers: <link xlink:href="http://hudson-ci.org" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Hudson</link>/<link xlink:href="http://jenkins-ci.org/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Jenkins</link>, <link xlink:href="http://continuum.apache.org/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Continuum</link>, <link xlink:href="http://www.atlassian.com/software/bamboo/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Bamboo</link>, <link xlink:href="http://www.jetbrains.com/teamcity/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">TeamCity</link>, etc.</para><para>XSpec tests should be run regularly by a CI server.  </para><para><inlinemediaobject><imageobject><imagedata fileref="../../../vol7/graphics/Mercier01/Mercier01-001.jpg"/></imageobject></inlinemediaobject></para><para>In order to catch errors even more early, it is suggested to trigger test
+                executions on commit in the version control system. This is usually done via
+                server-side hook scripts. Resources on hook scripts for common version control
+                systems:</para><itemizedlist><listitem><para>Subversion: <link xlink:href="http://svnbook.red-bean.com/en/1.5/svn-book.html#svn.reposadmin.create.hooks" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://svnbook.red-bean.com/en/1.5/svn-book.html#svn.reposadmin.create.hooks</link></para></listitem><listitem><para>GIT: <link xlink:href="http://book.git-scm.com/5_git_hooks.html" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://book.git-scm.com/5_git_hooks.html</link></para></listitem><listitem><para>Mercurial: <link xlink:href="http://hgbook.red-bean.com/read/handling-repository-events-with-hooks.html" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://hgbook.red-bean.com/read/handling-repository-events-with-hooks.html</link></para></listitem></itemizedlist><para>Here is a sample Subversion hook script that triggers a project rebuild by
+                Hudson<programlisting xml:space="preserve">#!/bin/sh
+
+# POST-COMMIT HOOK
+
+USER=hudson
+PASSWORD=*****
+HUDSON_SERVER=hostname:8081
+HUDSON_COMMAND=polling
+
+HTTP_PREFIX=http://${USER}:${PASSWORD}@${HUDSON_SERVER}
+
+wget -b ${HTTP_PREFIX}/job/hudson_project_name/${HUDSON_COMMAND} &gt; /dev/null
+</programlisting></para></section></section><section><title>Conclusion</title><para>With the proposed solution, XSLT developers, even without any knowledge of Java, are
+            now able to easily create a Maven project from an archetype, configure it to run their
+            own XSpec files and trigger test executions by a CI server at each commit in their
+            version control system.</para></section><section><title>Acknowledgments</title><para>This project would not have been possible without the support of the Franqus Research
+            Group of the Faculté des lettres et sciences humaines, Université de Sherbrooke. The
+            author wishes to express his gratitude to colleague and friend, Dominic Marcotte, who
+            offered invaluable assistance and support.</para></section><!--<section>
+        <title>Addendum</title>
+        <para><!-\-JXsl past, present and future-\-></para>
+        <para><!-\-The Jxsl project is very young and a lot of work has still to be done in order to improve reporting, documentation, etc.-\-></para>
+    </section>--><bibliography><title>Work cited</title><bibliomixed xml:id="jxsl-01">            
+            <quote>jxsl, Java XSL code library</quote>
+            <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://code.google.com/p/jxsl</link>.
+            Accessed 2011-06-10.
+        </bibliomixed><bibliomixed xml:id="xspec-01">            
+            <quote>XSpec, BDD framework for XSLT</quote>
+            <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://code.google.com/p/xspec</link>.
+            Accessed 2011-06-10.
+        </bibliomixed><bibliomixed xml:id="xspec-02">
+            <quote>How to write XSpec scenarios</quote> (part of the XSpec documentation),
+                <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://code.google.com/p/xspec/wiki/WritingScenarios</link>. Accessed
+            2011-06-10. </bibliomixed></bibliography></article>

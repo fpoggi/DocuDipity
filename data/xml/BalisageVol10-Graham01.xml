@@ -1,0 +1,306 @@
+<?xml version="1.0" encoding="UTF-8"?><article xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink" version="5.0-subset Balisage-1.3" xml:id="HR-23632987-8973"><title>Decision making in XSL-FO formatting</title><info><confgroup><conftitle>Balisage: The Markup Conference 2013</conftitle><confdates>August 6 - 9, 2013</confdates></confgroup><abstract><para>XSL-FO has a very linear processing model that has served it well, but very often it is necessary to make decisions on what will be in the formatted output based on the sizes of the formatted output, and XSL 1.1 as defined does not let you do that.  This paper looks at what's needed to be done to get that sort of decision making into XSL-FO processing today and at some possible future developments.</para></abstract><author><personname><firstname>Tony</firstname><surname>Graham</surname></personname><personblurb><para>Tony Graham is the chair of the Print and Page Layout Community Group at the W3C.</para></personblurb><affiliation><jobtitle>Consultant</jobtitle><orgname>Mentea</orgname></affiliation><email>tgraham@mentea.net</email></author><legalnotice><para>Copyright © 2013 Mentea</para></legalnotice><keywordset role="author"><keyword>XSL-FO</keyword></keywordset></info><section><title>XSL 1.1 Processing Model</title><para>Extensible Stylesheet Language (XSL) 1.1 [XSL11] is defined to cover
+both transformation and formatting.  The transformation part was
+broken out as XSLT long before XSL 1.1 became a Recommendation, so the XSLT spec, bar a few paragaphs about XSLT, is concerned with formatting the result of a XSLT transformation, where:</para><blockquote><para>Formatting is enabled by including formatting semantics in the result tree. Formatting semantics are expressed in terms of a catalog of classes of formatting objects. The nodes of the result tree are formatting objects. The classes of formatting objects denote typographic abstractions such as page, paragraph, table, and so forth. Finer control over the presentation of these abstractions is provided by a set of formatting properties, such as those controlling indents, word- and letter spacing, and widow, orphan, and hyphenation control. In XSL, the classes of formatting objects and formatting properties provide the vocabulary for expressing presentation intent.</para></blockquote><para>Figure 1 is the detailed conceptual model diagram from XSL 1.1.  It shows a linear process from XML source to the result of the XSLT stage to the formatted output.</para><figure xml:id="model1"><title>XSL 1.1 processing model</title><mediaobject><imageobject><imagedata format="png" fileref="../../../vol10/graphics/Graham01/Graham01-001.png"/></imageobject></mediaobject></figure><para>The process of turning XML in the FO vocabulary into formatted, and more than likely paginated, output is itself defined in multiple stages.  Figure 2, also from XSL 1.1, shows how the XML representation of the formatting objects is turned into actual objects (as 'actual' as bits and bytes in computer memory can be), expressions in property values are resolved, and the formatter then makes areas.  The formatted areas could be written out to a graphical or document format (such as PDF, PostScript, or RTF) or, in some cases, could be written out as an XML representation of the area tree for later processing.</para><figure xml:id="model2"><title>Summary of the process</title><mediaobject><imageobject><imagedata format="png" fileref="../../../vol10/graphics/Graham01/Graham01-002.png"/></imageobject></mediaobject></figure><para>The XSL spec itself notes that its design follows that of DSSSL [DSSSL]:</para><blockquote><para>XSL builds on the prior work on Cascading Style Sheets [CSS2] and the Document Style Semantics and Specification Language [DSSSL].</para></blockquote><para>and the linear processing model with transformation and formatting stages follows that of DSSSL:</para><figure xml:id="dsssl1"><title>DSSSL processing model</title><mediaobject><imageobject><imagedata format="png" fileref="../../../vol10/graphics/Graham01/Graham01-003.png"/></imageobject></mediaobject></figure><figure xml:id="dsssl2"><title>DSSSL formatting</title><mediaobject><imageobject><imagedata format="png" fileref="../../../vol10/graphics/Graham01/Graham01-004.png"/></imageobject></mediaobject></figure><para>DSSSL goes one step further - or XSL took one step back from DSSSL - since DSSSL states:</para><blockquote><para>DSSSL is independent of the type of formatter,
+formatting system, or other transformation processor.</para></blockquote><para>and James Clark's Jade DSSSL procssor [JADE] came with RTF, TeX, and MIF backends for formatted output.</para><para>This separation of concerns between a style engine and a backend is not explicit in either the original XSL Requirements Summary [XSLReq] or the XSL spec, but the linear processing model did allow XSL processing to be implemented on top of existing formatters, and of the six formatters for which test results [XSLCRTest] were provided so the XSL 1.0 specification could progress from Candidate Recommendation to Proposed Recommendation, two - Arbortext and PassiveTeX - used existing formatters to make the pages.</para><section><title>Effect on decision making</title><para>To take a simplistic view of decision making - that it's just that: making decisions - then there's obviously a lot of decision making going on in the XSL processing model:</para><itemizedlist><listitem><para>The stylesheet writer decides how to style the class of the source documents</para></listitem><listitem><para>The XSLT processor, by selecting template rules based on the structure of the source document (and possibly on other factors) and by evaluating conditional expressions, decides what goes in the result tree</para></listitem><listitem><para>The XSL formatter decides where pages, lines, etc., should break, decides what should change when one area intrudes on another, and decides (based on values of properties such as 'overflow', etc.) what to do when an area or a graphic is too large for the available space</para></listitem></itemizedlist><para>yet these are all decisions taken in isolation at different points in the processing.</para></section></section><section><title>Case Study - PLOS ONE Journal</title><para>
+PLOS ONE [PONE] is an international, peer-reviewed, open-access, online publication published by PLOS (Public Library of Science) [PLOS], a nonprofit publisher and advocacy organization headquartered in San Francisco, California, USA.</para><para>The author was selected to implement a XSL-FO-based system for producing PDFs of PLOS ONE articles.  The PDFs had to replicate PLOS ONE's existing house style.</para><para>PLOS ONE receives manuscripts in Word, LaTeX, or RTF formats, then converts these to XML conforming to the NLM Journal Publishing DTD v3.0 prior to publication.</para><para>PLOS ONE articles are formatted in two-column pages.  Figures may be either column-wide or page-wide, and tables may be column-wide, page-wide, or rotated so their width is page-high, but there is no size information for either figures or tables in the source XML.  Figures and graphics may also float to either the top or bottom of the page or column.</para><section><title>XSL 1.1 capabilities</title><para>XSL 1.1 defines a 'before-float-reference-area' on a page, but does not define an area for content floated to the 'after' end of the page, and the 'before-float-reference-area', when instantiated, takes the full width of the fo:region-body of the page.</para><para>PLOS therefore had to choose a XSL formatter based on the availability of vendor extensions to support more ways to float than defined by XSL 1.1.</para></section><section><title>Graphics handling</title><para>Graphics at least have an intrinsic size and, in formats such as TIFF, have an intrinsic resolution as well.</para><para>The process for determining whether graphics are column-wide or page-wide is:</para><itemizedlist><listitem><para>Download copies of TIFF images from PLOS ONE article web page</para><para>In production, PLOS will have the graphics available on their servers, so this is only ncessary while developing the stylesheet.</para></listitem><listitem><para>Run ImageMagick 'identify' on each graphic to get its width, height, horizontal resolution, and vertical resolution and write the information to a '.identify' file for each graphic</para></listitem><listitem><para>In the XSLT stylesheet, when processing a graphic, get the contents of the corresponding '.identify' file using 'unparsed-text()', tokenize the returned string to get the four values, then calculate the graphic's width by dividing the width in pixels by the horizontal resolution.  When the calculateed width is less than or equal to the width of a column, it is made column-wide, otherwise it is made page-wide.</para></listitem></itemizedlist><para>The PLOS ONE authoring guidelines allow graphics sized up to the height of the page body, but figures may have captions of up to 300 characters, as well as having a label, title, and DOI that also appear in the formatted output.  XSL doesn't allow floated FOs to break across a page, so imilarly to as described below for tables, the processing system 'preformats' the figure captions at both widths and writes out the area tree to be used as input by the main stylesheeet so the stylesheet reduces the allowed maximum height of the graphic so the graphic won't push its following caption into the footer area.</para></section><section><title>Table handling</title><para>Tables, as noted above, are presented one of three ways -- column-wide, page-wide, or page-high -- depending on which best fits the content of the table.  Deciding which to do is entirely up to the processing system since the source XML, converted from other sources as it was, does not include even the few presentation-oriented attributes defined by the DTD.</para><para>The NLM/JATS DTDs support [TableWrap] specifying the orientation of a combined table and caption but do not provide a way to indicate the width of a table.  The NISO JATS table model does allow a 'style' attribute on 'table' and 'caption', but not on the 'table-wrap' that contains them both.</para><para>The sample files provided at the start of the project included TIFF images of each of the tables in the samples as well as TIFF files for the graphics, and it wasn't until the project was underway that it was made clear that the images of the tables were artifacts of the existing processing system and, not only were they not going to be available for new documents, the new system was expected to produce those as well.</para><para>The implemented approach makes a temporary 'sizer' formatted document containing each table at each width, saves the area tree from that document, and provides the area tree as a parameter to the stylesheet that produces the FO for the final formatted output.</para><para>The 'sizer' document comprises three pages that each have a different fixed width and a large height (since the formatter doesn't support '&lt;fo:root media-usage="bounded-in-one-dimension"&gt;').  Every table in the source XML has an ID, so the tables on each page are given a unique ID in their FO document by prefixing a page-specific prefix to the tables original ID.  The following figure shows tables from an article formatted at page-wide, column-wide, and page-high widths.  The first two tables fit within a column, but the third overflows a column.</para><figure xml:id="sizer"><title>'sizer' document</title><mediaobject><imageobject><imagedata format="png" fileref="../../../vol10/graphics/Graham01/Graham01-005.png"/></imageobject></mediaobject></figure><para>The stylesheet that produces the 'sizer' document is very simple.  A template matching the document node does all the work, and the stylesheet imports the 'main' stylesheet so the tables are formatted exactly as they would be in the final output.  Since there are only three pages, the stylesheet does not even define any page-sequence masters, so each fo:page-sequence refers directly to a fo:simple-page-master.</para><programlisting xml:space="preserve">
+  &lt;fo:root&gt;
+    &lt;fo:layout-master-set&gt;
+      &lt;xsl:call-template name="define-sizer-simple-page-masters"/&gt;
+    &lt;/fo:layout-master-set&gt;
+    &lt;fo:page-sequence master-reference="page-wide"&gt;
+      &lt;fo:flow flow-name="body" xsl:use-attribute-sets="fo:flow"&gt;
+        &lt;xsl:apply-templates select="//table-wrap"&gt;
+          &lt;xsl:with-param name="prefix" select="'page-wide-'" as="xs:string" tunnel="yes" /&gt;
+        &lt;/xsl:apply-templates&gt;
+      &lt;/fo:flow&gt;
+    &lt;/fo:page-sequence&gt;
+    &lt;fo:page-sequence master-reference="column-wide"&gt;
+      &lt;fo:flow flow-name="body" xsl:use-attribute-sets="fo:flow"&gt;
+        &lt;xsl:apply-templates select="//table-wrap"&gt;
+          &lt;xsl:with-param name="prefix" select="'column-wide-'" as="xs:string" tunnel="yes" /&gt;
+        &lt;/xsl:apply-templates&gt;
+      &lt;/fo:flow&gt;
+    &lt;/fo:page-sequence&gt;
+    &lt;fo:page-sequence master-reference="page-high"&gt;
+      &lt;fo:flow flow-name="body" xsl:use-attribute-sets="fo:flow"&gt;
+        &lt;xsl:apply-templates select="//table-wrap"&gt;
+          &lt;xsl:with-param name="prefix" select="'page-high-'" as="xs:string" tunnel="yes" /&gt;
+        &lt;/xsl:apply-templates&gt;
+      &lt;/fo:flow&gt;
+    &lt;/fo:page-sequence&gt;
+  &lt;/fo:root&gt;
+&lt;/xsl:template&gt;</programlisting><para>The only template that has so far been needed to override the default processing just stops bibliographic cross-references or references to supplemantary material generating a fo:basic-link so there's no longer warnings from the XSL formatter about unresolved cross-references:</para><programlisting xml:space="preserve">&lt;xsl:template match="xref[@ref-type = ('bibr', 'supplementary-material')]"&gt;
+  &lt;xsl:apply-templates /&gt;
+&lt;/xsl:template&gt;</programlisting><para>The main stylesheet declares variables for the page width, margins, etc., so the same values are used in the main stylesheet to produce the final output and to work out whether graphics should be page-wide or column-wide and used in the 'sizer' stylesheet to set the pages' dimensions.</para><para>As stated previously, the area tree for the 'sizer' document is saved as XML, and the filename of the area tree XML passed to the main stylesheet, when run separately, as a parameter value.  When the stylesheet comes to process a 'table-wrap', it looks up the dimensions of the table variants in the 'sizer' area tree and, based on the dimensions, decides which format of the table to use.  The following figure shows two of the tables from the 'sizer' document in the final formatted output.</para><figure xml:id="pages"><title>Formatted pages</title><mediaobject><imageobject><imagedata format="png" fileref="../../../vol10/graphics/Graham01/Graham01-006.png"/></imageobject></mediaobject></figure><para>Current capabilities include automatic sizing of tables to be column-wide, page-wide, or page-high (either column-width or page-width), with manual overrides available to force a table to be page-wide or page high, plus automatic breaking of tables that are too high (or, for page-high tables, too wide) for the available space.  When tables are broken into multiple subtables, each subtable gets its column widths from the 'sizer' table both so the subtables use the same widths and to avoid the automatic table algorithm optimising eacch subtable and leaving space at the bottom of a page.</para><para>It hasn't yet been necessary to produce TIFF images of each table, but if it were required, the main stylesheet would output a separate FO document with individually-sized page dimensions for each table.  Those FO documents would then be formatted to PDF or PostScript and then converted to TIFF using ImageMagick.</para></section></section><section><title>Extensible Stylesheet Language (XSL) Requirements Version 2.0</title><para>The "Extensible Stylesheet Language (XSL) Requirements Version 2.0" Working Draft [XSLFO20-Req], published two years after XSL 1.1, includes among its requirements several that require or allow more decision making within the XSL formatter or that break the linear sequence of the XSL 1.1 processing model, including:</para><itemizedlist><listitem><para>Section 2.3, Feedback from pagination stage</para><para>This calls for "the ability to use information from the pagination step of one formatting episode in determining layout of the following formatting episode" and "making changes to the pages, reordering pages, merging multiple flows and do many other post processing tasks."  This is what was done in the PLOS ONE example above, but if it could be realised in a XSL-FO 2.0 specification and in a XSL-FO 2.0 formatter, then it may be easier to use compared to the current bespoke solution that is stitched together using Apache Ant.</para></listitem><listitem><para>Section 3.1, Including information from formatting time</para><para>This calls for the XSL-FO expression language "to allow expressions that include information that’s only available at formatting time."  If implemented, it wouldn't necessarily put more decision making in the XSL formatter, but would let the output change the output in a way that isn't possible at present.</para></listitem><listitem><para>Section 3.2, Pagination information</para><para>The ability "to compute expressions that are based on information that is only available after the pagination stage" would be another twist to the linear processing model.</para></listitem><listitem><para>Section 2.1.4, Copyfitting</para><para>Copyfitting, in XSL-FO 2.0 terms, would be the ability to "shrink or grow content (change properties of text, line-spacing, ...) to make it constrain to a certain area."  The requirements also anticipate that "multiple instances of alternative content can be provided to determine best fit" and that copyfitting would act "across a given number of pages, regions, columns etc, for example to constrain the number of pages to 5 pages."</para><para>Again, this would put more decision making within the XSL formatter but, once specified in the input FO document, it would be beyond the direct control of the XSLT stylesheet and of the stylesheet writer.</para></listitem></itemizedlist></section><section><title>Print and Page Layout Community Group</title><para>The charter of the W3C XML Print and Page Layout Working Group, which was developing XSL-FO 2.0 and produced a series of working drafts, expired in early 2013.  However, following the inception of Business and Community Groups at the W3C, the Print and Page Layout Community Group [PPL] has been operating since early 2012.  It has no charter and no support from the W3C other than that provided to all Community Groups, but after a period of relative inactivity, it is now producing new ideas and trying out new solutions for XSL-FO processing.</para><section><title>Emphasis on feedback</title><para>Following a post by Patrick Gundlach of Speedata on the eve of his XML Prague 2013 talk [Sppedata], the CG turned its attention to feedback, or the lack of it, in XSL-FO processing.  The CG produced a short list of examples where feedback, as the basis for decision making, would be useful [CustReq].  Some of them have direct equivalents in the XSL-FO 2.0 requirements document, but others do not.</para><para>It was quite easy for several on the public-ppl@w3.org mailing list to agree on the usefulness of more feedback in XSL-FO processing (while others are happy with XSL 1.1 as it is today [Hahn]), but the difficulty was in doing anything about it given the limited resources of the CG.  In response to comments on the mailing list, Arved Sandstrom of MagicLamp Software produced a proof-of-concept extension function [FOPRunXSLTExt] for both the Saxon and Xerces XSLT processors that, mid-transform, runs the Apache FOP XSL formatter [FOP] on a provided FO document and returns (a reference to) the area tree XML for the formatted result.</para><para>Several examples of the extension function in action are provided on the PPL wiki.  The example below demonstrates a solution to requirement #9, "Ability to modify label field width in a single list when labels are large", from [CustReq].</para><para>The example's source XML includes two lists that, when transformed with the default stylesheet and formatted, are cleverly contrived to have list item label widths that are either too wide or too narrow for the labels in the lists.</para><figure xml:id="wrong"><title>Wrong list item label widths</title><mediaobject><imageobject><imagedata format="png" fileref="../../../vol10/graphics/Graham01/Graham01-007.png"/></imageobject></mediaobject></figure><para>When the same XML is transformed with a stylesheet that uses the extension function and then formatted, the list item label widths are set based on the actual maximum formatted width of the labels in each list. The stylesheet constructs a test document containing just the list item label texts, uses the extension function to format that and get the area tree, and decides the maximum widths from the area tree. The document that is formatted mid-transform is, therefore, a different document to the one used to produce the final output.</para><figure xml:id="right"><title>Right list item label widths</title><mediaobject><imageobject><imagedata format="png" fileref="../../../vol10/graphics/Graham01/Graham01-008.png"/></imageobject></mediaobject></figure><programlisting xml:space="preserve">&lt;xsl:template name="main"&gt;
+  &lt;!-- Make a test document containing only the list labels.  Re-use
+       example markup rather than creating FOs directly just because
+       it's convenient. --&gt;
+  &lt;xsl:variable name="test-doc"&gt;
+    &lt;example&gt;
+      &lt;xsl:for-each select="key('lists', true())"&gt;
+        &lt;box id="{@id}" width="3in" height="3in"&gt;
+          &lt;xsl:for-each select="item/@label"&gt;
+            &lt;paragraph&gt;
+              &lt;xsl:value-of select="."/&gt;
+            &lt;/paragraph&gt;
+          &lt;/xsl:for-each&gt;
+        &lt;/box&gt;
+      &lt;/xsl:for-each&gt;
+    &lt;/example&gt;
+  &lt;/xsl:variable&gt;
+  &lt;!-- Save the FO tree from $test-doc in a variable. --&gt;
+  &lt;xsl:variable name="fo_tree"&gt;
+    &lt;xsl:apply-templates select="$test-doc" /&gt;
+  &lt;/xsl:variable&gt;
+
+  &lt;xsl:variable name="area_tree_file"
+		select="concat($dest_dir, '/', $area_tree_filename)" /&gt;
+
+  &lt;xsl:message&gt;Area tree filename = &lt;xsl:value-of select="$area_tree_file" /&gt;&lt;/xsl:message&gt;
+
+  &lt;xsl:variable
+      name="url"
+      select="runfop:area-tree-url($fo_tree, $area_tree_file)"
+      as="xs:string" /&gt;
+
+  &lt;xsl:variable
+      name="area-tree"
+      select="document($url)"
+      as="document-node()?" /&gt;
+
+  &lt;xsl:variable name="overrides"&gt;
+    &lt;overrides&gt;
+      &lt;!-- Find the maximum label width for each list and convert to pt. --&gt;
+      &lt;xsl:for-each select="key('lists', true())"&gt;
+	&lt;xsl:variable name="id" select="@id" as="xs:string" /&gt;
+	&lt;xsl:variable name="block"
+		      select="key('blocks', $id, $area-tree)[1]" /&gt;
+	&lt;override id="{$id}" label-width="{max($block//text/@ipd) div 1000}pt" /&gt;
+      &lt;/xsl:for-each&gt;
+    &lt;/overrides&gt;
+  &lt;/xsl:variable&gt;
+
+  &lt;xsl:apply-templates select="/"&gt;
+    &lt;xsl:with-param name="overrides" select="$overrides" as="document-node()" tunnel="yes" /&gt;
+  &lt;/xsl:apply-templates&gt;
+&lt;/xsl:template&gt;</programlisting><para>The examples so far haven't demonstrated anything that couldn't be done using two stylesheets in the manner of the PLOS ONE table handling.  The following example impements the oft-stated requirement for adjusting font size until text just fits a certain area.  Since that's an iterative process, it's more convenient to do that within on transformation rather than having to use shell scripts or Ant to run an XSLT processor on a preliminary stylesheet multiple times and examine the result each time.</para><figure xml:id="fill"><title>'font-size' adjusted so text fills box</title><mediaobject><imageobject><imagedata format="png" fileref="../../../vol10/graphics/Graham01/Graham01-009.png"/></imageobject></mediaobject></figure><programlisting xml:space="preserve">&lt;!-- Initial template --&gt;
+&lt;xsl:template name="main"&gt;
+  &lt;xsl:call-template name="do-box"&gt;
+    &lt;xsl:with-param name="font-size" select="$font-size" as="xs:double" /&gt;
+    &lt;xsl:with-param
+        name="font-size.minimum" select="$font-size" as="xs:double" tunnel="yes" /&gt;
+    &lt;xsl:with-param
+        name="font-size.maximum" select="$font-size * 10" as="xs:double" tunnel="yes" /&gt;
+    &lt;xsl:with-param name="iteration" select="1" as="xs:integer" /&gt;
+    &lt;xsl:with-param name="iteration-max" select="30" as="xs:integer" tunnel="yes" /&gt;
+    &lt;xsl:with-param name="tolerance" select="$tolerance" as="xs:double" tunnel="yes" /&gt;
+  &lt;/xsl:call-template&gt;
+&lt;/xsl:template&gt;
+
+&lt;xsl:template name="do-box"&gt;
+  &lt;xsl:param name="font-size" as="xs:double" /&gt;
+  &lt;xsl:param name="font-size.minimum" as="xs:double" tunnel="yes" /&gt;
+  &lt;xsl:param name="font-size.maximum" as="xs:double" tunnel="yes" /&gt;
+  &lt;xsl:param name="iteration" select="1" as="xs:integer" /&gt;
+  &lt;xsl:param name="iteration-max" select="5" as="xs:integer" tunnel="yes" /&gt;
+  &lt;xsl:param name="tolerance" select="$tolerance" as="xs:double" tunnel="yes" /&gt;
+
+  &lt;xsl:variable name="area_tree_filename_basename"
+                select="replace($area_tree_filename, '\.[^.]+$', '')"
+                as="xs:string" /&gt;
+  &lt;xsl:variable name="area_tree_filename_suffix"
+                select="tokenize($area_tree_filename, '\.')[last()]"
+                as="xs:string" /&gt;
+  &lt;xsl:variable name="area_tree_file"
+		select="concat($dest_dir,
+                               '/',
+                               $area_tree_filename_basename,
+                               '-',
+                               $iteration,
+                               '.',
+                               $area_tree_filename_suffix)"
+                as="xs:string" /&gt;
+
+  &lt;xsl:message&gt;iteration = &lt;xsl:value-of select="$iteration" /&gt;&lt;/xsl:message&gt;
+  &lt;xsl:message&gt;font-size = &lt;xsl:value-of select="$font-size" /&gt;&lt;/xsl:message&gt;
+  &lt;xsl:message&gt;font-size.minimum = &lt;xsl:value-of select="$font-size.minimum" /&gt;&lt;/xsl:message&gt;
+  &lt;xsl:message&gt;font-size.maximum = &lt;xsl:value-of select="$font-size.maximum" /&gt;&lt;/xsl:message&gt;
+  &lt;xsl:message&gt;Area tree filename = &lt;xsl:value-of select="$area_tree_file" /&gt;&lt;/xsl:message&gt;
+
+  &lt;xsl:variable name="overrides"&gt;
+    &lt;overrides&gt;
+      &lt;!-- Set the font size. --&gt;
+      &lt;xsl:for-each select="key('boxes', true())"&gt;
+	&lt;xsl:variable name="id" select="@id" as="xs:string" /&gt;
+	&lt;override id="{$id}" font-size="{$font-size}" /&gt;
+      &lt;/xsl:for-each&gt;
+    &lt;/overrides&gt;
+  &lt;/xsl:variable&gt;
+
+  &lt;!-- Save the FO tree in a variable. --&gt;
+  &lt;xsl:variable name="fo_tree"&gt;
+    &lt;xsl:apply-templates select="/"&gt;
+      &lt;xsl:with-param name="overrides" select="$overrides" as="document-node()" tunnel="yes" /&gt;
+    &lt;/xsl:apply-templates&gt;
+  &lt;/xsl:variable&gt;
+
+  &lt;xsl:variable
+      name="url"
+      select="runfop:area-tree-url($fo_tree, $area_tree_file)"
+      as="xs:string" /&gt;
+
+  &lt;xsl:variable
+      name="area-tree"
+      select="document($url)"
+      as="document-node()?" /&gt;
+
+  &lt;xsl:variable
+      name="bpd"
+      select="key('blocks', key('boxes', true())[1]/@id, $area-tree)[1]/block/@bpd"
+      as="xs:integer" /&gt;
+
+  &lt;xsl:variable
+      name="target-height"
+      select="xs:double(substring-before(key('boxes', true())[1]/@height, 'pt'))"
+      as="xs:double" /&gt;
+
+  &lt;xsl:choose&gt;
+    &lt;xsl:when test="$iteration eq $iteration-max"&gt;
+      &lt;xsl:message&gt;Maximum iterations.&lt;/xsl:message&gt;
+      &lt;xsl:apply-templates select="/"&gt;
+        &lt;xsl:with-param
+            name="overrides"
+            select="$overrides"
+            as="document-node()"
+            tunnel="yes" /&gt;
+      &lt;/xsl:apply-templates&gt;
+    &lt;/xsl:when&gt;
+    &lt;xsl:when test="$bpd div 1000 &gt; $target-height"&gt;
+      &lt;xsl:call-template name="do-box"&gt;
+        &lt;xsl:with-param
+            name="font-size"
+            select="($font-size + $font-size.minimum) div 2"
+            as="xs:double" /&gt;
+        &lt;xsl:with-param
+            name="font-size.maximum"
+            select="$font-size"
+            as="xs:double"
+            tunnel="yes" /&gt;
+        &lt;xsl:with-param name="iteration" select="$iteration + 1" as="xs:integer" /&gt;
+      &lt;/xsl:call-template&gt;
+    &lt;/xsl:when&gt;
+    &lt;xsl:when test="$target-height - ($bpd div 1000) &amp;lt;
+                    $target-height * $tolerance div $target-height"&gt;
+      &lt;xsl:message&gt;It fits.&lt;/xsl:message&gt;
+      &lt;xsl:apply-templates select="/"&gt;
+        &lt;xsl:with-param
+            name="overrides"
+            select="$overrides"
+            as="document-node()"
+            tunnel="yes" /&gt;
+      &lt;/xsl:apply-templates&gt;
+    &lt;/xsl:when&gt;
+    &lt;xsl:otherwise&gt;
+      &lt;xsl:call-template name="do-box"&gt;
+        &lt;xsl:with-param
+            name="font-size"
+            select="($font-size + $font-size.maximum) div 2"
+            as="xs:double" /&gt;
+        &lt;xsl:with-param
+            name="font-size.mimimum"
+            select="$font-size"
+            as="xs:double"
+            tunnel="yes" /&gt;
+        &lt;xsl:with-param name="iteration" select="$iteration + 1" as="xs:integer" /&gt;
+      &lt;/xsl:call-template&gt;
+    &lt;/xsl:otherwise&gt;
+  &lt;/xsl:choose&gt;
+&lt;/xsl:template&gt;</programlisting><para>The difficulty with the proof-of-concept extension function is that it's only a proof-of-concept -- getting the area tree back from the extension function is more complicated than it needs to be, and getting values from the area tree requires some comprehension of the FOP area tree XML.  If it is to be generally usable and usable with different XSL formatters, there should be a common area tree XML format into which vendor's area trees can be transformed and/or library functions for common area tree access operations.</para></section><section><title>Adapt Saxon-CE event model to XSL-FO?</title><para>Using the proof-of-concept extension function, an
+XSLT stylesheet can now make decisions about what to put in the result
+based on the trial formatted size of areas, but as it's only a
+proof-of-concept, it doesn't aim as high as getting feedback from or
+modifying in-situ the area tree for the final, formatted document.</para><para>Once people have tried a few things with getting feedback from the XSL
+formatter and start asking their vendors for the same or better, they'll
+also be wanting an interoperable way to express what to do with that
+feedback.  For simple feedback of static area trees, which is all that is
+possible with the current proof-of-concept, the most interoperability that
+you could manage would be a common representation of area trees (with
+flexibility for vendor extensions) and, possibly, a library of XSLT
+functions to make it easier to navigate the area trees, but for "live"
+feedback, something more would be required.</para><para>The PPL CG has recently been looking at how Saxon-CE [SaxonCE] handles user input, and considering whether the same sort of pattern could be adapted to handling
+feedback from the XSL formatter.  Saxon-CE does it through template
+rules that match the element that receives the event and are in a mode
+that reflects the type of event, and similarly an XSL formatter could
+trigger on exceptional events such as overflow occurring or even on
+mundane events such as completion of a page sequence, and the templates in
+the corresponding modes could match on either FOs in the FO tree or areas
+in the area tree.</para><para>The following template from the "Knight's Tour" sample Saxon-CE
+application is the event handler for when the user clicks the 'Reset'
+button.  It simply writes a NO-BREAK SPACE to each square on the Knight's
+chess board</para><programlisting xml:space="preserve">&lt;xsl:template match="button[@id='reset']" mode="ixsl:onclick"&gt;
+  &lt;xsl:for-each select="//div[starts-with(@id, 'square')]"&gt;
+     &lt;xsl:result-document href="#{@id}" method="replace-content"&gt;
+       &lt;xsl:text&gt;&amp;amp;#xa0;&lt;/xsl:text&gt;
+     &lt;/xsl:result-document&gt;
+  &lt;/xsl:for-each&gt;
+&lt;/xsl:template&gt;</programlisting><para>The key feature of the event handler for the purposes of this discussion
+is that it's written in plain old XSLT.  The advantage of the XSLT event
+handler for Saxon-CE users is interactivity "without dropping down into
+JavaScript" (as the Saxon-CE documentation so delicately puts it),
+but the advantage for XSL-FO users would simply be that they don't need to
+learn a new language (declarative, functional, or otherwise) to handle
+feedback.  (And the advantage for those trying to define or
+implement feedback is that they don't need to invent a whole new language to
+handle it.)</para><para>Applying the Saxon-CE approach to XSL-FO, the following conceptual FO
+event handler would handle a figure overflowing its available space by
+reducing its size to 80% of the current.</para><programlisting xml:space="preserve">&lt;xsl:template match="BlockArea[key('fig', @id, $src-doc)]"
+              mode="ppl:overflow"&gt;
+  &lt;xsl:result-document href="#{@id}/area:external-graphic"
+                       method="replace-content"&gt;
+    &lt;xsl:copy&gt;
+      &lt;xsl:apply-templates select="@*"/&gt;
+      &lt;xsl:attribute name="width"
+                     select="ppl:scale(area:external-graphic/@width,
+                                       0.8)"/&gt;
+      &lt;xsl:apply-templates/&gt;
+    &lt;/xsl:copy&gt;
+  &lt;/xsl:result-document&gt;
+&lt;/xsl:template&gt;</programlisting><para>
+An extra wrinkle for XSL-FO is the question of whether event handlers
+should be specified to (a) match on, and (b) modify the FO tree or the
+area tree or both.  There are some existing requirements that can only be
+satisfied by modifying the area tree, e.g., Section 3.3, Output result of
+expression:</para><blockquote><para>Allow users to output the result of expressions on area tree,
+   traits, markers or text content. For example to calculate the
+   subtotal of a certain page (as opposed to a running total that
+   is already supported in XSL 1.1 with table markers)</para></blockquote><para>On the other hand, it will often be simpler (from the user's perspective)
+to modify an FO rather than all the areas that it generates, since a
+single FO may generate multiple areas across several columns or pages (and
+footnote areas), and its content may be reused in markers on multiple
+pages.  If, for example, the response to a page sequence taking too many
+pages is to reduce the font size in one of the multiple flows appearing on
+the page, it would be at once simple to adjust the 'font-size' property on
+the appropriate FOs in the FO tree and inaccurate to directly modify font
+sizes in the line areas in the area tree.  If the XSL formatter did the
+work based on modified FOs, it would reflow the line areas based on their
+reduced font size and make the pages again and the resulting modified
+block areas would break across pages in different places because of the
+smaller font size.  If the XSLT stylesheet did the work by modifying the
+area tree, it would have to do the same recalculating of text sizes and
+the same merging or splitting of line areas and of block areas, and all
+(probably) without the benefit of font metrics.  It might work, just, in a
+simple case with only monospace fonts, but would still be a lot of work to
+do in XSLT.</para><para>Adapting the Saxon-CE event model to XSL-FO is, therefore, an interesting
+possible solution to handling feedback from the XSL formatter, but there
+are still many FO-specific details that would have to be worked out.</para></section></section><section><title>Conclusion</title><para>The linear processing model of XSL 1.1 has served it will -- and, in the XSL 1.0 timeframe, helped it towards becoming a Recommendation -- but real world use cases have forced users into doing multi-pass processing and other tricks so they can make decisions on what to put in the formatted output based on sizes in the formatted output.  The XSL-FO 2.0 requirements document recognised some of these requirements, but the XPPL WG's charter expired without XSL-FO 2.0 being completed.  Since then, the Print and Page Layout Community Group at the W3C has been producing innovative ideas and solutions to help satisfy the user requirements for more decision making in XSL-FO processing.</para></section><bibliography><title>Bibliography</title><bibliomixed xml:id="CustReq" xreflabel="CustReq">Frequently and less frequently stated requirements by print customers, <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/community/ppl/wiki/CustomerRequirements</link></bibliomixed><bibliomixed xml:id="DSSSL" xreflabel="DSSSL">ISO/IEC 10179:1996 Information technology - Processing languages - Document Style Semantics and Specification Language (DSSSL),
+<link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://xml.coverpages.org/dsssl96-ps.zip</link> (from <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://xml.coverpages.org/dsssl.html</link>)</bibliomixed><bibliomixed xml:id="FOP" xreflabel="FOP">Apache™ FOP, <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://xmlgraphics.apache.org/fop/</link></bibliomixed><bibliomixed xml:id="FOPRunXSLTExt" xreflabel="FOPRunXSLTExt"><link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/community/ppl/wiki/FOPRunXSLTExt</link></bibliomixed><bibliomixed xml:id="Hahn" xreflabel="Hahn">Re: Customer requirement, a critque, <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://lists.w3.org/Archives/Public/public-ppl/2013Feb/0078.html</link></bibliomixed><bibliomixed xml:id="JADE" xreflabel="JADE">Jade - James' DSSSL Engine, 
+<link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://jclark.com/jade/</link></bibliomixed><bibliomixed xml:id="PLOS" xreflabel="PLOS">What is PLOS?,
+<link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.plos.org/about/what-is-plos/</link></bibliomixed><bibliomixed xml:id="PONE" xreflabel="PONE">PLOS ONE,
+<link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.plosone.org/</link></bibliomixed><bibliomixed xml:id="PONEManuscript" xreflabel="PONEManuscript">PLOS ONE Manuscript Guidelines,
+<link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.plosone.org/static/guidelines</link></bibliomixed><bibliomixed xml:id="PPL" xreflabel="PPL">Print and Page Layout Community Group,
+<link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/community/ppl/</link></bibliomixed><bibliomixed xml:id="SaxonCE" xreflabel="SaxonCE"><link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.saxonica.com/ce/user-doc/1.1/index.html</link></bibliomixed><bibliomixed xml:id="Speedata" xreflabel="Speedata">Fully automatic database publishing with the speedata Publisher,
+<link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.xmlprague.cz/sessions/#speedata</link></bibliomixed><bibliomixed xml:id="TableWrap" xreflabel="TableWrap">table-wrap, Journal Archiving and Interchange Tag Library NISO JATS version 1.0, <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://jats.nlm.nih.gov/archiving/tag-library/1.0/index.html?elem=table-wrap</link></bibliomixed><bibliomixed xml:id="XSL11" xreflabel="XSL11">Extensible Stylesheet Language (XSL) Version 1.1,
+<link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/xsl11/</link></bibliomixed><bibliomixed xml:id="XSLCRTest" xreflabel="XSLCRTest">XSL CR Test Suite -- Test Coverage,
+<link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/Style/XSL/TestSuite/coverage/testcoverage.html</link></bibliomixed><bibliomixed xml:id="XSLFO20-Req" xreflabel="XSLFO20-Req">Extensible Stylesheet Language (XSL) Requirements Version 2.0,
+<link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/xslfo20-req/</link></bibliomixed><bibliomixed xml:id="XSLReq" xreflabel="XSLReq">XSL Requirements Summary,
+<link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/1998/WD-XSLReq-19980511.html</link></bibliomixed></bibliography></article>

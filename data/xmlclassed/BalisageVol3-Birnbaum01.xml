@@ -1,0 +1,499 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?><classedDocument><article xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink" class="po-hcontainer e0 e0" version="5.0-subset Balisage-1.2"><title class="po-block e1 e1"><textual class="po-textual">An XML user steps into, and escapes from, XPath quicksand</textual></title><info class="po-record e2 e2"><confgroup class="po-record e3 e3"><conftitle class="po-field e4 e4"><textual class="po-textual">Balisage: The Markup Conference 2009</textual></conftitle><confdates class="po-field e5 e5"><textual class="po-textual">August 11 - 14, 2009</textual></confdates></confgroup><abstract class="po-container e6 e6"><para class="po-block e7 e7"><textual class="po-textual">Until recently, the admirable and impressive </textual><emphasis class="po-inline e8 e8" role="ital"><textual class="po-textual">eXist</textual></emphasis><textual class="po-textual"> XML database sometimes failed to optimize queries with
+                numerical predicates. For example, a search for </textual><emphasis class="po-inline e9 e9" role="ital"><textual class="po-textual">$i/following::word[1]</textual></emphasis><textual class="po-textual"> would retrieve </textual><emphasis class="po-inline e10 e10" role="ital"><textual class="po-textual">all</textual></emphasis><textual class="po-textual">
+                </textual><code class="po-atom e11 e11"><textual class="po-textual">&lt;word&gt;</textual></code><textual class="po-textual"> elements on the </textual><code class="po-atom e12 e12"><textual class="po-textual">following</textual></code><textual class="po-textual"> axis and
+                only then apply the predicate as a filter to return only the first of them. This was
+                enormously inefficient when </textual><code class="po-atom e13 e13"><textual class="po-textual">$i</textual></code><textual class="po-textual"> pointed to a node near the beginning of
+                a very large document, with many thousands of following
+                    </textual><code class="po-atom e14 e14"><textual class="po-textual">&lt;word&gt;</textual></code><textual class="po-textual"> elements. As an end-user without the Java
+                programming skills to write optimization code for </textual><emphasis class="po-inline e15 e15" role="ital"><textual class="po-textual">eXist</textual></emphasis><textual class="po-textual">, the author describes two types of optimization in the more
+                familiar XML, XPath, and XQuery, which reduced the number of nodes that needed to be
+                accessed and thus improved response time substantially.</textual></para><para class="po-block e16 e16"><textual class="po-textual">A subsequent optimization introduced by the </textual><emphasis class="po-inline e17 e17" role="ital"><textual class="po-textual">eXist</textual></emphasis><textual class="po-textual">
+                developers into the </textual><emphasis class="po-inline e18 e18" role="ital"><textual class="po-textual">eXist</textual></emphasis><textual class="po-textual"> code base is described in
+                an addendum to this paper. Although this revision partially obviates the need for
+                the work-arounds developed earlier, the analysis of the efficiency of various XPath
+                approaches to a single problem continues to provide valuable general lessons about
+                XPath.</textual></para></abstract><author class="po-record e19 e19"><personname class="po-record e20 e20"><firstname class="po-field e21 e21"><textual class="po-textual">David</textual></firstname><othername class="po-field e22 e22"><textual class="po-textual">J.</textual></othername><surname class="po-field e23 e23"><textual class="po-textual">Birnbaum</textual></surname></personname><personblurb class="po-container e24 e24"><para class="po-block e25 e25"><textual class="po-textual">David J. Birnbaum is Professor and Chair of the Department of Slavic Languages
+                    and Literatures at the University of Pittsburgh. He has been involved in the
+                    study of electronic text technology since the mid-1980s, has delivered
+                    presentations at a variety of electronic text technology conferences, and has
+                    served on the board of the Association for Computers and the Humanities, the
+                    editorial board of </textual><emphasis class="po-inline e26 e26" role="ital"><textual class="po-textual">Markup Languages: Theory and
+                        Practice</textual></emphasis><textual class="po-textual">, and the Text Encoding Initiative Council. Much of his
+                    electronic text work intersects with his research in medieval Slavic manuscript
+                    studies, but he also often writes about issues in the philosophy of
+                    markup.</textual></para></personblurb><affiliation class="po-record e27 e27"><jobtitle class="po-field e28 e28"><textual class="po-textual">Professor and Chair</textual></jobtitle><orgname class="po-block e29 e29"><textual class="po-textual">Department of Slavic Languages and Literatures University of
+                    Pittsburgh</textual></orgname></affiliation><email class="po-field e30 e30"><textual class="po-textual">djbpitt@pitt.edu</textual></email></author><legalnotice class="po-container e31 e31"><para class="po-block e32 e32"><textual class="po-textual">Copyright © 2009 by David J. Birnbaum. All rights reserved. Used by
+                permission.</textual></para></legalnotice><keywordset class="po-table e33 e33" role="author"><keyword class="po-field e34 e34"><textual class="po-textual">XPath</textual></keyword><keyword class="po-field e35 e35"><textual class="po-textual">XQuery</textual></keyword><keyword class="po-field e36 e36"><textual class="po-textual">eXist</textual></keyword><keyword class="po-field e37 e37"><textual class="po-textual">optimization</textual></keyword><keyword class="po-field e38 e38"><textual class="po-textual">efficiency</textual></keyword><keyword class="po-field e39 e39"><textual class="po-textual">indexing</textual></keyword></keywordset></info><section class="po-hcontainer e40 e40"><title class="po-block e41 e41"><textual class="po-textual">The corpus</textual></title><para class="po-block e42 e42"><textual class="po-textual">Alain de Lille’s (</textual><emphasis class="po-inline e43 e43" role="ital"><textual class="po-textual">Alanus ab insulis</textual></emphasis><textual class="po-textual">)
+            allegorical-philosophical epic, the </textual><emphasis class="po-inline e44 e44" role="ital"><textual class="po-textual">Anticlaudianus,</textual></emphasis><textual class="po-textual"> is
+            a poem divided into nine books with a brief verse prologue and an equally brief prose
+            pre-prologue. The text was published by Robert Bossuat in 1955 (</textual><emphasis class="po-inline e45 e45" role="ital"><textual class="po-textual">Anticlaudianus / Alain de Lille: texte critique avec une introduction et des
+                tables</textual></emphasis><textual class="po-textual"> publié par R. Bossuat [Paris : J. Vrin, 1955]), cleaned up in 2009
+            by Danuta Shanzer (University of Illinois at Urbana-Champaign, </textual><link class="po-inline e46 e46" xlink:actuate="onRequest" xlink:href="mailto:shanzer@illinois.edu" xlink:show="new" xlink:type="simple"><textual class="po-textual">shanzer@illinois.edu</textual></link><textual class="po-textual">) as a Dumbarton Oaks Medieval Library Latin Series Work
+            In Progress, and converted to XML and published as a queriable concordance by David J.
+            Birnbaum (University of Pittsburgh, </textual><link class="po-inline e47 e47" xlink:actuate="onRequest" xlink:href="mailto:djbpitt@pitt.edu" xlink:show="new" xlink:type="simple"><textual class="po-textual">djbpitt@pitt.edu</textual></link><textual class="po-textual">). When this report was
+            last edited in August 2009, the concordance was freely accessible at </textual><link class="po-inline e48 e48" xlink:actuate="onRequest" xlink:href="http://clover.slavic.pitt.edu:8081/exist/acl/search.html" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://clover.slavic.pitt.edu:8081/exist/acl/search.html</textual></link><textual class="po-textual">; it will eventually
+            move to a different stable freely accessible address, which has not yet been determined,
+            but which should be discoverable through search engines.</textual></para><para class="po-block e49 e49"><textual class="po-textual">The corpus consists of a single XML file subdivided into
+                </textual><code class="po-atom e50 e50"><textual class="po-textual">&lt;book&gt;</textual></code><textual class="po-textual"> elements (prose introduction, verse introduction,
+            nine principal chapters). Each </textual><code class="po-atom e51 e51"><textual class="po-textual">&lt;book&gt;</textual></code><textual class="po-textual"> is divided into
+                </textual><code class="po-atom e52 e52"><textual class="po-textual">&lt;line&gt;</textual></code><textual class="po-textual"> elements (4344 </textual><code class="po-atom e53 e53"><textual class="po-textual">&lt;line&gt;</textual></code><textual class="po-textual">
+            elements in the nine principal </textual><code class="po-atom e54 e54"><textual class="po-textual">&lt;book&gt;</textual></code><textual class="po-textual"> elements, for an
+            average of 482.7 </textual><code class="po-atom e55 e55"><textual class="po-textual">&lt;line&gt;</textual></code><textual class="po-textual"> elements per
+                </textual><code class="po-atom e56 e56"><textual class="po-textual">&lt;book&gt;</textual></code><textual class="po-textual"> element), and each
+                </textual><code class="po-atom e57 e57"><textual class="po-textual">&lt;line&gt;</textual></code><textual class="po-textual"> is divided into </textual><code class="po-atom e58 e58"><textual class="po-textual">&lt;word&gt;</textual></code><textual class="po-textual">
+            elements (27222 </textual><code class="po-atom e59 e59"><textual class="po-textual">&lt;word&gt;</textual></code><textual class="po-textual"> elements in the nine principal books,
+            or approximately 6.27 </textual><code class="po-atom e60 e60"><textual class="po-textual">&lt;word&gt;</textual></code><textual class="po-textual"> elements per
+                </textual><code class="po-atom e61 e61"><textual class="po-textual">&lt;line&gt;</textual></code><textual class="po-textual"> element; the </textual><code class="po-atom e62 e62"><textual class="po-textual">&lt;word&gt;</textual></code><textual class="po-textual">
+            counts per </textual><code class="po-atom e63 e63"><textual class="po-textual">&lt;line&gt;</textual></code><textual class="po-textual"> range from a low of 4 to a high of 10). For
+            example, Book 2 begins:</textual></para><programlisting class="po-block e64 e64" xml:space="preserve"><textual class="po-textual">&lt;book n="2"&gt;
+  &lt;line&gt;
+    &lt;word&gt;Regia&lt;/word&gt;
+    &lt;word&gt;tota&lt;/word&gt;
+    &lt;word&gt;silet;&lt;/word&gt;
+    &lt;word&gt;expirat&lt;/word&gt;
+    &lt;word&gt;murmur&lt;/word&gt;
+    &lt;word&gt;in&lt;/word&gt;
+    &lt;word&gt;altum,&lt;/word&gt;
+  &lt;/line&gt;
+  &lt;line&gt;
+    &lt;word&gt;cum&lt;/word&gt;
+    &lt;word&gt;visu&lt;/word&gt;
+    &lt;word&gt;placidos&lt;/word&gt;
+    &lt;word&gt;delegat&lt;/word&gt;
+    &lt;word&gt;curia&lt;/word&gt;
+    &lt;word&gt;vultus,&lt;/word&gt;
+  &lt;/line&gt;
+  &lt;!-- more lines --&gt;
+&lt;/book&gt;</textual></programlisting><para class="po-block e65 e65"><textual class="po-textual">Because scholars are likely to be interested more in the contents of the nine
+            principal books than in the contents of the prose and verse introductions, the counts
+            and calculations below omit the latter. They are, nonetheless, relevant in certain
+            situations, such as when a query consults all </textual><code class="po-atom e66 e66"><textual class="po-textual">&lt;word&gt;</textual></code><textual class="po-textual"> elements
+            in the document, including those in the introductions. The prose introduction contains
+            477 </textual><code class="po-atom e67 e67"><textual class="po-textual">&lt;word&gt;</textual></code><textual class="po-textual"> elements and the verse introduction 50.</textual></para></section><section class="po-hcontainer e68 e68"><title class="po-block e69 e69"><textual class="po-textual">The task</textual></title><para class="po-block e70 e70"><textual class="po-textual">The goal of the electronic concordance project is to enable users to search for words
+            and generate a keyword-in-context (KWIC) report on the fly. The system was originally
+            implemented using the </textual><emphasis class="po-inline e71 e71" role="ital"><textual class="po-textual">eXist</textual></emphasis><textual class="po-textual"> XML database (</textual><link class="po-inline e72 e72" xlink:actuate="onRequest" xlink:href="http://www.exist-db.org" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://www.exist-db.org</textual></link><textual class="po-textual">), version 1.3.0dev-rev:8710-20090308. Version 1.3 of
+                </textual><emphasis class="po-inline e73 e73" role="ital"><textual class="po-textual">eXist</textual></emphasis><textual class="po-textual">, still in beta at the time this report was
+            last revised, is the first to introduce a </textual><emphasis class="po-inline e74 e74" role="ital"><textual class="po-textual">Lucene</textual></emphasis><textual class="po-textual">-based
+            index, which is intended eventually to replace the original proprietary full-text index,
+            and the present concordance is indexed and accessed using the </textual><emphasis class="po-inline e75 e75" role="ital"><textual class="po-textual">Lucene</textual></emphasis><textual class="po-textual"> index. When the user enters a query string and launches a search,
+            the system retrieves all hits and returns them with several preceding and following
+            words (three each by default, but the user can adjust this number). Line breaks in the
+            original are rendered as slashes in the KWIC output (this part of the code has been
+            omitted from most of this report in the interest of legibility, except when it is the
+            object of optimization). For example, a search for </textual><code class="po-atom e76 e76"><textual class="po-textual">pugna</textual></code><textual class="po-textual"> (Latin for
+            ‘fight’), which occurs four times in the corpus, returns:</textual></para><itemizedlist class="po-table e77 e77"><listitem class="po-container e78 e78"><para class="po-block e79 e79"><emphasis class="po-inline e80 e80" role="bold"><textual class="po-textual">Acl.8.254: </textual></emphasis><textual class="po-textual">Martis amore / succensi, </textual><emphasis class="po-inline e81 e81" role="ital"><textual class="po-textual">pugna</textual></emphasis><textual class="po-textual"> cupiunt incidere vitam. / </textual></para></listitem><listitem class="po-container e82 e82"><para class="po-block e83 e83"><emphasis class="po-inline e84 e84" role="bold"><textual class="po-textual">Acl.9.283: </textual></emphasis><textual class="po-textual">Luxum / Sobrietas, sed </textual><emphasis class="po-inline e85 e85" role="ital"><textual class="po-textual">pugna</textual></emphasis><textual class="po-textual"> favet Virtutibus, harum / </textual></para></listitem><listitem class="po-container e86 e86"><para class="po-block e87 e87"><emphasis class="po-inline e88 e88" role="bold"><textual class="po-textual">Acl.9.331: </textual></emphasis><textual class="po-textual">fraudesque recurrit. / degeneri
+                        </textual><emphasis class="po-inline e89 e89" role="ital"><textual class="po-textual">pugna,</textual></emphasis><textual class="po-textual"> servili Marte, dolosa / </textual></para></listitem><listitem class="po-container e90 e90"><para class="po-block e91 e91"><emphasis class="po-inline e92 e92" role="bold"><textual class="po-textual">Acl.9.384: </textual></emphasis><textual class="po-textual">indignata sub umbras. / </textual><emphasis class="po-inline e93 e93" role="ital"><textual class="po-textual">Pugna</textual></emphasis><textual class="po-textual"> cadit, cedit iuveni</textual></para></listitem></itemizedlist><para class="po-block e94 e94"><textual class="po-textual">The XPath </textual><code class="po-atom e95 e95"><textual class="po-textual">preceding</textual></code><textual class="po-textual"> and </textual><code class="po-atom e96 e96"><textual class="po-textual">following</textual></code><textual class="po-textual"> axes are ideally suited to
+            this type of project, since they ignore the </textual><code class="po-atom e97 e97"><textual class="po-textual">&lt;line&gt;</textual></code><textual class="po-textual"> element
+            boundaries and treat adjacent </textual><code class="po-atom e98 e98"><textual class="po-textual">&lt;word&gt;</textual></code><textual class="po-textual"> elements identically
+            irrespective of whether they fall in the same </textual><code class="po-atom e99 e99"><textual class="po-textual">&lt;line&gt;</textual></code><textual class="po-textual"> element
+            as the target word or in preceding or following </textual><code class="po-atom e100 e100"><textual class="po-textual">&lt;line&gt;</textual></code><textual class="po-textual">
+            elements. For example, the system can retrieve the three
+                </textual><code class="po-atom e101 e101"><textual class="po-textual">&lt;word&gt;</textual></code><textual class="po-textual"> elements that precede the target
+                </textual><code class="po-atom e102 e102"><textual class="po-textual">&lt;word&gt;</textual></code><textual class="po-textual"> element with the following XQuery (assume that
+                </textual><code class="po-atom e103 e103"><textual class="po-textual">$i</textual></code><textual class="po-textual"> represents the target </textual><code class="po-atom e104 e104"><textual class="po-textual">&lt;word&gt;</textual></code><textual class="po-textual">
+            element):</textual></para><programlisting class="po-block e105 e105" xml:space="preserve"><textual class="po-textual">for $j in reverse(1 to 3) return $i/preceding::word[$j]</textual></programlisting><para class="po-block e106 e106"><textual class="po-textual">This query returns the third, second, and first </textual><code class="po-atom e107 e107"><textual class="po-textual">&lt;word&gt;</textual></code><textual class="po-textual">
+            elements before the target </textual><code class="po-atom e108 e108"><textual class="po-textual">&lt;word&gt;</textual></code><textual class="po-textual"> element, in the specified
+            order. An analogous statement can retrieve the three </textual><code class="po-atom e109 e109"><textual class="po-textual">&lt;word&gt;</textual></code><textual class="po-textual">
+            elements that follow the hit, thus providing the rest of the context. Because queries
+            along the long (</textual><code class="po-atom e110 e110"><textual class="po-textual">preceding</textual></code><textual class="po-textual"> and </textual><code class="po-atom e111 e111"><textual class="po-textual">following</textual></code><textual class="po-textual">) axes make no
+            distinction between preceding and following </textual><code class="po-atom e112 e112"><textual class="po-textual">&lt;word&gt;</textual></code><textual class="po-textual"> elements
+            within the same </textual><code class="po-atom e113 e113"><textual class="po-textual">&lt;line&gt;</textual></code><textual class="po-textual"> element and those that require
+            crossing a </textual><code class="po-atom e114 e114"><textual class="po-textual">&lt;line&gt;</textual></code><textual class="po-textual"> element boundary, the resulting XQuery code
+            is lucid and clean, making it extremely easy to read, write, and maintain.</textual></para></section><section class="po-hcontainer e115 e115"><title class="po-block e116 e116"><textual class="po-textual">The problem</textual></title><para class="po-block e117 e117"><textual class="po-textual">The preceding strategy retrieves the correct results, and does so with elegant code,
+            but initially it proved unusable in practice for reasons of efficiency, even with
+            appropriately configured </textual><emphasis class="po-inline e118 e118" role="ital"><textual class="po-textual">eXist Lucene</textual></emphasis><textual class="po-textual"> and range indexes
+                (“</textual><xref class="po-milestone e119 e119" linkend="Configuring"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">,” “</textual><xref class="po-milestone e120 e120" linkend="Lucene"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">,” “</textual><xref class="po-milestone e121 e121" linkend="Tuning"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">”). Until a recent revision in the </textual><emphasis class="po-inline e122 e122" role="ital"><textual class="po-textual">eXist</textual></emphasis><textual class="po-textual"> code base (see the </textual><link class="po-inline e123 e123" linkend="Addendum" xlink:actuate="onRequest" xlink:show="new" xlink:type="simple"><textual class="po-textual">Addendum</textual></link><textual class="po-textual">,
+            below), XPath expressions that addressed the long axes were inefficient because
+                </textual><emphasis class="po-inline e124 e124" role="ital"><textual class="po-textual">eXist</textual></emphasis><textual class="po-textual"> retrieved the </textual><emphasis class="po-inline e125 e125" role="ital"><textual class="po-textual">entire</textual></emphasis><textual class="po-textual"> set of nodes on the specified axis before looking at the
+            predicate. For example, in the worst case a hit would fall at the beginning of the first
+                </textual><code class="po-atom e126 e126"><textual class="po-textual">&lt;line&gt;</textual></code><textual class="po-textual"> in the first </textual><code class="po-atom e127 e127"><textual class="po-textual">&lt;book&gt;</textual></code><textual class="po-textual">
+            element, which meant that in order to find the three immediately following
+                </textual><code class="po-atom e128 e128"><textual class="po-textual">&lt;word&gt;</textual></code><textual class="po-textual"> elements by looking on the </textual><code class="po-atom e129 e129"><textual class="po-textual">following</textual></code><textual class="po-textual">
+            axis </textual><emphasis class="po-inline e130 e130" role="ital"><textual class="po-textual">eXist</textual></emphasis><textual class="po-textual"> would first retrieve as many as 27221
+            following </textual><code class="po-atom e131 e131"><textual class="po-textual">&lt;word&gt;</textual></code><textual class="po-textual"> elements and only then apply a numerical
+            predicate to filter the returned result. Since the context includes both preceding and
+            following </textual><code class="po-atom e132 e132"><textual class="po-textual">&lt;word&gt;</textual></code><textual class="po-textual"> elements (that is, it requires accessing the
+                </textual><code class="po-atom e133 e133"><textual class="po-textual">preceding</textual></code><textual class="po-textual"> axis in the former case and the </textual><code class="po-atom e134 e134"><textual class="po-textual">following</textual></code><textual class="po-textual"> axis
+            in the latter), hits that have fewer preceding </textual><code class="po-atom e135 e135"><textual class="po-textual">&lt;word&gt;</textual></code><textual class="po-textual">
+            elements have more following ones, and vice versa, which means that all hits require
+            sets of retrievals that span the entire document. The overhead was not a significant
+            problem with queries that retrieved a mere handful of hits, but those that retrieved as
+            few as two hundred hits could take several minutes to return, and sometimes they failed
+            to return entirely because they generated Java heap overflow errors (which could have
+            been evaded by increasing the heap size, but that would not have provided a solution to
+            the efficiency problem).</textual></para><para class="po-block e136 e136"><textual class="po-textual">This problem is not a unique or inherent property of the long axes. Rather, it is a
+            property of the number of nodes on which the predicate operates. For example, in a
+            flattened tree (imagine transforming the document to one where all
+                </textual><code class="po-atom e137 e137"><textual class="po-textual">&lt;word&gt;</textual></code><textual class="po-textual"> elements are directly under the root and line and
+            book boundaries are encoded as empty milestone tags), a hit at the beginning of the
+            document that queried the </textual><code class="po-atom e138 e138"><textual class="po-textual">following-sibling</textual></code><textual class="po-textual"> axis, rather than the
+                </textual><code class="po-atom e139 e139"><textual class="po-textual">following</textual></code><textual class="po-textual"> axis, would nonetheless retrieve tens of thousands of
+            unwanted </textual><code class="po-atom e140 e140"><textual class="po-textual">&lt;word&gt;</textual></code><textual class="po-textual"> elements before applying the predicates to
+            select the mere three that were actually needed. For this reason, although the problem
+            may initially appear to be an overlap issue in that in its original form it crosses the
+            boundaries of </textual><code class="po-atom e141 e141"><textual class="po-textual">&lt;line&gt;</textual></code><textual class="po-textual"> elements, the flattening thought
+            experiment reveals that it is actually an optimization problem that is independent of
+            both the specific axes involved and the depth of the nesting. If, for example, </textual><emphasis class="po-inline e142 e142" role="ital"><textual class="po-textual">eXist</textual></emphasis><textual class="po-textual"> were to look first at the predicate and then access
+            only the necessary elements on the specified axis, instead of first retrieving all
+            elements on that axis and only then consulting the predicate and discarding the unwanted
+            ones (in the present case, all but one), processing would not be suffocated by
+            unnecessary retrieval irrespective of whether the query needed to cross a
+                </textual><code class="po-atom e143 e143"><textual class="po-textual">&lt;line&gt;</textual></code><textual class="po-textual"> element boundary.</textual></para><para class="po-block e144 e144"><textual class="po-textual">As is discussed in the </textual><link class="po-inline e145 e145" linkend="Addendum" xlink:actuate="onRequest" xlink:show="new" xlink:type="simple"><textual class="po-textual">Addendum</textual></link><textual class="po-textual">, below, </textual><emphasis class="po-inline e146 e146" role="ital"><textual class="po-textual">eXist</textual></emphasis><textual class="po-textual"> has since implemented this type of optimization, but
+            the problem nonetheless continues to merit consideration. Among other things, the issue
+            was never about </textual><emphasis class="po-inline e147 e147" role="ital"><textual class="po-textual">eXist</textual></emphasis><textual class="po-textual">, since were that the case, an
+            obvious solution would have been to use an alternative platform that provided the
+            necessary optimization. Instead, the problem provides an opportunity to reflect more
+            generally on the nature of XPath expressions and the relationship between XPath and XML.
+            For example, although the inefficiency described above is independent of the specific
+            axis involved insofar as it could also have arisen with the sibling axes in a flattened
+            tree, it nonetheless does depend on the XML structure, or, more precisely, on its
+            indifference to the XML structure. What the long axes in the actual problem and the
+            sibling axes in the flattened tree alternative have in common is that they operate
+            independently of the tree structure. For example, the sibling axes in the original tree
+            constrains the number of nodes involved because the tree is balanced in a way that
+            ensures that no </textual><code class="po-atom e148 e148"><textual class="po-textual">&lt;word&gt;</textual></code><textual class="po-textual"> element will have more than nine
+            sibling </textual><code class="po-atom e149 e149"><textual class="po-textual">&lt;word&gt;</textual></code><textual class="po-textual"> elements. What the long axes in that same tree
+            and the sibling axes in the hypothetical flattened tree alternative have in common, on
+            the other hand, is that all </textual><code class="po-atom e150 e150"><textual class="po-textual">&lt;word&gt;</textual></code><textual class="po-textual"> elements are treated as
+            though they are on the same level of the tree (in the former case because the long axes
+            ignore the tree and in the latter case because the tree is flattened, and therefore
+            irrelevant). This suggests that unless one can be certain that the software that will
+            evaluate one’s XPath expressions will optimize one’s query, the designer should take
+            into consideration the number of nodes that will be addressed by those
+            expressions.</textual></para></section><section class="po-hcontainer e151 e151"><title class="po-block e152 e152"><textual class="po-textual">An XPath solution</textual></title><para class="po-block e153 e153"><textual class="po-textual">Since </textual><emphasis class="po-inline e154 e154" role="ital"><textual class="po-textual">eXist</textual></emphasis><textual class="po-textual"> was unable to optimize the queries in
+            question, that duty fell on the user, who, in this case, first adopted a strategy that
+            avoided the long axes, favoring instead the sibling axes at all levels
+                (</textual><code class="po-atom e155 e155"><textual class="po-textual">&lt;word&gt;</textual></code><textual class="po-textual"> and </textual><code class="po-atom e156 e156"><textual class="po-textual">&lt;line&gt;</textual></code><textual class="po-textual">). This
+            constrains searches for </textual><code class="po-atom e157 e157"><textual class="po-textual">&lt;word&gt;</textual></code><textual class="po-textual"> elements within a
+                </textual><code class="po-atom e158 e158"><textual class="po-textual">&lt;line&gt;</textual></code><textual class="po-textual"> element to an average of 2.64 (5.27 / 2) elements
+            and searches for </textual><code class="po-atom e159 e159"><textual class="po-textual">&lt;line&gt;</textual></code><textual class="po-textual"> elements within a
+                </textual><code class="po-atom e160 e160"><textual class="po-textual">&lt;book&gt;</textual></code><textual class="po-textual"> element to 240.5 (481.7 / 2) elements, and in the
+            worst case to 5.27 and 481.7, respectively. These numbers should be multiplied by six
+            for a typical query, which retrieves three preceding and three following
+                </textual><code class="po-atom e161 e161"><textual class="po-textual">&lt;word&gt;</textual></code><textual class="po-textual"> elements, but they still compare very favorably to
+            queries along the long axes, which consult 13610.5 (27221 / 2)
+                </textual><code class="po-atom e162 e162"><textual class="po-textual">&lt;word&gt;</textual></code><textual class="po-textual"> elements on average and 27221 in the worst case. A
+            prose explanation of the strategy for retrieving the three
+                </textual><code class="po-atom e163 e163"><textual class="po-textual">&lt;word&gt;</textual></code><textual class="po-textual"> elements following the target while using the
+                </textual><code class="po-atom e164 e164"><textual class="po-textual">following-sibling</textual></code><textual class="po-textual"> axis exclusively instead of the
+                </textual><code class="po-atom e165 e165"><textual class="po-textual">following</textual></code><textual class="po-textual"> axis is:</textual></para><orderedlist class="po-table e166 e166"><listitem class="po-container e167 e167"><para class="po-block e168 e168"><textual class="po-textual">If there is a </textual><code class="po-atom e169 e169"><textual class="po-textual">&lt;word&gt;</textual></code><textual class="po-textual"> element in the appropriate
+                    position on the </textual><code class="po-atom e170 e170"><textual class="po-textual">following-sibling</textual></code><textual class="po-textual"> axis (that is, in the same
+                        </textual><code class="po-atom e171 e171"><textual class="po-textual">&lt;line&gt;</textual></code><textual class="po-textual"> element), retrieve it.</textual></para></listitem><listitem class="po-container e172 e172"><para class="po-block e173 e173"><textual class="po-textual">If not, navigate up to the </textual><code class="po-atom e174 e174"><textual class="po-textual">parent</textual></code><textual class="po-textual"> axis (a
+                        </textual><code class="po-atom e175 e175"><textual class="po-textual">&lt;line&gt;</textual></code><textual class="po-textual"> element), get its following-sibling
+                        </textual><code class="po-atom e176 e176"><textual class="po-textual">&lt;line&gt;</textual></code><textual class="po-textual"> element, and retrieve the appropriate
+                        </textual><code class="po-atom e177 e177"><textual class="po-textual">&lt;word&gt;</textual></code><textual class="po-textual"> child element from within that
+                        </textual><code class="po-atom e178 e178"><textual class="po-textual">&lt;line&gt;</textual></code><textual class="po-textual">.</textual></para></listitem></orderedlist><para class="po-block e179 e179"><textual class="po-textual">The following XQuery snippet retrieves the three </textual><code class="po-atom e180 e180"><textual class="po-textual">&lt;word&gt;</textual></code><textual class="po-textual">
+            elements that follow the target. Assume that </textual><code class="po-atom e181 e181"><textual class="po-textual">$i</textual></code><textual class="po-textual"> refers to the target (here
+            and in subsequent examples):</textual></para><programlisting class="po-block e182 e182" xml:space="preserve"><textual class="po-textual">if (count($i/following-sibling::word) ge 3)
+then for $j in (1 to 3) return $i/following-sibling::word[$j]
+else
+  if (count($i/following-sibling::word) eq 2)
+  then (for $j in (1 to 2) return $i/following-sibling::word[$j], 
+    $i/parent::line/following-sibling::line/word[1])
+  else
+    if (count($i/following-sibling::word) eq 1)
+    then ($i/following-sibling::word[1], for $j in (1 to 2) 
+      return ($i/parent::line/following-sibling::line/word[$j]))
+    else
+      for $j in (1 to 3) return $i/parent::line/following-sibling::line/word[$j]</textual></programlisting><para class="po-block e183 e183"><textual class="po-textual">An analogous strategy can retrieve the three </textual><code class="po-atom e184 e184"><textual class="po-textual">&lt;word&gt;</textual></code><textual class="po-textual">
+            elements that immediately precede the target.</textual></para><para class="po-block e185 e185"><textual class="po-textual">It is possible to generalize this solution to allow the user to specify at run time
+            the number of preceding or following </textual><code class="po-atom e186 e186"><textual class="po-textual">&lt;word&gt;</textual></code><textual class="po-textual"> elements to
+            provide as context along the following lines (assume that </textual><code class="po-atom e187 e187"><textual class="po-textual">$scope</textual></code><textual class="po-textual"> specifies
+            the number of words of context to provide after the target
+                </textual><code class="po-atom e188 e188"><textual class="po-textual">&lt;word&gt;</textual></code><textual class="po-textual">):</textual></para><programlisting class="po-block e189 e189" xml:space="preserve"><textual class="po-textual">if (count($i/following-sibling::word) ge $scope) 
+then for $j in (1 to $scope) return $i/following-sibling::word[$j]
+else for $k in (0 to ($scope - 1)) return
+  if (count($i/following-sibling::word) eq $k) 
+  then (
+    for $j in (1 to $k) return $i/following-sibling::word[$j],
+    for $j in (1 to ($scope - $k)) return $i/parent::line/following-sibling::line/word[$j]
+  )
+  else ""</textual></programlisting><para class="po-block e190 e190"><textual class="po-textual">An analogous strategy can retrieve a user-specified number of
+                </textual><code class="po-atom e191 e191"><textual class="po-textual">&lt;word&gt;</textual></code><textual class="po-textual"> elements that immediately precede the target. This
+            generalization, however, is fragile because it looks only at the
+                </textual><code class="po-atom e192 e192"><textual class="po-textual">&lt;line&gt;</textual></code><textual class="po-textual"> element that contains the target
+                </textual><code class="po-atom e193 e193"><textual class="po-textual">&lt;word&gt;</textual></code><textual class="po-textual"> element plus the immediately preceding or
+            following sibling </textual><code class="po-atom e194 e194"><textual class="po-textual">&lt;line&gt;</textual></code><textual class="po-textual"> element. This means that, for
+            example, if the user wants to include a context of five following
+                </textual><code class="po-atom e195 e195"><textual class="po-textual">&lt;word&gt;</textual></code><textual class="po-textual"> elements, the code will fail when the target
+                </textual><code class="po-atom e196 e196"><textual class="po-textual">&lt;word&gt;</textual></code><textual class="po-textual"> falls at the end of a
+                </textual><code class="po-atom e197 e197"><textual class="po-textual">&lt;line&gt;</textual></code><textual class="po-textual"> and the following (sibling)
+                </textual><code class="po-atom e198 e198"><textual class="po-textual">&lt;line&gt;</textual></code><textual class="po-textual"> contains only four
+                </textual><code class="po-atom e199 e199"><textual class="po-textual">&lt;word&gt;</textual></code><textual class="po-textual">elements. It might be possible to circumvent this
+            limitation through a recursive approach, but by that point the code would become so
+            convoluted as to be difficult to understand and impractical to maintain.</textual></para></section><section class="po-hcontainer e200 e200"><title class="po-block e201 e201"><textual class="po-textual">A range index solution</textual></title><para class="po-block e202 e202"><textual class="po-textual">In addition to the new </textual><emphasis class="po-inline e203 e203" role="ital"><textual class="po-textual">Lucene</textual></emphasis><textual class="po-textual">-based full-text index
+            (and the original full-text index, which is still available), </textual><emphasis class="po-inline e204 e204" role="ital"><textual class="po-textual">eXist</textual></emphasis><textual class="po-textual"> also supports range indexes, which provide very fast access to
+            element nodes on the </textual><code class="po-atom e205 e205"><textual class="po-textual">descendant-or-self</textual></code><textual class="po-textual"> (</textual><code class="po-atom e206 e206"><textual class="po-textual">//</textual></code><textual class="po-textual">) or
+                </textual><code class="po-atom e207 e207"><textual class="po-textual">child</textual></code><textual class="po-textual"> (</textual><code class="po-atom e208 e208"><textual class="po-textual">/</textual></code><textual class="po-textual">) axis and attribute notes on the
+                </textual><code class="po-atom e209 e209"><textual class="po-textual">attribute</textual></code><textual class="po-textual"> (</textual><code class="po-atom e210 e210"><textual class="po-textual">/@</textual></code><textual class="po-textual">) axis according to their typed data value.
+            This suggests an alternative approach:</textual></para><orderedlist class="po-table e211 e211"><listitem class="po-container e212 e212"><para class="po-block e213 e213"><textual class="po-textual">Before storing the XML source document, create an </textual><code class="po-atom e214 e214"><textual class="po-textual">@offset</textual></code><textual class="po-textual">
+                    attribute for each </textual><code class="po-atom e215 e215"><textual class="po-textual">&lt;word&gt;</textual></code><textual class="po-textual"> element and assign it a
+                    unique sequential integer value. The first </textual><code class="po-atom e216 e216"><textual class="po-textual">&lt;word&gt;</textual></code><textual class="po-textual">
+                    element in the document has an </textual><code class="po-atom e217 e217"><textual class="po-textual">@offset</textual></code><textual class="po-textual"> value of </textual><code class="po-atom e218 e218"><textual class="po-textual">1</textual></code><textual class="po-textual">, the
+                    next has a value of </textual><code class="po-atom e219 e219"><textual class="po-textual">2</textual></code><textual class="po-textual">, etc.</textual></para></listitem><listitem class="po-container e220 e220"><para class="po-block e221 e221"><textual class="po-textual">Retrieve the target </textual><code class="po-atom e222 e222"><textual class="po-textual">&lt;word&gt;</textual></code><textual class="po-textual"> element by using the new
+                        </textual><emphasis class="po-inline e223 e223" role="ital"><textual class="po-textual">Lucene</textual></emphasis><textual class="po-textual"> full-text index.</textual></para></listitem><listitem class="po-container e224 e224"><para class="po-block e225 e225"><textual class="po-textual">Retrieve the adjacent context </textual><code class="po-atom e226 e226"><textual class="po-textual">&lt;word&gt;</textual></code><textual class="po-textual"> elements
+                    according to their </textual><code class="po-atom e227 e227"><textual class="po-textual">@offset</textual></code><textual class="po-textual"> attribute values by counting backward or
+                    forward from the </textual><code class="po-atom e228 e228"><textual class="po-textual">@offset</textual></code><textual class="po-textual"> value of the target
+                        </textual><code class="po-atom e229 e229"><textual class="po-textual">&lt;word&gt;</textual></code><textual class="po-textual"> element.</textual></para></listitem></orderedlist><para class="po-block e230 e230"><textual class="po-textual">This approach is available only where the designer has control over the XML source and
+            is able to incorporate a specific </textual><code class="po-atom e231 e231"><textual class="po-textual">@offset</textual></code><textual class="po-textual"> attribute that is to be used only
+            for navigation during retrieval. It has at least two weaknesses, one aesthetic and one
+            technical:</textual></para><itemizedlist class="po-table e232 e232"><listitem class="po-container e233 e233"><para class="po-block e234 e234"><textual class="po-textual">The aesthetic problem is that the ordinal position of each
+                        </textual><code class="po-atom e235 e235"><textual class="po-textual">&lt;word&gt;</textual></code><textual class="po-textual"> element within the document is an inherent
+                    property of the document structure, and the user should not have to specify
+                    through the insertion of character-based markup into the document a value that
+                    is already encoded implicitly but consistently and unambiguously in the markup
+                    structure.</textual></para></listitem><listitem class="po-container e236 e236"><para class="po-block e237 e237"><textual class="po-textual">The technical problem is that the insertion or deletion of a word in the
+                    document will break the numbering, requiring that the </textual><code class="po-atom e238 e238"><textual class="po-textual">@offset</textual></code><textual class="po-textual">
+                    values be calculated anew and rewritten. In the present case the document is
+                    relatively stable (that is, more stable than, for example, an on-line commerce
+                    site that writes new data for every transaction), but the editor may still
+                    choose to modify her reading at some point as she reconsiders the available
+                    evidence and perhaps discovers and needs to integrate the data from newly
+                    discovered manuscript witnesses.</textual></para></listitem></itemizedlist><para class="po-block e239 e239"><textual class="po-textual"> In practice, neither of these weakness imposes a serious inconvenience in the context
+            of the present project, and the opportunity to use the </textual><emphasis class="po-inline e240 e240" role="ital"><textual class="po-textual">eXist</textual></emphasis><textual class="po-textual"> range index feature provides a substantial improvement in response
+            time over alternative strategies (see the time test data below).</textual></para><para class="po-block e241 e241"><textual class="po-textual">With the modification to the XML source described above, the first two lines of Book 2
+            now look like:</textual></para><programlisting class="po-block e242 e242" xml:space="preserve"><textual class="po-textual">&lt;book n="2"&gt;
+  &lt;line&gt;
+    &lt;word offset="3708"&gt;Regia&lt;/word&gt;
+    &lt;word offset="3709"&gt;tota&lt;/word&gt;
+    &lt;word offset="3710"&gt;silet;&lt;/word&gt;
+    &lt;word offset="3711"&gt;expirat&lt;/word&gt;
+    &lt;word offset="3712"&gt;murmur&lt;/word&gt;
+    &lt;word offset="3713"&gt;in&lt;/word&gt;
+    &lt;word offset="3714"&gt;altum,&lt;/word&gt;
+  &lt;/line&gt;            
+  &lt;line&gt;
+    &lt;word offset="3715"&gt;cum&lt;/word&gt;
+    &lt;word offset="3716"&gt;visu&lt;/word&gt;
+    &lt;word offset="3717"&gt;placidos&lt;/word&gt;
+    &lt;word offset="3718"&gt;delegat&lt;/word&gt;
+    &lt;word offset="3719"&gt;curia&lt;/word&gt;
+    &lt;word offset="3720"&gt;vultus,&lt;/word&gt;
+    &lt;/line&gt;
+  &lt;!-- more lines --&gt;
+&lt;/book&gt;</textual></programlisting><para class="po-block e243 e243"><textual class="po-textual">The following code will now use a properly-configured </textual><emphasis class="po-inline e244 e244" role="ital"><textual class="po-textual">eXist</textual></emphasis><textual class="po-textual"> range index to retrieve the three
+                </textual><code class="po-atom e245 e245"><textual class="po-textual">&lt;word&gt;</textual></code><textual class="po-textual"> elements following the target
+                </textual><code class="po-atom e246 e246"><textual class="po-textual">&lt;word&gt;</textual></code><textual class="po-textual"> element (assume </textual><code class="po-atom e247 e247"><textual class="po-textual">$i</textual></code><textual class="po-textual"> is the target
+                </textual><code class="po-atom e248 e248"><textual class="po-textual">&lt;word&gt;</textual></code><textual class="po-textual"> element):</textual></para><programlisting class="po-block e249 e249" xml:space="preserve"><textual class="po-textual">let $offset := $i/@offset
+return
+for $j in (1 to 3) return doc("/db/acl/acl.xml")//word[@offset eq ($offset + $j)]</textual></programlisting><para class="po-block e250 e250"><textual class="po-textual">An analogous strategy can retrieve the three </textual><code class="po-atom e251 e251"><textual class="po-textual">&lt;word&gt;</textual></code><textual class="po-textual">
+            elements that immediately precede the target. Furthermore, this solution is easily
+            generalized to allow the user to specify the number of preceding or following context
+                </textual><code class="po-atom e252 e252"><textual class="po-textual">&lt;word&gt;</textual></code><textual class="po-textual"> elements at run time (assume that
+                </textual><code class="po-atom e253 e253"><textual class="po-textual">$scope</textual></code><textual class="po-textual"> specifies the number of words of context to provide after the
+            target </textual><code class="po-atom e254 e254"><textual class="po-textual">&lt;word&gt;</textual></code><textual class="po-textual">):</textual></para><programlisting class="po-block e255 e255" xml:space="preserve"><textual class="po-textual">let $offset := $i/@offset
+return
+for $j in (1 to $scope) return doc("/db/acl/acl.xml")//word[@offset eq ($offset + $j)]</textual></programlisting><para class="po-block e256 e256"><textual class="po-textual">The strategy of writing structural information about the XML (such as offset position)
+            into attribute values of the XML source itself in the interest of improved execution
+            time can also be applied to writing slashes to mark the ends of lines. The most natural
+            XPath way to write a slash after the target </textual><code class="po-atom e257 e257"><textual class="po-textual">&lt;word&gt;</textual></code><textual class="po-textual"> element
+            when it ends a </textual><code class="po-atom e258 e258"><textual class="po-textual">&lt;line&gt;</textual></code><textual class="po-textual"> element in the XML source is:</textual></para><programlisting class="po-block e259 e259" xml:space="preserve"><textual class="po-textual">if (not($i/following-sibling::word)) then " / " else ""</textual></programlisting><para class="po-block e260 e260"><textual class="po-textual">A similar approach can be used to write slashes after the leading and trailing context
+                </textual><code class="po-atom e261 e261"><textual class="po-textual">&lt;word&gt;</textual></code><textual class="po-textual"> elements when they end a
+                </textual><code class="po-atom e262 e262"><textual class="po-textual">&lt;line&gt;</textual></code><textual class="po-textual"> element. This method is not maddeningly slow
+            because the number of nodes on the sibling axes is typically small, but further
+            improvement in processing speed is available by modifying the XML source to include the
+            string </textual><code class="po-atom e263 e263"><textual class="po-textual">" / "</textual></code><textual class="po-textual"> (without the quotation marks) as an attribute value associated
+            with </textual><code class="po-atom e264 e264"><textual class="po-textual">&lt;word&gt;</textual></code><textual class="po-textual"> elements that fall at the end of
+                </textual><code class="po-atom e265 e265"><textual class="po-textual">&lt;line&gt;</textual></code><textual class="po-textual"> elements and then retrieving it when generating
+            the report, instead of consulting the sibling axis. The first two lines of Book 2 now
+            look like:</textual></para><programlisting class="po-block e266 e266" xml:space="preserve"><textual class="po-textual">&lt;book n="2"&gt;
+  &lt;line&gt;
+    &lt;word offset="3708"&gt;Regia&lt;/word&gt;
+    &lt;word offset="3709"&gt;tota&lt;/word&gt;
+    &lt;word offset="3710"&gt;silet;&lt;/word&gt;
+    &lt;word offset="3711"&gt;expirat&lt;/word&gt;
+    &lt;word offset="3712"&gt;murmur&lt;/word&gt;
+    &lt;word offset="3713"&gt;in&lt;/word&gt;
+    &lt;word last=" / " offset="3714"&gt;altum,&lt;/word&gt;
+  &lt;/line&gt;            
+  &lt;line&gt;
+    &lt;word offset="3715"&gt;cum&lt;/word&gt;
+    &lt;word offset="3716"&gt;visu&lt;/word&gt;
+    &lt;word offset="3717"&gt;placidos&lt;/word&gt;
+    &lt;word offset="3718"&gt;delegat&lt;/word&gt;
+    &lt;word offset="3719"&gt;curia&lt;/word&gt;
+    &lt;word last=" / " offset="3720"&gt;vultus,&lt;/word&gt;
+  &lt;/line&gt;
+  &lt;!-- more lines --&gt;
+&lt;/book&gt;</textual></programlisting><para class="po-block e267 e267"><textual class="po-textual">The XQuery code to write trailing context </textual><code class="po-atom e268 e268"><textual class="po-textual">&lt;word&gt;</textual></code><textual class="po-textual"> elements
+            is then:</textual></para><programlisting class="po-block e269 e269" xml:space="preserve"><textual class="po-textual">let $offset := $i/@offset
+for $j in (1 to 3) return (
+  " ", 
+  data(doc("/db/acl/acl.xml")//word[@offset eq ($offset + $j)]),
+  data(doc("/db/acl/acl.xml")//word[@offset eq ($offset + $j)]/@last)
+)</textual></programlisting><para class="po-block e270 e270"><textual class="po-textual">This approach writes a space after the target </textual><code class="po-atom e271 e271"><textual class="po-textual">&lt;word&gt;</textual></code><textual class="po-textual">
+            element, followed by the appropriate trailing context </textual><code class="po-atom e272 e272"><textual class="po-textual">&lt;word&gt;</textual></code><textual class="po-textual">
+            element, followed by the value of the </textual><code class="po-atom e273 e273"><textual class="po-textual">@last</textual></code><textual class="po-textual"> attribute of that
+                </textual><code class="po-atom e274 e274"><textual class="po-textual">&lt;word&gt;</textual></code><textual class="po-textual"> element. If there is a </textual><code class="po-atom e275 e275"><textual class="po-textual">@last</textual></code><textual class="po-textual">
+            attribute, it has the value </textual><code class="po-atom e276 e276"><textual class="po-textual">" / "</textual></code><textual class="po-textual"> (without the quotation marks), which is
+            what we want to write. If the attribute is missing, that statement operates vacuously,
+            producing no output.</textual></para></section><section class="po-hcontainer e277 e277"><title class="po-block e278 e278"><textual class="po-textual">Time test results</textual></title><para class="po-block e279 e279"><textual class="po-textual">To test the relative efficiency of the various coding strategies described above, the
+            same query was executed ten times with each of four strategies. The query was a search
+            for the word </textual><code class="po-atom e280 e280"><textual class="po-textual">sed</textual></code><textual class="po-textual"> (Latin for ‘but’), which occurs 221 times in the corpus,
+            and the XQuery scripts were all written to return it along with its location (book and
+            line number) and with three context words on either side. The search strategies
+            were:</textual></para><itemizedlist class="po-table e281 e281"><listitem class="po-container e282 e282"><para class="po-block e283 e283"><emphasis class="po-inline e284 e284" role="bold"><textual class="po-textual">Long axes:</textual></emphasis><textual class="po-textual"> Search for context words using the
+                        </textual><code class="po-atom e285 e285"><textual class="po-textual">preceding</textual></code><textual class="po-textual"> and </textual><code class="po-atom e286 e286"><textual class="po-textual">following</textual></code><textual class="po-textual"> axes. Place slashes at the
+                    ends of lines by checking whether each output word has a following sibling
+                        </textual><code class="po-atom e287 e287"><textual class="po-textual">&lt;word&gt;</textual></code><textual class="po-textual"> element in the same
+                        </textual><code class="po-atom e288 e288"><textual class="po-textual">&lt;line&gt;</textual></code><textual class="po-textual">.</textual></para></listitem><listitem class="po-container e289 e289"><para class="po-block e290 e290"><emphasis class="po-inline e291 e291" role="bold"><textual class="po-textual">Sibling axes:</textual></emphasis><textual class="po-textual"> Search for context words using
+                    the sibling axes. If there are not enough context
+                        </textual><code class="po-atom e292 e292"><textual class="po-textual">&lt;word&gt;</textual></code><textual class="po-textual"> elements in the same
+                        </textual><code class="po-atom e293 e293"><textual class="po-textual">&lt;line&gt;</textual></code><textual class="po-textual">, find the nearest sibling of the
+                        </textual><code class="po-atom e294 e294"><textual class="po-textual">&lt;line&gt;</textual></code><textual class="po-textual"> and navigate to the desired word element
+                    along the </textual><code class="po-atom e295 e295"><textual class="po-textual">child</textual></code><textual class="po-textual"> axis. Place slashes as described above.</textual></para></listitem><listitem class="po-container e296 e296"><para class="po-block e297 e297"><emphasis class="po-inline e298 e298" role="bold"><code class="po-atom e299 e299"><textual class="po-textual">@offset</textual></code><textual class="po-textual">:</textual></emphasis><textual class="po-textual"> Modify the XML to add
+                    an </textual><code class="po-atom e300 e300"><textual class="po-textual">@offset</textual></code><textual class="po-textual"> attribute to every </textual><code class="po-atom e301 e301"><textual class="po-textual">&lt;word&gt;</textual></code><textual class="po-textual">
+                    element and find the context words by counting down or up from the
+                        </textual><code class="po-atom e302 e302"><textual class="po-textual">@offset</textual></code><textual class="po-textual"> attribute value for the target
+                        </textual><code class="po-atom e303 e303"><textual class="po-textual">&lt;word&gt;</textual></code><textual class="po-textual">. Place slashes as described above.</textual></para></listitem><listitem class="po-container e304 e304"><para class="po-block e305 e305"><emphasis class="po-inline e306 e306" role="bold"><code class="po-atom e307 e307"><textual class="po-textual">@last</textual></code><textual class="po-textual">:</textual></emphasis><textual class="po-textual"> Same as
+                        </textual><code class="po-atom e308 e308"><textual class="po-textual">@offset</textual></code><textual class="po-textual">, except add a </textual><code class="po-atom e309 e309"><textual class="po-textual">@last</textual></code><textual class="po-textual"> attribute in the XML
+                    to every </textual><code class="po-atom e310 e310"><textual class="po-textual">&lt;word&gt;</textual></code><textual class="po-textual"> element that is the last in its
+                    parent </textual><code class="po-atom e311 e311"><textual class="po-textual">&lt;line&gt;</textual></code><textual class="po-textual">, and place slashes at the ends of lines
+                    by returning the value of that attribute.</textual></para></listitem></itemizedlist><para class="po-block e312 e312"><textual class="po-textual">The tests were conducted on a Gateway 3GHz Pentium D with 1MG of memory, running
+            Microsoft Windows Vista with Service Pack 1.0. The Java version is 1.6.0_13 and the
+                </textual><emphasis class="po-inline e313 e313" role="ital"><textual class="po-textual">eXist</textual></emphasis><textual class="po-textual"> version is 1.3.0dev-rev:0000-20090528.</textual></para><table border="1" class="po-container e314 e314" rules="all"><tr align="center" class="po-table e315 e315"><td class="po-block e316 e316"><textual class="po-textual">
+                    </textual><para class="po-block e317 e317"><textual class="po-textual">
+                        </textual><emphasis class="po-inline e318 e318" role="ital"><textual class="po-textual">Test no.</textual></emphasis><textual class="po-textual">
+                    </textual></para><textual class="po-textual">
+                </textual></td><td class="po-block e319 e319"><textual class="po-textual">
+                    </textual><para class="po-block e320 e320"><textual class="po-textual">
+                        </textual><emphasis class="po-inline e321 e321" role="ital"><textual class="po-textual">Long axes</textual></emphasis><textual class="po-textual">
+                    </textual></para><textual class="po-textual">
+                </textual></td><td class="po-block e322 e322"><textual class="po-textual">
+                    </textual><para class="po-block e323 e323"><textual class="po-textual">
+                        </textual><emphasis class="po-inline e324 e324" role="ital"><textual class="po-textual">Sibling axes</textual></emphasis><textual class="po-textual">
+                    </textual></para><textual class="po-textual">
+                </textual></td><td class="po-block e325 e325"><textual class="po-textual">
+                    </textual><emphasis class="po-inline e326 e326" role="ital"><textual class="po-textual">
+                        </textual><code class="po-atom e327 e327"><textual class="po-textual">@offset</textual></code><textual class="po-textual">
+                    </textual></emphasis><textual class="po-textual">
+                </textual></td><td class="po-block e328 e328"><textual class="po-textual">
+                    </textual><emphasis class="po-inline e329 e329" role="ital"><textual class="po-textual">
+                        </textual><code class="po-atom e330 e330"><textual class="po-textual">@last</textual></code><textual class="po-textual">
+                    </textual></emphasis><textual class="po-textual">
+                </textual></td></tr><tr align="right" class="po-table e331 e331"><td class="po-block e332 e332"><textual class="po-textual">
+                    </textual><emphasis class="po-inline e333 e333" role="ital"><textual class="po-textual">1</textual></emphasis><textual class="po-textual">
+                </textual></td><td class="po-block e334 e334"><textual class="po-textual">447.750</textual></td><td class="po-block e335 e335"><textual class="po-textual">38.477</textual></td><td class="po-block e336 e336"><textual class="po-textual">34.345</textual></td><td class="po-block e337 e337"><textual class="po-textual">24.413</textual></td></tr><tr align="right" class="po-table e338 e338"><td class="po-block e339 e339"><textual class="po-textual">
+                    </textual><emphasis class="po-inline e340 e340" role="ital"><textual class="po-textual">2</textual></emphasis><textual class="po-textual">
+                </textual></td><td class="po-block e341 e341"><textual class="po-textual">440.265</textual></td><td class="po-block e342 e342"><textual class="po-textual">38.390</textual></td><td class="po-block e343 e343"><textual class="po-textual">34.446</textual></td><td class="po-block e344 e344"><textual class="po-textual">24.416</textual></td></tr><tr align="right" class="po-table e345 e345"><td class="po-block e346 e346"><textual class="po-textual">
+                    </textual><emphasis class="po-inline e347 e347" role="ital"><textual class="po-textual">3</textual></emphasis><textual class="po-textual">
+                </textual></td><td class="po-block e348 e348"><textual class="po-textual">559.141</textual></td><td class="po-block e349 e349"><textual class="po-textual">38.710</textual></td><td class="po-block e350 e350"><textual class="po-textual">34.438</textual></td><td class="po-block e351 e351"><textual class="po-textual">24.445</textual></td></tr><tr align="right" class="po-table e352 e352"><td class="po-block e353 e353"><textual class="po-textual">
+                    </textual><emphasis class="po-inline e354 e354" role="ital"><textual class="po-textual">4</textual></emphasis><textual class="po-textual">
+                </textual></td><td class="po-block e355 e355"><textual class="po-textual">905.472</textual></td><td class="po-block e356 e356"><textual class="po-textual">38.484</textual></td><td class="po-block e357 e357"><textual class="po-textual">35.409</textual></td><td class="po-block e358 e358"><textual class="po-textual">24.384</textual></td></tr><tr align="right" class="po-table e359 e359"><td class="po-block e360 e360"><textual class="po-textual">
+                    </textual><emphasis class="po-inline e361 e361" role="ital"><textual class="po-textual">5</textual></emphasis><textual class="po-textual">
+                </textual></td><td class="po-block e362 e362"><textual class="po-textual">702.915</textual></td><td class="po-block e363 e363"><textual class="po-textual">38.590</textual></td><td class="po-block e364 e364"><textual class="po-textual">34.562</textual></td><td class="po-block e365 e365"><textual class="po-textual">24.447</textual></td></tr><tr align="right" class="po-table e366 e366"><td class="po-block e367 e367"><textual class="po-textual">
+                    </textual><emphasis class="po-inline e368 e368" role="ital"><textual class="po-textual">6</textual></emphasis><textual class="po-textual">
+                </textual></td><td class="po-block e369 e369"><textual class="po-textual">530.739</textual></td><td class="po-block e370 e370"><textual class="po-textual">38.341</textual></td><td class="po-block e371 e371"><textual class="po-textual">34.798</textual></td><td class="po-block e372 e372"><textual class="po-textual">24.424</textual></td></tr><tr align="right" class="po-table e373 e373"><td class="po-block e374 e374"><textual class="po-textual">
+                    </textual><emphasis class="po-inline e375 e375" role="ital"><textual class="po-textual">7</textual></emphasis><textual class="po-textual">
+                </textual></td><td class="po-block e376 e376"><textual class="po-textual">851.608</textual></td><td class="po-block e377 e377"><textual class="po-textual">38.714</textual></td><td class="po-block e378 e378"><textual class="po-textual">34.145</textual></td><td class="po-block e379 e379"><textual class="po-textual">24.415</textual></td></tr><tr align="right" class="po-table e380 e380"><td class="po-block e381 e381"><textual class="po-textual">
+                    </textual><emphasis class="po-inline e382 e382" role="ital"><textual class="po-textual">8</textual></emphasis><textual class="po-textual">
+                </textual></td><td class="po-block e383 e383"><textual class="po-textual">473.601</textual></td><td class="po-block e384 e384"><textual class="po-textual">38.496</textual></td><td class="po-block e385 e385"><textual class="po-textual">34.410</textual></td><td class="po-block e386 e386"><textual class="po-textual">24.395</textual></td></tr><tr align="right" class="po-table e387 e387"><td class="po-block e388 e388"><textual class="po-textual">
+                    </textual><emphasis class="po-inline e389 e389" role="ital"><textual class="po-textual">9</textual></emphasis><textual class="po-textual">
+                </textual></td><td class="po-block e390 e390"><textual class="po-textual">670.772</textual></td><td class="po-block e391 e391"><textual class="po-textual">39.521</textual></td><td class="po-block e392 e392"><textual class="po-textual">34.423</textual></td><td class="po-block e393 e393"><textual class="po-textual">24.463</textual></td></tr><tr align="right" class="po-table e394 e394"><td class="po-block e395 e395"><textual class="po-textual">
+                    </textual><emphasis class="po-inline e396 e396" role="ital"><textual class="po-textual">10</textual></emphasis><textual class="po-textual">
+                </textual></td><td class="po-block e397 e397"><textual class="po-textual">473.601</textual></td><td class="po-block e398 e398"><textual class="po-textual">38.317</textual></td><td class="po-block e399 e399"><textual class="po-textual">34.429</textual></td><td class="po-block e400 e400"><textual class="po-textual">24.469</textual></td></tr><tr align="right" class="po-table e401 e401"><td align="left" class="po-block e402 e402"><textual class="po-textual">
+                    </textual><emphasis class="po-inline e403 e403" role="bital"><textual class="po-textual">Mean</textual></emphasis><textual class="po-textual">
+                </textual></td><td class="po-block e404 e404"><textual class="po-textual">631.150</textual></td><td class="po-block e405 e405"><textual class="po-textual">38.604</textual></td><td class="po-block e406 e406"><textual class="po-textual">34.541</textual></td><td class="po-block e407 e407"><textual class="po-textual">24.427</textual></td></tr><tr align="right" class="po-table e408 e408"><td align="left" class="po-block e409 e409"><textual class="po-textual">
+                    </textual><emphasis class="po-inline e410 e410" role="bital"><textual class="po-textual">Ratio 1</textual></emphasis><textual class="po-textual">
+                </textual></td><td class="po-block e411 e411"><textual class="po-textual">25.838</textual></td><td class="po-block e412 e412"><textual class="po-textual">1.580</textual></td><td class="po-block e413 e413"><textual class="po-textual">1.414</textual></td><td class="po-block e414 e414"><textual class="po-textual">1.000</textual></td></tr><tr align="right" class="po-table e415 e415"><td align="left" class="po-block e416 e416"><textual class="po-textual">
+                    </textual><emphasis class="po-inline e417 e417" role="bital"><textual class="po-textual">Ratio 2</textual></emphasis><textual class="po-textual">
+                </textual></td><td class="po-block e418 e418"><textual class="po-textual">18.273</textual></td><td class="po-block e419 e419"><textual class="po-textual">1.118</textual></td><td class="po-block e420 e420"><textual class="po-textual">1.000</textual></td><td class="po-block e421 e421"><textual class="po-textual"> </textual></td></tr><tr align="right" class="po-table e422 e422"><td align="left" class="po-block e423 e423"><textual class="po-textual">
+                    </textual><emphasis class="po-inline e424 e424" role="bital"><textual class="po-textual">Ratio 3</textual></emphasis><textual class="po-textual">
+                </textual></td><td class="po-block e425 e425"><textual class="po-textual">16.349</textual></td><td class="po-block e426 e426"><textual class="po-textual">1.000</textual></td><td class="po-block e427 e427"><textual class="po-textual"> </textual></td><td class="po-block e428 e428"><textual class="po-textual"> </textual></td></tr></table><para class="po-block e429 e429"><textual class="po-textual">Times are reported in seconds. The three ratio lines in the table set the time for one
+            of the tests at a value of </textual><code class="po-atom e430 e430"><textual class="po-textual">1</textual></code><textual class="po-textual"> and then calculate the amount of time the
+            other implementations required in proportion to it.</textual></para><para class="po-block e431 e431"><textual class="po-textual">The results show that querying along the long axes took more than 16 times as much
+            time as querying along the sibling axes. Using the </textual><code class="po-atom e432 e432"><textual class="po-textual">@offset</textual></code><textual class="po-textual"> attribute value
+            instead of either the long axes or the sibling axes saved an additional 11% in time, and
+            using the </textual><code class="po-atom e433 e433"><textual class="po-textual">@last</textual></code><textual class="po-textual"> attribute value as well saved an additional 41% in time
+            over that. All told, the implementation that relies on the long axes took more than 25
+            times as much time as the one with the greatest optimization.</textual></para></section><section class="po-hcontainer e434 e434"><title class="po-block e435 e435"><textual class="po-textual">Is it XML?</textual></title><para class="po-block e436 e436"><textual class="po-textual">The XML version of the poem has an inherent hierarchy (the poem contains books, which
+            contain lines, which contain words) and inherent order (the words occur in a particular
+            order, as do the lines and books). Those inherent features are encoded naturally in the
+            structure of the XML document because XML documents are obligatorily hierarchical (even
+            though in some projects the hierarchy may be flat) and ordered (even though in some
+            projects the user may ignore the order). The addition of </textual><code class="po-atom e437 e437"><textual class="po-textual">@offset</textual></code><textual class="po-textual"> and
+                </textual><code class="po-atom e438 e438"><textual class="po-textual">@last</textual></code><textual class="po-textual"> attributes and the adoption of a strategy that treats the
+            document as flat and never looks at the hierarchy essentially transforms the approach
+            from one that is based on natural properties of XML documents to one that is based on a
+            flat-file database way of thinking. That is, we could map each
+                </textual><code class="po-atom e439 e439"><textual class="po-textual">&lt;word&gt;</textual></code><textual class="po-textual"> element in the XML version to a record in a
+            database table, the fields of which would be the textual representation of the word (a
+            character string), the offset value (a unique positive integer), an indication of
+            whether the word falls at the end of a line (a boolean value), and the book and line
+            number (a string value, which is used in reporting). Records in a database do not have
+            an inherent order, but once we rely on the value of the </textual><code class="po-atom e440 e440"><textual class="po-textual">@offset</textual></code><textual class="po-textual"> attribute
+            in the XML document, the </textual><code class="po-atom e441 e441"><textual class="po-textual">&lt;word&gt;</textual></code><textual class="po-textual"> elements might as well be
+            sprinkled through the document in any order, and the </textual><code class="po-atom e442 e442"><textual class="po-textual">&lt;line&gt;</textual></code><textual class="po-textual">
+            and </textual><code class="po-atom e443 e443"><textual class="po-textual">&lt;book&gt;</textual></code><textual class="po-textual"> elements play no role at all in the system. That
+            is, except for the book and line number, the most highly optimized (and most efficient)
+            implementation above adopts precisely a flat-file database approach, which raises the
+            question of whether this project should have been undertaken in XML in the first
+            place.</textual></para><para class="po-block e444 e444"><textual class="po-textual">The answer to that rhetorical question is that of course it should have been
+            undertaken in XML because the order and hierarchy are meaningful. They are inherent in
+            the XML structure but must be written explicitly into a corresponding database
+            implementation, which indicates that this is data that wants, as it were, to be regarded
+            as an ordered and hierarchical XML document. The problem is not that the data is
+            inherently tabular, and therefore inherently suited to a flat-file database solution,
+            but that the XML tool available to manipulate the data was not sufficiently optimized for
+            the type of retrieval required.</textual></para></section><section class="po-hcontainer e445 e445"><title class="po-block e446 e446"><textual class="po-textual">Conclusion</textual></title><para class="po-block e447 e447"><textual class="po-textual">The best solution would be, of course, an optimization within </textual><emphasis class="po-inline e448 e448" role="ital"><textual class="po-textual">eXist</textual></emphasis><textual class="po-textual"> that would let users write concise and legible XQuery code (using
+            the long axes), which would then be executed efficiently through optimization behind the
+            scenes. This type of solution would remove the need for both more complex code (along
+            the lines of the sibling-axes approach described above) and modifying the XML to write
+            information into the document in character form when that information is already
+            inherent in the document structure. Until such a solution became available, though, the
+            strategies described above provided a substantial improvement over explicit use of the
+            long axes, salvaging a project that would otherwise have been unusable for reasons of
+            efficiency.</textual></para></section><section class="po-hcontainer e449 e449" xml:id="Addendum"><title class="po-block e450 e450"><textual class="po-textual">Addendum</textual></title><para class="po-block e451 e451"><emphasis class="po-inline e452 e452" role="ital"><textual class="po-textual">eXist</textual></emphasis><textual class="po-textual"> is an open-source project, which means that
+            impatient users who require an optimization not already present in the code have the
+            opportunity to implement that optimization themselves and contribute it to the project.
+            Unfortunately, in the present case this particular impatient user lacked the Java
+            programming skills to undertake the task. Fortunately, however, the </textual><emphasis class="po-inline e453 e453" role="ital"><textual class="po-textual">eXist</textual></emphasis><textual class="po-textual"> development team is very responsive to feature requests
+            from users, and shortly after I wrote to the developers about the problem they released
+            an upgrade that implemented precisely the modification described above (consult the
+            predicate first and retrieve only the nodes that will be needed from the designated
+            axis). Rerunning the original code that relied on the long axes on the same machine as
+            the earlier tests but using </textual><emphasis class="po-inline e454 e454" role="ital"><textual class="po-textual">eXist</textual></emphasis><textual class="po-textual"> version
+            1.3.0dev-rev9622-20090802, which includes this new optimization, yielded times of 1.754,
+            1.778, 1.765, 1.944, 1.944, 1.777, 18.949, 1.838, 1.763, and 1.798 seconds. The mean
+            time for these tests was 3.531 seconds, and if we exclude the aberrant long time on the
+            seventh trial (an artifact of a system process that woke up at an inconvenient moment?),
+            the mean drops to 1.818 seconds. The 3.531-second figure is 14.455% of the best mean
+            time (24.427 seconds) achieved with my XSLT-based optimizations and 0.559% of the mean
+            time of the long-axes search (631.150 seconds) before the introduction of the </textual><emphasis class="po-inline e455 e455" role="ital"><textual class="po-textual">eXist</textual></emphasis><textual class="po-textual">-internal optimization. The 1.818-second figure is
+            7.443% of the best mean time (24.427 seconds) achieved with my XPath-based optimizations
+            and 0.288% of the mean time of the long-axes search (631.150 seconds) before the
+            introduction of the </textual><emphasis class="po-inline e456 e456" role="ital"><textual class="po-textual">eXist</textual></emphasis><textual class="po-textual">-internal optimization.</textual></para><para class="po-block e457 e457"><textual class="po-textual">The </textual><emphasis class="po-inline e458 e458" role="ital"><textual class="po-textual">eXist</textual></emphasis><textual class="po-textual"> optimization works by checking the static
+            return type of the predicate expression to determine whether it is a positional
+            predicate. (This paragraph reproduces more or less verbatim an explanation provided by
+            the </textual><emphasis class="po-inline e459 e459" role="ital"><textual class="po-textual">eXist</textual></emphasis><textual class="po-textual"> developers.) If the answer is yes and there
+            is no context dependency, the predicate will be evaluated in advance and the result will
+            be used to limit the range of the context selection (e.g.,
+            </textual><code class="po-atom e460 e460"><textual class="po-textual">following::word</textual></code><textual class="po-textual">). For example, </textual><code class="po-atom e461 e461"><textual class="po-textual">$i/following::word[1]</textual></code><textual class="po-textual"> would
+            benefit from the optimization because the static return type of the predicate is a
+            positional predicate and it entails no context dependency. On the other hand,
+                </textual><code class="po-atom e462 e462"><textual class="po-textual">$i/following::word[position() = 1]</textual></code><textual class="po-textual"> would not be optimized because it
+            introduces a context dependency insofar as </textual><code class="po-atom e463 e463"><textual class="po-textual">position()</textual></code><textual class="po-textual"> returns the position
+            of the current context item and cannot be evaluated without looking at the context.
+            Furthermore, determining the static type is not always easy. In particular, the type
+            information is passed along local variables declared in a </textual><code class="po-atom e464 e464"><textual class="po-textual">let</textual></code><textual class="po-textual"> or
+                </textual><code class="po-atom e465 e465"><textual class="po-textual">for</textual></code><textual class="po-textual">, but it gets lost through function calls. My original query,
+                </textual><code class="po-atom e466 e466"><textual class="po-textual">for $j in (1 to 3) return $i/following::word[$j]</textual></code><textual class="po-textual">, works, but if
+                </textual><code class="po-atom e467 e467"><textual class="po-textual">$j</textual></code><textual class="po-textual"> were a function parameter, it would not. Additionally, support for
+            this optimization with particular XPath functions is being introduced only
+            incrementally, to avoid breaking existing code. For example, the developers’ initial
+            attempt at an optimization failed with the </textual><code class="po-atom e468 e468"><textual class="po-textual">reverse()</textual></code><textual class="po-textual"> function that I used
+            to retrieve the three preceding words in the correct order, although support for this
+            function was added later to the optimization.</textual></para><para class="po-block e469 e469"><textual class="po-textual">The unsurprising technical conclusion, then, is that, at least in the present case,
+            optimization of the XPath code by the user to reduce the scope of a query can achieve
+            substantial improvement, but much more impressive results are obtained by optimizing the
+            Java code underlying the XPath interpreter. What this experiment also reveals, though,
+            is that, at least in the present case, the user was not reduced to waiting helplessly
+            for a resolution by the developers, and was able to achieve meaningful improvement in
+            those areas that he did control, viz., the XML, XPath, and XQuery.</textual></para><para class="po-block e470 e470"><textual class="po-textual">In his concluding statement at the Balisage 2009 pre-conference Symposium on
+            Processing XML Efficiently, Michael Kay invoked David Wheeler’s advice that application
+            developers optimize the code that users actually write, that is, that they find out what
+            people are doing and make that go quickly. From an end-user perspective, though, the
+            lesson can be reversed: Find out what goes quickly and use it.</textual></para></section><bibliography class="po-hcontainer e471 e471"><title class="po-block e472 e472"><textual class="po-textual">Works cited</textual></title><bibliomixed class="po-block e473 e473" xml:id="Configuring" xreflabel="Configuring"><textual class="po-textual">“Configuring Database Indexes.”
+            (Part of the </textual><emphasis class="po-inline e474 e474" role="ital"><textual class="po-textual">eXist</textual></emphasis><textual class="po-textual"> documentation.) </textual><link class="po-inline e475 e475" xlink:actuate="onRequest" xlink:href="http://www.exist-db.org/indexing.html" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://www.exist-db.org/indexing.html</textual></link><textual class="po-textual">. Accessed 2009-05-31.</textual></bibliomixed><bibliomixed class="po-block e476 e476" xml:id="Lucene" xreflabel="Lucene"><textual class="po-textual">“Lucene-based Full Text Index” (Part of the
+                </textual><emphasis class="po-inline e477 e477" role="ital"><textual class="po-textual">eXist</textual></emphasis><textual class="po-textual"> documentation.) </textual><link class="po-inline e478 e478" xlink:actuate="onRequest" xlink:href="http://www.exist-db.org/lucene.html" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://www.exist-db.org/lucene.html</textual></link><textual class="po-textual">. Accessed 2009-05-31.</textual></bibliomixed><bibliomixed class="po-block e479 e479" xml:id="Tuning" xreflabel="Tuning"><textual class="po-textual">“Tuning the Database.” (Part of the
+                </textual><emphasis class="po-inline e480 e480" role="ital"><textual class="po-textual">eXist</textual></emphasis><textual class="po-textual"> documentation.) </textual><link class="po-inline e481 e481" xlink:actuate="onRequest" xlink:href="http://exist.sourceforge.net/tuning.html" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://exist.sourceforge.net/tuning.html</textual></link><textual class="po-textual">. Accessed 2009-05-31.</textual></bibliomixed></bibliography></article></classedDocument>

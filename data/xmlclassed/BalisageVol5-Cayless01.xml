@@ -1,0 +1,373 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?><classedDocument><article xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink" class="po-hcontainer e0 e0" version="5.0-subset Balisage-1.2"><title class="po-block e1 e1"><textual class="po-textual">On Implementing string-range() for TEI</textual></title><info class="po-record e2 e2"><confgroup class="po-record e3 e3"><conftitle class="po-field e4 e4"><textual class="po-textual">Balisage: The Markup Conference 2010</textual></conftitle><confdates class="po-field e5 e5"><textual class="po-textual">August 3 - 6, 2010</textual></confdates></confgroup><abstract class="po-container e6 e6"><para class="po-block e7 e7"><textual class="po-textual">The Text Encoding Initiative Guidelines specify a number of pointer schemes for use in
+        implementing standoff markup. This paper reports on an implementation of one of these
+        pointer schemes, string-range(), and discusses the issues surrounding standoff markup in the
+        context of TEI.</textual></para></abstract><author class="po-record e8 e8"><personname class="po-record e9 e9"><firstname class="po-field e10 e10"><textual class="po-textual">Hugh</textual></firstname><othername class="po-field e11 e11"><textual class="po-textual">A.</textual></othername><surname class="po-field e12 e12"><textual class="po-textual">Cayless</textual></surname></personname><personblurb class="po-container e13 e13"><para class="po-block e14 e14"><textual class="po-textual">Hugh Cayless works on digital papyrology for the NYU Digital Library Technology
+          Services team. He holds a Ph.D. in Classics and an MS in Information Science and has
+          research interests in the application of digital technologies to problems in the study of
+          the ancient world.</textual></para></personblurb><affiliation class="po-record e15 e15"><jobtitle class="po-field e16 e16"><textual class="po-textual">Analyst/Programmer</textual></jobtitle><orgname class="po-block e17 e17"><textual class="po-textual">NYU</textual></orgname></affiliation><email class="po-field e18 e18"><textual class="po-textual">philomousos@gmail.com</textual></email></author><author class="po-record e19 e19"><personname class="po-record e20 e20"><firstname class="po-field e21 e21"><textual class="po-textual">Adam</textual></firstname><surname class="po-field e22 e22"><textual class="po-textual">Soroka</textual></surname></personname><personblurb class="po-container e23 e23"><para class="po-block e24 e24"><textual class="po-textual">Adam Soroka is an engineer in the Research and Development section of the Department of Digital Research and Scholarship of the University of Virginia Library. His XML-related interests include the uses of tree automata and integrating geospatial data into textual markup.</textual></para></personblurb><affiliation class="po-record e25 e25"><jobtitle class="po-field e26 e26"><textual class="po-textual">Engineer</textual></jobtitle><orgname class="po-block e27 e27"><textual class="po-textual">UVA</textual></orgname></affiliation><email class="po-field e28 e28"><textual class="po-textual">ajs6f@virginia.edu</textual></email></author><legalnotice class="po-container e29 e29"><para class="po-block e30 e30"><textual class="po-textual">Copyright © 2010 Hugh A. Cayless and Adam Soroka</textual></para></legalnotice><keywordset class="po-table e31 e31" role="author"><keyword class="po-field e32 e32"><textual class="po-textual">TEI</textual></keyword><keyword class="po-field e33 e33"><textual class="po-textual">standoff markup</textual></keyword><keyword class="po-field e34 e34"><textual class="po-textual">XSLT/XPath 2.0</textual></keyword></keywordset></info><section class="po-hcontainer e35 e35"><title class="po-block e36 e36"><textual class="po-textual">Introduction</textual></title><para class="po-block e37 e37"><textual class="po-textual">The genesis of this paper lies in a discussion</textual><footnote class="po-popup e38 e38" xml:id="n1"><para class="po-block e39 e39"><textual class="po-textual">The discussion, in which most posts have the title </textual><quote class="po-inline e40 e40"><textual class="po-textual">the inadequacies of
+            markup</textual></quote><textual class="po-textual">, began with
+            </textual><link class="po-inline e41 e41" xlink:actuate="onRequest" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://www.digitalhumanities.org/cgi-bin/humanist/archive/archive_msg.cgi?file=/Humanist.vol23.txt&amp;msgnum=762&amp;start=98202&amp;end=98321</textual></link><textual class="po-textual">
+          on April 25th and carried on for about three weeks. The postings may be found in
+            </textual><link class="po-inline e42 e42" xlink:actuate="onRequest" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://www.digitalhumanities.org/cgi-bin/humanist/archive/archive.cgi?list=/Humanist.vol23.txt</textual></link><textual class="po-textual">
+          and
+            </textual><link class="po-inline e43 e43" xlink:actuate="onRequest" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://www.digitalhumanities.org/cgi-bin/humanist/archive/archive.cgi?list=/Humanist.vol24.txt</textual></link></para></footnote><textual class="po-textual"> on the Humanist mailing last that began with a request for comment from Desmond
+      Schmidt on his recent article in LLC, </textual><citation class="po-atom e44 e44"><quote class="po-inline e45 e45"><textual class="po-textual">The inadequacy of embedded markup for
+          cultural heritage texts</textual></quote></citation><textual class="po-textual">. [</textual><xref class="po-milestone e46 e46" linkend="Schmidt2010"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">] The core of
+      which is an argument (really a series of arguments) that the insertion of what I will call
+        </textual><quote class="po-inline e47 e47"><textual class="po-textual">inline</textual></quote><textual class="po-textual"> markup (the format of which is typically XML) into the midst of a text
+      to be interpreted is in some sense a violation of that text. Schmidt comes at this from
+      several angles, highlighting the overlap problem, the imposition of subjective interpretation
+      on the text in the form of markup that could become obsolete before the text itself does, the
+      ways in which inline markup may duplicate information that could be derived automatically, and
+      the fact that markup technologies like XML are </textual><quote class="po-inline e48 e48"><textual class="po-textual">industrial</textual></quote><textual class="po-textual"> and inherit from
+      textual command languages designed for print.</textual></para><para class="po-block e49 e49"><textual class="po-textual">The authors aren’t sure they completely agree with all of this, but Schmidt’s is a
+      thoughtful article, and a useful contribution to the ongoing debate over how satisfactory XML
+      is for representing text. The subsequent discussion on Humanist went on for an unusually long
+      series of posts, and was at times quite contentious. It inspired Hugh Cayless to call a
+      session on </textual><quote class="po-inline e50 e50"><textual class="po-textual">The (in)adequacies of markup</textual></quote><textual class="po-textual">
+        [</textual><link class="po-inline e51 e51" xlink:actuate="onRequest" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://thatcamp.org/2010/the-inadequacies-of-markup/</textual></link><textual class="po-textual">] at the THATCamp meeting
+      held shortly afterwards at George Mason University. The session participants quickly agreed on
+      a ruthlessly practical approach. As programmers, we are quite pleased that XML is an
+        </textual><quote class="po-inline e52 e52"><textual class="po-textual">industrial tool</textual></quote><textual class="po-textual"> and while we’ll happily acknowledge the shortcomings of the
+      Text Encoding Initiative (TEI), the size of its install base and the number of texts already
+      encoded using it led us to look for solutions to the problems inherent in inline markup that
+      could be implemented within the context of XML and the TEI. The obvious alternative to inline
+      markup is standoff markup, and the TEI Guidelines have at least some things to say about doing
+      standoff markup in TEI.</textual></para></section><section class="po-hcontainer e53 e53"><title class="po-block e54 e54"><textual class="po-textual">TEI, standoff markup, and string-range()</textual></title><para class="po-block e55 e55"><textual class="po-textual">Section 16.2.4 of the Text Encoding Initiative Guidelines outlines a number of pointer
+      schemes that are related to functions defined in the XPointer specification [</textual><xref class="po-milestone e56 e56" linkend="XPtr"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">]. These can (notionally at least) be used to produce standoff markup on a
+      TEI document. There are a variety of problems with the pointer schemes defined by the
+      guidelines, and also with the related XPointer functions, but the most basic is that most of
+      them don't have any implementation. There is therefore, no good way to use them, and, because
+      they are unused, no good reason to implement them either. It is a Catch-22. The TEI pointer
+      schemes are clearly meant to be used in concert with XInclude, as functions that retrieve text
+      or node sets (see the example in 16.9.3), but their effects are underspecified in the
+      guidelines.</textual></para><para class="po-block e57 e57"><textual class="po-textual">Recent developments in the TEI have opened up the possibility of creating an
+      implementation of at least one of these schemes, namely string-range(). The string-range()
+      pointer scheme is defined thus: </textual><blockquote class="po-container e58 e58"><title class="po-block e59 e59"><textual class="po-textual">16.2.4.5 string-range(fragmentIdentifier, offset [, length])</textual></title><para class="po-block e60 e60"><textual class="po-textual">The string-range() scheme locates a range based on character positions. While
+          string-range endpoints are points adjacent to character positions, they must be designated
+          by the characters to which they are adjacent, in the same way that the nodes corresponding
+          to XML elements are. This avoids ambiguity about which point between two characters is
+          indicated when characters are interrupted by markup.</textual></para><para class="po-block e61 e61"><textual class="po-textual">The first argument to string-range() designates a node or a range within which a
+          string is to be located. No string range, even an empty one, can be defined by a
+          string-range() if the fragment identified has the empty string as its value. Every
+          string-range is defined based on an ‘origin character’. The origin is numbered 0, and
+          designates the first character of the string-value of pointer. The offset is a character
+          index relative to the origin; the start of the resulting range is the position designated
+          by the sum of the origin and offset."</textual></para><para class="po-block e62 e62"><textual class="po-textual">If length is specified, the end of the range is at a point adjacent to the character
+          designated by the origin added to the offset and length. If the offset is negative, or
+          length is sufficiently large, a string-range can designate characters outside the
+          string-value of the initial pointer. In this case, characters are located using the
+          string-value of the entire document. It is also legal for length plus the origin to exceed
+          the length of the string-value of the document by one, in order to accommodate ranges that
+          include the last character of a document.</textual></para><para class="po-block e63 e63"><textual class="po-textual">If length is not specified, it defaults to the value 1, and the string range contains
+          one character. If it is specified as 0, the zero-length range is interpreted as the point
+          immediately preceding the origin character or offset character if there is one.
+            [</textual><link class="po-inline e64 e64" xlink:actuate="onRequest" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://www.tei-c.org/release/doc/tei-p5-doc/en/html/SA.html#SATSSR</textual></link><textual class="po-textual">]</textual><footnote class="po-popup e65 e65"><para class="po-block e66 e66"><textual class="po-textual">We are so far being quite restrictive in our interpretation of the term
+                </textual><quote class="po-inline e67 e67"><textual class="po-textual">fragmentIdentifier</textual></quote><textual class="po-textual">. In theory this could encompass any means of
+              identifying a section of the document, including functions in the xpointer framework,
+              for example. In practise, fragment identifiers are context-dependent, relying both on
+              the MIME type of the document identified by the URI and on the functionality of the
+              technology used to call them. For example, in the context of an XInclude element, some
+              xpointer functions will work, whereas in the context of a browser-based hyperlink,
+              only @id or @xml:id values work. Since we are working outside XInclude, we take the
+              narrow view that a fragment identifier in a string-range can only be the value of an
+              @xml:id attribute somewhere in the current document or in an external XML
+              document.</textual></para></footnote><textual class="po-textual">
+        </textual></para></blockquote><textual class="po-textual"> In theory, at least, string-range can be used to indicate an arbitrary section
+      of text in a TEI document, without regard to the way that text is nested within the document's
+      structure. A range could start inside one element, and end inside another. Put another way, it
+      can span multiple text() nodes. This means that if string-range() can be implemented, it would
+      present a solution to the overlapping hierarchies problem.</textual></para><para class="po-block e68 e68"><textual class="po-textual">Since string-range depends on marking a starting point and length of text within a section
+      of the document, it runs immediately into a problem with the way XML regards some whitespace
+      as "ignorable". Space between elements, for example, is not necessarily preserved during
+      operations on the document. Someone editing a document, for example, might pretty-print it in
+      order to make it more readable. This would introduce extra newline and space characters into
+      the document, and immediately break any string-range() pointers. In other words, the ignorable
+      whitespace content of the document could be changed as a part of normal processing that
+      doesn’t involve any editing of the document. This year, for the first time, TEI has begun to
+      allow the xml:space attribute.
+        [</textual><link class="po-inline e69 e69" xlink:actuate="onRequest" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://www.tei-c.org/release/doc/tei-p5-doc/en/html/ref-att.global.html</textual></link><textual class="po-textual">] This
+      means that the ignorable whitespace issue can be accommodated in a standard way.</textual></para><para class="po-block e70 e70"><textual class="po-textual">A second problem, and one that applies to several of the pointer schemes that the
+      Guidelines specify, is that they extend the XML data model. The TEI pointer scheme conceives
+      of Nodes and Node Sets (both of which correspond to objects in the XML Infoset/DOM), but also
+      Points and Ranges. Points are theoretical objects that must lie between element nodes or
+      between characters in text nodes. This is a useful concept for marking arbitrary ranges in a
+      document, but since it does not correspond to anything conceived of by the XML specifications,
+      there are are no hooks in XML processing tools on which to hang Points. They cannot be passed
+      to or returned by any XPath function or XSLT instruction. This makes implementation a complex
+      task. At best, they can be encapsulated in special-purpose markup for passing as messages or
+      handled as uninterpreted XPath expressions. The former technique introduces a problem of
+      standardization and the latter requires second-order processing, with the dangers and
+      difficulties that implies. Since string-range focuses on text, however, it is possible to
+      count, for each text node, the concatenated length of text nodes on the preceding axis, and
+      thereby to locate the text nodes containing the start and end points indicated in a
+      string-range() pointer.</textual></para><para class="po-block e71 e71"><textual class="po-textual">A third problem with string-range() as defined by the TEI, and in fact with all of its
+      XPointer schemes, is that the specification (the TEI Guidelines) doesn't properly address what
+      implementation would mean. The example in 16.9.3 uses string-range in XInclude elements to
+      import text from one XML document to another. Of course this example doesn’t work, because
+      TEI’s string-range has no XInclude implementation. But the (unstated) implication seems to be
+      that the string-range() function returns plain text only. String-range could certainly be used
+      to declaratively indicate arbitrary sections of a document, but without some mechanism for
+      executing it, there is nothing concrete for an implementer to do. A further complication is
+      that there is nothing stopping a string-range from indicating text that overlaps elements in a
+      non-hierarchical fashion. Should an implementer ignore elements thus captured? Or return them
+      somehow? A related issue is the fact that since string-range defines text-based locations,
+      elements are effectively invisible to it. A standalone element (e.g. </textual><code class="po-atom e72 e72"><textual class="po-textual">&lt;lb/&gt;</textual></code><textual class="po-textual">)
+      immediately before text that one wants to mark with a string-range() won't automatically be
+      part of that range.</textual></para><para class="po-block e73 e73"><textual class="po-textual">Given the underspecified functionality of string-range, the authors have made some
+      assumptions about implementation details. We have decided not to extend any existing XInclude
+      implementation. Instead, we have decided to use string-range only in a declarative fashion, as
+      a pointing mechanism within TEI, and we are developing XPath 2.0 functions that complement and
+      use string-range(). Where it declares a range, they will be able to retrieve that range. We
+      propose three functions, with the following signatures: </textual><blockquote class="po-container e74 e74"><title class="po-block e75 e75"><textual class="po-textual">get-string-range(parentElt, offset1, offset2 [offset3, offset4, etc.]) </textual></title><para class="po-block e76 e76"><textual class="po-textual">- takes as arguments an XPath indicating a parent element (e.g. a div on which
+            </textual><code class="po-atom e77 e77"><textual class="po-textual">@xml:space="preserve"</textual></code><textual class="po-textual"> as been set) and a set of integer pairs of character
+          offsets</textual></para><para class="po-block e78 e78"><textual class="po-textual">- returns a sequence of strings derived from text nodes or portions of text nodes
+          between the pairs of points passed in as parameters.</textual></para></blockquote><textual class="po-textual">
+      </textual><blockquote class="po-container e79 e79"><title class="po-block e80 e80"><textual class="po-textual">get-milestone-range(parentElt,offset1, offset2 [offset3, offset4, etc.])</textual></title><para class="po-block e81 e81"><textual class="po-textual">- takes as arguments an XPath indicating a parent element (e.g. a div on which
+            </textual><code class="po-atom e82 e82"><textual class="po-textual">@xml:space="preserve"</textual></code><textual class="po-textual"> as been set) and a set of integer pairs of character
+          offsets</textual></para><para class="po-block e83 e83"><textual class="po-textual">- returns a sequence where elements have been converted to milestones (e.g.
+            </textual><code class="po-atom e84 e84"><textual class="po-textual">&lt;p-start&gt;</textual></code><textual class="po-textual"> and </textual><code class="po-atom e85 e85"><textual class="po-textual">&lt;p-end&gt;</textual></code><textual class="po-textual"> instead of
+            </textual><code class="po-atom e86 e86"><textual class="po-textual">&lt;p&gt;</textual></code><textual class="po-textual">).</textual></para></blockquote><textual class="po-textual">
+      </textual><blockquote class="po-container e87 e87"><title class="po-block e88 e88"><textual class="po-textual">get-fragment-range(parentElt,offset1, offset2 [offset3, offset4, etc.])</textual></title><para class="po-block e89 e89"><textual class="po-textual">- takes as arguments an XPath indicating a parent element (e.g. a div on which
+            </textual><code class="po-atom e90 e90"><textual class="po-textual">@xml:space="preserve"</textual></code><textual class="po-textual"> as been set) and a set of integer pairs of character
+          offsets</textual></para><para class="po-block e91 e91"><textual class="po-textual">- returns a well-formed document fragment, where elements split by the range have been
+          automatically opened or closed.</textual></para></blockquote><textual class="po-textual"> An XSLT 2.0 stylesheet that implements these functions is under development at
+        </textual><link class="po-inline e92 e92" xlink:actuate="onRequest" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://github.com/hcayless/tei-string-range</textual></link><textual class="po-textual">. </textual></para><para class="po-block e93 e93"><textual class="po-textual">A fourth problem lies in the ease-of-use of the string-range function. Determining the
+      index location of a piece of arbitrary text in a TEI document is prohibitively difficult for a
+      human editor. It would be relatively easy to programmatically generate a string-range based on
+      a selected range in an XML editor, like oXygen, but without this kind of functionality, it
+      will be quite hard for someone marking up a document to create the expression with facility.
+      What is needed at a bare minimum is a means to mark range starts and ends, in an
+      editor-independent fashion, which can then be converted to string-range expressions. We
+      propose using processing instructions in the form </textual><code class="po-atom e94 e94"><textual class="po-textual">&lt;?range-start
+        r="n"?&gt;</textual></code><textual class="po-textual">/</textual><code class="po-atom e95 e95"><textual class="po-textual">&lt;?range-end r="n"?&gt;</textual></code><textual class="po-textual">, where "n" identifies a particular
+      range. Pairs of these will mark range starts and ends, and can be processed by an XSLT
+      stylesheet to create </textual><code class="po-atom e96 e96"><textual class="po-textual">&lt;linkGrp&gt;</textual></code><textual class="po-textual">s containing links that use string-range() to
+      identify the marked ranges.</textual></para><para class="po-block e97 e97"><textual class="po-textual">Our implementation then, consists of a simple way to create string-range() pointers using
+      a XSLT 2.0 stylesheet transformation and a set of functions that can be used to process the
+      data marked by a string-range() in the context of an XPath 2.0 processor. Using these
+      stylesheets it is possible, for example, to mark up ranges of text in a non-hierarchical way
+      and then generate a set of links denoting those ranges, to which additional standoff markup
+      may be linked, or one can convert a document with inline markup to one where a division
+      contains plain text and a second division contains markup and pointers to the text.</textual></para><para class="po-block e98 e98"><textual class="po-textual">While the authors intend this effort to be a practical addition to the TEI’s arsenal of
+      tools, this kind of implementation raises theoretical questions that bring us back to the
+      question of the adequacy of inline markup. In the example below, taken from
+        </textual><link class="po-inline e99 e99" xlink:actuate="onRequest" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://github.com/hcayless/tei-string-range/blob/master/bgu.1.116.xml</textual></link><textual class="po-textual">, a
+      transcription of a document written on papyrus from Arsinoite in Egypt, some of the text
+      content in the edition </textual><code class="po-atom e100 e100"><textual class="po-textual">&lt;div&gt;</textual></code><textual class="po-textual"> is readable in the original, and some has been
+      supplied by the editor. </textual><blockquote class="po-container e101 e101"><para class="po-block e102 e102"><programlisting class="po-block e103 e103" xml:space="preserve"><textual class="po-textual">
+&lt;lb n="1"/&gt;&lt;handShift new="m3"/&gt; &lt;num value="62"&gt;ξβ&lt;/num&gt; 
+&lt;lb n="2"/&gt;&lt;handShift new="m1"/&gt; 
+  &lt;supplied reason="lost"&gt;Ἁρποκρατίω&lt;/supplied&gt;ν&lt;supplied reason="lost"&gt;ι&lt;/supplied&gt; 
+  τ&lt;supplied reason="lost"&gt;ῷ κ&lt;/supplied&gt;αὶ Ἱέρακι 
+  &lt;expan&gt;β&lt;supplied reason="lost"&gt;ασ&lt;ex&gt;ιλικῷ&lt;/ex&gt;&lt;/supplied&gt;&lt;/expan&gt; 
+&lt;lb n="3"/&gt;&lt;supplied reason="lost"&gt;&lt;expan&gt;γρ&lt;ex&gt;αμματεῖ&lt;/ex&gt;&lt;/expan&gt; 
+  &lt;expan&gt;Ἀρσ&lt;ex&gt;ινοΐτου&lt;/ex&gt;&lt;/expan&gt;&lt;/supplied&gt; 
+  &lt;expan&gt;Ἡρ&lt;supplied reason="lost"&gt;ακ&lt;ex&gt;λείδου&lt;/ex&gt;&lt;/supplied&gt;&lt;/expan&gt;
+  &lt;supplied reason="lost"&gt; με&lt;/supplied&gt;ρίδος 
+&lt;lb n="4"/&gt;&lt;supplied reason="lost"&gt;παρὰ&lt;/supplied&gt; 
+  Ὡ&lt;supplied reason="lost"&gt;ριγέ&lt;/supplied&gt;&lt;unclear&gt;ν&lt;/unclear&gt;ους 
+  Ἰσιδ&lt;supplied reason="lost"&gt;ώ&lt;/supplied&gt;ρο&lt;supplied reason="lost"&gt;υ&lt;/supplied&gt; 
+&lt;lb n="5"/&gt;&lt;supplied reason="lost"&gt;τῶν ἀπὸ&lt;/supplied&gt; τῆ&lt;supplied reason="lost"&gt;ς&lt;/supplied&gt; 
+  &lt;expan&gt;μ&lt;supplied reason="lost"&gt;ητρ&lt;/supplied&gt;ο&lt;ex&gt;πόλεως&lt;/ex&gt;&lt;/expan&gt; 
+  &lt;expan&gt;ἀπογε&lt;supplied reason="lost"&gt;γρ&lt;/supplied&gt;α&lt;ex&gt;μμένου&lt;/ex&gt;&lt;/expan&gt; 
+&lt;lb n="6"/&gt;&lt;supplied reason="lost"&gt;ἐπʼ &lt;expan&gt;ἀμφό&lt;ex&gt;δου&lt;/ex&gt;&lt;/expan&gt; &lt;/supplied&gt;
+  &lt;gap reason="lost" quantity="1" unit="character"/&gt;&lt;abbr&gt;ερω&lt;/abbr&gt; 
+  Θε&lt;gap reason="lost" quantity="1" unit="character"/&gt;&lt;abbr&gt;&lt;unclear&gt;μι&lt;/unclear&gt;
+  &lt;gap reason="illegible" quantity="1" unit="character"/&gt;&lt;/abbr&gt;.
+        </textual></programlisting></para></blockquote><textual class="po-textual">
+    </textual></para><para class="po-block e104 e104"><textual class="po-textual">A transcription of the first six lines following the Leiden convention reads thus: </textual><blockquote class="po-container e105 e105"><para class="po-block e106 e106"><textual class="po-textual"> </textual><programlisting class="po-block e107 e107" xml:space="preserve"><textual class="po-textual">
+(hand 3) ξβ 
+(hand 1) [Ἁρποκρατίω]ν[ι] τ[ῷ κ]αὶ Ἱέρακι β[ασ(ιλικῷ)] 
+[γρ(αμματεῖ) Ἀρσ(ινοΐτου)] Ἡρ[ακ(λείδου) με]ρίδος 
+[παρὰ] Ὡ[ριγέ]ν̣ους Ἰσιδ[ώ]ρο[υ] 
+[τῶν ἀπὸ] τῆ[ς] μ[ητρ]ο(πόλεως) ἀπογε[γρ]α(μμένου) 
+[ἐπʼ ἀμφό(δου) ̣]ερω( ) Θε[ ̣]μ̣ι̣[ ̣]( ).</textual></programlisting><textual class="po-textual"> </textual></para></blockquote><textual class="po-textual"> A “plain text” version, obtained by extracting the markup from the text content
+      of the TEI document looks like: </textual><blockquote class="po-container e108 e108"><para class="po-block e109 e109"><textual class="po-textual">
+          </textual><programlisting class="po-block e110 e110" xml:space="preserve"><textual class="po-textual">
+ξβ 
+Ἁρποκρατίωνι τῷ καὶ Ἱέρακι βασιλικῷ 
+γραμματεῖ Ἀρσινοΐτου Ἡρακλείδου μερίδος 
+παρὰ Ὡριγένους Ἰσιδώρου 
+τῶν ἀπὸ τῆς μητροπόλεως ἀπογεγραμμένου 
+ἐπʼ ἀμφόδου ερω Θεμι.
+          </textual></programlisting><textual class="po-textual">
+        </textual></para></blockquote><textual class="po-textual"> while the extracted markup, with </textual><code class="po-atom e111 e111"><textual class="po-textual">&lt;ptr&gt;</textual></code><textual class="po-textual"> elements that refer
+      back to the text div looks like: </textual><blockquote class="po-container e112 e112"><programlisting class="po-block e113 e113" xml:space="preserve"><textual class="po-textual">
+            
+&lt;lb n="1"/&gt;
+&lt;handShift new="m3"/&gt;
+&lt;ptr target="#string-range('d2e120', 6, 1)"/&gt;
+&lt;num value="62"&gt;
+  &lt;ptr target="#string-range('d2e120', 7, 2)"/&gt;
+&lt;/num&gt;
+&lt;ptr target="#string-range('d2e120', 9, 7)"/&gt;
+&lt;lb n="2"/&gt;
+&lt;handShift new="m1"/&gt;
+&lt;ptr target="#string-range('d2e120', 16, 1)"/&gt;
+&lt;supplied reason="lost"&gt;
+  &lt;ptr target="#string-range('d2e120', 17, 10)"/&gt;
+&lt;/supplied&gt;
+&lt;ptr target="#string-range('d2e120', 27, 1)"/&gt;
+&lt;supplied reason="lost"&gt;
+  &lt;ptr target="#string-range('d2e120', 28, 1)"/&gt;
+&lt;/supplied&gt;
+&lt;ptr target="#string-range('d2e120', 29, 2)"/&gt;
+&lt;supplied reason="lost"&gt;
+  &lt;ptr target="#string-range('d2e120', 31, 3)"/&gt;
+&lt;/supplied&gt;
+&lt;ptr target="#string-range('d2e120', 34, 10)"/&gt;
+&lt;expan&gt;
+  &lt;ptr target="#string-range('d2e120', 44, 1)"/&gt;
+  &lt;supplied reason="lost"&gt;
+    &lt;ptr target="#string-range('d2e120', 45, 2)"/&gt;
+    &lt;ex&gt;
+      &lt;ptr target="#string-range('d2e120', 47, 5)"/&gt;
+    &lt;/ex&gt;
+  &lt;/supplied&gt;
+&lt;/expan&gt;
+&lt;ptr target="#string-range('d2e120', 52, 7)"/&gt;
+&lt;lb n="3"/&gt;
+&lt;supplied reason="lost"&gt;
+  &lt;expan&gt;
+    &lt;ptr target="#string-range('d2e120', 59, 2)"/&gt;
+    &lt;ex&gt;
+      &lt;ptr target="#string-range('d2e120', 61, 7)"/&gt;
+     &lt;/ex&gt;
+  &lt;/expan&gt;
+  &lt;ptr target="#string-range('d2e120', 68, 1)"/&gt;
+  &lt;expan&gt;
+    &lt;ptr target="#string-range('d2e120', 69, 3)"/&gt;
+    &lt;ex&gt;
+      &lt;ptr target="#string-range('d2e120', 72, 7)"/&gt;
+    &lt;/ex&gt;
+  &lt;/expan&gt;
+&lt;/supplied&gt;
+&lt;ptr target="#string-range('d2e120', 79, 1)"/&gt;
+&lt;expan&gt;
+  &lt;ptr target="#string-range('d2e120', 80, 2)"/&gt;
+  &lt;supplied reason="lost"&gt;
+    &lt;ptr target="#string-range('d2e120', 82, 2)"/&gt;
+    &lt;ex&gt;
+      &lt;ptr target="#string-range('d2e120', 84, 6)"/&gt;
+    &lt;/ex&gt;
+  &lt;/supplied&gt;
+&lt;/expan&gt;
+&lt;supplied reason="lost"&gt;
+  &lt;ptr target="#string-range('d2e120', 90, 3)"/&gt;
+&lt;/supplied&gt;
+&lt;ptr target="#string-range('d2e120', 93, 12)"/&gt;
+&lt;lb n="4"/&gt;
+&lt;supplied reason="lost"&gt;
+  &lt;ptr target="#string-range('d2e120', 105, 4)"/&gt;
+&lt;/supplied&gt;
+&lt;ptr target="#string-range('d2e120', 109, 2)"/&gt;
+&lt;supplied reason="lost"&gt;
+  &lt;ptr target="#string-range('d2e120', 111, 4)"/&gt;
+&lt;/supplied&gt;
+&lt;unclear&gt;
+  &lt;ptr target="#string-range('d2e120', 115, 1)"/&gt;
+&lt;/unclear&gt;
+&lt;ptr target="#string-range('d2e120', 116, 8)"/&gt;
+&lt;supplied reason="lost"&gt;
+  &lt;ptr target="#string-range('d2e120', 124, 1)"/&gt;
+&lt;/supplied&gt;
+&lt;ptr target="#string-range('d2e120', 125, 2)"/&gt;
+&lt;supplied reason="lost"&gt;
+  &lt;ptr target="#string-range('d2e120', 127, 1)"/&gt;
+&lt;/supplied&gt;
+&lt;ptr target="#string-range('d2e120', 128, 7)"/&gt;
+&lt;lb n="5"/&gt;
+&lt;supplied reason="lost"&gt;
+  &lt;ptr target="#string-range('d2e120', 135, 7)"/&gt;
+&lt;/supplied&gt;
+&lt;ptr target="#string-range('d2e120', 142, 3)"/&gt;
+&lt;supplied reason="lost"&gt;
+  &lt;ptr target="#string-range('d2e120', 145, 1)"/&gt;
+&lt;/supplied&gt;
+&lt;ptr target="#string-range('d2e120', 146, 1)"/&gt;
+&lt;expan&gt;
+  &lt;ptr target="#string-range('d2e120', 147, 1)"/&gt;
+  &lt;supplied reason="lost"&gt;
+    &lt;ptr target="#string-range('d2e120', 148, 3)"/&gt;
+  &lt;/supplied&gt;
+  &lt;ptr target="#string-range('d2e120', 151, 1)"/&gt;
+  &lt;ex&gt;
+    &lt;ptr target="#string-range('d2e120', 152, 6)"/&gt;
+  &lt;/ex&gt;
+&lt;/expan&gt;
+&lt;ptr target="#string-range('d2e120', 158, 1)"/&gt;
+&lt;expan&gt;
+  &lt;ptr target="#string-range('d2e120', 159, 5)"/&gt;
+  &lt;supplied reason="lost"&gt;
+    &lt;ptr target="#string-range('d2e120', 164, 2)"/&gt;
+  &lt;/supplied&gt;
+  &lt;ptr target="#string-range('d2e120', 166, 1)"/&gt;
+  &lt;ex&gt;
+    &lt;ptr target="#string-range('d2e120', 167, 6)"/&gt;
+  &lt;/ex&gt;
+&lt;/expan&gt;
+&lt;ptr target="#string-range('d2e120', 173, 7)"/&gt;
+&lt;lb n="6"/&gt;
+&lt;supplied reason="lost"&gt;
+  &lt;ptr target="#string-range('d2e120', 180, 4)"/&gt;
+  &lt;expan&gt;
+    &lt;ptr target="#string-range('d2e120', 184, 4)"/&gt;
+    &lt;ex&gt;
+      &lt;ptr target="#string-range('d2e120', 188, 3)"/&gt;
+    &lt;/ex&gt;
+  &lt;/expan&gt;
+  &lt;ptr target="#string-range('d2e120', 191, 1)"/&gt;
+&lt;/supplied&gt;
+&lt;gap reason="lost" quantity="1" unit="character"/&gt;
+&lt;abbr&gt;
+  &lt;ptr target="#string-range('d2e120', 192, 3)"/&gt;
+&lt;/abbr&gt;
+&lt;ptr target="#string-range('d2e120', 195, 3)"/&gt;
+&lt;gap reason="lost" quantity="1" unit="character"/&gt;
+&lt;abbr&gt;
+  &lt;unclear&gt;
+    &lt;ptr target="#string-range('d2e120', 198, 2)"/&gt;
+  &lt;/unclear&gt;
+  &lt;gap reason="illegible" quantity="1" unit="character"/&gt;
+&lt;/abbr&gt;
+            
+          </textual></programlisting></blockquote><textual class="po-textual">
+    </textual></para><para class="po-block e114 e114"><textual class="po-textual">This example is actually a fairly unproblematic one, since it does not contain any
+      alternate readings or editorial corrections or normalization. Yet even here there are
+      difficulties: “Θεμι” (as is clear in the Leiden version) contains two gaps and unclear text,
+      but since these visual features of the document are indicated using </textual><code class="po-atom e115 e115"><textual class="po-textual">&lt;gap/&gt;</textual></code><textual class="po-textual">
+      and </textual><code class="po-atom e116 e116"><textual class="po-textual">&lt;unclear/&gt;</textual></code><textual class="po-textual"> tags, it looks like an undamaged word-fragment in the plain
+      text version. It must be noted that the traditional way of publishing these documents in print
+      employs inline markup. So, in this example at least, a plain text version would itself be a
+      somewhat misleading version of the document. This is not a refutation of Schmidt’s points,
+      because there are many other ways one could encode the document, using standoff markup, that
+      would mitigate this problem. But perhaps it suggests that there are at least some uses of
+      inline markup (when it encodes features of the text that cannot be expressed straightforwardly
+      in Unicode) that may be hard to replace.</textual></para><para class="po-block e117 e117"><textual class="po-textual">The ability to extract the markup from the text and still preserve the manipulability it
+      previously enjoyed suggests some additional possibilities: one could now layer in name and
+      place information, lexical and grammatical analysis, structural information, such as line
+      containment, rather than just marking line beginnings, etc. Different views could be
+      generated, using these individually or using combinations of them. Nothing stops us from
+      layering these on top of inline markup either.</textual></para><para class="po-block e118 e118"><textual class="po-textual">Since it relies on character offsets, any implementation of string-range() is inherently
+      somewhat brittle. The adoption of </textual><code class="po-atom e119 e119"><textual class="po-textual">@xml:space</textual></code><textual class="po-textual"> by the TEI closes off one means by which links
+      using string-range could be broken, but can do nothing to mitigate the danger of someone
+      editing the text directly. Projects that use this mechanism will have to prevent the breakage
+      of string-range links either through workflow or editing environments that manage shifting
+      offsets.</textual></para><para class="po-block e120 e120"><textual class="po-textual">We have already learned a good deal from our implementation efforts to date. If this
+      approach is something other users of TEI or even the TEI Consortium itself wishes to support,
+      there are several changes we would suggest. First, that the guidelines be emended to contain a
+      more thorough specification of the TEI pointer schemes. Second, that a working group be formed
+      look at practical implementations of standoff markup and on appropriate usage patterns for
+      these. We must note that the example stylesheet we provide to generate a text + standoff
+      markup version of a valid TEI document results in invalid TEI when applied to the bgu.1.116
+      example, because elements like </textual><code class="po-atom e121 e121"><textual class="po-textual">&lt;ex/&gt;</textual></code><textual class="po-textual"> can only contain text, not pointers to
+      text. Moreover, if one wants to extract a string-range with the inline markup converted to
+      standalone elements, then again the result will not be valid TEI. We hope our efforts outlined
+      above will prompt some useful examination and perhaps revision of the TEI guidelines
+      perspective on standoff markup.</textual></para></section><bibliography class="po-hcontainer e122 e122"><title class="po-block e123 e123"><textual class="po-textual">Bibliography</textual></title><bibliomixed class="po-block e124 e124" xml:id="TEIP5"><textual class="po-textual">Burnard, L. and S. Bauman (eds), </textual><emphasis class="po-inline e125 e125" role="ital"><textual class="po-textual">Text Encoding
+        Initiative: P5 Guidelines</textual></emphasis><textual class="po-textual">, </textual><link class="po-inline e126 e126" xlink:actuate="onRequest" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://www.tei-c.org/Guidelines/P5/</textual></link><textual class="po-textual">
+      (2007).</textual></bibliomixed><bibliomixed class="po-block e127 e127" xml:id="XPtr"><textual class="po-textual">DeRose, Steve, Eve Maler, and Ron Daniel Jr., </textual><emphasis class="po-inline e128 e128" role="ital"><textual class="po-textual">XML Pointer Language (XPointer) Version 1.0</textual></emphasis><textual class="po-textual">,
+        </textual><link class="po-inline e129 e129" xlink:actuate="onRequest" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://www.w3.org/TR/WD-xptr</textual></link><textual class="po-textual"> (2001).</textual></bibliomixed><bibliomixed class="po-block e130 e130" xml:id="Schmidt2010"><textual class="po-textual">Schmidt, Desmond, </textual><quote class="po-inline e131 e131"><textual class="po-textual">The inadequacy of embedded markup for
+        cultural heritage texts</textual></quote><textual class="po-textual">, </textual><emphasis class="po-inline e132 e132" role="ital"><textual class="po-textual">Literary and Linguistic
+        Computing</textual></emphasis><textual class="po-textual"> 25.2 (2010).</textual></bibliomixed></bibliography></article></classedDocument>

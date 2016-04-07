@@ -1,0 +1,741 @@
+<?xml version="1.0" encoding="UTF-8"?><article xmlns:xlink="http://www.w3.org/1999/xlink" xmlns="http://docbook.org/ns/docbook" version="5.0-subset Balisage-1.3"><title>Semantic Profiling Using Indirection</title><info><confgroup><conftitle>Balisage: The Markup Conference 2013</conftitle><confdates>August 6 - 9, 2013</confdates></confgroup><abstract><para>Profiling is an often-used XML publishing technique where nodes are marked as
+                conditional according to a set of profiles, identified using attribute values as
+                filtering conditions. When publishing, the nodes are only included if the publishing
+                conditions match the publishing context. The profiles are sometimes also used as
+                variables in text content, including the attribute value in the publication.</para><para>While useful, these techniques have a number of problems. For example, if the
+                attribute values need to be changed, the new values usually require converting any
+                    <quote>live</quote> legacy documentation to the new values, changing the schema,
+                stylesheets, etc, and supporting both the old and new profiles will not be possible.
+                This paper takes a look at profiling, some of the common problems and suggest ways
+                to solve those problems.</para><para>An abstraction layer solves this. The profile values are not used directly;
+                instead they represent a specific <quote>semantic profile</quote>. The abstraction
+                layer can be expressed using URNs that are matched to human-readable values when
+                required.</para><para>A different problem arises when handling XML documents with structures not in our
+                control. The document might be from a third party and not be editable directly, or
+                use incompatible profiling semantics.</para><para>These documents can be profiled using <emphasis role="ital">out-of-line</emphasis>
+                profiling, describing the conditions outside the document, for example, in an
+                extended XLink linkbase listing the nodes and their profiles. XLink, as it turns
+                out, is well suited for this.</para></abstract><author><personname><firstname>Ari</firstname><surname>Nordström</surname></personname><personblurb><para>Ari Nordström is the resident XML guy at Condesign AB in Göteborg, Sweden. His
+                    information structures and solutions are used by Volvo Cars, Ericsson, and many
+                    others, with more added every year. His favourite XML specification remains
+                    XLink so quite a few of his frequent talks and presentations on XML focus on
+                    linking. </para><para>Ari spends some of his spare time projecting films at the Draken Cinema in
+                    Göteborg, which should explain why he wants to automate cinemas using XML. He
+                    now realises it's too late, however.</para></personblurb><email>ari.nordstrom@condesign.se</email></author><legalnotice><para>Copyright © Ari Nordström 2013</para></legalnotice></info><section xml:id="section_sb3_nkw_vj"><title>Intro</title><para>Profiling is an often-used XML publishing technique where nodes are marked as
+            conditional according to a set of profiles, identified using attribute values as
+            filtering conditions. When publishing, the nodes are only included if the publishing
+            conditions match the publishing context. The profiles are sometimes also used as
+            variables in text content, including the attribute value in the publication.</para><para>While useful, these techniques have a number of problems. This paper takes a look at
+            profiling, some of the common problems and suggest ways to solve those problems.</para><section><title>Definitions</title><para>Before I begin, let me briefly attempt to define the terminology used in this
+                paper. Consider the following markup example:</para><programlisting xml:space="preserve">&lt;doc profile="B"&gt;
+   &lt;p&gt;Information common to products A, B, and C.&lt;/p&gt;
+   &lt;p profile="A"&gt;Information about product A.&lt;/p&gt;
+   &lt;p profile="B C"&gt;Information about products B and C.&lt;/p&gt;
+   &lt;p profile="B C"&gt;Information about products B and C.&lt;/p&gt;
+&lt;/doc&gt;
+</programlisting><para>The above is an example document that describes a product with the three product
+                variants <quote>A</quote>, <quote>B</quote> and <quote>C</quote>; in other words,
+                it's the same basic product (imagine, for example, a diesel-engined car model with
+                three different-sized engines) but with three differing configurations.</para><para>I try to use the following terminology throughout the paper:</para><itemizedlist><listitem><para>A <emphasis>profile</emphasis> is a set of conditions defining when a node
+                        is applicable. The <code>profile="A"</code> attribute in the second
+                            <code>p</code> element, for example, says that this particular
+                            <code>p</code> element is applicable for the variant
+                        <quote>A</quote>.</para></listitem><listitem><para>A profile's <emphasis>value</emphasis> is the human-readable condition for
+                        a specific profile, there to help a reader identify the condition in the
+                        text flow. For example, information that applies to the<quote>D5</quote>
+                        diesel engine might be marked up with <code>profile="D5"</code>.</para></listitem><listitem><para>A profile's <emphasis>semantics</emphasis>, on the other hand, represent
+                        the underlying <emphasis>meaning</emphasis> behind the value. The
+                            <quote>D5</quote> diesel engine might be renamed to something very
+                        different without changing the semantics of a profile<footnote><para>This is one of the basic problems with profiling that this paper
+                                attempts to address.</para></footnote>. For example, a marketing department might decide to rename it
+                        without the engineering department changing a single engine
+                        component.</para></listitem><listitem><para>A profiling <emphasis>context</emphasis> is the condition(s) applied to
+                        the document when publishing it. In my examples, I try to consistently set
+                        that profile in the root element; above, the publishing context is
+                            <quote>B</quote>, which means that only nodes either
+                            <emphasis>without</emphasis> any profiles or nodes
+                            <emphasis>including</emphasis> the context profile's value are included
+                        in the publication.</para></listitem></itemizedlist></section><section xml:id="section_b2h_t4w_vj"><title>The Basic Example</title><para>Consider the following example:</para><programlisting xml:space="preserve">&lt;doc&gt;
+   &lt;p&gt;Information common to products A, B, and C.&lt;/p&gt;
+   &lt;p profile="A"&gt;Information about product A.&lt;/p&gt;
+   &lt;p profile="B"&gt;Information about product B.&lt;/p&gt;
+   &lt;p profile="C"&gt;Information about product C.&lt;/p&gt;
+&lt;/doc&gt;
+</programlisting><para>Three <code>p</code> elements are profiled for products <quote>A</quote>,
+                    <quote>B</quote>, and <quote>C</quote>, respectively. A fourth remains
+                unprofiled and is therefore always applicable. When publishing, the profile to be
+                used could be selected by adding an attribute to the root, like this:</para><programlisting xml:space="preserve">&lt;doc profile="A"&gt;
+   ...
+&lt;/doc&gt;</programlisting><para>The <code>profile</code> attribute in the root is used as a <emphasis role="ital">context</emphasis> for the publication. Processed, the document would
+                become:</para><programlisting xml:space="preserve">&lt;doc profile="A"&gt;
+   &lt;p&gt;Information common to products A, B, and C.&lt;/p&gt;
+   &lt;p profile="A"&gt;Information about product A.&lt;/p&gt;
+&lt;/doc&gt;</programlisting><para>Multiple profiles can be defined using this principle, of course, separating each
+                value with a whitespace character:</para><programlisting xml:space="preserve">&lt;doc profile="B"&gt;
+   &lt;p&gt;Information common to products A, B, and C.&lt;/p&gt;
+   &lt;p profile="A"&gt;Information about product A.&lt;/p&gt;
+   &lt;p profile="B C"&gt;Information about products B and C.&lt;/p&gt;
+   &lt;p profile="B C"&gt;Information about products B and C.&lt;/p&gt;
+&lt;/doc&gt;
+</programlisting><para>Here, the last two <code>p</code> elements with <quote>B C</quote> profiles match
+                the publishing context, <quote>B</quote>, assuming OR logic. </para><para>Similarly, using <quote>B C</quote> as context, profiles using <quote>B</quote>,
+                    <quote>C</quote>, and <quote>B C</quote> would be included, again assuming OR
+                processing.</para></section><section xml:id="section-2011-10-28-9-43-5-73568251-6"><title>Multiple Conditions</title><para>It is common to use different attributes for different profiling purposes. There
+                might be an attribute <code>profile</code> for processing product variants and an
+                attribute <code>audience</code> for processing content according to intended reader
+                category. Here's an example:</para><programlisting xml:space="preserve">&lt;doc profile="B" audience="default"&gt;
+   &lt;p&gt;Information common to products A, B, and C.&lt;/p&gt;
+   &lt;p profile="A"&gt;Information about product A.&lt;/p&gt;
+   &lt;p profile="B C" audience="default"&gt;Information about products B and C.&lt;/p&gt;
+   &lt;p profile="B C" audience="admin"&gt;Information about products B and C.&lt;/p&gt;
+&lt;/doc&gt;
+</programlisting><para>Here, the information is filtered in context <quote>B</quote> and a
+                    <quote>default</quote> audience, so the last paragraph would be excluded because
+                the <code>audience</code> attribute doesn't match.</para><para>A third attribute might be required for processing the intended platform, a fourth
+                for differences in diagnostic software, etc. Basically, different attributes would
+                be used for differing semantics or when mixing them might prove messy for one reason
+                or another.</para></section><section xml:id="section-2011-10-28-9-43-5-73568251-2"><title>Variable Text</title><para>Profiles can be used for variable text, like this:</para><programlisting xml:space="preserve">&lt;p&gt;Information about product &lt;phrase profile="A B C"/&gt;.&lt;/p&gt;</programlisting><para>Ignoring the linguistic difficulties this construction tends to cause, the idea is
+                simple. When processed, the <code>phrase</code> element is replaced with the
+                context's profile value, <quote>A</quote>, <quote>B</quote>, or <quote>C</quote>. In
+                the published document, a more generic text can be replaced with the exact product
+                variant.</para></section><section xml:id="section-2011-10-28-16-53-21-87065566-"><title>Tools and Processing</title><para>A profile's allowed values are sometimes defined as in enumerated lists to avoid
+                user errors. In DITA, for example (see <xref linkend="id-dita"/>), an audience
+                    <code>type</code> attribute includes the following values<footnote><para>The audience construct is more complex than that, but this suffices as an
+                        example.</para></footnote>:</para><programlisting xml:space="preserve">&lt;!ATTLIST audience
+      type       (user | purchaser |
+                  administrator | programmer |
+                  executive | services | other | 
+                  -dita-use-conref-target)  #IMPLIED
+... &gt;</programlisting><para>It follows that adding a new audience will cause problems. For that reason,
+                    <code>CDATA</code> constructs are common, as are catch-alls like this:</para><programlisting xml:space="preserve">othertype  CDATA  #IMPLIED</programlisting><para>This allows for new audience types without having to change the DTD. Here, having
+                the authoring software keep track of the allowed values in a database or such is a
+                good idea, because someone will almost certainly misspell the new audience type,
+                causing problems later. Here's an example from a CMS I sometimes use:</para><figure xml:id="figure-2011-10-28-19-44-14-40882030-"><mediaobject><imageobject><imagedata fileref="../../../vol10/graphics/Nordstrom01/Nordstrom01-001.jpg"/></imageobject></mediaobject></figure><para>The values are fetched from a database. The profile uses two levels, a group
+                    (<quote>Grupp_B</quote>, above), and products <quote>C</quote>,
+                <quote>D</quote>, and <quote>E</quote> that belong to the group<footnote><para>The resulting attribute value is a string, for example,
+                            <quote>Grupp_B_Produkt_C</quote>.</para></footnote>.</para><section xml:id="section-2011-10-28-19-44-14-40882030-"><title>Publishing</title><para>Publishing is a simple XSLT transformation that filters the contents according
+                    to context. If several conditions with differing semantics are used (such as
+                        <code>profile</code> and <code>audience</code>, above), using one stylesheet
+                    per profile type is easy to set up in an XProc pipeline used to preprocess the
+                    document.</para><para>Essentially, filtering is about string matching. The publishing context value
+                    needs to match the node's profile for the node to be included<footnote><para>With unprofiled content always being included.</para></footnote>.</para></section><section xml:id="section-2011-10-28-19-44-14-40882030-1"><title>Boolean Logic</title><para>The above examples all assume OR. A single profile value match is enough to
+                    include a node. Similarly, even with a multiple-value context, a single matching
+                    profile value is enough:</para><programlisting xml:space="preserve">&lt;doc profile="A B"&gt;
+   &lt;p&gt;Information common to products A, B, and C.&lt;/p&gt;
+   &lt;p profile="A"&gt;Information about product A.&lt;/p&gt;
+   &lt;p profile="B C"&gt;Information about products B and C.&lt;/p&gt;
+   &lt;p profile="B C"&gt;Information about products B and C.&lt;/p&gt;
+&lt;/doc&gt;
+</programlisting><para>Here, nothing is excluded from the output because the <quote>A</quote> context
+                    matches the first node and <quote>B</quote> the second and the third.</para><para>Sometimes, Boolean AND is preferred<footnote><para>For example, the node might be an illustration showing a product
+                            variant (<quote>A</quote>) configured with a specific accessory
+                                (<quote>B</quote>), so it would only make sense to include the
+                            illustration in the published document if the publishing context
+                            included both <quote>A</quote> and <quote>B</quote>.</para></footnote>. Here is a simple (and limited) way to do it:</para><programlisting xml:space="preserve">&lt;doc profile="B"&gt;
+   &lt;p&gt;Information common to products A, B, and C.&lt;/p&gt;
+   &lt;p profile="A"&gt;Information about product A.&lt;/p&gt;
+   &lt;p profile="B C"&gt;Information about products B and C.&lt;/p&gt;
+   &lt;p profile="B C" boolean="AND"&gt;Information about products B and C.&lt;/p&gt;
+&lt;/doc&gt;
+</programlisting><para>Here, <code>boolean="AND"</code> in the last paragraph means that for it to be
+                    included, <emphasis role="ital">every</emphasis>
+                    <code>profile</code> value must match the context (<quote>B AND C</quote>). In
+                    this case, the last paragraph is therefore excluded from the output.</para><para>More advanced Boolean expressions might be useful, of course, but would almost
+                    certainly prove to be far more problematic to implement in an XSLT
+                    stylesheet:</para><programlisting xml:space="preserve">&lt;p profile="B AND C AND NOT(A OR D)"&gt;Some text.&lt;/p&gt;</programlisting><para>This is no longer mere XSLT territory; an external tool for parsing the
+                    attribute contents might prove necessary.</para></section></section></section><section xml:id="section_osb_phx_vj"><title>But There Are Problems</title><section xml:id="section-2011-10-28-9-43-5-73568251-3"><title>Renaming Values</title><para>Let's say you need to rename some of the profiles. It's not uncommon for a product
+                to be renamed or even to possess multiple names, depending on, say, market
+                requirements. Problems ensue:<itemizedlist><listitem><para>If the values are from a schema, the schema must be updated with the
+                            new values, either by renaming the existing values or by adding new
+                            ones.</para><para>The first option means that legacy documents will no longer be valid
+                            and will have to be converted. The second means that the legacy
+                            documents will have to be converted anyway or there will be two
+                            unrelated values for what is essentially the same profile.</para></listitem><listitem><para>Converting the old profiles to new values in this manner usually
+                            results in that the old ones can no longer be supported. If a legacy
+                            document is republished, it must use the new values. In a best case,
+                            this might confuse the existing users; in a worst, it might render the
+                            documents unusable.</para></listitem><listitem><para>Very often, once the client is made aware of the basic problem, the
+                            decision is to keep the old document base, making them either
+                            incompatible or just very expensive to update, because of the doubled
+                            profiles.</para></listitem><!--<listitem><para>Stylesheets may have to be updated, of course, but that is usually a lesser problem.</para></listitem>--></itemizedlist>
+            </para></section><section xml:id="section-2011-10-28-9-43-5-73568251-4"><title>Changing Scope</title><para>Changing the <emphasis role="ital">scope</emphasis> of a profile value means that
+                the semantics of that value is updated.
+                <!--The change can be very subtle but cause problems similar to a name change. -->For
+                example, let's say that a car engine <quote>D5</quote> is updated with new
+                components, perhaps as the result of updated specifications or new component
+                suppliers. To marketing, it's still the same engine; after a certain date, it is
+                simply manufactured using the new components instead of the old. </para><para>To engineers and mechanics, the changes are likely to be significant and require
+                new assembly methods, diagnostics, spare parts, and so on. The documentation will
+                have to reflect these changes. New content must be added, technical data updated,
+                images and illustrations changed.</para><para>Keeping the old profile, <quote>D5</quote>, would still make sense to marketing,
+                and the car itself would still leave the assembly line with a <quote>D5</quote>
+                batch on the boot lid, but cause problems for the technical writer:<itemizedlist><listitem><para>When updating legacy documents with new information (for example, when
+                            correcting errors), the writer would not be able to tell if a new
+                            warning, seemingly profiled with the same value, was compatible or not
+                            with the new information.</para></listitem><listitem><para>When writing new <quote>D5</quote> content, reusing old modules
+                            profiled with that same value would be equally deceptive; there is no
+                            easy way to know if the information is compatible or not.</para></listitem></itemizedlist>
+            </para><para>Changing the profile value might solve part of the problem but again cause
+                problems; the resulting conversions of old values to new are much harder to do.
+                Which existing modules are compatible with the new version of the engine and which
+                aren't? Very frequently the decision is to create a new (internal) profile, keeping
+                the two apart, but this results in added processing when publishing, and certainly a
+                doubled profile even in cases when the information is, in fact, identical.</para></section><section xml:id="section_kyh_vnx_vj"><title>Text Content</title><para>If the <quote>D5</quote> profile, above, is used as variable text (see <xref linkend="section-2011-10-28-9-43-5-73568251-2"/>), changing the value is not an
+                option. The product is still marketed as <emphasis>D5</emphasis>. The end user will
+                most likely not know or care about the updated components or the resulting updated
+                document content. </para><para>Here, again, some attempt to solve the problem by adding internal profiling
+                values. In the car industry, model years are not used for profiling; instead, the
+                vehicles are identified using manufacturing weeks. To someone in the know, the
+                manufacturing week will clearly identify changes to a component such as the
+                    <quote>D5</quote> engine, but this divides the readers into two categories: the
+                internal audience that knows the significance of weeks and the external that only
+                sees the model year. This may not seem as a big problem but any third-party
+                technical group (consider, for example, third-party car mechanics, car enthusiasts,
+                etc) will have problems unless they have knowledge about, and access to, the
+                internal profiling.</para><para>Using profiles as variable text also results in language-related problems:<itemizedlist><listitem><para>A single profile, say <quote>A</quote>, is uncomplicated to use in a
+                            variable: <quote>A <emphasis>is</emphasis> the latest-generation diesel
+                                engine for the environmentally conscious driver.</quote>
+                        </para></listitem><listitem><para>A variable that might result from possibly multiple matching profiles
+                            is more difficult: <quote>B and C <emphasis>are</emphasis>
+                                high-performance turbo engine<emphasis>s</emphasis> for the
+                                demanding racing driver.</quote>
+                        </para></listitem></itemizedlist>
+            </para><para>For the writer, variable text resulting form single or multiple profiles are
+                ultimately manageable only if they are known in advance.</para></section><section xml:id="section_hzf_npx_vj"><title>Localisation</title><para>A related problem is about localisation<footnote><para>For a moment ignoring the differing grammatical requirements imposed in
+                        variable text.</para></footnote>. If the target market requires different profiling values (perhaps the
+                product is sold under a different name), the values must be handled either when
+                translating or when publishing for that market. This is doable, of course, but will
+                add to the complexity. If the <emphasis>localised</emphasis> value or scope needs to
+                be changed at some point, as described above, further problems will arise.</para></section></section><section xml:id="section-2011-10-28-12-56-2-95308562-"><title>A Basic Solution</title><section xml:id="section-2011-10-28-12-56-2-95308562-2"><title>Why Do We Have Problems?</title><para>The naming problems (that is, keeping the semantics of a profile unchanged but
+                changing the displayed value) have a fairly obvious basic cause: <emphasis>Values
+                    are handled directly, instead of addressing the basic semantics of the
+                    profile.</emphasis> They inevitable change over time, but a simple product name
+                change may be just that, a mere name change, meaning that the semantics remain
+                unchanged. Yet, the profiling information that is available does not reflect
+                this.</para><para>As with any changing content, any profile value should be version handled, yet
+                they can't be when handled directly as strings.</para><para>The scoping problems offer further revelations:<itemizedlist><listitem><para>We confuse semantics with values. Changed semantics may or may not
+                            result in a changed value; filtering should be based on semantics rather
+                            than representations.</para></listitem><listitem><para>The semantics evolve over time, as do the values, but the values are
+                            only there to represent the semantics.</para><para>In the car example, <quote>D5</quote> is used for both scopes because
+                            for the manufacturer's aftersales organisation, the engine variant is
+                            the same, regardless of the components used. In other words, we happen
+                            to have two different versions of the basic semantics but the same value
+                            to represent them.</para></listitem><listitem><para>Because we confuse semantics and presentation, we can either describe
+                            the changes in presentation or describe the changes in semantics, but
+                            not both.</para></listitem><listitem><para>A change in a profile's semantics should mean a new version of the
+                            profile but not necessarily new values.</para></listitem></itemizedlist>
+            </para><para>Or, in so many words, we confuse semantics and current values, using them
+                interchangeably and frequently changing the wrong one. We need to separate the
+                two.</para></section><section xml:id="section-2011-10-28-12-56-2-95308562-3"><title>Abstraction Layers</title><para>The solution is to separate semantics from presentation, like this:</para><table><thead><tr><td>
+                            <para>Semantics</para>
+                        </td><td>
+                            <para>Presentation</para>
+                        </td></tr></thead><tbody><tr><td>
+                            <para>D5 old</para>
+                        </td><td>
+                            <para>D5</para>
+                        </td></tr><tr><td>
+                            <para>D5 new</para>
+                        </td><td>
+                            <para>D5</para>
+                        </td></tr></tbody></table><para>Or, if changing profiles according to localisation, like this:</para><table><thead><tr><td>
+                            <para>Semantics</para>
+                        </td><td>
+                            <para>Presentation</para>
+                        </td></tr></thead><tbody><tr><td>
+                            <para>Platform X, GB</para>
+                        </td><td>
+                            <para>Vauxhall</para>
+                        </td></tr><tr><td>
+                            <para>Platform X, DE</para>
+                        </td><td>
+                            <para>Opel</para>
+                            <para>Saab</para>
+                        </td></tr><tr><td>
+                            <para>Platform X, SE</para>
+                        </td><td>
+                            <para>Opel</para>
+                            <para>Saab</para>
+                        </td></tr></tbody></table><para>And so on. In the former example, we have a basic name for the semantics
+                    (<quote>D5</quote>) and two <emphasis>versions</emphasis>, both represented by
+                the same value. In the latter, we have three <emphasis>localisations</emphasis> of
+                the basic platform name (<quote>X</quote>), GB, DE and SE. Interestingly, the
+                localisations of the platform use three different values, Vauxhall, Opel and Saab.
+                In this case, this represents the fact that the same basic platform is used to
+                create three separate vehicle brands.</para><para>Obviously, all may be required to completely describe the correlation between the
+                semantics and every intended representation of the profile<footnote><para>Quite possibly, there might be other parameters to alter the basic profile
+                        in some way.</para></footnote>, like so:</para><programlisting xml:space="preserve">PROFILE-VERSION-LOCALISATION</programlisting><para>The different versions and localisations could then be assigned values:</para><table><thead><tr><td>
+                            <para>Profile</para>
+                        </td><td>
+                            <para>Values</para>
+                        </td></tr></thead><tbody><tr><td>
+                            <para>D5.1-GB</para>
+                            <para>D5.1-DE</para>
+                            <para>D5.1-SE</para>
+                        </td><td>
+                            <para>D5</para>
+                        </td></tr><tr><td>
+                            <para>D5.2-GB</para>
+                            <para>D5.2-DE</para>
+                            <para>D5.2-SE</para>
+                        </td><td>
+                            <para>D5</para>
+                        </td></tr><tr><td>
+                            <para>X.1-GB</para>
+                        </td><td>
+                            <para>Vauxhall</para>
+                        </td></tr><tr><td>
+                            <para>X.1-DE</para>
+                        </td><td>
+                            <para>Saab Opel</para>
+                        </td></tr><tr><td>
+                            <para>X.1-SE</para>
+                        </td><td>
+                            <para>Saab Opel</para>
+                        </td></tr></tbody></table><para>Note that the table represents incomplete semantics rather than a real-life
+                problem. More is required to determine which value to use and when.</para><para>If the core semantics change, the corresponding values may or may not change<footnote><para>A product may be partly or completely revised, yet retain its product
+                        name. Consider, for example, Apple's product naming strategy for tablets and
+                        laptops.</para></footnote>; if changed values are desired, the corresponding semantics <emphasis role="ital">must</emphasis> change<footnote><para>Even though the product may be unchanged and the marketing department
+                        decide on a new name, without changing the basic semantic profile, there is
+                        no way of knowing <emphasis>when</emphasis> the name change occurred.</para></footnote>.</para><para>The <quote>core</quote> profile, the intended semantics of the filtering
+                condition, should be uniquely and persistently named. That name should be version
+                handled and localised as needed. So, I wonder, is there a convenient way to separate
+                semantics from presentation?</para></section><section xml:id="section-2011-10-28-12-56-2-95308562-4"><title>Use URNs to Name Filters</title><para>I'm partial to URNs when it comes to uniquely identifying things. I'd have used
+                URNs to name my kids, had I been allowed to. </para><para>It's easy to define a URN namespace for unique names. And if you control the
+                scope, they can also be persistent. For URN-based profiling, something like this
+                should do:</para><programlisting xml:space="preserve">PROFILE:LANG-COUNTRY:VERSION</programlisting><para>
+                <code>PROFILE</code>, of course, is the core profile, the semantic filter concept,
+                    <code>LANG-COUNTRY</code> the localisation and <code>VERSION</code> a specific
+                milestone. Combined, they should describe the examples above, but
+                    <code>PROFILE</code> can be further broken down if needed. For example,
+                    <emphasis role="ital">Platform X</emphasis> in the above table could solve the
+                semantic problems: <code>X:OPEL</code>, <code>X:SAAB</code>, etc.</para><para>A semantically identical profile used for different markets requiring different
+                presentation (values) is solved like so:</para><table><thead><tr><td>
+                            <para>URN</para>
+                        </td><td>
+                            <para>Values</para>
+                        </td></tr></thead><tbody><tr><td>
+                            <para>URN-X:sv-SE:12</para>
+                        </td><td>
+                            <para>V1</para>
+                        </td></tr><tr><td>
+                            <para>URN-X:en-GB:12</para>
+                        </td><td>
+                            <para>V2</para>
+                        </td></tr></tbody></table><para>The values (<quote>V1</quote> for Sweden, <quote>V2</quote> for the UK) are
+                different because the target localisation varies, but the core profile
+                    (<quote>URN-X</quote>) is the same, as is the version (<quote>12</quote>). The
+                values <quote>V1</quote> and <quote>V2</quote> are therefore equivalent with each
+                other.</para><para>Here's the introductory XML example using URNs as profiles:</para><programlisting xml:space="preserve">&lt;doc profile="urn:x-profile:a:sv-SE:12"&gt;
+   &lt;p&gt;Information common to products A, B, and C.&lt;/p&gt;
+   &lt;p profile="urn:x-profile:a:sv-SE:12"&gt;Information about product A.&lt;/p&gt;
+   &lt;p profile="urn:x-profile:b:sv-SE:7"&gt;Information about product B.&lt;/p&gt;
+   &lt;p profile="urn:x-profile:c:sv-SE:3"&gt;Information about product C.&lt;/p&gt;
+&lt;/doc&gt;
+</programlisting><para>A variable might be included like so:</para><programlisting xml:space="preserve">&lt;p&gt;Information about product &lt;phrase profile="urn:x-profile:a:sv-SE:12"/&gt;.&lt;/p&gt;</programlisting><para>As the <code>phrase</code> element is a placeholder for variable content, the URN
+                needs to be processed accordingly so that the right values are used when publishing.
+                This construct, of course, can still result in a linguistic nightmare.</para><para>Can representing profiles with URNs solve the problems we've outlined?<itemizedlist><listitem><para>If a profile is updated, either when changing the values or their
+                            scope, a system that can fully resolve the URNs will support both the
+                            old and new profiles. A new document can use the new values because it
+                            uses a later URN version while a legacy document can keep on using the
+                            old values because it uses the older URN version.</para></listitem><listitem><para>As a consequence, no processing of legacy documents beyond resolving
+                            URNs is necessary.</para></listitem><listitem><para>It is still easy to string match profiles when publishing, even if
+                            localisation is required.</para></listitem><listitem><para>It is also easy to publish a legacy document that uses old URNs with
+                            new values by preprocessing the old URNs<footnote><para>Although it would result in having to check what exact
+                                    semantics the later version represents. On the other hand, if
+                                    profile semantics are versioned, it should be easy to bind
+                                    specific versions to specific functionality.</para></footnote>.</para></listitem></itemizedlist>
+            </para></section><section xml:id="section-2011-10-28-12-56-2-95308562-5"><title>Processing</title><section xml:id="section-2011-10-29-13-38-13-46080094-"><title>Editor</title><para>To make URNs practical, the writer will need help to identify and insert a
+                    profile (while URNs are unique, they are not necessarily human-readable).
+                    Similarly, when editing existing profiled nodes, the profiles must be easily
+                    identifiable.</para><para>The problem, of course, is that a string like
+                        <quote>urn:x-cassis:r1:cos:xplatform:000359:sv-SE:0.12</quote> is not very
+                    descriptive. Identifying it requires asking the CMS, which might prove
+                    cumbersome if one ever wanted to work offline.</para><para>A cop-out solution is to use strictly human-readable URNs, but problems such
+                    as identifying the variations in scope in the <quote>D5</quote> example above
+                    (see <xref linkend="section-2011-10-28-9-43-5-73568251-4"/>) require
+                    more.</para><para>Perhaps better and certainly easier to process is to insert descriptive
+                    throwaway attributes containing current profile values when checking out or
+                    opening a document in the editor. Such an attribute, say, <code>values</code>,
+                    would be for convenience only and be stripped from the document at
+                    check-in:</para><programlisting xml:space="preserve">&lt;p profile="urn:x-profile:a:sv-SE:12" values="A"&gt;Information about product A.&lt;/p&gt;</programlisting><para>An more powerful alternative requiring a bit more processing is to use a
+                    mapping document listing any required profile-and-value pairs for any checked
+                    out or open documents, like so:</para><programlisting xml:space="preserve">&lt;maps&gt;
+		...
+		&lt;pair&gt;
+  		&lt;profile&gt;urn:x-profile:a:sv-SE:12&lt;/profile&gt;
+  		&lt;values&gt;A&lt;/values&gt;
+		&lt;/pair&gt;
+		&lt;pair&gt;
+  		&lt;profile&gt;urn:x-profile:a:en-GB:12&lt;/profile&gt;
+  		&lt;values&gt;B&lt;/values&gt;
+		&lt;/pair&gt;
+  ...
+&lt;/maps&gt;</programlisting><para>Or some variation thereof. A mapping document might also provide the basis for
+                    a profiling GUI, listing the available profiles and their versions in some
+                    human-readable form, an immediate advantage being that once populated, the
+                    mapping document would give access to the available profiles without requiring a
+                    server connection. </para><para>I've used a similar approach with a mapping document when matching URNs for
+                    checked-out or open documents with their temporary URLs in the editor:</para><programlisting xml:space="preserve">&lt;Repository&gt;
+    &lt;RepositoryName&gt;CosTI&lt;/RepositoryName&gt;
+    &lt;Map&gt;
+        &lt;UrnUrlPair&gt;
+            &lt;Urn&gt;urn:x-cassis:r1:cos:00002730:sv-SE:0.7&lt;/Urn&gt;
+            &lt;Url&gt;C:\Users\arin\Documents\condesign\cassis\ti\xmetal\2880321bb5d24b08a95e2854bccf859b\prox-för-cassis.xml&lt;/Url&gt;
+            &lt;Writable&gt;false&lt;/Writable&gt;
+            &lt;EditUrl /&gt;
+        &lt;/UrnUrlPair&gt;
+    &lt;/Map&gt;
+    &lt;ShowMetadataDialog&gt;true&lt;/ShowMetadataDialog&gt;
+&lt;/Repository&gt;</programlisting><para>Expanding this to include profiling would be relatively easy<footnote><para>An added bonus is that in this case, the URN handling APIs are already
+                            in place.</para></footnote>.</para></section><section xml:id="section-2011-10-29-16-39-36-3630333-"><title>Variable Text and Localisation</title><para>Variable text in the editor can be inserted using both techniques above: a
+                    throwaway <code>values</code> attribute or a separate mapping document both do
+                    the trick. The former alternative requires less processing while the latter
+                    gives access to more features. Localised values, for example, would require the
+                    mapping document.</para></section><section xml:id="section-2011-10-29-13-38-13-46080094-2"><title>Combining Profiles</title><para>URNs (and indeed any type of abstraction layer) can help simplify complex
+                    profiles, such as the logical expressions mentioned in <xref linkend="section-2011-10-28-19-44-14-40882030-1"/>. Instead of having to
+                    process the expression in an attribute, the expression can be represented using
+                    another URN, like so (with apologies for the pseudo-code):</para><programlisting xml:space="preserve">URN-EXPRESSION = URN1 AND URN2 AND NOT(URN3 OR URN4)</programlisting><para>The replacement URN represents the expression and is used instead of it when
+                    processing. Of course, to be more than a theoretical exercise in neat ways of
+                    doing the unneeded, the situations in which boolean expressions can occur must
+                    be clearly defined. Such situations are common when describing complex modular
+                    products and their many variants; such products are frequently sold as
+                    individuals, requiring individualised documentation. A closer look of those
+                    situations is outside the scope of this document, but the point I want to make
+                    here is nevertheless an important one: rather than processing
+                        <quote>2*(3+2)</quote>, process <quote>10</quote>. An abstraction layer is
+                    simply some suitable representation of semantics.  </para><para>Thus, a writer might use a shortcut URN to represent a group of profiles
+                    comprising several URNs. Such a <quote>user-defined URN</quote> could be paired
+                    with descriptive metadata to help identify it and other URNs created for similar
+                    purposes. The right systems support could easily provide the user with a listing
+                    of the underlying profiles.</para></section><section xml:id="section_xsq_pcz_vj"><title>Base Profiles</title><para>A complete profile includes localisation and version information, but
+                    sometimes it is useful to process the <emphasis>base profile</emphasis>
+                    regardless of language, country or version. This is easily done by defining
+                    wildcard behaviour:</para><programlisting xml:space="preserve">URN:*:*</programlisting><para>This basically ignores the wildcards; it matches every single one. With the
+                    URN semantics well defined (I use EBNF for mine) this should be easy.</para><para>Other useful variations here might define processing for, say, the latest
+                    version of a profile. A stylesheet treating <code>URN:sv-SE:*</code> as the
+                    latest is not hard to do but will, of course, require access to the
+                    corresponding values, either at runtime or when populating a mapping
+                    document.</para></section><section xml:id="section-2011-10-30-15-25-43-46300461-4"><title>Assertions</title><para>Sometimes, filtering profiled content causes structural problems in the
+                    resulting document, with required elements missing. Consider this admittedly
+                    simplistic example: </para><programlisting xml:space="preserve">&lt;doc profile="A"&gt;
+  ...
+  &lt;warning&gt;
+    &lt;p profile="A"&gt;Some content.&lt;/p&gt;
+  &lt;/warning&gt;
+  ...
+&lt;/doc&gt;</programlisting><para>If a <code>warning</code> must always contain at least one <code>p</code>, the
+                    above will result in an invalid <code>warning</code> if published in context
+                        <quote>B</quote> rather than  <quote>A</quote>. This is an easy mistake to
+                    make, and more complex nodes could easily end up being invalid without the user
+                    noticing, especially in modularised documents, resulting in the problem
+                    remaining undiscovered until the document is published.</para><para>As these problems will only appear later<footnote><para>The document that is profiled remains valid, of course.</para></footnote>, they can be difficult to spot. This can be solved using <emphasis role="ital">schematron</emphasis> (ISO standard; see <xref linkend="id-idso-sch"/>)
+                    assertions and validation on a document to check for problems and missing
+                    content after applying profiles. Such tests can be automated and used to
+                    validate the profiled nodes only. Here's a schematron fragment for checking if
+                    the <code>warning</code> contents match the publishing context:</para><programlisting xml:space="preserve">&lt;!-- Profiling status for node --&gt;
+&lt;pattern&gt;
+    &lt;rule context="warning"&gt;
+        &lt;assert test="p/@profile"&gt;No profiling information.&lt;/assert&gt;
+        &lt;report test="p/@profile"&gt;Profiling present.&lt;/report&gt;
+    &lt;/rule&gt;
+&lt;/pattern&gt;
+&lt;!-- Match --&gt;
+&lt;pattern&gt;
+    &lt;rule context="warning"&gt;
+        &lt;report test="contains(/*/@profile,p/@profile)"&gt;Profile matches 
+            publishing context.&lt;/report&gt;
+    &lt;/rule&gt;
+&lt;/pattern&gt;
+&lt;!-- No match --&gt;
+&lt;pattern&gt;
+    &lt;rule context="warning"&gt;
+        &lt;assert test="contains(/*/@profile,p/@profile)"&gt;Profile does not 
+            match publishing context.&lt;/assert&gt;
+    &lt;/rule&gt;
+&lt;/pattern&gt;</programlisting><para>Note that complex schematron documents can be automatically generated if the
+                    possible profiles are known and the possible changes are defined in a
+                    schema.</para><para>It might be possible to use XML Schema 1.1 assertions but since an assertion
+                    on an element cannot refer to siblings or ancestors (<xref linkend="id-xsdassertions"/>),
+                    the assertion would have to be made on descendants only, like so:</para><programlisting xml:space="preserve">&lt;xs:schema 
+    xmlns:xs="http://www.w3.org/2001/XMLSchema" 
+    elementFormDefault="qualified"&gt;
+    &lt;xs:element name="doc"&gt;
+        &lt;xs:complexType&gt;
+            &lt;xs:sequence 
+                maxOccurs="unbounded"&gt;
+                &lt;xs:element 
+                    name="warning"&gt;
+                    &lt;xs:complexType&gt;
+                        &lt;xs:sequence 
+                            maxOccurs="unbounded"&gt;
+                            &lt;xs:element 
+                                name="p"&gt;
+                                &lt;xs:complexType 
+                                    mixed="true"&gt;
+                                    &lt;xs:attribute 
+                                        name="profile"/&gt;
+                                &lt;/xs:complexType&gt;
+                            &lt;/xs:element&gt;
+                        &lt;/xs:sequence&gt;
+                        &lt;xs:attribute 
+                            name="profile"/&gt;
+                    &lt;/xs:complexType&gt;
+                &lt;/xs:element&gt;
+            &lt;/xs:sequence&gt;
+            &lt;xs:attribute 
+                name="profile"/&gt;
+            &lt;xs:assert 
+                test="contains(@profile,.//*/@profile)"/&gt;
+        &lt;/xs:complexType&gt;
+    &lt;/xs:element&gt;
+&lt;/xs:schema&gt;</programlisting><para>This might result in some rather complex expressions, if the assertion
+                    required needed to go beyond the basics as illustrated above. I have not further
+                    explored this at the time of this writing.</para></section><section xml:id="section-2011-10-29-13-38-13-46080094-1"><title>Publishing</title><para>Publishing documents that include URN profiles remains easy; the URNs can be
+                    processed as strings, using string matching, so the filtering of nodes should
+                    not be a problem. Processing a translated document that uses untranslated
+                    profiles might prove tricky, however. Here is an example of a document
+                    originally profiled in Swedish but now translated to English:</para><programlisting xml:space="preserve">&lt;doc profile="urn:x-profile:a:en-GB:12"&gt;
+   &lt;p&gt;Information common to products A, B, and C.&lt;/p&gt;
+   &lt;p profile="urn:x-profile:a:sv-SE:12"&gt;Information about product A.&lt;/p&gt;
+   &lt;p profile="urn:x-profile:b:sv-SE:7"&gt;Information about product B.&lt;/p&gt;
+   &lt;p profile="urn:x-profile:c:sv-SE:3"&gt;Information about product C.&lt;/p&gt;
+&lt;/doc&gt;
+</programlisting><para>
+                    <emphasis role="ital">None</emphasis> of the profiled <code>p</code> elements is
+                    included in the resulting publication. This, of course, could be the desired
+                    result, but more likely is that the profiles need to be preprocessed. One way
+                    could be to prep the file going to translation, replacing any language/country
+                    information in the URNs before translation. More flexible is to define the exact
+                    preprocess according to need. For one thing, if the profiled node is not
+                    relevant in the target localisation, the profile should remain unchanged<footnote><para>Or the node removed; translators should not have to see it.</para></footnote>.</para><note><para>It might be better to include every applicable profile localisation
+                        directly in the above example, rather than replacing the original one during
+                        preprocessing, as suggested by a reviewer of this paper. Or, if the profile
+                        was always applicable, leave out the localisation altogether by using a
+                        wildcard convention ( such as <code>profile="urn:x-profile:a:*:12"</code>)
+                        with suitable assertions when preprocessing. More complex localisation
+                        requirements could be similarly handled (<quote><emphasis>sv-SE</emphasis>
+                            and <emphasis>de-DE</emphasis>, but not
+                            <emphasis>en-GB</emphasis></quote>, etc) using more complex
+                        assertions.</para></note><para>Also, the translators should be made aware of any processing requiring exact
+                    values (most notably when using profiles for variable text in content); the
+                    profile <emphasis>values</emphasis> in a localisation are far more important to
+                    the translator than their corresponding URNs. The latter, then, need to be
+                    mapped to any relevant values, including values resulting from localisation or
+                    from some special processing (i.e. if the latest version of a profile is
+                    preferred), before the original document is translated. The values can be placed
+                    in a mapping document<footnote><para>Or in <code>values</code> throwaway attributes, depending on the
+                            situation.</para></footnote>, provided to the translators but they'd almost certainly prefer
+                    preprocessed documents where text variables such as the <code>phrase</code>
+                    element in <xref linkend="section-2011-10-28-9-43-5-73568251-2"/> include their values rather
+                    than the URNs:</para><programlisting xml:space="preserve">&lt;p&gt;Information about product &lt;phrase profile="A B C"&gt;A, B and C&lt;/&gt;.&lt;/p&gt;</programlisting><note><para>This will not solve the grammatical problem. It simply helps translators
+                        by showing the actual values rather than the URNs.</para></note></section><section xml:id="section_xng_qhz_vj"><title>The Grammatical Problem Solved</title><para>The following sentence using a text variable will potentially cause problems
+                    if the number of applicable profiles varies:<itemizedlist><listitem><para>A single profile, say <quote>A</quote>, is uncomplicated to use in
+                                a variable: <quote>A <emphasis>is</emphasis> the latest-generation
+                                    diesel engine for the environmentally conscious driver.</quote>
+                            </para></listitem><listitem><para>A variable that might result from possibly multiple matching
+                                profiles is more difficult: <quote>B and C <emphasis>are</emphasis>
+                                    high-performance turbo engine<emphasis>s</emphasis> for the
+                                    demanding racing driver.</quote>
+                            </para></listitem></itemizedlist>
+                </para><programlisting xml:space="preserve">&lt;p&gt;The &lt;phrase profile="A B C"&gt;is the latest generation diesel engine
+for the environmentally conscious driver.&lt;/&gt;.&lt;/p&gt;</programlisting><para>Brute force solutions involving marking up inline content to identify
+                    grammatical constructs might be manageable if only two need to be handled, if
+                    Boolean constructs are accepted, for example, by using expressions such as
+                        <code>profile="(A AND NOT(B)) OR (B AND NOT(A))"</code> for singular and
+                        <code>profile="A AND B"</code> for plural form, but even this will quickly
+                    become unmanageable for the writer.</para><para>Far more useful is to add an abstraction layer that defines the
+                        <emphasis>types</emphasis> of profiles, for example, <quote>diesel
+                        engines</quote> or <quote>turbo engines</quote>. A mapping document might
+                    define a group of profiles for the purpose, like so:</para><programlisting xml:space="preserve">&lt;group&gt;
+		&lt;profile&gt;urn:x-profile:abc&lt;/profile&gt;
+		&lt;included&gt;
+  		&lt;profile&gt;urn:x-profile:a&lt;/profile&gt;
+  		&lt;profile&gt;urn:x-profile:b&lt;/profile&gt;
+  		&lt;values&gt;D5&lt;/values&gt;
+		&lt;/included&gt;
+  ...
+&lt;/group&gt;</programlisting><para>Here, all variants are called <quote>D5</quote> but the value could just as
+                    well be <quote>D Series Diesel Engine</quote> or something else. The point is
+                    that the abstraction is needed to a) group the participating profiles into a
+                    meaningful semantic group while b) keeping <emphasis>either</emphasis> singular
+                    or plural form, but not both, regardless of the number of exact profiles
+                    used.</para><para>A different but useful way to solve the problem is to count the context
+                    profiles in the root (one or more) and include markup to handle only the
+                    grammatically relevant differences. Singular might be marked up as
+                        <code>&lt;wrap context="s"&gt;is&lt;/wrap&gt;</code> and plural as
+                        <code>&lt;wrap context="p"&gt;are&lt;/wrap&gt;</code> or similar.</para></section></section></section><section xml:id="section-2011-10-28-12-56-2-95308562-6"><title>Out-of-line Profiling</title><para>The profiling abstraction layer described above provides the basic ideas but more fun
+            can be had. What if, for example, you needed to profile XML following a schema that you
+            don't control? There are ID attributes but no profiling semantics. You can't change the
+            schema directly and processing for local needs would be too expensive<footnote><para>Agreed, this is a contrived example. I never really bought that classic
+                    namespacing argument, <quote>what if you need to import a foreign namespace into
+                        yours?</quote>
+                </para></footnote>?</para><para>My immediate reaction when thinking about this was <quote>extended XLink</quote>.
+            XLink (<xref linkend="id-xlink"/>) is an
+            all-purpose linking standard that never really reached the level of acceptance I feel it
+            deserves <footnote><para>The lack of a processing model while including behavioural attributes is a
+                    frequent criticism and arguably pertains to my suggested use, here. See, for
+                    example, Paul Prescod's <quote>XLink: behavior must go!</quote> (<xref linkend="id-prescod"/>).</para></footnote>. Among other things, the spec describes <emphasis role="ital">out-of-line
+                links</emphasis>, that is, links that are described outside the resources they use,
+            in <quote>linkbases</quote>. The linkbase lists <emphasis role="ital">locators</emphasis> that identify the start and end points of the links, and
+                <emphasis role="ital">arcs</emphasis> that connect those points with each other. The
+            spec allows for <quote>multi-ended</quote> links, which basically means that the link
+            ends can be connected with each other in any combinations, as many times as
+            needed.</para><figure xml:id="figure-2011-10-30-9-42-53-11614317-"><mediaobject><imageobject><imagedata fileref="../../../vol10/graphics/Nordstrom01/Nordstrom01-002.jpg"/></imageobject></mediaobject></figure><para>A linkbase (the blob to the left) lists locators and arcs that identify nodes and
+            their relations in the document to the right. What's cool with extended XLink is that
+            the link ends that participate in a link have no idea they are part of one. We can
+            describe document semantics outside it.</para><section xml:id="section-2011-10-28-12-56-2-95308562-7"><title>Extended Profiling</title><para>Just as I can describe links outside the participant resources, I should be able
+                to profile nodes in resources in a linkbase-like construct, like this:</para><programlisting xml:space="preserve">&lt;linkbase&gt;
+  &lt;locator href="doc.xml#id1" profile="URN1"/&gt;
+  &lt;locator href="doc.xml#id1" profile="URN2"/&gt;
+  &lt;locator href="doc.xml#id2" profile="URN1"/&gt;
+  ...
+&lt;/linkbase&gt;</programlisting><para>Two separate <code>locator</code>s identify the two profiles for the node with
+                    <code>id1</code> in <emphasis>doc.xml</emphasis>, <quote>URN1</quote> and
+                    <quote>URN2</quote>, respectively. A third locator identifies a second node,
+                    <code>id2</code>, with the profile <quote>URN1</quote>. This, essentially, is
+                the mapping document I described above (see <xref linkend="section-2011-10-29-13-38-13-46080094-"/>), so throwaway values could
+                easily be included, like so:</para><programlisting xml:space="preserve">&lt;linkbase&gt;
+  &lt;locator href="doc.xml#id1" profile="URN1" values="A B"/&gt;
+  &lt;locator href="doc.xml#id1" profile="URN2" values="C"/&gt;
+  &lt;locator href="doc.xml#id2" profile="URN1" values="A B"/&gt;
+  ...
+&lt;/linkbase&gt;</programlisting><para>With URNs identifying the document(s), it is easy to include proper version
+                handling and match localisation values with their URNs, like so (this is not
+                directly equivalent with the above):</para><programlisting xml:space="preserve">&lt;linkbase&gt;
+  &lt;locator href="URN-DOC:sv-SE:1#id1" profile="URN1:sv-SE:1" values="A"/&gt;
+  &lt;locator href="URN-DOC:en-GB:1#id1" profile="URN1:en-GB:1" values="B"/&gt;
+  ...
+  &lt;locator href="URN-DOC:sv-SE:2#id1" profile="URN1:sv-SE:2" values="A C"/&gt;
+  ...
+&lt;/linkbase&gt;</programlisting><para>The first two locators describe version 1 of the document in Swedish and English
+                containing the <code>id1</code> node profiled with URN1, version 1, with localised
+                values in Swedish (<quote>A</quote>) and English (<quote>B</quote>), respectively.
+                The third locator describes the Swedish version 2 of the same document, profiled
+                with version 2 of URN1 and updated values localised for Swedish (<quote>A</quote>
+                and <quote>C</quote>).</para><para>As with the inline profiling (see <xref linkend="section-2011-10-28-12-56-2-95308562-"/>), the URN profiles here can
+                represent expressions.</para><section xml:id="section-2011-10-30-13-33-4-32060711-2"><title>Basic Requirements for the Document</title><para>Some requirements for that third-party document structure emerge:<itemizedlist><listitem><para>The document must be XML.</para></listitem><listitem><para>Any relevant node should be identified with IDs or some other way
+                                to uniquely identify profiled nodes.</para></listitem><listitem><para>For variable text, there should be a placeholder to
+                                replace.</para></listitem></itemizedlist>
+                </para></section><section xml:id="section-2011-10-30-13-33-4-32060711-1"><title>XLink Roles and Titles Put to Use</title><para>The XLink spec describes <emphasis role="ital">roles</emphasis> that can be
+                    applied to other XLink semantics:</para><para>
+                    <quote>The value of the role or arcrole attribute must be a URI reference as
+                        defined in [IETF RFC 2396], except that if the URI scheme used is allowed to
+                        have absolute and relative forms, the URI portion must be absolute. The URI
+                        reference identifies some resource that describes the intended
+                        property.</quote>
+                </para><para>Sound familiar? A URN, of course, is a type of URI, so roles in XLink can do
+                    more or less exactly what I have described above, except, of course, that there
+                    can only be one URN per locator. That means that either a set of URN profiles is
+                    described in a set of locators, with one URN per locator, or the URNs are
+                    combined to other URNs as hinted in <xref linkend="section-2011-10-29-13-38-13-46080094-2"/>. Of course, that
+                    resulting URN is just a <quote>reference [that] identifies some resource that
+                        describes the intended property</quote>, so we seem to be well within the
+                    intentions of the spec.</para><para>The spec also describes <emphasis role="ital">titles</emphasis>:</para><para>
+                    <quote>The title attribute is used to describe the meaning of a link or resource
+                        in a human-readable fashion, along the same lines as the role or arcrole
+                        attribute. </quote>
+                </para><para>So, here's an XLink version of the above example (stripping namespace stuff
+                    and such):</para><programlisting xml:space="preserve">&lt;linkbase&gt;
+  &lt;locator href="URN-DOC:sv-SE:1#id1" role="URN1:sv-SE:1" title="A"/&gt;
+  &lt;locator href="URN-DOC:en-GB:1#id1" role="URN1:en-GB:1" title="B"/&gt;
+  ...
+  &lt;locator href="URN-DOC:sv-SE:2#id1" role="URN1:sv-SE:2" title="A C"/&gt;
+  ...
+&lt;/linkbase&gt;</programlisting><para>This, of course, is exactly what we need, and in processable form.</para></section></section><section xml:id="section-2011-10-28-12-56-2-95308562-8"><title>Out-of-line Processing</title><para>A lot of the required processing for out-of-line profiles is unchanged from the
+                inline version (see <xref linkend="section-2011-10-28-12-56-2-95308562-5"/>).
+                Out-of-line links, whether they are done in linkbases or in overlay documents, add
+                some processing and may present practical difficulties, but also hint at a different
+                approach when creating or editing the profiles in the editor.</para><section xml:id="section-2011-10-30-15-25-43-46300461-"><title>Editor</title><para>When profiling a document out-of-line, we are essentially editing a linkbase,
+                    that is, a separate document. That document does not need to be edited using
+                    full XML editing capabilities, only what's needed for locating the nodes and
+                    profiling them. This suggests a DITA map-like approach. In quite a few XML
+                    editors out there, there is a separate window or pane for editing DITA maps. It
+                    is specialised and only needed to handle editing topicrefs and such.</para><para>Similarly, a linkbase editor needs only include the necessary profiling
+                    handling, adding locators to the linkbase using a function in the main editor
+                    and then adding profiles in the linkbase editor. For editing existing locators,
+                    it should be enough to click on them to locate the corresponding nodes in the
+                    editor but remain in the specialised window when editing them.</para><para>The remaining problem is a practical one: how does one visualise a profile in
+                    the main editor window so that the user can easily spot any profiled content.
+                    Here, a processing instruction might suffice if the editor has trouble
+                    populating the document tree from more than one source.</para></section><section xml:id="section-2011-10-30-15-25-43-46300461-1"><title>Schematron Uses</title><para>Schematron can be used to validate the resulting profiled content and to
+                    generate PIs in the target document to indicate profiles, but also to generate
+                    the linkbase itself, if the rules describing what can be profiled and how are
+                    formalised. If the target document doesn't contain IDs, a schematron-like
+                    reporting function implemented in the specialised editor can be used to identify
+                    nodes using XPath expressions.</para></section><section xml:id="section-2011-10-30-15-25-43-46300461-3"><title>Variable Text</title><para>Variable text is more difficult to implement properly out-of-line, not because
+                    of the out-of-line approach itself but because we don't necessarily control the
+                    document. The language must be such that the profile value naturally fits into
+                    the text flow.</para><para>If profiling content we don't control, the problem is mostly beyond our
+                    control. If there are placeholders, the problem can be solved, but if not, while
+                    we can pinpoint a location using a variety of means (anything from a PI to
+                    XPointer comes to mind) variable text when profiling out-of-line should probably
+                    not be attempted if we don't control the content.</para></section><section xml:id="section_sfp_bzf_wj"><title>The Grammatical Problem Revisited</title><para>The grammatical solution suggested in <xref linkend="section_xng_qhz_vj"/> is
+                    even easier to handle in a linkbase, as the profiles are all in one place,
+                    regardless of how many modules they are used in. They can easily be preprocessed
+                    by wrapping selected groups in abstractions (grouping profiles under a single
+                    label), counting them, and otherwise producing any relevant information about
+                    them when publishing a document.</para><para>A reviewer of this paper commented: <quote>Instead of storing the variable
+                        text only and using additional wrap element for the grammatical relevant
+                        differences, why not store the whole grammatical phrase as variable text?
+                    </quote></para><para>This is perhaps an easier solution for an author to handle than the one I
+                    started out with, but one that will cause the duplication of any surrounding
+                    grammatical phrases and likely reintroduce copy-paste editing when authors
+                    include the complete phrases with the variant information, rather than only the
+                    product variants themselves. Applying this on the sentence from <xref linkend="section_xng_qhz_vj"/>,
+                    we might end up with a number of variants, almost but not quite copies of each
+                    other:</para><itemizedlist><listitem><para><quote>A <emphasis>is</emphasis> the latest-generation diesel engine
+                                for the environmentally conscious driver.</quote></para></listitem><listitem><para><quote>B <emphasis>is</emphasis> the latest-generation diesel engine
+                                for the environmentally conscious driver.</quote></para></listitem><listitem><para><quote>C <emphasis>is</emphasis> the latest-generation diesel engine
+                                for the environmentally conscious driver.</quote></para></listitem><listitem><para><quote>A and B <emphasis>are</emphasis> the latest-generation diesel
+                                engines for the environmentally conscious driver.</quote></para></listitem><listitem><para><quote>B and C <emphasis>are</emphasis> the latest-generation diesel
+                                engines for the environmentally conscious driver.</quote></para></listitem><listitem><para><quote>A, B and C <emphasis>are</emphasis> the latest-generation
+                                diesel engines for the environmentally conscious
+                            driver.</quote></para></listitem></itemizedlist><para>And so on, for any permutations that may arise. The conclusion, in my mind, is
+                    obvious: any more complex sentences involving <emphasis>named</emphasis>
+                    variants in this manner should probably be avoided in favour of a more generic
+                    label (say, <quote>diesel engine</quote> or <quote>D</quote>, in this case) in
+                    any real-world document.</para></section></section></section><section><title>End Notes</title><section><title>In Or Out Of Line?</title><para>Inline (meaning <quote>placed in the physical XML file</quote>) profiles can be
+                messy. If new profiles need to be added to an otherwise unchanged XML file, it must
+                nevertheless be edited to include those new profiles. In a system with version
+                handling and modularisation, this frequently means that a profile change will result
+                in that any module referring to the edited XML file must also be updated.</para><para>Moving the profiles out of line, to a linkbase, immediately solves this problem.
+                With the profiles stored outside the physical XML files, the files only need to be
+                edited if their contents (beyond the profiling information) are changed. Adding or
+                editing profiles requires changing the linkbase, not the XML modules.</para><para>On the other hand, inline profiles are easy to display and highlight in an editor
+                simply by adding some CSS. Out of line, there needs to be some kind of interaction
+                between the editor and the linkbase. This may or may not be practical for an author,
+                depending on the situation, and may be difficult to implement.</para><para>So which one is better? Leaving aside the implementation considerations for a
+                moment, in a highly modularised<footnote><para>With multiple reuse levels or significant numbers of reusable modules, or
+                        both.</para></footnote> document management environment where each module is individually
+                version handled for full traceability, moving the profiles out of line should be
+                considered, especially if editing a module always means that it must be checked out
+                and its version updated. A simple profile update inline could require updating not
+                only the current module and its translations, but also any module that links to the
+                current module, plus their translations.</para></section><section><title>I'm Not Alone</title><para>The techniques used when profiling and filtering, of course, are quite common.
+                I've mentioned DITA as an example, but the same principles are found everywhere.
+                DocBook's profiling attributes (<code>arch</code>, <code>os</code>, etc) come to
+                mind, as do the more generic <code>role</code> attribute found in many
+                schemas.</para><para>Indirection techniques to handle renaming are, of course, not uncommon, and are
+                used in both XML-based systems and outside them. For a comprehensive, and, in many
+                ways, different, profiling mechanism, have a look at the S1000D technical
+                documentation specification's <quote>applicability model</quote> (see <xref linkend="id-s1000d-applic-model"/>
+                for an introduction, or download the S1000D spec itself at <xref linkend="id-s1000d-home"/>).</para><para>The S1000D applicability model is frequently implemented by S1000D vendors in the
+                so-called <emphasis>S1000D Common Source Database (CSDB)</emphasis> using a certain
+                level of indirection. There is a product lookup database that is set up to manage
+                and map product semantics with values (such as aircraft manufacturer names, product
+                serial numbers and so on), including versioning. S1000D also includes an assertion
+                mechanism, implemented to varying degrees by vendors.</para><para>Finally, it should be noted that the S1000D applicability model may use
+                out-of-line profiling, for example, to manage inline filtering conditions.</para></section><section><title>Thank You</title><para>My sincerest thanks must go to the reviewers of this paper.  I have attempted to
+                update the paper accordingly, trying to clarify, expand and remove content as
+                suggested by the many helpful comments. Any mistakes, omissions and
+                misunderstandings are solely mine, however.</para><para>A far better title than the one originally supplied by me was kindly provided by
+                the Balisage program committee.  My original title, I feel, is best left
+                unmentioned, but for the new one, my heartfelt (and relieved) thanks must go to
+                Tommie &amp; Co. </para></section></section><bibliography><title>Bibliography</title><bibliomixed xml:id="id-dita">DITA <emphasis>audience</emphasis> Attribute <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://docs.oasis-open.org/dita/v1.2/os/spec/langref/audience.html#audience</link></bibliomixed><bibliomixed xml:id="id-urn">Uniform Resource Names (URN) Namespace Definition Mechanisms 
+                <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.ietf.org/rfc/rfc3406.txt</link></bibliomixed><bibliomixed xml:id="id-idso-sch">Schematron ISO
+                standard <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://standards.iso.org/ittf/PubliclyAvailableStandards/index.html</link></bibliomixed><bibliomixed xml:id="id-xsdassertions">XML Schema 1.1 Structures
+                (Assertions) <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/xmlschema11-1/#cAssertions</link></bibliomixed><bibliomixed xml:id="id-xlink">XML Linking Language (XLink) Version
+                1.1 <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/xlink11/</link></bibliomixed><bibliomixed xml:id="id-prescod">XLink: behavior must
+                go! <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.biglist.com/lists/xsl-list/archives/199905/msg00218.html</link></bibliomixed><bibliomixed xml:id="id-s1000d-home">The S1000D Web
+                Site <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://public.s1000d.org/Pages/Home.aspx</link></bibliomixed><bibliomixed xml:id="id-s1000d-applic-model">S1000D Applicability Model <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.ataebiz.org/forum/2008_ata_e-biz_forum_agenda/Applicability_vanRotterdam.pdf</link></bibliomixed></bibliography></article>

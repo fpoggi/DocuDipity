@@ -1,0 +1,792 @@
+<?xml version="1.0" encoding="UTF-8"?><article xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink" version="5.0-subset Balisage-1.3"><title>Type Introspection in XQuery</title><info><confgroup><conftitle>Balisage: The Markup Conference 2012</conftitle><confdates>August 7 - 10, 2012</confdates></confgroup><abstract><para>Type introspection gives a program the ability to determine the
+type of object at runtime and manipulate the type of the object as an object
+in its own right. It can be used as a basis for generic and flexible services,
+meta-programming, runtime adaptation, and data exploration and discovery. This
+paper explores providing some type introspection capabilities to XQuery,
+looking at some design and implementation issues, and demonstrating the
+application of type introspection in various ways.
+        </para></abstract><author><personname><firstname>Mary</firstname><surname>Holstege</surname></personname><personblurb><para>Mary Holstege is Principal Engineer at MarkLogic
+Corporation.  She has worked as a software engineer in and around markup
+technologies for over 20 years.  She is a member of the W3C XML Schema and XML
+Query working groups, and an editor of the W3C XML Schema Component Designators
+and the XML Query Full Text specifications.  Mary Holstege holds a Ph.D. from
+Stanford University in Computer Science, for a thesis on document
+representation.</para></personblurb><affiliation><jobtitle>Principal Engineer</jobtitle><orgname>MarkLogic Corporation</orgname></affiliation><email>mary.holstege@marklogic.com</email></author><legalnotice><para>Copyright © 2012 Mary Holstege</para></legalnotice></info><section><title>Introduction</title><para>Type introspection gives a program the ability to determine the
+type of data item at runtime and manipulate the type as a data item in
+its own right. It allows the creation of more generic and flexible
+data-processing frameworks, and allows operations to be constructed in a
+more data-driven way. Type introspection also enables data exploration and
+discovery. This paper explores one way of providing type introspection
+capabilities to XQuery, looks at some design and implementation issues, and
+shows the application of type introspection in various ways.
+       </para><para>It may seem odd to talk about type introspection in the context of
+XQuery, given that it is not an object-oriented language, and meta-classes and
+type introspection are object-oriented concepts. However, XQuery does have the
+concept of a type hierarchy with subtypes and supertypes. Instance variables
+can be statically identified as being of one type, while being
+dynamically instances of some subtype. Instead of
+classic objects and base types, XQuery has XML nodes and base (atomic) types.
+Adding structural type introspection to XQuery brings powerful
+meta-programming patterns to XML.
+      </para><para>Many programming languages offer some kind of reflection or
+introspection. These terms are frequently used somewhat
+interchangeably. Gabriel 
+et al <citation linkend="clos"/> define reflection as "the ability of a program
+to manipulate as data something representing the state of the program during
+its own execution", and divide it into two parts: introspection and
+effectuation. Introspection is the observational aspect of reflection;
+effectuation is the active aspect, the making of changes to the program state. 
+Singh <citation linkend="introc"/> usefully distinguishes between
+type identification, structural introspection, and behavioural introspection.
+Type identification allows a program to determine whether an object is an
+instance of a particular class (or type). Structural introspection provides the
+programmatic means to examine attributes of the class, such as its
+base class and members. Behavioural introspection allows for the examination of
+the runtime operations of a program. In this paper, we are concerned with type
+introspection, and so we will not address behavioural introspection further.
+       </para><para>Some form of type identification is common
+to many programming languages. For example, the Java or PHP
+<code>instanceof</code>, the C++ <code>dynamic_cast</code>, the Perl
+<code>isa</code> all provide for type identification, where 
+the reference type is named statically and must be known at compile time.
+XQuery <citation linkend="xq30"/> provides for this form of type
+identification too, through the <code>instance of</code> keyword pair.
+      </para><figure xml:id="fig_type_id"><title>Type Identification Examples</title><programlisting xml:space="preserve">
+/* C++ example */
+QName* name = dynamic_cast&lt;QName*&gt;(&amp;value);
+if (name != 0) {
+  cout &lt;&lt; name-&gt;namespaceURI();
+}
+
+/* Java example */
+if (value instanceof QName) {
+  QName qn = (QName)value;
+  System.out.println(qn.namespaceURI());
+}
+
+(: XQuery example :)
+if ($value instance of xs:QName) {
+  fn:namespace-uri-from-QName($value)
+}
+      </programlisting><caption><para>Examples of type identification in several languages.</para></caption></figure><para>XQuery allows for named types to be applied in several ways:
+through the use of the <code>instance of</code>, <code>cast as</code>, 
+<code>treat as</code>, and (in XQuery 3.0) <code>validate as</code>
+constructs, and through the use of sequence type matching in 
+<code>typeswitch</code> and argument or variable binding constructs. A program
+can use the constructs to ensure that data is properly typed in accordance with
+the assumptions of processing and dispatch to the appropriate processing for
+the type. </para><para>Consider, for example, writing some code to analyze dates in
+documents of various kinds, where the documents may use different kinds of
+dates. Suppose further the documents come in a variety of forms and we do not
+necessarily have schemas for every document, although we do have schemas
+defining each date format. If a document has a schema, then a
+<code>typeswitch</code> or <code>instance of</code> test could be used to
+determine which analysis function to apply, and type sequence matching could be
+used to ensure that the analysis code is applied properly to ensure
+correctness. In other cases <code>castable as</code> and <code>cast as</code>
+can be used to perform this job.
+<xref linkend="fig_dateex_1"/> shows a fragment of XQuery dispatching to the
+appropriate analysis code along these lines.</para><figure xml:id="fig_dateex_1"><title>XQuery Type-Based Dispatch</title><programlisting xml:space="preserve">
+import module iso="http://example.com/dates/iso";
+import module vat="http://example.com/dates/vatican";
+...
+
+declare function my:process-date($date) 
+{
+  if ($date castable as iso:date) 
+  then iso:process-date($date cast as iso:date)
+  else if ($date castable as vat:date)
+  then vat:process-date($date cast as vat:date)
+  (: etc. one for each format :)
+  ...
+};  
+      </programlisting><caption><para>XQuery fragment for dispatching based on hard-coded type
+tests and functions.</para></caption></figure><para>
+In all the XQuery constructs, the type must be a named type,
+and its properties cannot be inspected, compared, or reapplied. In particular,
+any annotations or facets associated with the type are not accessible to the
+program directly. One cannot ask
+for the type of one item and use it in any way to construct a new instance of
+that type. The code must explicitly reference the names of any types it needs.
+      </para><para>Many languages also provide for structural introspection as well as
+type identification. Java's <code>Class</code> class and the reflection API
+<citation linkend="java"/> and Perl 6's <citation linkend="perl"/> class traits
+and methods allow for structural reflection.
+Use of a meta-class in this way is the common pattern
+for providing structural introspection. It generally also allows for more
+dynamic type introspection, as well as dynamic instance construction.
+XQuery does not provide for this kind of type introspection. The rest of this
+paper explores adding structural type introspection to XQuery.
+      </para><figure xml:id="fig_struct_intro"><title>Structural Introspection Examples</title><programlisting xml:space="preserve">
+Class myClass = value.class;
+Class paramTypes[] new Class[1];
+paramTypes[0] = String.TYPE;
+Constructor ct = myClass.getConstructor(paramTypes);
+Object args[] = new Object[1];
+args[0] = new String("Hello World");
+Object newObject ct.newInstance(args);
+      </programlisting><caption><para>Example of Java structural introspection. We get the class
+of a particular value, find a constructor that takes a string argument, and
+construct a new instance of the class.</para></caption></figure><para>XQuery 3.0 introduces a couple of new features that interact well
+with type introspection: function items and the simple mapping operator
+(represented with the ! character). Function items allow functions to be
+treated as values, assigned to variables, and passed as arguments to
+functions. As we will see below, in some cases we will treat types as function
+items for some purposes. Beyond that, however, putting function names in schema
+annotations makes it possible to write generic data-driven processing
+frameworks, by using the introspection API to obtain the name of the function
+to perform some particular operation, and the function lookup and function
+application features to execute that operation. The simple mapping operator
+allows for mapping of non-node values in streamlined path-like
+expressions. Many of the examples that follow use one or the other of these
+constructs. Expressions involving the simple mapping operator could be
+rewritten in other ways, but use of function items cannot be readily
+replaced in an XQuery 1.0 setting. I will point out alternatives where they
+exist. 
+    </para></section><section><title>Types as Values</title><para>Where should XQuery meta-classes fit into the existing classes in
+the type hierarchy? What do the classes look like?
+XQuery has a complex type system, integrating simple and complex types from
+XML Schema <citation linkend="xsd11dt"/>, node kinds from the XQuery and XPath
+data model <citation linkend="xq30dm"/>, as well as special item
+types such as function items. 
+      </para><figure xml:id="fig_xq30"><title>XQuery 3.0 Type Hierarchy</title><mediaobject><imageobject><!-- type_hierarchy.png --><imagedata format="png" fileref="../../../vol8/graphics/Holstege01/Holstege01-001.png" width="75%"/></imageobject></mediaobject><caption><para>The diagram shows the main branches in the XQuery 3.0 type
+hierarchy. Diamonds represent abstract types.  See the XPath data model <citation linkend="xq30dm"/> for more details.</para></caption></figure><para>XML Schema <citation linkend="xsd11st"/> defines a complex set of
+schema component types. Each schema component has its own collection of
+properties, some of which are components themselves. For example, among the
+properties on a simple type definition are its name, a base type definition, a
+primitive type definition, an indicator of constraints on deriving new
+subtypes, whether it is a list or union type, and a variety of facets
+indicating additional constraints such as the maximum permitted value.
+      </para><para>For our purposes, adding richer type introspection to XQuery
+amounts to creating values that represent schema components and providing
+mechanisms for accessing those components and their their properties.
+      </para><para>Values representing types have some similarities with nodes
+and function items. Like nodes, schema components are complex objects with many
+properties, such as names. However, most of the accessors for nodes do not
+apply to schema components and most operations on nodes do not apply to schema
+components. In XQuery, every simple type also creates an implicit constructor
+function. In this sense, simple types act as function items. We could perhaps 
+make type values a kind of function item. However, type values are different
+from function items in every other way, and other schema components are not
+like functions at all. Values representing key schema components will be placed
+in the XQuery type hierarchy as a new kind of item. 
+      </para><para>
+There are two kinds of type definition component: simple type definitions and
+complex type definitions. Corresponding to each of these components is a
+component value, one for simple type definitions and one for complex type
+definitions. Since the distinction
+between a simple type and a complex type matters in some cases (values can
+only be cast to simple types, for example), but not in others (when we don't
+know whether a particular element has a simple type definition or a complex
+type definition, but we want to know its name, regardless), we introduce a
+superclass "type definition" that encompasses both simple type definitions and
+complex type definitions. 
+      </para><figure xml:id="fig_type"><title>Type Values</title><mediaobject><imageobject><!-- component_types.png --><imagedata format="png" fileref="../../../vol8/graphics/Holstege01/Holstege01-002.png" width="75%"/></imageobject></mediaobject><caption><para>Type values as component values, a new kind of item()</para></caption></figure><para>Integrating these new value types into XQuery involves:
+      <itemizedlist><listitem><para>Defining sequence type tests</para></listitem><listitem><para>Defining the means to obtain type values from other values</para></listitem><listitem><para>Determining how existing functions and operators apply to type values</para></listitem><listitem><para>Defining useful functions and operators over type values</para></listitem><listitem><para>Defining accessors on type values</para></listitem></itemizedlist>
+      </para><para>Let's look at each of these steps in turn.</para><section><title>Type Tests for Type Values</title><para>For each kind of component value there is a sequence type test that
+matches values of that kind. Since types might have names, sequence type tests
+for type values can have a QName and will match if either the type has that
+name or it has a base type that matches.
+      </para><figure xml:id="fig_type_tests"><title>Sequence Type Tests: Types</title><variablelist><varlistentry><term><code>component()</code></term><listitem><para>Matches any component value.</para></listitem></varlistentry><varlistentry><term><code>type()</code> or <code>type(*)</code></term><listitem><para>Matches any type component value.</para></listitem></varlistentry><varlistentry><term><code>type(q:name)</code></term><listitem><para>Matches any type component whose name matches the
+  given QName, or which is a subtype of a component with that type.</para></listitem></varlistentry><varlistentry><term><code>simple-type()</code> or <code>simple-type(*)</code></term><listitem><para>Matches any simple type component value.</para></listitem></varlistentry><varlistentry><term><code>simple-type(q:name)</code></term><listitem><para>Matches any simple type component whose name matches the
+  given QName, or which is a subtype of a component with that type.</para></listitem></varlistentry><varlistentry><term><code>complex-type()</code> or <code>complex-type(*)</code></term><listitem><para>Matches any complex type component value.</para></listitem></varlistentry><varlistentry><term><code>complex-type(q:name)</code></term><listitem><para>Matches any complex type component whose name matches the
+  given QName, or which is a subtype of a component with that type.</para></listitem></varlistentry></variablelist></figure></section><section><title>Obtaining Type Values</title><para>Linkage functions get component values from various kinds of
+items. They are defined over all kinds of items, returning the empty sequence
+if necessary. These functions all take any item as a parameter and have a
+zero-argument form that applies to the context item. This is a small usability
+feature, but makes such expressions as
+<code>/root/child/sc:simple-type()</code> possible.
+      </para><para>In this paper, the schema component linkage and accessor functions
+are all defined as being in the namespace bound to the prefix <code>sc</code>
+which the examples assume to be predefined. The specific namespace chosen is
+not important. The experimental implementation used
+<code>http://marklogic.com/xdmp/schema-components</code>. 
+      </para><figure xml:id="fig_linkage_api"><title>Accessors Linking from Items to Component Values</title><variablelist><varlistentry><term><code>sc:type([$context as item()]) as type()?</code></term><listitem><para>Get the type of the item as a value.</para></listitem></varlistentry><varlistentry><term><code>sc:simple-type([$context as item()]) as simple-type()?</code></term><listitem><para>Get the simple type of the item as a value.</para></listitem></varlistentry><varlistentry><term><code>sc:complex-type([$context as item()]) as complex-type()?</code></term><listitem><para>Get the complex type of the item as a value.</para></listitem></varlistentry></variablelist></figure><para>XQuery introduces an interesting wrinkle that is not found in most
+other programming language type systems: some data may be untyped. The special
+types <code>xs:untyped</code> and <code>xs:untypedAtomic</code> represent such
+untyped complex and simple content.
+      </para><para>For atomic values that are instances of a particular simple type,
+the <code>sc:simple-type</code> linkage function returns that simple type as a
+component value. If the atomic type is untyped, then a simple type definition value
+for <code>xs:untypedAtomic</code> is returned. The accessor
+<code>sc:simple-type</code> operates on attribute nodes in a similar fashion.
+The operation on element nodes is similar, except that if
+the element is an instance of a complex type, <code>sc:simple-type</code>
+returns the empty sequence. For other kinds of items, the empty sequence is returned.
+      </para><para>The linkage function <code>sc:complex-type</code> works analogously
+like <code>sc:simple-type</code> except atomic values and attributes can never
+be instances of a complex type, so <code>sc:complex-type</code> is only useful
+for element nodes. If an element node is an instance of a specific
+complex type, the value will be that complex type as a component value. If the
+element node is untyped, <code>xs:untyped</code> will be returned as a complex type
+component value. When an element is an instance of a simple type,
+<code>sc:complex-type</code> returns <code>xs:anyType</code> as a complex type component
+value. For other items, the empty sequence is returned.
+      </para><para>The <code>sc:type</code> accessor combines certain aspects of the
+<code>sc:simple-type</code> and <code>sc:complex-type</code> accessors. It
+returns a type definition of the appropriate kind. For untyped element nodes,
+<code>xs:anyType</code> is returned as a type definition value.
+      </para></section><section><title>Functions and Operators on Type Values</title><para>Obtaining types as values is well and good, but what can we do with
+them other than perform sequence type tests on them? At a minimum, equality
+operators should work on these values: <code>equals</code>, <code>=</code>, and
+<code>!=</code>. It is also useful to be able to test whether one type is a
+subtype of another. 
+      </para><figure xml:id="fig_operator_api"><title>Operators</title><variablelist><varlistentry><term><code>equals</code>, <code>=</code>, <code>!=</code></term><listitem><para>Test component equality.</para></listitem></varlistentry><varlistentry><term><code>subtype of</code></term><listitem><para>Returns true if the first type is a subtype of the second.</para></listitem></varlistentry></variablelist></figure><programlisting xml:space="preserve">
+declare function my:spaceship-operator ($t1 as type(), $t2 as type()) 
+{
+  if ($t1 subtype of $t2) then -1
+  else if ($t1 = $t2) then 0
+  else if ($t1 subtype of $t2) then 1
+  else xs:double("NaN")
+};
+       </programlisting><para>XQuery <citation linkend="xqfo30"/> defines a large number of
+functions. However, only a few 
+apply to all items. The sequence functions, such as <code>fn:subsequence</code>
+can work on sequences of component values with no problem. 
+The general functions <code>fn:string</code>,
+<code>fn:boolean</code> and <code>fn:not</code> don't really apply and will
+raise errors if applied to component values.</para><para>If we have equality on type component values, then not only can we
+define <code>fn:deep-equal</code> over them, we can define 
+<code>fn:deep-equal</code> with them. <xref linkend="fig_deepeq1"/> shows a
+version of <code>deep-equal</code> that is stronger than that defined by
+XQuery: it requires type equality as well as structural equality.
+      </para><figure xml:id="fig_deepeq1"><title>Implementing deep-equal with Type Values</title><programlisting xml:space="preserve">
+declare function my:deep-equal ($p1 as item()*, $p2 as item()*, $coll as xs:string) 
+as xs:boolean
+{
+   let $c1 := count($p1)
+   let $c2 := count($p2)
+   return
+   if ($c1 != $c2) then false()
+   else if ($c1 != 1) then 
+     every $i1 at $i in $p1 satisfies my:deep-equal($i1, $p2[$i], $coll)
+   else if (exists(sc:simple-type($p1)) and exists(sc:simple-type($p2))) then
+     sc:simple-type($p1) eq sc:simple-type($p2) and
+     if (($p1 instance of xs:string) and ($p2 instance of xs:string))
+     then compare($p1, $p2, $coll) eq 0
+     else
+     try {
+       let $v := $p1 eq $p2
+       return ($p1 eq $p1) or (($p1 ne $p1) and ($p2 ne $p2)) (: NaN :)
+     } catch  * {
+       false()
+     }
+   else typeswitch ($p1)
+   case document-node() return 
+      (typeswitch ($p2) 
+       case document-node() return true() default return false()) and
+      my:deep-equal($p1/(*|text()), $p2/(*|text()), $coll)
+   case element() return
+      (typeswitch ($p2) 
+       case element() return true() default return false()) and
+      node-name($p1) eq node-name($p2) and
+      exists(sc:type($p1)) and exists(sc:type($p2)) and 
+      sc:type($p1) eq sc:type($p2) and
+      my:deep-equal( for $a1 in $p1/@* order by name($a1), 
+                     for $a2 in $p1/@* order by name($a2), $coll ) and
+      if (exists(sc:simple-type($p1)))
+      then my:deep-equal(data($p1), data($p2), $coll)
+      else my:deep-equal($p1/(*|text()), $p2/(*|text()), $coll)
+   case attribute() return
+      (typeswitch ($p2) 
+       case attribute() return true() default return false()) and
+      node-name($p1) eq node-name($p2) and 
+      my:deep-equal(data($p1),data($p2),$coll)
+   case processing-instruction() return
+      (typeswitch ($p2) 
+       case processing-instruction() return true() default return false()) and
+      node-name($p1) eq node-name($p2) and 
+      compare(string($p1), string($p2), $coll)
+   case namespace-node() return
+      (typeswitch ($p2) 
+       case namespace-node() return true() default return false()) and
+      my:deep-equal(node-name($p1), node-name($p2), $coll) and
+      compare( string($p1), string($p2), $coll ) eq 0
+   case text() return
+      (typeswitch ($p2) case text() return true() default return false()) and
+      compare( string($p1), string($p2), $coll ) eq 0
+   case comment() return 
+      (typeswitch ($p2) case comment() return true() default return false()) and 
+      compare(string($p1), string($p2), $coll)
+   case function() return error("err:FOTY0015")
+   case component() return $p1 eq $p2
+   default return false()
+};
+      </programlisting></figure><para>Once types are available as values, they can be returned in place
+of type names to perform introspection on functions, for example.</para><figure xml:id="fig_misc_api"><title>Miscellaneous Introspection Functions</title><variablelist><varlistentry><term><code>sc:type-named($qname as xs:QName) as type()</code></term><listitem><para>Return a type value for type with the given name, if
+any. Raises an undefined type error otherwise.</para></listitem></varlistentry><varlistentry><term><code>sc:function-return-type([$f as function(*)]) as type()</code></term><listitem><para>Return a type value for the declared return type of
+the given function.</para></listitem></varlistentry><varlistentry><term><code>sc:function-parameter-type([$f as function(*)],[$argNum as numeric]) as type()</code></term><listitem><para>Return a type value for the declared type of
+indicated parameter of the given function. Raises an error if there is no such parameter.</para></listitem></varlistentry></variablelist></figure><section><title>Type Values as Functions</title><para>In XQuery, there is a constructor function for each in-scope (named)
+atomic type derived from a primitive type, whether the type is user-defined or
+built-in. This excludes list and union types. Given that we have a schema
+component value in our hands, there is no particular reason to require the type
+to have a name, or even be atomic. Indeed, if one generalizes the concept of
+the "constructor" function to mean obtaining a typed value of the given type
+or raising an error if that is not possible, there is no particular reason 
+not to define functions for complex types as as well, where the "constructor"
+function for a complex type validates an item against that type. The
+only types where this doesn't make sense is the "untyped" types
+(<code>xs:untyped</code> and <code>xs:untypedAtomic</code>), which can be
+applied as no-ops. A function can be defined to perform this typed-value
+fabrication operation:
+      </para><figure xml:id="fig_type_apply"><title>Types as functions</title><variablelist><varlistentry><term><code>sc:type-apply($t as type(), $item as item()*) as item()*</code></term><listitem><para>Apply the type to the item, to obtain a typed value
+or an error.</para></listitem></varlistentry></variablelist></figure><figure xml:id="fig_type_function_alt"><title>Example of applying a Type</title><programlisting xml:space="preserve">
+declare function local:check($old as item(), $new as item())
+{
+   let $f := $old/sc:type()
+   return sc:type-apply($f,$new)
+};
+
+local:check(doc("config.xml")/config/language, "en"),
+local:check(doc("config.xml")/config/encoding, "utf-8")
+        </programlisting></figure><para>With the XQuery 3.0 data model, we can go further, as function
+items are defined as values. Then we can just treat types as function items and
+apply them directly, as shown in <xref linkend="fig_type_function"/>. Note that
+this might be an <emphasis>anonymous</emphasis> type just as well as a named
+type, unlike the type identification features that are part of standard XQuery.
+      </para><figure xml:id="fig_type_function"><title>Example of applying a type as an XQuery 3.0 function item</title><programlisting xml:space="preserve">
+declare function local:check($old as item(), $new as item())
+{
+   let $f := $old/sc:type()
+   return $f($new)
+};
+
+local:check(doc("config.xml")/config/language, "en"),
+local:check(doc("config.xml")/config/encoding, "utf-8")
+        </programlisting></figure><para>Combined with some of the introspection functions, we can get even
+more powerful and flexible effects. The function <code>run-plugin</code> can
+guarantee that a plugin function executed for some particular piece of the
+framework has the expected type, without having to know a priori what that type
+is. 
+      </para><figure xml:id="fig_fn_ex"><title>Using Type Introspection in Plugin Framework</title><programlisting xml:space="preserve">
+declare my:run-plugin($config as element(), $plugin as function(*), $args as item()*)
+{   
+   let $expected := sc:type-named(data($config))
+   if (sc:return-type($plugin) = $expected)
+     $plugin($args)
+   else 
+     $expected($plugin($args))
+};
+      </programlisting></figure></section><section><title>Component Accessors</title><para>For true meta-programming, being able to access some of the details
+of the type components is important. Schema components are complex and have many
+interconnections and properties. Attempting to provide a clean API to access
+all these properties is beyond the scope of this paper. We will content
+ourselves with defining a few basic accessors.
+      </para><para>Component accessors work analogously to accessors for nodes in the
+data model: they apply to all component types, returning the
+empty sequence where necessary. As with the linkage functions, these functions
+have a zero-argument form that applies to the context item. This will make
+chaining them together a little more usable.
+      </para><figure xml:id="fig_accessor_api"><title>Basic Component Accessors</title><variablelist><varlistentry><term><code>sc:name([$context as component()]) as xs:QName?</code></term><listitem><para>Return the name of the component, if any.</para></listitem></varlistentry><varlistentry><term><code>sc:annotations([$context as component()]) as element()*</code></term><listitem><para>Return annotations on the component as a sequence
+of <code>xs:annotation</code> element information items.</para></listitem></varlistentry><varlistentry><term><code>sc:base-type([$context as component()]) as type()</code></term><listitem><para>Return the base type of the component, if any.</para></listitem></varlistentry></variablelist></figure><para>Getting at schema annotations from instances has many applications. 
+For example, schema annotations can be used to define business rules, widget bindings for
+generic UI generation, associating help text with input components, defining
+special indexing for certain content, defining XML mapping rules, and so on. 
+      </para><figure xml:id="fig_ann_ex"><title>Some Schema Annotations</title><programlisting xml:space="preserve">
+&lt;xs:simpleType name="address"&gt;
+  &lt;xs:annotation&gt;
+    &lt;xs:documentation&gt;
+      A numeric internet address.
+    &lt;/xs:documentation&gt;
+  &lt;/xs:annotation&gt;
+  &lt;xs:restriction base="xs:token"&gt;
+    &lt;xs:pattern value="[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+"/&gt;
+  &lt;/xs:restriction&gt;
+&lt;/xs:simpleType&gt;
+
+&lt;xs:element name="address" type="address"&gt;
+  &lt;xs:annotation&gt;
+    &lt;xs:documentation&gt;
+      The server socket bind numeric internet address.
+    &lt;/xs:documentation&gt;
+    &lt;xs:appinfo&gt;
+      &lt;admin:default&gt;"0.0.0.0"&lt;/admin:default&gt;
+      &lt;admin:cold-restart/&gt;
+      &lt;admin:help xmlns="http://www.w3.org/1999/xhtml"&gt;
+      &lt;span class="help-text"&gt;&lt;span style="color:#800000"&gt;address&lt;/span&gt; 
+      specifies the IP address for the App Server.&lt;/span&gt;
+      &lt;/admin:help&gt;
+    &lt;/xs:appinfo&gt;
+  &lt;/xs:annotation&gt;
+&lt;/xs:element&gt;
+
+        </programlisting><caption><para>Schema annotations from a real product.</para></caption></figure><para>One key difference between XML types and classes in an
+object-oriented programming language is that classes have methods as well as
+data. Combining function items with annotation accessors can bring methods to
+XML types as well, in a way.</para><figure xml:id="fig_oo_xq"><title>Function Items Named in Annotations as Methods</title><para>The schema:</para><programlisting xml:space="preserve">
+&lt;xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:record="http://example.com/meta/records"
+           xmlns:base="http://example.com/meta"
+           targetNamespace="http://example.com/meta/records"
+           elementFormDefault="qualified"&gt;
+
+&lt;xs:import namespace="http://example.com/meta"
+           schemaLocation="meta.xsd"/&gt;
+
+&lt;xs:simpleType name="studio"&gt;
+  &lt;xs:annotation&gt;
+    &lt;xs:appinfo&gt;
+      &lt;base:input-handler&gt;record:normalize-studio&lt;/base:input-handler&gt;
+      &lt;base:formatter&gt;record:format-studio&lt;/base:formatter&gt;
+    &lt;/xs:appinfo&gt;
+  &lt;/xs:annotation&gt;
+  &lt;xs:restriction base="xs:string"/&gt;
+&lt;/xs:simpleType&gt;
+
+&lt;xs:complexType name="record-metadata"&gt;
+  &lt;xs:complexContent&gt;
+    &lt;xs:extension base="base:metadata"&gt;
+      &lt;xs:sequence&gt;
+        &lt;xs:element ref="studio" type="studio"/&gt;
+      &lt;/xs:sequence&gt;
+    &lt;xs:extension&gt;
+  &lt;/xs:complexContent&gt;
+&lt;/xs:complexType&gt;
+    </programlisting><para>Formatter function using metadata "methods":</para><programlisting xml:space="preserve">
+declare function base:format-metadata ($metadata as element())
+{
+  for $meta in $metadata/*
+  let $methods := $meta/sc:element-decl()!sc:annotations()/xs:appinfo
+  let $formatter := function-lookup($methods/base:formatter, 1)
+  return $formatter($meta)
+};
+    </programlisting></figure></section><!-- Component Accessors --></section><!-- Functions and Operators --></section><!-- Types as Values --><section><title>Other Schema Component Values</title><section><title>Facets</title><para>Accessing facet information is important for working with simple
+types. <xref linkend="fig_facet_decls"/> summarizes the additional type tests
+and accessors for working with facets. The <code>sc:facets</code> accessor
+returns sequences of facet component values when applied to simple type
+components; it returns the empty sequence otherwise. The accessors already
+defined apply to facet component values as well. The <code>sc:name</code>
+accessor returns the name of the element used to define the facet
+(e.g. xs:enumeration for the enumeration facet), and the standard accessor
+<code>fn:data</code> returns the value of the facet.</para><figure xml:id="fig_facet_decls"><title>Additions for Facet Values</title><variablelist><varlistentry><term><code>facet() or facet(*)</code></term><listitem><para>Type test matching any facet value.</para></listitem></varlistentry><varlistentry><term><code>facet(q:name)</code></term><listitem><para>Type test matching any facet value whose name
+matches the given QName. For example, a pattern facet matches 'facet(xs:pattern)'.</para></listitem></varlistentry><varlistentry><term><code>sc:facets([$context as item()]) as facet()*</code></term><listitem><para>Get all the facets of the item, if any. Only simple
+types have facets.</para></listitem></varlistentry></variablelist></figure><para>Let's return to the date example from the introduction 
+(<xref linkend="fig_dateex_1"/>). With access to types and their facets, as
+well as function lookup and function application, we can create a generic
+framework for processing dates without having to hardcode any type or function
+names. A fragment of this framework is shown in 
+<xref linkend="fig_dateex_2"/>.</para><figure xml:id="fig_dateex_2"><title>Generic XQuery Type-Based Dispatch</title><programlisting xml:space="preserve">
+...
+declare function my:process-date($date)
+{
+  for $date-type in fn:collection("templates")/date/sc:simple-type() 
+  let $date-pattern := sc:facets($date-type)[. instance of facet(xs:pattern)]
+  let $process-func := 
+     fn:function-lookup(fn:data(sc:annotations($date-type)//my:date-func), 1)
+  where fn:exists($date-pattern) and
+        fn:exists($process-func) and
+        fn:matches($date, fn:data($date-pattern))
+  return $process-func($date-type($date))
+};
+
+      </programlisting><caption><para>XQuery fragment using schema annotations and function
+lookup to create a generic date-processing framework.</para></caption></figure></section><!-- Facets --><section><title>Element and Attribute Declarations</title><para>As the example in <xref linkend="fig_ann_ex"/> shows, 
+it is frequently more natural to obtain the annotations from element and
+attribute declarations rather than from the types associated with those
+declarations, Annotations often have more to do with the use of a type in a
+particular context than with the type itself. Adding accessors to obtain element and attribute
+declarations from element and attribute nodes, and defining the component
+accessors over these new component types allows for these use cases. 
+<xref linkend="fig_decls"/> summarizes the additional type tests and
+accessors for working with element and attribute declarations. The
+<code>sc:element-decl</code> and <code>sc:attribute-decl</code> 
+accessors return component values when applied to element and attribute nodes,
+respectively; otherwise they return empty sequence. In addition, the accessors
+already defined apply to these new declaration component values as well. The
+<code>sc:type</code>, <code>sc:complex-type</code>, and
+<code>sc:simple-type</code> accessors return the type associated with the declaration.
+      </para><figure xml:id="fig_decls"><title>Additions for Element and Attribute Declaration Values</title><variablelist><varlistentry><term><code>element-decl() or element-decl(*)</code></term><listitem><para>Type test matching any element declaration value.</para></listitem></varlistentry><varlistentry><term><code>element-decl(q:name)</code></term><listitem><para>Type test matching any element declaration value
+whose name matches the given QName, or which is in the substitution group with
+an element with the given QName as its head.</para></listitem></varlistentry><varlistentry><term><code>attribute-decl() or attribute-decl(*)</code></term><listitem><para>Type test matching any attribute declaration value.</para></listitem></varlistentry><varlistentry><term><code>attribute-decl(q:name)</code></term><listitem><para>Type test matching any attribute declaration value
+whose name matches the given QName.</para></listitem></varlistentry><varlistentry><term><code>sc:element-decl([$context as item()]) as element-decl()?</code></term><listitem><para>Get the element declaration of the item, if any.</para></listitem></varlistentry><varlistentry><term><code>sc:attribute-decl([$context as item()]) as attribute-decl()?</code></term><listitem><para>Get the attribute declaration of the item, if any.</para></listitem></varlistentry></variablelist></figure><para>Fitting element declaration values into the type hierarchy leads us
+to go still further: element declarations are but one kind of term in a content
+model, along with wildcards and model groups. Given that we already have
+element declaration values, it makes sense to expose the content model of a
+type in general. Given that we already have attribute declaration values, it
+makes sense to expose the attributes declared on a complex type.</para><para>The XML Schema component model creates some complexity in this area
+and we need to decide how to expose the information in the a usable way.
+That model makes a distinction between particles and terms,
+where the particle carries occurrence information.
+It also makes an analogous distinction between attribute uses and attribute
+declarations, where attribute uses carry value constraints. Attribute uses and
+particles also can be used to carry local context-specific annotations. 
+    </para><figure xml:id="fig_decl_accessor"><title>More Accessors</title><variablelist><varlistentry><term><code>sc:particles([$context as component()]) as particle()*</code></term><listitem><para>Return the particles within a model group or complex
+type's content type as values.</para></listitem></varlistentry><varlistentry><term><code>sc:term([$context as component()]) as term()</code></term><listitem><para>Get the term for a particle.</para></listitem></varlistentry><varlistentry><term><code>sc:attributes([$context as component()]) as attribute-use()*</code></term><listitem><para>Return the attributes uses from a complex type.</para></listitem></varlistentry></variablelist></figure><para>In addition to the new accessors listed in <xref linkend="fig_decls"/>, 
+the <code>sc:attribute-decl</code> accessor applies to attribute use component
+values.
+    </para><figure xml:id="fig_comp_hier"><title>Declaration and Particle Values</title><mediaobject><imageobject><!-- component_hierarchy.png --><imagedata format="png" fileref="../../../vol8/graphics/Holstege01/Holstege01-003.png" width="75%"/></imageobject></mediaobject></figure></section><!-- Element and Attribute Declarations --></section><!-- Other Schema Component Values --><section><title>Implementation Considerations</title><para>It is difficult to generalize about different
+implementations of a language. Overall implementing the accessors, type
+tests and operators discussed here on top of an existing XQuery implementation
+was not difficult. 
+    </para><para>XQuery is notoriously sensitive to syntactic extensions.
+The use of functional syntax made the integration with an existing
+XQuery lexer and parser more straight-forward than it would have been if new
+syntactic constructs had been required. The new sequence type tests and the
+<code>subtype of</code> operator did require additions to the lexer and parser
+rules. The <code>subtype of</code> operator was added as an additional kind of
+comparison expression; the new sequence type tests were added in parallel to
+XPath kind tests. Adding the component kind tests required the same kind of
+special handling already required for other names that appear in a similar
+context, such as <code>element</code> or <code>document-node</code>.
+    </para><para>The values themselves were implemented as classes providing
+faÇades over existing data structures used to implement XML Schema
+components. These data structures were already present to support validation
+and type assignment. An implementation that lacked such data structures would
+clearly find exposing types as values more challenging. It is unclear, however,
+whether a direct reflection of the schema component model is the right
+approach. It may be better to step back and design a cleaner API, and provide
+values over that model instead. Such a strategy would bring a higher
+implementation burden. 
+    </para><para>Applying types as functions depended on a prior foundation
+of XQuery 3.0 function items, and would be much more difficult to accomplish
+without that foundation. Given that foundation, applying simple types as
+functions is trivial, and applying complex types as functions only slightly
+more so. The existing infrastructure to support schema validation was a
+necessary prerequisite to applying complex types as functions, however.</para><para>The most challenging part of the implementation was
+providing access to annotations. The existing data structures did not preserve
+annotations as data model instances, as they were irrelevant for validation and
+type assignment and there was no existing API that provided access to the
+schema components. A surprising amount of work needed to be
+done in order to preserve annotations and expose them as nodes.</para><para>Finally, the experimental implementation actually did allow schema
+component values to be added as children to data model instances, primarily for
+debugging purposes. Adding a schema component value as a child added it as the
+XML Schema serialization. In addition, <code>fn:string</code> was also
+implemented over these values to provide a terse representation of them, again,
+for debugging purposes. About half the implementation code went into these
+debugging APIs.
+    </para></section><section><title>Future Directions</title><section><title>More Accessors, Functions, and Operators</title><para>This paper has focused mainly on exposing types as values in
+XQuery with a few basic accessors, with some forays into some related
+schema components. Some meta-programming techniques rely on being able to
+examine the full richness of the schema component model — terms,
+particles, attribute uses, schema component affiliations, abstractness, and so
+on. The program to provide such full access is similar to what was outlined
+here: define type tests for the component, define linkage functions or
+accessors to get to that component, define accessors to get at the component
+properties, and define whatever other useful functions and operators seem
+appropriate. 
+       </para><para>More extensive additions to the syntax of XQuery to allow
+variables to be used as the operand of <code>instance of</code> and <code>cast
+as</code> expressions would improve usability further:</para><programlisting xml:space="preserve">
+declare function my:filter-by-type($t as type(), $nodes as node()*)
+{
+  for $n in $nodes where $n instance of $t return $n
+};
+       </programlisting></section><section><title>Relationship to Schema Component Paths</title><para>Once we embark on the program of providing full access to all the
+schema components and their properties, the use of schema component paths
+arises. Schema component paths define an
+XPath-like syntax for describing and navigating W3C XML Schema <citation linkend="xsd11st"/> component models. Abbreviated syntax is defined
+for some path steps, and certain axes that skip over intermediate components
+can provide effective ways of navigating through content models, or selecting
+multiple components with a since path.
+      </para><para>Schema component paths navigate through the schema component graph
+of an assembled schema. As with XPath, each step in the path consists of an
+axis combined with some kind of test and perhaps with a predicate. In schema
+component paths, the test is a name test (possibly a wildcarded name test, and
+possibly a test for an anonymous component), and the only predicate defined is
+a positional predicate (selecting the Nth of like components). There are no
+accessors for non-component properties: the axes act as accessor for component
+properties, just like in XPath. About two dozen axes are defined, for each of
+the component-to-component relationships in the graph. For example, the
+<code>annotation::</code> axis corresponds to the <code>sc:annotations</code>
+accessor.
+      </para><figure xml:id="fig_scp1"><title>Some Schema Component Paths</title><programlisting xml:space="preserve">
+/schemaElement::p:outer/type::0/schemaAttribute::p:inner
+/p:outer/~0/@p:inner
+/type::p:second/model::sequence/schemaElement::p:duplicate[2]/type::*
+/~p:second/model::sequence/p:duplicate[2]/~*
+      </programlisting></figure><para><xref linkend="fig_scp1"/> shows some schema component paths
+rooted at the component for the schema as a whole. The first path starts 
+at the root of the assembled schema (<code>/</code>). It then traverses the
+schemaElement axis (<code>schemaElement::</code>) with a name test
+(<code>p:outer</code>), selecting a global 
+element declaration with the name <code>outer</code>. The path continues
+through the type axis (<code>type::</code>) with a name test (<code>0</code>)
+that in this case matches a type definition with no name (<code>0</code> being
+the indicator for this case). The path to this point will select the locally
+declared anonymous type of the element declaration 'outer'. Finally the path
+concludes by traversing the schemaAttribute axis
+(<code>schemaAttribute::</code>) with a name test (<code>p:inner</code>), 
+selecting an attribute declaration whose name is 'inner' within the anonymous
+type definition. As a whole then, this path selects a particular attribute
+declaration of a particular element declaration. The second path means the same
+thing, but uses abbreviated syntax.
+       </para><para>The third path again starts at the root of the assembled schema
+(<code>/</code>). This time it traverses through the type axis
+(<code>type::</code>) with a name test (<code>p:second</code>), thus selecting
+a global type definition with the name 'second'. The path then traverses the
+model axis (<code>model::</code>) with a name test (<code>sequence</code>),
+thus selecting the model group in the content model of the type, 
+but only if it is a sequence. The path continues along the schemaElement axis
+(<code>schemaElement::</code>) with a name test (<code>p:duplicate</code>) and
+a positional constraint (<code>[2]</code>), thus selecting an element
+declaration within the sequence that has a name of 'duplicate', but referring
+to the second such element within the content model. Finally, the path
+traverses the type axis (<code>type::</code>) with a 
+wildcard (<code>*</code>), selecting the type of the given element declaration,
+whatever it might be. The fourth path means the same thing, but uses
+abbreviated syntax. 
+       </para><para>How does this compare to the accessors we have
+defined above?</para><para>The accessors operate not on components but on
+XQuery values. For example, <code>sc:element-decl</code> applies to nodes.
+Some accessors, such as <code>sc:type</code>, apply to component values
+also, and so behave somewhat like the schema component axes. 
+To get the full range of axes available in schema component paths, it would be
+necessary to define an accessor function corresponding to each axis, and allow
+it to apply to component values. To get the effect of the name tests, XPath
+predicates must be applied to the results of the accessor. Some accessors
+return simple properties of the components, such as its name. Schema component
+paths do not provide for access to the non-component properties. Finally,
+schema component paths use the slash (<code>/</code>) as a syntactic separator
+between steps. Since schema components are not nodes, XQuery forbids using them
+inside a path (although they can be the last step of a path). A FLWOR
+expression, nested function call, or the XQuery 3.0 simple mapping operator
+(<code>!</code>) must be used instead. 
+       </para><table frame="border" border="5" rules="rows"><caption><para>Summary of Comparison of Schema Component Accessors and Schema Component Paths</para></caption><tr><th>Schema Component Paths</th><th>Schema Component Accessors</th></tr><tr><td>operate on schema components</td><td>operate on XQuery values</td></tr><tr><td>apply to schema in isolation</td><td>can link between date model
+items and schema component values</td></tr><tr><td>start at particular schema component, either root of schema or contextually supplied schema component</td><td>apply to particular item(), not rooted at top of schema</td></tr><tr><td>path step selects component-valued component properties only</td><td>acccessor selects various kinds of properties</td></tr><tr><td>steps combine axis with name test directly</td><td>component or name test separate from accessor</td></tr><tr><td>steps combined with slash</td><td>chains of accessors cannot be
+combined with slash: must nest function calls, use FLWOR expressions, or use
+XQuery 3.0 simple mapping operator instead</td></tr><tr><td>path syntax and semantics similar to XPath, but is not XPath</td><td>syntax and semantics are standard XPath</td></tr></table><para>Since schema component accessors do not apply to schemas in
+isolation, it is not possible to construct XQuery expressions that are exactly
+equivalent to the schema component paths given previously. However, we can give
+some expressions that are roughly equivalent, to give some sense of how they
+compare.
+      </para><figure xml:id="fig_scp_equiv"><title>Rough Equivalents to Schema Component Paths</title><programlisting xml:space="preserve">
+$context/sc:schema()!
+  sc:element-decl()[sc:name(.)=xs:QName('p:outer')]!
+    sc:type()[empty(sc:name(.))]!
+      sc:attribute-decl()[sc:name(.)=xs:QName('p:inner')]
+
+$context/sc:schema()!
+  sc:type()[sc:name(.)=xs:QName('p:second')]!
+    sc:particles()[
+      typeswitch (sc:term(.)) 
+      case model-group(xs:sequence) return true()
+      default return false()]!
+        sc:particles()[
+          typeswitch (sc:term(.)) 
+          case particle(p:duplicate) return true() 
+          default return false()][2]!
+            sc:type()
+       </programlisting></figure><para><xref linkend="fig_scp_equiv"/> shows XQuery expressions using the
+accessors that are roughly equivalent to the schema component paths shown in
+<xref linkend="fig_scp1"/>. These
+expressions have to be grounded on some XQuery item (<code>$context</code>),
+and it was necessary to invent a new accessor to link to the root of the
+assembled schema governing the type information for that item
+(<code>sc:schema</code>). 
+       </para><para>Schema component paths clearly express traversal
+through a schema component graph more compactly than the accessor and linkage
+functions do, in that they combine the accessor and the type test in one path
+step. In addition, schema component paths generally elide the distinction
+between terms and particles, which the chained accessors do not.
+      </para><para>On the other hand, schema component paths do not provide a complete
+answer, however. They do not provide access to non-component
+information, nor do they bridge the boundary between schema components and
+nodes or other item types. 
+      </para><para>We could imagine allowing schema component paths to mix directly
+with normal XPath paths to provide that linkage. Then a path such as 
+<code>/book/chapter/title/type::*/annotation::*/xs:appinfo/my:special-stuff/@my:type</code>
+would switch back and forth between XPaths and schema component paths. Under
+this scheme the type axis in the fourth step of the path would start a relative
+schema component path with some component as the default. In this case,
+the context is the element declaration component for the <code>title</code>
+element. 
+      </para><para>Mixing schema component paths with normal XPaths directly in this
+way is apt to be very confusing, however. The rules governing the slash are
+very different. In addition, abbreviated schema component paths in this mixed
+context confuses interpretation tremendously. Is the <code>@my:type</code> at
+the end of the path a normal attribute node on the
+<code>my:special-stuff</code> element or is it an attribute declaration?
+Careful specification of the switching rules may eliminate ambiguities,
+but it won't eliminate confusion for humans reading and writing such
+paths. The similarity of schema component paths to XPaths that helps make them
+more intuitive in isolation causes difficulty when used in the same context as
+XPath. This confusion also makes implementation more difficult: higher levels
+of analysis would be required to determine what kinds of operations are
+allowable, or to optimize node paths properly.
+      </para><para>Keeping schema component paths and XPaths clearly separated
+provides the power of both, without the confusion. Wrapping schema component
+paths within some kind of scoping expression and providing the rich set of
+accessor functions seems the best way to achieve this.
+      </para><figure xml:id="fig_scd_type"><title>Example Integration of Schema Component Paths and Type Values</title><programlisting xml:space="preserve">
+/book/chapter/title/sc:element-decl() ! 
+  scp {type::*/annotation::*}/
+     xs:appinfo/my:special-stuff/@my:type
+      </programlisting><caption><para>Schema component paths are wrapped inside special
+syntactic for to keep them clearly separated from normal XPaths.</para></caption></figure><para>In summary, both schema component paths and the XQuery linkage and
+accessor functions both have their place. Schema component paths are suited to
+navigating through schema component graphs or pointing to specific schema
+components for schema analysis or reporting. The accessor functions are more
+useful to exposing the schema information relevant to a particular XQuery item
+in the context of some operations over data.
+      </para></section></section><section><title>Summary and Conclusions</title><para>This paper has explored adding schema types as values into XQuery,
+providing some measure of structural type introspection. In an XQuery context,
+a type is an XML Schema type, and to provide even basic structural type
+introspection requires pulling in quite a bit of the complexity of the XML
+schema component model. Nevertheless, implementation need not be too
+challenging, and only modest changes to the XQuery data model and existing 
+syntax are required. It is possible to take an incremental approach to adding additional capabilities, but even some basic abilities can provide significant 
+coding power and flexibility. 
+    </para><para>Schema component paths can be used in combination with linkage
+function if they are integrated with care, to avoid confusion. Schema component
+paths satisfy use cases where deep analysis of the schema is required, while
+simple accessor and linkage functions work well for getting at basic metadata
+about the types of the data being operated on.
+    </para></section><bibliography><title>References</title><bibliomixed xml:id="cplus" xreflabel="C++">
+   American National Standards Institute, 1430 Broadway, New York, NY 10018, USA.
+   <emphasis>The ANSI C++ Standard (ISO/IEC 14882)</emphasis>, 2002.
+   </bibliomixed><bibliomixed xml:id="clos" xreflabel="Gabriel91">
+   Richard P. Gabriel, Jon L. White, and Daniel G. Bobrow. 
+   <emphasis>Clos: Integrating Object-Oriented and Functional Programming.</emphasis>
+     Communications of the ACM, 34(9):29–38, 1991. doi:<biblioid class="doi">10.1145/114669.114671</biblioid>.
+   </bibliomixed><bibliomixed xml:id="php" xreflabel="Gabrysiak">
+   Gregor Gabrysiak, Stefan Marr, and Falko Menge. 
+   <emphasis>Meta Programming and Reflection in PHP</emphasis>
+   <link xlink:href="http://instantsvc.sourceforge.net/docs/metaprogramming-and-reflection-with-php-paper.pdf" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://instantsvc.sourceforge.net/docs/metaprogramming-and-reflection-with-php-paper.pdf</link>
+    Accessed 2012-03-29.
+    </bibliomixed><bibliomixed xml:id="xsd11st" xreflabel="XSD11.1">
+    W3C: Shudi (Sandy) Gao 高殊镝, C.M. Sperberg-McQueen, and 
+Henry S. Thompson, editors.  
+    <emphasis>W3C XML Schema Definition Language (XSD) 1.1 Part 1: Structures </emphasis>.
+    W3C, April 2012. 
+    <link xlink:href="http://www.w3.org/TR/xmlschema-11-1/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/xmlschema-11-1/</link>
+    </bibliomixed><bibliomixed xml:id="scds" xreflabel="SCD">
+    W3C: Mary Holstege and Asir S. Vedamuthu, editors.
+    <emphasis>W3C XML Schema Definition Language (XSD): Component Designators.</emphasis>
+    Candidate Recommendation. W3C, January 2010.
+    <link xlink:href="http://www.w3.org/TR/2010/CR-xmlschema-ref-20100119/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/2010/CR-xmlschema-ref-20100119/</link>
+    </bibliomixed><bibliomixed xml:id="xqfo30" xreflabel="F&amp;O30">
+    W3C: Michael Kay, editor.
+    <emphasis>XPath and XQuery Functions and Operators 3.0</emphasis>
+    Last Call Working Draft. W3C, December 2011.
+    <link xlink:href="http://www.w3.org/TR/xpath-functions-30/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/xpath-functions-30/</link>
+    </bibliomixed><bibliomixed xml:id="java" xreflabel="Java">
+    Oracle Corporation.
+    <emphasis>Java TM Platform Standard Ed. 7 API Documentation.</emphasis>
+    <link xlink:href="http://docs.oracle.com/javase/7/docs/api/index.html" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://docs.oracle.com/javase/7/docs/api/index.html</link>.
+Accessed 2012-04-01.
+    </bibliomixed><bibliomixed xml:id="xsd11dt" xreflabel="XSD11.2">
+    W3C: David Peterson, Shudi (Sandy) Gao 高殊镝, Ashok Malhotra,
+C.M. Sperberg-McQueen, and Henry S. Thompson, editors.  
+    <emphasis>W3C XML Schema Definition Language (XSD) 1.1 Part 2: Datatypes.</emphasis>
+    W3C. April 2012.
+    <link xlink:href="http://www.w3.org/TR/xmlschema11-2/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/xmlschema11-2/</link>
+	</bibliomixed><bibliomixed xml:id="xq30" xreflabel="XQuery30">
+    W3C: Jonathan Robie, Don Chamberlin, Michael Dyck, John Snelson, editors.
+    <emphasis>XQuery 3.0: An XML Query Language</emphasis>
+    Last Call Working Draft. W3C, December 2011.
+    <link xlink:href="http://www.w3.org/TR/xquery-30/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/xquery-30/</link>
+    </bibliomixed><bibliomixed xml:id="introc" xreflabel="Singh04">
+    Hermanpreet Singh.
+    <emphasis>Introspective C++</emphasis>.
+    Masters Thesis, Virginia Polytechnic Institute, 2004.
+    </bibliomixed><bibliomixed xml:id="perl" xreflabel="Perl6">
+    Larry Wall.
+    <emphasis>Apocalypse 12: Objects; number 12 version 8.</emphasis>
+    <link xlink:href="http://www.perl6.org/archive/doc/design/apo/A12.html" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.perl6.org/archive/doc/design/apo/A12.html</link>
+    May 2006. Accessed 2012-04-01.
+    </bibliomixed><bibliomixed xml:id="xq30dm" xreflabel="DM30">
+    W3C: Norman Walsh, Anders Berglund, and John Snelson, editors.
+    <emphasis>XQuery and XPath Data Model 3.0</emphasis>
+    Last Call Working Draft. W3C, December 2011.
+    <link xlink:href="http://www.w3.org/TR/xpath-datamodel-30/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/xpath-datamodel-30/</link>
+    </bibliomixed></bibliography></article>

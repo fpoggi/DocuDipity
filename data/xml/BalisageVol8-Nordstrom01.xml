@@ -1,0 +1,499 @@
+<?xml version="1.0" encoding="UTF-8"?><article xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink" version="5.0-subset Balisage-1.3"><title>Using XML to Implement XML</title><subtitle>Or, Since XProc Is XML, Shouldn't Everything Else Be, Too?</subtitle><info><confgroup><conftitle>Balisage: The Markup Conference 2012</conftitle><confdates>August 7 - 10, 2012</confdates></confgroup><abstract><para>This paper discusses implementing XProc-based publishing and processing in a
+				document management system that is currently very difficult to expand because even
+				though it handles and processes XML, the system is currently implemented in a way
+				that makes any changes to publishing and processing difficult. The author currently
+				depends on C# developers without XML knowledge for any changes.</para><para>The paper suggests using XML to <emphasis role="ital">implement</emphasis> the
+				XProc pipelines with, handling everything from the <emphasis>.bat</emphasis> files
+				for the XProc engine to the GUI that makes the pipelines available to the end user.
+				This XML can be used to generate both, but is also useful as an abstraction layer
+				that black-boxes not only the XProc but everything surrounding it, providing a
+				blueprint for the processes, simplifying development and, for the author,
+				eliminating an unwanted dependency to C# developers.</para></abstract><author><personname><firstname>Ari</firstname><surname>Nordström</surname></personname><personblurb><para>Ari Nordström is the resident XML guy at Condesign AB in Göteborg, Sweden. His
+					information structures and solutions are used by Volvo Cars, Ericsson, and many
+					others, with more added every year. His favourite XML specification remains
+					XLink so quite a few of his frequent talks and presentations on XML focus on
+					linking. </para><para>Ari spends some of his spare time projecting films at the Draken Cinema in
+					Göteborg, which should explain why he wants to automate cinemas using XML. He
+					now realises it's too late, however.</para></personblurb><affiliation><orgname>Condesign AB</orgname></affiliation><email>ari.nordstrom@condesign.se</email></author><legalnotice><para>Copyright © 2012 Ari Nordström, Condesign AB.</para></legalnotice><keywordset role="author"><keyword>Pipeline processing</keyword><keyword>XProc</keyword><keyword>Implementing XProc pipelines using XML</keyword><keyword>Black-boxing feature sets</keyword><keyword>XProc pipeline processes described in XML blueprints</keyword></keywordset></info><section xml:id="section-2012-2-22-12-44-1-184541-"><title>The Problem</title><para>My company develops and markets a document management system. It does what these
+			things do; there is an XML editor, there is a database, and there is middleware for
+			version handling, workflows, modularisation, reuse, etc. Something we call the <emphasis role="bold">Process Manager</emphasis> processes XML documents, for example, outputs
+			them in PDF. Unfortunately, it is currently difficult to add new processes for new
+			formats or media, something that such a system should handle without difficulty.</para><section xml:id="section-2012-2-22-14-18-20-72491660-1"><title>The Process Manager</title><section xml:id="section-2012-3-11-12-48-9-97934954-"><title>Overview</title><para>Most documents in the system are modularised, with a root XML file linking to
+					other XML and images. The linked XML, in turn, often link to further XML and
+					images, effectively creating a <quote>link tree</quote>.</para><figure xml:id="figure-2012-5-26-13-3-42-452828-"><mediaobject><imageobject><imagedata fileref="../../../vol8/graphics/Nordstrom01/Nordstrom01-001.png"/></imageobject></mediaobject><caption><para>A Link Tree</para></caption></figure><para>The <emphasis role="bold">Process Manager</emphasis> points out the root XML<footnote><para>And lists some metadata about the process.</para></footnote> and maps the linked resources in a link tree representation, with
+					status information, target IDs, versions, etc (see <xref linkend="figure-2012-3-13-10-19-12-34575458-"/>). This info is stored in a
+						<emphasis role="ital">configuration</emphasis>.</para><figure xml:id="figure-2012-3-13-10-19-12-34575458-"><mediaobject><imageobject><imagedata fileref="../../../vol8/graphics/Nordstrom01/Nordstrom01-002.jpg"/></imageobject></mediaobject><caption><para>A Tree View of the Master-Language Document</para></caption></figure><para>The link tree is the same, regardless of document language, and therefore
+					useful when handling translations. It can show what translations exist, help
+					create new translation packages, etc.</para><figure xml:id="figure-2012-3-13-10-19-12-34575458-1"><mediaobject><imageobject><imagedata fileref="../../../vol8/graphics/Nordstrom01/Nordstrom01-003.jpg"/></imageobject></mediaobject><caption><para>Managing Translations</para></caption></figure><para>More importantly, the <emphasis role="bold">Process Manager</emphasis> uses
+					the configuration to publish the link tree. It starts a process that fetches the
+					necessary XML and images, and normalises them to one big XML file. It then
+					applies a FO stylesheet to output PDF using Apache FOP. Here's the basic process
+					handled by the <emphasis role="bold">Process Manager</emphasis> today to publish
+					a modularised document.</para><figure xml:id="figure-2012-5-26-15-52-49-56637183-"><mediaobject><imageobject><imagedata fileref="../../../vol8/graphics/Nordstrom01/Nordstrom01-004.jpg"/></imageobject></mediaobject><caption><para>Publishing Using the Current Process Manager</para></caption></figure><para> The four numbered steps at the top show what is actually exposed to the user.
+					They hide a lot of background processing, including several XSLT conversions,
+					DOM manipulation, etc. Everything is glued together using C#. The GUI itself is
+					static and always more or less the same.</para><para>Other processes might output, say, HTML or ePUB, or simply a report, but
+					currently, only copying the original process, translation handling and PDF
+					publishing, all of which depend heavily on C# code, are supported.</para></section><section xml:id="section-2012-3-12-11-16-5-31278444-"><title>URNs Rather Than URLs</title><para>Everything is identified, handled and linked to using URNs. Whether a link
+					points out XML or an image, the pointer is a URN. The URNs are unique and
+					include language/country and version information, so there's full traceability;
+					link trees can always be recreated later, regardless of what's been done to a
+					module or image since.</para><para>This works well. The URNs define basic semantic documents (with
+						<quote>base</quote> URNs), master language documents (base URN plus the
+					master language/country) and their translations (the base URNs plus the target language/country)<footnote><para>The system only uses URLs when publishing—the URNs are replaced with
+							temp URLs in a temp location, thrown away afterwards.</para></footnote>.</para><figure xml:id="figure-2012-5-26-13-3-42-452828-1"><mediaobject><imageobject><imagedata fileref="../../../vol8/graphics/Nordstrom01/Nordstrom01-005.png"/></imageobject></mediaobject><caption><para>Everything Is Identified Using URNs</para></caption></figure><para>Stylesheet modules, while handled <emphasis role="ital">in</emphasis> the
+					system in the same way as any other XML, using URNs, are developed <emphasis role="ital">outside</emphasis> the system and use relative URLs to refence
+					each other. Thus, the current <emphasis role="bold">Process Manager</emphasis>
+					can only use them in the temp location when publishing, because otherwise the
+					relative URLs would break.</para></section><section xml:id="section-2012-3-11-12-48-9-97934954-1"><title>Process Details</title><para>The <emphasis role="bold">Process Manager</emphasis> can currently do the following:<itemizedlist><listitem><para>Create and save new configs, with titles, descriptions and other
+								metadata, and point out the exact version and language of a root XML
+								document using its URN. </para></listitem><listitem><para>Open and edit an existing config.</para></listitem><listitem><para>Copy an existing configuration and the root XML pointed out by it,
+								that is, create a <quote>fork</quote> of the XML<footnote><para>This is done to change the profile used to publish the
+										document.</para></footnote>.</para></listitem></itemizedlist></para><figure xml:id="figure-2012-3-13-10-19-12-34575458-2"><mediaobject><imageobject><imagedata fileref="../../../vol8/graphics/Nordstrom01/Nordstrom01-006.jpg"/></imageobject></mediaobject><caption><para>A Saved Configuration</para></caption></figure><para>A configuration is used by the <emphasis role="bold">Process
+						Manager</emphasis> to process the document it identifies:<itemizedlist><listitem><para>View the document as a link tree, including any linked
+								resources.</para></listitem><listitem><para>Create a translation package of the document, selecting the target
+								language and the modules to be included.</para></listitem><listitem><para>Publish the document. Currently, only PDF.</para></listitem><listitem><para>Profile<footnote><para>That is, identify product variants and such.</para></footnote> a copy (<quote>fork</quote>) of the document, setting
+								conditions that include or exclude content from the output<footnote><para>Modules include pre-defined profiles in attribute values
+										inside them; a string comparison is made between these and a
+										profile context defined in the root element.</para></footnote>.</para></listitem></itemizedlist></para></section><section xml:id="section-2012-3-11-12-48-9-97934954-2"><title>Copying Configurations and XML</title><para>In terms of pipeline processing, this is what happens when copying and
+					profiling a configuration:<itemizedlist><listitem><para>Copy the root XML<footnote><para>Any descendants linked to from the root XML remain
+										unchanged.</para></footnote>.</para></listitem><listitem><para>Copy the configuration (copied config points to copied
+								XML).</para></listitem><listitem><para>Change the filenames of the copied XML and config.</para></listitem><listitem><para>Generate new URNs for the copied config and XML<footnote><para>The database tracks the relations between the old and the
+										new URNs.</para></footnote>.</para></listitem><listitem><para>Profile the root XML copy using a GUI in the <emphasis role="bold">Process Manager</emphasis>, adding and removing values
+								controlled by the CMS.</para></listitem><listitem><para> Insert the selected profiles as attribute values in the copied
+								XML's root element.</para></listitem><listitem><para>Store both copies in the CMS.</para></listitem></itemizedlist></para><figure xml:id="figure-2012-3-13-10-19-12-34575458-3"><mediaobject><imageobject><imagedata fileref="../../../vol8/graphics/Nordstrom01/Nordstrom01-007.jpg"/></imageobject></mediaobject><caption><para>A Forked Configuration</para></caption></figure><para>The copied XML is then processed.</para></section><section xml:id="section-2012-3-11-12-48-9-97934954-3"><title>Publishing Processes</title><para>Even with the limited processing available today, there are quite a few steps
+					involved, as shown in <xref linkend="figure-2012-5-26-15-52-49-56637183-"/>,
+					above.</para><para>Here's how to start the actual process after pointing out a root XML and
+					possibly profiling a copy of it:<orderedlist><listitem><para>Select the workflow status of the publication (temp, preview,
+								delivery).</para></listitem><listitem><para>Add any mandatory metadata to the configuration<footnote><para>This metadata is used to identify the configuration rather
+										than the XML, so that the process can be found and repeated
+										later.</para></footnote>.</para></listitem><listitem><para>Start the publishing itself.</para></listitem></orderedlist></para><para>The publishing process does this:<orderedlist><listitem><para>Use the root XML URN to fetch the file to a temp folder. Map the
+								URN to a temporary URL for later use.</para></listitem><listitem><para>Parse the root XML for links (URNs, possibly followed by fragment
+								IDs). </para></listitem><listitem><para>Fetch the URNs and place the files in the temp folder. Map the
+								URNs to temp URLs.</para></listitem><listitem><para>Parse every URN that is an XML file for further links and repeat
+								until there are no more links to parse.</para><note><para>Currently, this is all written in C#, with whatever methods C#
+									provides to manipulate XML.</para></note></listitem><listitem><para>Replace every URN link with corresponding URLs in every
+								resource.</para></listitem><listitem><para>Use XSLT to normalise and profile the root XML, producing a single
+								large XML file. Name it for use in the <emphasis>.bat</emphasis>
+								file for FOP, below.</para></listitem><listitem><para>Copy the XSL-FO stylesheets from the CMS to the temp
+								folder.</para><para>Currently, the CMS can only identify and use one
+									<quote>main</quote> FO stylesheet file at a time<footnote><para>Admin-based system configuration is required to point out
+										another main FO file.</para></footnote>. The FO stylesheets use <code>xsl:import</code> and
+									<code>xsl:include</code> with relative URLs, but the system is
+								not aware of any of this. It simply copies <emphasis role="ital">all</emphasis> FO files in the same physical folder ID'd by the
+								CMS to the temp location.</para></listitem><listitem><para>Generate a <emphasis>.bat</emphasis> file to run the print engine
+								(Apache FOP).</para></listitem><listitem><para>Transform the large XML file to XSL-FO.</para></listitem><listitem><para>Convert the FO file to PDF.</para></listitem><listitem><para>Depending on the workflow status for the publishing job, name the
+								PDF file and generate a new URN for it, storing the file in the
+								database according to relevant workflow instructions.</para></listitem></orderedlist></para><para>Clearly, most if not all of the above steps would be far more effective to
+					express as XProc pipelines.</para></section></section><section xml:id="section-2012-2-22-15-1-36-41520962-"><title>Problems</title><para>The <emphasis role="bold">Process Manager</emphasis> is written in a non-XML way
+				in C#, by developers who understand C# but not all that much XML. It uses XSLT for
+				the transforms, but if I want to use more than one set of stylesheets, say for HTML
+				or just a different-looking PDF, I need developers to write more C# to put it all
+				together because I don't speak C#. I speak XML.</para><para>The GUI is static, too. While it is sufficient when presenting PDF publishing
+				options, any other processing, be it validation, HTML output or something else,
+				requires changing it, meaning more C# code and (for me) a dependency to
+				developers.</para><para>Any additional steps, for example, cross-reference validation of the normalised
+				XML document before publication, also require coding.</para><para>All sorts of things (XSLT, DOM APIs, etc) are used to manipulate XML, of course,
+				but all is glued together using C# code, called using C# code, and changed using C#
+				code, with whatever methods there are in that language for manipulating XML.</para><para>Suffice to say, most changes require C#.</para><para>Some less obvious problems become apparent when handling XSLT:<itemizedlist><listitem><para>The XSLT files are modularised and developed offline, outside the
+							system. They use <code>import</code> and <code>include</code>
+							instructions with relative URLs to reference each other. Obviously, they
+							are handled together, as packages.</para></listitem><listitem><para>The CMS can currently not identify them as packages, however. XSLT
+							files belong together in the system only by proxy, by being stored in
+							the same place.</para></listitem><listitem><para>A working set of stylesheets in (and outside) the CMS always consists
+							of specific versions of the included modules. One module might require
+							uploading a dozen versions before release while another only two (see
+							below; note the versions to the left).</para><mediaobject><imageobject><imagedata fileref="../../../vol8/graphics/Nordstrom01/Nordstrom01-008.jpg"/></imageobject></mediaobject><para>Unfortunately the CMS can currently only use the latest versions of
+							the stylesheets, partly because of the above problems with identifying
+							packages, but also because the relative URLs in the <code>import</code>
+							and <code>include</code> instructions do not include version
+							information, URN or otherwise.</para></listitem><listitem><para>The relative URLs, of course, are only usable in the temp publishing
+							folder.</para></listitem></itemizedlist></para><para>This applies to any set of XML files that needs to be handled as a package by a
+				process in the CMS.</para></section><section xml:id="section-2012-2-22-14-18-20-72491660-"><title>A First Attempt at XProc</title><para>The <emphasis role="bold">Process Manager</emphasis>, of course, should be a
+				showcase for XProc. Replace the current functionality with an XProc engine that runs
+				pipelines for publishing and an admin interface to add and manipulate pipelines and
+				stylesheets with, without having to resort to more C# code. And, of course, a GUI
+				for the end users to select pipelines from. </para><para>The developers agreed. Their lives would be easier, too. If XProc pipelines can
+				take care of any XML processing while leaving the non-XML stuff to the middleware,
+				everybody wins.</para><para>Manipulating pipelines efficiently was far more complex than we first thought,
+				however. We needed a GUI for the XProc engine, ways to add parameters and input to
+				it, including pointing out modularised stylesheets and other XML, etc. This required
+					<emphasis role="ital">more</emphasis> C#, not less. </para><para>Also, XML pipelines are only as flexible as the user interfaces to run them with.
+				I could think of using and reusing pipelines in more ways than would be practical to
+				present in any GUI. The time estimate for the admin functionality alone was far
+				bigger than our initial guesses, but the end user interface added enough hours to
+				the point where the project was turned down.</para><para>So I started thinking about ways to generalise all this, to accomplish it all
+				without admin GUIs and a million lines of new C# code. This paper presents what I
+				came up with.</para></section></section><section xml:id="section-2012-2-22-16-35-35-33447766-"><title>Requirements</title><para>Let's take a brief look at my wish list:<itemizedlist><listitem><para>Less need for C# development when manipulating XML.</para><para>For me, more C# means a more complex and less flexible solution. It makes
+						little sense to solve what is essentially an XML domain problem with
+						something else than XML, using C# developers without XML expertise.</para></listitem><listitem><para>Easier-to-implement XML-based processing.</para><para>To implement new XML-based processes without C#, I need to handle them in
+						some other way.</para></listitem><listitem><para>A more dynamic GUI for end users.</para><para>The publishing process is by nature flexible and changes with the task.
+						Therefore the GUI should change, too.</para></listitem></itemizedlist></para></section><section xml:id="section-2012-2-26-11-28-16-53652616-"><title>Describing Processes with XML</title><para>XProc is XML, of course, so I think the processes surrounding it should be XML, too:<itemizedlist><listitem><para>The XProc engine command line, from input to output, parameters, options,
+						etc, would be useful to handle in XML.</para></listitem><listitem><para>The command line needs to reference <emphasis role="ital">packages</emphasis> in the CMS (sets of XSLT or XML modules) rather
+						than individual files, so the packages would be useful to express in
+						XML.</para></listitem><listitem><para>A pipeline can reference different packages and use different options,
+						parameters, etc, which means that a single pipeline can be used with
+						different sets of command line options by the engine. On the other hand, one
+						such set of options might be useful to several different pipelines. A
+						pipeline and its assciated command lines should therefore be separated in
+						the XML.</para></listitem><listitem><para>The pipeline is part of a process in the <emphasis role="bold">Process
+							Manager</emphasis>. It would make sense to express that whole process in
+						XML, because it would then be far easier for me to define such a
+						process.</para></listitem><listitem><para>A GUI presenting the processes to an end user should be as dynamic as the
+						processes themselves. With the processes expressed in XML,why not generate
+						the GUI from the XML?</para></listitem></itemizedlist></para><section xml:id="section-2012-2-26-11-28-16-53652616-1"><title>XProc and Calabash Command Lines</title><para>Here's an example Calabash command line to handle a simple publishing process in
+				the CMS's temp location:</para><programlisting xml:space="preserve">java com.xmlcalabash.drivers.Main 
+-isource=[runtime URN/URL] 
+-istylesheet-fo=[URN/URL for FO main stylesheet] 
+normalize-stylesheet=[URN/URL string for normalize]
+pdf=[runtime PDF URN/URL]
+[URN/URL for FO XPL]</programlisting><para>Most inputs are URNs mapped to temp URLs as part of the publishing process, but
+				others are generated at runtime. Generating a <emphasis>.bat</emphasis> file
+				directly from today's system is doable, but since XProc allows writing pipelines in
+				many ways, it is hard to do consistently. For example, input to the pipeline can be
+				handled in several ways. Note how the normalize stylesheet is defined using an XProc
+					<code>option</code> rather than the usual <code>input</code> port:</para><programlisting xml:space="preserve">...
+&lt;p:input port="stylesheet-fo"/&gt;
+&lt;p:option name="normalize-stylesheet" required="true"/&gt;
+...</programlisting><para>Taking this kind of variation into account when creating an admin interface for
+				handling pipelines would cause problems, as would, for example, <emphasis role="ital">optional</emphasis> parameters. User-selectable options (such as
+				stylesheets) would further complicate things. Etc.</para><para>If we expressed the command line options in XML, generating the
+					<emphasis>.bat</emphasis> file would be far more straight-forward:</para><programlisting xml:space="preserve">&lt;pipeline&gt;
+    
+  &lt;!-- XProc script for PDF --&gt;
+  &lt;script href="[URN/URL for FO XPL]"/&gt;
+  
+  &lt;!-- Calabash command line --&gt;
+  &lt;cmdlines&gt;
+    &lt;cmdline&gt;
+      &lt;inputs&gt;
+        &lt;input&gt;
+          &lt;port&gt;source&lt;/port&gt;
+          &lt;value type="ti"&gt;[runtime URN/URL]&lt;/value&gt;
+        &lt;/input&gt;
+        &lt;input&gt;
+          &lt;port&gt;stylesheet-fo&lt;/port&gt;
+          &lt;value type="uri"&gt;[URN/URL for FO main stylesheet]&lt;/value&gt;
+        &lt;/input&gt;
+      &lt;/inputs&gt;
+      &lt;options&gt;
+        &lt;option&gt;
+          &lt;name&gt;normalize&lt;/name&gt;
+          &lt;value type="uri"&gt;[URN/URL for normalize main stylesheet]&lt;/value&gt;
+        &lt;/option&gt;
+        &lt;option&gt;
+          &lt;name&gt;pdf&lt;/name&gt;
+          &lt;value type="ti"&gt;[runtime PDF URN/URL]&lt;/value&gt;
+        &lt;/option&gt;
+      &lt;/options&gt;
+    &lt;/cmdline&gt;
+  &lt;/cmdlines&gt;
+&lt;/pipeline&gt;</programlisting><para>This describes a single command line for one specific script. Other command lines
+				for that same script might use other stylesheets, optional input, XProc engine
+				options, etc. My basic DTD can easily include such variations:</para><figure xml:id="figure-2012-3-17-14-29-0-29249958-"><mediaobject><imageobject><imagedata fileref="../../../vol8/graphics/Nordstrom01/Nordstrom01-009.jpg"/></imageobject></mediaobject><caption><para>The Pipeline Structure</para></caption></figure><para>The <code>pipeline</code> element allows for different command line alternatives
+				to be inserted or linked to<footnote><para>Which means that they can be used by other pipelines.</para></footnote>. A GUI could easily present them as user-selectable options. Note the
+				extension mechanism to provide some support for changes to XProc (perhaps a step
+				imported from another namespace) and the engine (see <xref linkend="figure-2012-3-19-11-39-51-91905995-"/>). The extension capabilities are
+				limited, however; any addition requiring preconfiguring or input beyond the basics
+				will cause problems (see <xref linkend="section-2012-3-13-15-49-52-87255322-"/>.</para><figure xml:id="figure-2012-3-19-11-39-51-91905995-"><mediaobject><imageobject><imagedata fileref="../../../vol8/graphics/Nordstrom01/Nordstrom01-010.jpg"/></imageobject></mediaobject><caption><para>Extensions</para></caption></figure><para>Here's an example with several command lines:</para><programlisting xml:space="preserve">&lt;pipeline&gt;
+  &lt;metadata&gt;
+    &lt;title&gt;PDF Output&lt;/title&gt;
+    &lt;description&gt;This process outputs PDF.&lt;/description&gt;
+  &lt;/metadata&gt;
+  &lt;!-- XProc script for PDF --&gt;
+  &lt;script href="[URN/URL for FO XPL]"/&gt;
+  &lt;cmdlines&gt;
+    &lt;cmdline id="cmd1"&gt;
+      ...
+    &lt;/cmdline&gt;
+    &lt;cmdline id="cmd2"&gt;
+      ...
+    &lt;/cmdline&gt;
+    &lt;cmdline id="cmd3"&gt;
+      ...
+    &lt;/cmdline&gt;
+  &lt;/cmdlines&gt;
+&lt;/pipeline&gt;</programlisting><para>A command line alternative is easily expressed as
+					<code>/pipeline//cmdline[@id='cmd1']</code> and so easily transformed to a
+					<emphasis>.bat</emphasis> file once selected. Also, the alternatives are easy to
+				represent in a GUI, for example, with check boxes<footnote><para>To generate a process run in batch.</para></footnote> or a list of choices. The pipeline's <code>metadata</code> element
+				contents can be used to add labels and help texts to the GUI<footnote><para>The command line alternatives also include metadata for the same
+						purpose.</para></footnote>.</para><para>A pipeline structure instance with its associated command lines<footnote><para>And the packages, as defined in the next section.</para></footnote> is <emphasis role="ital">a blueprint for possible ways to use the
+					pipeline</emphasis>. There is no one-to-one correspondence with an actual XProc
+				script; rather, the XML represents the available choices. For example, several
+				command line alternatives might exist for a pipeline, a command line might include
+				several alternative input stylesheets, etc. A user would have to make choices for
+				each option before running the pipeline.</para><para>The GUI needs to reflect this by only offering such choices once the prerequisite
+				choices have been made (for example, you'd have to select a command line before
+				selecting a stylesheet).</para><note><para>Why not use the XProc script itself to generate the <emphasis>.bat</emphasis>
+					file and the GUI to handle the process with? First of all, XProc scripts do not
+					easily offer the kind of modularity suggested above, nor can one XProc script
+					express all possible variations. More importantly, XProc cannot handle
+					referencing packages (see the next section) or the kind of runtime naming we
+					need.</para></note><para>The <code>input</code> step in the below example points out the root XML, but the
+				value is not known until runtime. The attribute <code>type="ti"</code> means that
+				the system is expected to provide the content<footnote><para>Other possible values include <quote>uri</quote> to point out referenced
+						packages, described in the next section.</para></footnote>.</para><programlisting xml:space="preserve">&lt;input&gt;
+ &lt;port&gt;source&lt;/port&gt;
+ &lt;value type="ti"&gt;
+  &lt;!-- Runtime URN/URL --&gt;
+ &lt;/value&gt;
+&lt;/input&gt;</programlisting></section><section xml:id="section-2012-3-9-10-29-19-89702477-"><title>Packages</title><para>A <emphasis role="ital">package</emphasis> is a collection of resources (XML,
+				XSLT, etc) identified with URNs. As the URNs identify specific versions (and
+				languages), a package can identify an arbitrary but well-defined set of files in the
+				database. Usually but not always<footnote><para>Standard texts for stylesheets, for example, could be stored in separate
+						modules, without a <quote>main</quote> module.</para></footnote>, there will be a main file that links to the others. Here's an example
+				FO stylesheet package:</para><programlisting xml:space="preserve">&lt;package id="id-fo-package"&gt;
+  &lt;metadata&gt;
+    &lt;title&gt;XSL-FO Stylesheet Package&lt;/title&gt;
+    &lt;description&gt;FO stylesheets for
+      Company X.&lt;/description&gt;
+  &lt;/metadata&gt;
+  &lt;locator href="urn:x-example:xslfo:0012:3" type="root"/&gt;
+  &lt;locator href="urn:x-example:xslfo:0019:10"/&gt;
+  &lt;locator href="urn:x-example:xslfo:0117:21"/&gt;
+  &lt;locator href="urn:x-example:xslfo:0010:1"/&gt;
+ &lt;/package&gt;</programlisting><para>The package consists of URN-based links to the stylesheet files, plus some
+				metadata for the GUI. Also, the main stylesheet file is identified with a
+					<code>type</code> attribute with the value <quote>root</quote>.</para><figure xml:id="figure-2012-3-17-14-29-0-29249958-1"><mediaobject><imageobject><imagedata fileref="../../../vol8/graphics/Nordstrom01/Nordstrom01-011.jpg"/></imageobject></mediaobject><caption><para>A Package Is Basically A Set of Links</para></caption></figure><para>If the package XML is identified with
+					<code>urn:x-example:packages:123456:en-GB:1</code> in the CMS (the last part
+				identifies the package version, <quote>1</quote>), the relevant <code>input</code>
+				in the initial pipeline processing XML from the last section is this:</para><programlisting xml:space="preserve">&lt;input&gt;
+  &lt;port&gt;stylesheet-fo&lt;/port&gt;
+  &lt;value type="uri"&gt;urn:x-example:packages:123456:en-GB:1&lt;/value&gt;
+&lt;/input&gt;</programlisting><para>When generating the pipeline's <emphasis>.bat</emphasis> file, the whole package,
+				including the package XML, is copied to the temp location, with URNs in the package
+				XML replaced with corresponding URLs (for example,
+					<code>urn:x-example:xslfo:0012:3</code> with <emphasis>main-fo.xsl</emphasis>) .
+				Each user-selectable stylesheet alternative in a pipeline's command line (see <xref linkend="section-2012-2-26-11-28-16-53652616-1"/>) would reference a different
+				such package.</para><para>Packages, then, provide the necessary abstraction layer to define input <emphasis role="ital">from the CMS</emphasis> to XProc pipeline processes.</para><para>As we've seen, the XML that describes the packages is fairly static, easily
+				definable beforehand. With more frequent package updates, however, it might be
+				useful to call the package with a wildcard in place of the URN version
+				string:</para><programlisting xml:space="preserve">urn:x-example:packages:123456:en-GB:*</programlisting><para>The wildcard means <quote>use latest version with workflow status <emphasis role="ital">approved</emphasis></quote> for a user with technical author
+				permissions, but <quote>use latest version with workflow status <emphasis role="ital">reviewing</emphasis></quote> for someone with test privileges.
+				The permissions control how URNs are processed, significantly lessening the need to
+				change or update system behaviour for small updates<footnote><para>It also allows <quote>power</quote> users with specific privileges to test
+						new features without having access to a test setup or affecting the normal,
+						day-to-day work.</para></footnote>.</para><para>Finally, the package abstraction very neatly separates offline versioning (in
+				subversion, in my case) of the participating files from their online versioning. The
+				latter are a conscious decision from the developer to release a set of files, while
+				the former is simply work in progress.</para></section><section xml:id="section-2012-3-9-10-29-19-89702477-1"><title>Putting It All Together</title><para>The <emphasis role="bold">Process Manager</emphasis> is meant to handle <emphasis role="ital">processes</emphasis> (the name sort of gives it away). Normally, a
+				complete process and the primary action that process performs (such as outputting a
+				PDF) are largely the same, but until now, it has not been possible to produce
+				variants of the process in any case.</para><para>It should be. For example, two different sites sharing the same CMS might use
+					<emphasis role="ital">almost</emphasis> the same basic process to publish
+				documents with, with the same basic pipeline and options, but use different
+				stylesheets for their respective brands. It would be useful to glue the pipelines
+				and packages together to describe such variations.</para><para>Here's a basic XML structure defining two processes A and B that use more or less
+				the same pipelines, command lines and packages:</para><programlisting xml:space="preserve">&lt;processes&gt;
+    &lt;!-- Process for A --&gt;
+    &lt;process id="id-process-A"&gt;
+      &lt;metadata&gt;
+        &lt;!-- Metadata for A Process --&gt;
+      &lt;/metadata&gt;
+      &lt;!-- Pipelines for A --&gt;
+      &lt;pipelines&gt;
+        &lt;pipeline&gt;
+          &lt;metadata&gt;
+            &lt;!-- Metadata for pipeline for A --&gt;
+          &lt;/metadata&gt;
+          &lt;!-- XProc script for A FO --&gt;
+          &lt;script href="a.xpl"/&gt;           
+          &lt;cmdlines&gt;
+            &lt;cmdline&gt;
+              &lt;!-- Command line for A FO --&gt;
+            &lt;/cmdline&gt;
+            &lt;cmdline id="id-cmdline-fo-a-and-b"&gt;
+              &lt;!-- Command line for A and B --&gt;
+            &lt;/cmdline&gt;
+          &lt;/cmdlines&gt;
+        &lt;/pipeline&gt;
+      &lt;/pipelines&gt;
+      &lt;!-- Packages available for A --&gt;
+      &lt;packages&gt;
+        &lt;!-- Normalize stylesheet reference --&gt;
+        &lt;locator href="packages.xml#id-norm"/&gt;
+        &lt;package id="id-fo-a"&gt;
+          &lt;!-- FO stylesheet package for A --&gt;
+        &lt;/package&gt;
+        &lt;!-- Link to A and B FO stylesheet package --&gt;
+        &lt;locator href="packages.xml#id-fo-a-b"/&gt;
+      &lt;/packages&gt;
+    &lt;/process&gt;
+    
+    &lt;!-- Process for B --&gt;
+    &lt;process id="id-process-b"&gt;
+      &lt;metadata&gt;
+        &lt;!-- Metadata for B Process --&gt;
+      &lt;/metadata&gt;
+      &lt;!-- Pipelines available for B --&gt;
+      &lt;pipelines&gt;
+        &lt;pipeline&gt;
+          &lt;metadata&gt;
+            &lt;!-- Metadata for B pipeline --&gt;
+          &lt;/metadata&gt;
+          &lt;!-- XProc script for B FO --&gt;
+          &lt;script href="b.xpl"/&gt;
+          &lt;!-- Links to command lines --&gt;
+          &lt;cmdlines&gt;
+            &lt;!-- Link to A and B FO cmdline (above) --&gt;
+            &lt;locator href="#id-cmdline-fo-a-and-b"/&gt;
+          &lt;/cmdlines&gt;
+        &lt;/pipeline&gt;
+      &lt;/pipelines&gt;
+      &lt;!-- Packages available for B --&gt;
+      &lt;packages&gt;
+        &lt;!-- Normalize package ref --&gt;
+        &lt;locator href="#id-norm"/&gt;
+        &lt;!-- Link to A and B FO package --&gt;
+        &lt;locator href="packages.xml#id-fo-a-b"/&gt;
+      &lt;/packages&gt;
+    &lt;/process&gt;
+&lt;/processes&gt;</programlisting><para>Both A and B link to <emphasis>packages.xml</emphasis> that defines common
+				packages:</para><programlisting xml:space="preserve">&lt;packages&gt;
+  &lt;package id="id-norm"&gt;
+				&lt;!-- Normalize stylesheet package  --&gt;
+  &lt;/package&gt;
+  &lt;package id="id-fo-a-b"&gt;
+				&lt;!-- FO stylesheet package for A and B --&gt;
+  &lt;/package&gt;
+&lt;/packages&gt;</programlisting><para>A <code>processes</code> instance is a blueprint for every possible
+					<quote>allowed</quote> process, each of which is associated with one or more
+				possible pipelines. The user has to select a process before selecting from the
+				pipelines for that process.</para><figure xml:id="figure-2012-3-17-14-29-0-29249958-2"><mediaobject><imageobject><imagedata fileref="../../../vol8/graphics/Nordstrom01/Nordstrom01-012.jpg"/></imageobject></mediaobject><caption><para>Putting It All Together</para></caption></figure><para>The design is modular, so everything from command lines to packages can be reused.
+				The modules are identified with URNs, just as everything else in the system,
+				offering traceability and allowing whole processes to be repeated when
+				required.</para></section></section><section xml:id="section-2012-3-9-10-29-19-89702477-2"><title>Implementation and Examples</title><para>The process XML is not a reality yet, partly because I have to deal with paying
+			customers and other inconveniences, but also because my XForms/HTML5 skills really
+			aren't on par with what I need. Nevertheless, below are some comments and ideas about an
+			implementation.</para><section xml:id="section-2012-3-13-11-15-27-15906474-"><title>Writing This Paper</title><para>This whitepaper, written in our system, provided me with further motivation:<itemizedlist><listitem><para>The paper uses our basic XML format. It's straight-forward to convert
+							it to the conference XML<footnote><para>I have a DocBook script that does the job.</para></footnote>, but currently I have to do it outside the system.</para></listitem><listitem><para>The conversion means replacing URN-based links (cross-references and
+							images) with relative URLs. Again, I have to do this outside the
+							system.</para></listitem><listitem><para>The paper and images are zipped together before they are sent to
+							Balisage. Yes, I have to do that outside the system, too.</para></listitem></itemizedlist></para><para>The additional processes (URN/URL conversion, export to DocBook, zip) are simple
+				enough to implement, but right now I'd need a C# developer to do it. I'd have to
+				explain what I want done and why, and the GUI would need changing. And it would all
+				have to be done again if I wanted to add some other processing.</para></section><section xml:id="section-2012-3-13-11-15-27-15906474-2"><title>Generating GUIs</title><para>The <code>processes</code> structure is a blueprint describing every available
+				process to manipulate XML documents with. Every process is associated with one or
+				more pipelines, run using one or more command lines, and each command line may allow
+				for one or more stylesheets.</para><para>An XForms (or HTML5) GUI generated from the process XML blueprint can help a user
+				visualise these choices. <xref linkend="figure-2012-3-19-13-29-37-70038244-"/>
+				provides a blueprint example. The Delivery process, for example, can use three
+				pipelines but Validation only one. The <emphasis role="ital">Printed</emphasis>
+				pipeline can only use one command line, but the <emphasis role="ital">Web</emphasis>
+				pipeline four. Etc.</para><figure xml:id="figure-2012-3-19-13-29-37-70038244-"><mediaobject><imageobject><imagedata fileref="../../../vol8/graphics/Nordstrom01/Nordstrom01-013.png"/></imageobject></mediaobject><caption><para>Process Selection Relations</para></caption></figure><para>Using XSLT for GUI generation is the obvious choice as the underlying database is
+				relational, SQL rather than XML, and there's no XQuery implementation<footnote><para>Doing this in a system based on, say, eXist or MarkLogic would probably be
+						much easier.</para></footnote>.</para><para>The process XML requires input from the system for pointing out the root XML
+				document to be processed. My knowledge of the JScript-based tree controls we use to
+				select XML in a web browser is limited, but it is supposedly easy to query the tree
+				and get lists of the XML (as URNs) and other resources, including translations and
+				older versions of the listed XML.</para><figure xml:id="figure-2012-3-19-10-11-40-31495103-1"><mediaobject><imageobject><imagedata fileref="../../../vol8/graphics/Nordstrom01/Nordstrom01-014.jpg"/></imageobject></mediaobject><caption><para>Selecting the Root XML Document</para></caption></figure><para>The root XML selection is used as a starting point for pipeline processing. The
+				next step is to generate a GUI from the process XML blueprint. <xref linkend="figure-2012-3-19-10-11-40-31495103-"/> shows a GUI example that follows
+				the logic in <xref linkend="figure-2012-3-19-13-29-37-70038244-"/>.</para><figure xml:id="figure-2012-3-19-10-11-40-31495103-"><mediaobject><imageobject><imagedata fileref="../../../vol8/graphics/Nordstrom01/Nordstrom01-015.png"/></imageobject></mediaobject><caption><para>Process Selection Page Generated From XML</para></caption></figure><para>Apologies for the crude mock-up. Generating new selection lists based on a
+				previous selection can probably be represented better, but hopefully the principle
+				is clear. The labels are fetched from the process metadata, as are help texts. Also,
+				note the checkbox to enable logging; this is a command line alternative<footnote><para>Other such options can be similarly handled.</para></footnote>.</para><para>The selections provide data to refine the process instance. I'm not enough of a
+				programmer, nor sufficiently familar with XForms, to tell you exactly how this is
+				handled best. For example, the GUI needs to handle a <emphasis role="bold">Back</emphasis> or <emphasis role="bold">Previous</emphasis> button, <emphasis role="ital">Undo</emphasis>, and more, and I don't know what the best way to
+				implement those would be. Here, I work from the assumption that the user's choices
+				can be stored in a temporary process XML instance, used to generate the batch file
+				to run the actual pipeline.</para></section><section xml:id="section-2012-3-13-11-15-27-15906474-1"><title>Generating .bat Files</title><note><para>My current markup started life assuming that <emphasis role="ital">Calabash</emphasis> is used for XProc processing. It should handle other
+					XProc engines, but this is outside the scope of this paper.</para></note><para>Pipelines are run using batch files generated from the process XML using XSLT, but
+				first, the process XML must be <quote>narrowed down</quote> to an instance defining
+				only a specific pipeline and options, as described above.</para><para>Generating the batch file:<itemizedlist><listitem><para>Select an XML root document URN from a list in the <emphasis role="bold">Process Manager</emphasis> GUI. Use it as input to the
+							pipeline command line input in the process XML blueprint<footnote><para>How do we know which input? The pipeline input values to be
+									provided by the system are identified as such using a
+										<code>type</code> attribute.</para></footnote>.</para></listitem><listitem><para>Create a temp location for the process.</para></listitem><listitem><para>Convert the process XML blueprint into a GUI (see the previous
+							section) to handle the rest of the selection.</para></listitem><listitem><para>Select a process from the GUI.</para></listitem><listitem><para>Select a pipeline from the available choices for that process.</para></listitem><listitem><para>Select command line options for the pipeline.</para></listitem><listitem><para>Select an XSL package. The package is fetched from the system and
+							placed in the temp location. The main stylesheet temp URL is used as
+							further input.</para></listitem><listitem><para>Save the choices that are made in a process XML instance.</para></listitem><listitem><para>Convert that instance to a batch file.</para></listitem></itemizedlist></para><para>The batch file then runs the selected pipeline and its options, parsing the root
+				XML document and any linked resources for URNs, downloads the associated resources,
+				eventually replacing URNs in links with temp URLs, and runs any XSL and other
+				processing as specified by the pipeline.</para></section><section xml:id="section-2012-3-13-11-15-27-15906474-3"><title>Writing Process XML</title><para>When writing a new pipeline script (or editing an existing one), it is useful to
+				simultaneously edit the process XML blueprint that will include the pipeline.
+				Command line options might require updating or a new XSLT stylesheet might be needed
+				with the pipeline. It makes sense to put the new pipeline in context so whatever
+				options it has are handled.</para><para>The process XML is edited in the same authoring environment that is used to write
+				documents. The markup uses the same linking mechanism as the XML documents—XLink
+				with URN-based links—so only some additional CSS styling and macros for editing are
+				required; the rest is already in place. The results can be checked into the CMS,
+				just as any other XML, with very few modifications<footnote><para>Most have to do with giving the XML editor access to the template storage
+						area in the CMS.</para></footnote>.</para></section><section xml:id="section-2012-3-13-15-49-52-87255322-"><title>Limitations and Other Considerations</title><para>Some notable problem areas:<itemizedlist><listitem><para> Script <quote>style</quote>. Some decisions need to be made, such as
+							which options to support and which XProc script designs to allow (such
+							as what kinds of input to expect for stylesheets). These decisions need
+							to be documented in a <quote>style guide</quote> for writing process XML
+							to avoid breaking the conversions.</para></listitem><listitem><para>XProc engine configuration. Setting Calabash configuration options,
+							system properties, etc
+								(<link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://xmlcalabash.com/docs/reference/configuration.html</link>)
+							are not supported as of yet (see below).</para></listitem><listitem><para>GUI design. A GUI that allows for the dynamics of the process XML,
+							including <quote>Undo</quote>, <quote>Back</quote> and such, requires
+							temporarily storing the choices made in the various stages during the
+							process, including identifying what <quote>Back</quote> means as opposed
+							to <quote>Undo</quote>, but also to use the temp information for
+							immediate feedback in the GUI during processing.</para></listitem></itemizedlist></para><para>Other parts are easier:<itemizedlist><listitem><para>The XSLT for the conversions, both to (and from) the GUI and to a
+								<emphasis>.bat</emphasis> file, should be fairly straight-forward,
+							once the above is clear.</para></listitem><listitem><para>Hooking the process XML functionality to the current root XML document
+							selection in the system should also be straight-forward. The queries to
+							handle and fetch URNs are already in place, as are creating and handling
+							temp locations<footnote><para>It might be preferable to handle the <emphasis role="bold">Process Manager</emphasis> steps that invoke the process
+									XML itself as an XProc pipeline.</para></footnote>.</para></listitem><listitem><para>Additions to the XML editor for the basic styling and handling of
+							process XML are needed, but also permissions and web services to allow
+							admins to write and check in the process XML. Both of these changes are
+							trivial to implement.</para></listitem></itemizedlist></para><para>Many extensions (see <xref linkend="ref-item-2012-6-4-9-15-58-33787595-1"/>,
+					<link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://xmlcalabash.com/docs/reference/extensions.html</link>) fall into
+				the engine domain as they happen completely behind the scenes; if the engine
+				supports it, the process XML will, too, <emphasis role="ital">if</emphasis> they can
+				be run transparently, without having to preconfigure the engine in some way. If they
+				require engine configuration, setting system properties or specific input on the
+				command line, they will fail as anything depending on setting a Calabash system
+				property or configuration on the command line is currently not supported.</para></section><section xml:id="section-2012-3-19-10-11-40-31495103-"><title>Educating Users</title><para>The final point I want to make is perhaps the most important one. The process XML
+				is very useful when <emphasis role="ital">educating</emphasis> users about a
+				process, without requiring detailed knowledge about XProc, XSLT, or some other
+				processing. It allows us to represent the process with just enough information for
+				an overview because it <quote>black-boxes</quote> every component.</para><para>For example:<itemizedlist><listitem><para>My developers today know a lot about C# and SQL, but processing XML
+							today requires a lot of effort, for them to understand what I want to do
+							and for me to understand what they can help me with, and how.</para><para>The process XML allows me to do the XML parts cleanly, without lengthy
+							explanations or compromises, but also for the developers to query the
+							process XML for their purposes, for example, to understand how to handle
+							process data in the database. The process XML is a clean interface
+							between me and them.</para></listitem><listitem><para>The process XML can be visualised as a tree mapping process choices
+							and options. If user permission handling is added to the process XML,
+							user category-specific descriptions can be included.</para></listitem><listitem><para>The process XML can be used to simulate a process without actually
+							processing anything. This is very useful when training new users.</para></listitem><listitem><para>Of course, the process XML can be converted to SVG or other formats
+							for more flexibility.</para></listitem></itemizedlist></para></section><section xml:id="section-2012-3-13-11-15-27-15906474-4"><title>And More</title><para>I'm thinking about adding:<itemizedlist><listitem><para>A more generic XProc engine <code>cmdline</code> structure. The
+							current one is not feature-complete.</para></listitem><listitem><para>Better support for reshaped or restyled GUIs for different
+							requirements. Some of these might be user-controlled while others might
+							result from the user's document types, product variants, etc.</para></listitem><listitem><para>Markup support for workflow status and user permission information,
+							providing workflow- or user-based conditionality when selecting
+							processes, pipelines, etc.</para></listitem><listitem><para>And, of course, I'm working on a demo implementation.</para></listitem></itemizedlist></para></section></section><section xml:id="section-2012-3-9-10-29-19-89702477-3"><title>Conclusions</title><para>They say that there is nothing quite as practical as a good theory. I'm not a
+			programmer and cannot describe the specifics of a good XForms or HTML5 GUI integrated in
+			the <emphasis role="bold">Process Manager</emphasis>, but I can describe the markup
+			handling the GUI's semantics. The process XML happened because of a practical problem,
+			namely that we had a static GUI and system, requiring coding for everything, but I
+			wanted something more flexible, something I could change without having to ask for help
+			all the time.</para><para>In other words, I created a theory that I believe is practical:<itemizedlist><listitem><para>Expressing the processes, pipelines, etc as XML is a useful abstraction,
+						providing the black-boxing of feature sets. The XML provides a blueprint for
+						the total features available without having to go into specifics.</para></listitem><listitem><para>It's easy to add new output media and formats, extra steps, etc, just as
+						it should be with XProc, but it is also easy for me to write new processes
+						with new pipelines and options, thereby changing the whole feature set of
+						the <emphasis role="bold">Process Manager</emphasis>, and do this in XML,
+						using an XML editor.</para></listitem><listitem><para>The process XML solves the problem with identifying <emphasis role="ital">packages</emphasis> rather than single files for the pipelines, but
+						also handling URNs and URLs for online and offline use, respectively,
+						without compromising.</para></listitem><listitem><para>The process XML is dynamic so the GUI needs to be, too. Generating the GUI
+						from it offers the exact same dynamics.</para></listitem><listitem><para>The process XML can visualise and describe the feature sets for any user
+						category, without requiring detailed knowledge of the underlying
+						mechanics.</para></listitem></itemizedlist></para></section><section xml:id="section-2012-6-4-9-15-58-33787595-"><title>Acknowledgments</title><para>I'd like to thank Stefan Tisell and Daniel Jonsson, both at Condesign, for their
+			invaluable insights and input. Also, my thanks need to go to Henrik Mårtensson. His
+			ideas on pipeline processing (see <xref linkend="ref-item-2012-6-4-9-15-58-33787595-2"/>) have certainly affected mine.</para><para>Any errors and omissions in this paper, however, are purely mine.</para></section><bibliography><title>Bibliography</title><bibliomixed xml:id="ref-item-2012-6-4-9-15-58-33787595-" xreflabel="XProc: An XML Pipeline&#10;&#9;&#9;&#9; Language"><quote>XProc: An XML
+				Pipeline Language.
+				</quote><link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/2010/REC-xproc-20100511/</link></bibliomixed><bibliomixed xml:id="ref-item-2012-6-4-9-15-58-33787595-1" xreflabel="XML Calabash (also known&#10;&#9;&#9;&#9; as Stop Censorship)"><quote>XML
+				Calabash (also known as Stop Censorship). </quote>Calabash web page, at
+				<link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://xmlcalabash.com/</link>. For the purposes of this paper, especially
+			interesting are the sections on extensions
+				(<link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://xmlcalabash.com/docs/reference/extensions.html</link>) and engine
+			configuration
+			(<link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://xmlcalabash.com/docs/reference/configuration.html</link>).</bibliomixed><bibliomixed xml:id="ref-item-2012-6-4-9-15-58-33787595-2" xreflabel="eXtensible Filter Objects&#10;&#9;&#9;&#9; (XFO)"><quote>eXtensible Filter
+				Objects (XFO). </quote>Whitepaper by Henrik Mårtensson about pipeline-based
+			processing of XML, presented at XML Scandinavia 2001. XFO was implemented in Perl but
+			the black-boxing of arbitrary feature sets was a useful abstraction in any context.
+			Unfortunately, the paper no longer seems to be available online.</bibliomixed></bibliography></article>

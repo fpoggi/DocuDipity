@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="UTF-8"?><article xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink" version="5.0-subset Balisage-1.2"><title>Investigating the streamability of XProc pipelines</title><info><confgroup><conftitle>Balisage: The Markup Conference 2009</conftitle><confdates>August 11 - 14, 2009</confdates></confgroup><abstract><para><emphasis>XProc: An XML Pipeline Language</emphasis> is a
+specification being developed by the W3C for describing a sequence of
+XML operations performed over a set of input documents. Not all of the
+steps in XProc are known to streamable and consequently,
+the XProc specification does not require implementations to support
+streaming.</para><para>It's an open question whether or not a streaming implementation
+would be likely to achieve significant performance improvements over a
+similar non-streaming implementation. Using data collected from
+real-world pipelines, this paper examines that question.</para></abstract><author><personname><firstname>Norman</firstname><surname>Walsh</surname></personname><personblurb><para>Norman Walsh is a Principal Technologist in the Information
+&amp; Media group at Mark Logic Corporation where he assists in the
+design and deployment of advanced content applications. Norm is also
+an active participant in a number of standards efforts worldwide: he
+is chair of the XML Processing Model Working Group at the W3C where he
+is also co-chair of the XML Core Working Group. At OASIS, he is chair
+of the DocBook Technical Committee.
+</para><para>Before joining Mark Logic, he participated in XML-related
+projects and standards efforts at Sun Microsystems. With more than a
+decade of industry experience, Mr. Walsh is well known for his work on
+DocBook and a wide range of open source projets. He is the principle
+author of <emphasis>DocBook: The Definitive Guide</emphasis>
+</para></personblurb><affiliation><jobtitle>Principal Technologist</jobtitle><orgname>Mark Logic Corporation</orgname></affiliation></author><legalnotice><para>Copyright © 2009 Norman Walsh</para></legalnotice></info><section xml:id="intro"><title>Introduction</title><para>XProc is a language for expressing a pipeline of XML operations. One
+simple example of the sort of use cases that XProc is designed to meet is
+this pipeline:</para><programlisting xml:space="preserve">&lt;p:pipeline xmlns:p="http://www.w3.org/ns/xproc"&gt;
+  &lt;p:xinclude/&gt;
+  &lt;p:validate-with-xml-schema&gt;
+    &lt;p:input port="schema"&gt;
+      &lt;p:document href="/uri/of/schema.xsd"/&gt;
+    &lt;/p:input&gt;
+  &lt;/p:validate-with-xml-schema&gt;
+  &lt;p:xslt&gt;
+    &lt;p:input port="stylesheet"&gt;
+      &lt;p:document href="/uri/of/stylesheet.xsl"/&gt;
+    &lt;/p:input&gt;
+  &lt;/p:xslt&gt;
+&lt;/p:pipeline&gt;</programlisting><para>This pipeline performs XInclude processing, validates the
+expanded document, applies a stylesheet to it, and returns the result
+of the transformation.</para><section xml:id="steps"><title>XProc steps</title><para>The XProc specification defines 31 required and 10 optional steps,
+summarized in <xref linkend="tab.steps"/>.</para><table xml:id="tab.steps"><caption><para>The XProc Standard Step Library</para></caption><tr><td>p:add-attribute</td><td>p:http-request</td><td>p:set-attributes</td><td>p:wrap-sequence</td></tr><tr><td>p:add-xml-base</td><td>p:identity</td><td>p:sink</td><td>p:wrap</td></tr><tr><td>p:compare</td><td>p:insert</td><td>p:split-sequence</td><td>p:www-form-urldecode<superscript>*</superscript></td></tr><tr><td>p:count</td><td>p:label-elements</td><td>p:store</td><td>p:www-form-urlencode<superscript>*</superscript></td></tr><tr><td>p:delete</td><td>p:load</td><td>p:string-replace</td><td>p:xinclude</td></tr><tr><td>p:directory-list</td><td>p:make-absolute-uris</td><td>p:unescape-markup</td><td>p:xquery<superscript>*</superscript></td></tr><tr><td>p:error</td><td>p:namespace-rename</td><td>p:unwrap</td><td>p:xsl-formatter<superscript>*</superscript></td></tr><tr><td>p:escape-markup</td><td>p:pack</td><td>p:uuid<superscript>*</superscript></td><td>p:xslt</td></tr><tr><td>p:exec<superscript>*</superscript></td><td>p:parameters</td><td>p:validate-with-relax-ng<superscript>*</superscript></td></tr><tr><td>p:filter</td><td>p:rename</td><td>p:validate-with-schematron<superscript>*</superscript></td></tr><tr><td>p:hash<superscript>*</superscript></td><td>p:replace</td><td>p:validate-with-xml-schema<superscript>*</superscript></td></tr><tr><td colspan="4">
+<superscript>*</superscript> An optional step.</td></tr></table><para>For more details about the nature of XProc pipelines, see
+<link xlink:href="http://www.w3.org/TR/xproc/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">XProc: An XML Pipeline
+Language</link>.</para></section></section><section xml:id="streamability"><title>Streamability</title><para>When XProc development first began, there were a lot of opinions
+about streamability. Some people suggested the constraint that all
+XProc steps must be streamable. Others suggested only that they should
+be streamable.</para><para>In the end, the working group determined that it would impose no
+streamability constraints on implementations. Instead it would attempt
+to define steps such that it was (at least usually) possible to stream
+them and leave the actual streamability as a quality of implementation
+issue.</para><para>There seems to be an informal consensus that a streaming
+implementation would be expected to outperform a similar non-streaming
+implementation. In the particular case of XProc, the author believes
+that this depends significantly on the extent to which real world
+pipelines are composed of streamable steps.</para><para>The standard XProc steps can be divided roughly into three
+categories: those for which a streaming can always be achieved (e.g.,
+<code>p:identity</code>), those for which streaming can often be
+achieved (e.g., <code>p:delete</code>), and those for which no
+general, streaming implementation is known (e.g.,
+<code>p:xslt</code>).</para><para>The distinction between the first and second catagories amounts
+to the question of XPath streamability. The <code>p:delete</code> step,
+for example, is streamable precisely to the extent that the XPath
+expression used to select the nodes to be deleted is
+streamable.</para><para>Taking an optimistic view, this paper assumes that if a step
+could be streamable then it is. This won't always be true, of course,
+but taking that view will establish an upper bound on the number of
+streamable pipelines.</para><para>With that in mind, we assume that the following steps <emphasis>can
+not</emphasis> be streamed:
+<code>p:exec</code>,
+<code>p:http-request</code>,
+<code>p:validate-with-relaxng</code>,
+<code>p:validate-with-schematron</code>,
+<code>p:validate-with-xml-schema</code>,
+<code>p:xquery</code>, and
+<code>p:xslt</code>. We assume that all other steps can be streamed.</para></section><section xml:id="calabash"><title>XML Calabash</title><para><link xlink:href="http://xmlcalabash.com/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">XML Calabash</link>
+is the author's implementation of XProc. XML Calabash is written in
+Java and is built on top of the Saxon 9 APIs. The author's principle
+motivation for writing XML Calabash is to demonstrate a complete and
+correct implementation. Demonstrating at least two complete and
+correct implementations of every feature is a necessary prerequisite
+for getting XProc approved as a W3C Recommendation.</para><para>At the present time, XML Calabash (version 0.9.13) evaluates all
+pipelines in a linear, non-streaming, single-threaded fashion. Future
+versions of XML Calabash may provide streaming and multi-threading,
+though high performance is not a stated goal at this time.</para></section><section xml:id="collecting-data"><title>Collecting data about real world pipelines</title><para>XML Calabash has a feature for collecting information about
+actual pipelines that are being used. By default, XML Calabash sends a
+simple report about each pipeline that it runs back to a central
+server. This report includes some basic information about the pipeline
+and a list of each step that was run and the order in which they were
+run.</para><para>In the interests of privacy, XML Calabash
+<emphasis>never</emphasis> collects any information about the
+documents that are processed by the pipeline. Users who feel
+uncomfortable about this data collection service can disable it
+completely.</para></section><section xml:id="data"><title>Data collected</title><para>This paper reports on the data collected by XML Calabash between
+21 Dec 2008 and 11 Jul 2009. During that period,
+data was collected on more than 294,000 pipeline runs.</para><figure xml:id="fig.data-runsperweek"><title>Runs per week</title><mediaobject><imageobject><imagedata fileref="../../../vol3/graphics/Walsh01/Walsh01-001.png" format="png"/></imageobject></mediaobject></figure><para>Ignoring the outliners, this data shows reasonably steady growth in
+XML Calabash usage.</para><figure xml:id="fig.runs-per-week"><title>Runs per week</title><mediaobject><imageobject><imagedata fileref="../../../vol3/graphics/Walsh01/Walsh01-002.png" format="png" width="100%"/></imageobject></mediaobject></figure><!--
+<para>To date, XML Calabash has collected data on more than 13,555
+pipeline runs. Changes in the collection methodology several months ago
+make determining exactly how many quite difficult; with another four
+months of data collected, the author hopes to obtain interesting
+results using only the pipelines that can be explictly
+identified.</para>
+
+<para>For the purposes of this proposal, only a small subset of the
+collected data is being used. On a quick analysis, it was easy to
+identify 1,730 pipeline runs that ran successfully and do not include
+any pipelines run by the author. The author has run countless
+iterations over the XProc test suite and other pipelines not
+considered “typical”.</para>
+--></section><section xml:id="aggregation"><title>Data aggregation</title><para><xref linkend="fig.data"/> presents a summary of the raw data,
+showing for each step how many times it was used in the data
+collected.</para><figure xml:id="fig.data"><title>Summary of the raw data</title><mediaobject><imageobject><imagedata fileref="../../../vol3/graphics/Walsh01/Walsh01-003.png" format="png"/></imageobject></mediaobject></figure><para>Not shown in that table are the errors: 396 pipelines failed
+with static errors, 7778 failed with dynamic errors.</para><para>The whole collection of pipeline reports includes many runs of
+the same pipeline. So while there are almost 300,000 runs over six
+months, there are no where near that many distinct pipelines. The
+reports have a very consistent structure. This consistency allows us
+to easily identify duplicate runs.</para><para>What is a duplicate run? Two runs are considered to be the same
+if they come from the same IP address and perform the same steps in
+the same order at runtime. Note that this does not mean that the
+<emphasis>source pipelines</emphasis> were necessarily the same,
+though it's certainly likely that most duplicate runs are from the
+same pipeline. Note also that the same pipeline might produce runs of
+different lengths when presented with different data.</para><para>Our analysis reveals that there are 3,994 distinct runs in the
+data collected. Many pipelines run only a single step, but one
+pipeline ran 4,051 steps. (For an average of 73.8 steps/pipeline.)</para><figure xml:id="fig.run-length"><title>Length of pipeline run in steps</title><mediaobject><imageobject><imagedata fileref="../../../vol3/graphics/Walsh01/Walsh01-004.png" format="png" width="100%"/></imageobject></mediaobject></figure><para>Figure <xref linkend="fig.run-length"/> plots each unique pipeline
+against the length of its run, sorted by length of run. Plots of different
+ranges of this graph show a very similar structure.</para><para>It's an open question whether analysis of the
+<emphasis>unique</emphasis> runs is more or less valuable than
+analysis of all the runs. Using only the unique runs biases against
+pipelines that were run many times, for which performance could be an
+important factor. Using all the data baises against distinct runs that
+occurred only once.</para><para>Since the focus of this paper is on the characteristics of XProc
+in general, and not the efficiencies of individual pipelines, the
+balance of this paper consideres only the set of unique pipeline
+runs.</para></section><section xml:id="analysis"><title>Data analysis</title><para>Now let us consider the streamability of a pipeline. At one
+extreme, if a pipeline consists entirely of steps which cannot be
+streamed, then streaming offers no advantage for that pipeline. At the
+other extreme, if a pipeline consists entirely of streamable steps,
+then streaming would offer the most possible benefit for that
+pipeline. In the middle are those pipelines that contain a mixture of
+streamable and non-streamable steps.</para><para>For a collection of pipeline runs that are “n” steps long, we
+can compute three values: the length of the longest streamable subpipeline,
+the length of the shortest streamable subpipeline, and the corresponding
+average length. From this data, we obtain
+<xref linkend="fig.stream-length"/>.</para><figure xml:id="fig.stream-length"><title>Streamable Subpipeline Length</title><mediaobject><imageobject><imagedata fileref="../../../vol3/graphics/Walsh01/Walsh01-005.png" format="png" width="100%"/></imageobject></mediaobject></figure><para>(A small number of runs consisting of thousands of steps significantly
+reduced the readability of the graph; they have been elided.)</para><para><xref linkend="fig.stream-length-200"/> shows a magnified version of
+the first portion of this graph.</para><figure xml:id="fig.stream-length-200"><title>Streamable Subpipeline Length (for pipelines shorter than 200 steps)</title><mediaobject><imageobject><imagedata fileref="../../../vol3/graphics/Walsh01/Walsh01-006.png" format="png" width="100%"/></imageobject></mediaobject></figure><para>With respect to our earlier simlifying assumption that all steps
+that can be streamed are streamed, a casual inspection of the actual match
+patterns used revealed that to be true at least 80% of the time.</para></section><section xml:id="conclusions"><title>Conclusions</title><para>The preliminary analysis performed when this paper was proposed
+suggested that less than half “real world” pipelines would benefit
+from a streaming implementation.</para><para>The data above seems to indicate that the benefits may be
+considerably larger than that. Although it is clear that there are
+piplines for which streaming wouldn't offer significant advantages,
+it's equally clear that for essentially any set of pipelines of a
+given length, there are pipelines which would be almost entirely
+streamble.</para><para>Perhaps the most interesting aspect of this analysis is the fact
+that as pipeline runs grow longer, they appear to become more and more
+amenable to streaming. That is to say, it appears that a pipeline that
+runs to 300 steps is, on average, more likely to benefit from
+streaming than one that's only 100 steps long.</para><para>We have not yet had a chance to investigate why this is the case.
+</para></section><section xml:id="caveats"><title>Caveats</title><para>In the interests of openness, it should
+be noted that there are several weaknesses in the data.</para><orderedlist><listitem><para>The data is collected on an “opt-out” basis. That makes it very difficult
+to publish the raw data. Without explicit consent from users, I'm reluctant.
+On the other hand, it's likely that much less data would be available if an
+explicit, “opt-in” approach had been taken.</para></listitem><listitem><para>The XProc specification is currently a Candidate Recommendation.
+Today's users represent the very leading edge of adoption. It's not
+obvious that the usage patterns apparent in this data will accurately
+reflect the usage that occurs when XProc is widely adopted.</para></listitem></orderedlist></section></article>

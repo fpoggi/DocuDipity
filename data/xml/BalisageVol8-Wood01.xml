@@ -1,0 +1,405 @@
+<?xml version="1.0" encoding="UTF-8"?><article xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink" version="5.0-subset Balisage-1.3"><title>Schematron in the Context of the Clinical Document Architecture (CDA)</title><info><confgroup><conftitle>Balisage: The Markup Conference 2012</conftitle><confdates>August 7 - 10, 2012</confdates></confgroup><abstract><para>The Clinical Document Architecture (CDA), created by Healthcare Level 7 <link xlink:href="http://www.hl7.org" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">HL7</link> is widely used in healthcare. Its scope is any clinical document or
+                report. The (single) CDA schema that is used to validate all of these reports is
+                derived from a UML model. The element names reflect specializations of various
+                concepts, while the attribute values can refine element meaning, add flavor to the
+                parent/child relationship, reverse the subject and object of a compound expression,
+                negate the meaning, or explain the absence of a value. Separately-defined prose
+                constraints represent the requirements for individual document types such as a
+                Procedure Note or a public-health accounting of bloodstream infections. These
+                report-specific constraints are, of course, not defined in the general CDA.xsd
+                schema. Although the element-attribute relationships can be tested using the schema,
+                the value-driven conditional and alternative rules are best tested using Schematron.
+                We create Schematron and use it in conjunction with the CDA schema to confirm that
+                the CDA documents conform to the relevant specific report constraints and
+                requirements. The Schematron must itself be tested to ensure that the combination of
+                W3C Schema and Schematron correctly checks the rules and that the Schematron error
+                messages point comprehensibly to the real error.</para><para>This paper presents the reasons for using Schematron for this validation, some of
+                the processes used to test the Schematron during its development, and
+                challenges.</para></abstract><author><personname><firstname>Kate</firstname><surname>Hamilton</surname></personname><personblurb><para><!--KH-->Kate Hamilton is a Senior Information and Process Analyst at Lantana
+                    Consulting Group. She has a long history in pointy-bracket modeling and implementation,
+                    always with a focus on supporting new adopters 
+                    and on design that meets the needs of all users. Her degree is in the history and
+                    philosophy of science, technology, and medicine. She also grows and markets
+                heirloom varieties of vegetables. These interests may be related.</para></personblurb><email>kate.hamilton@maplekeys.com</email></author><author><personname><firstname>Lauren</firstname><surname>Wood</surname></personname><personblurb><para><!--LW-->Lauren Wood is a Senior Consultant with the Lantana Consulting Group,
+                    working predominantly on standards in XML-based healthcare. She is also Course
+                    Director for the XML Summer School. She has been part of the XML world for many
+                    years, working first as an SGML consultant for the publishing and aerospace
+                    industries, then on SoftQuad's authoring tools. In between she has been on many
+                    technical committees and chaired the XML Conference for 5 years from 2001-2005.
+                    At Sun Microsystems she was part of the identity and privacy group, taking part
+                    in and managing research projects. </para></personblurb><email>lauren@textuality.com</email></author><legalnotice><para>Copyright © 2012 by the authors. Used with permission.</para></legalnotice><keywordset role="author"><keyword>Clinical Document Architecture</keyword><keyword>CDA</keyword><keyword>Schematron</keyword><keyword>Testing</keyword><keyword>XML Schema</keyword></keywordset></info><!-- top-level --><section><title>Introduction</title><para>The Clinical Document Architecture (CDA) Release 2 is derived from the Healthcare
+            Level 7 (HL7) Reference Information Model (RIM). It defines a formal model and semantics
+            for concepts found in a clinical document — acts, such as procedures, substance
+            administrations, and observations of laboratory findings; entities such as people,
+            places, devices, and drugs; relationships such as participation and causality; and
+            document metadata. </para><para>CDA is undeniably complex, covering as it does the full range of clinical documents
+            for multiple countries and regions. Its derivation from a Unified Modeling Language
+            (UML) representation of healthcare concepts reflects that complexity.</para><para> A CDA Implementation Guide (IG) defines a specific implementation of CDA by
+            specifying how to use these building blocks to express a particular kind of clinical
+            document — a report on infection in hemodialysis patients, or the history and
+            physical taken during a visit to a physician. </para><para> The CDA model is instantiated as one W3C Schema (version 1.0) that covers all these
+            related clinical report types (also called implementations). The model is very
+            expressive but there are technology-determined gaps between the UML of the model and the
+            XML Schema expression of it, and then further gaps between the generic XML Schema that
+            covers all clinical documents and the specific type of document described in a given
+            implementation guide for a specific purpose. Some of these gaps could perhaps be filled
+            if CDA used W3C XSD 1.1, or RELAX NG, to define the schema, but neither of those options
+            are likely to be possible in the near term, given the practicalities of implementations
+            of complex standards that are used across the world in critical healthcare systems. </para><para>People who are guaranteeing to a healthcare organization that the documents they
+            deliver contain the right information for a specific purpose, and expressed using the
+            right syntax, need to know that the validation we provide for testing will pass all good
+            files and fail all bad files. This means we have to test our validation mechanism, and
+            that mechanism has to be in addition to the basic CDA.xsd (1.0) validation. </para><para>The validation mechanism we choose has to fulfill a number of criteria. It must be
+            easy for non-XML experts to use to test the files that come out of their
+            implementations, and it must be able to be used in many ways. It must cover the gaps between
+            the prose definitions in a specific implementation guide and the generic XSD schema that
+            is used for a large number of implementation guides as much as possible. The goal is to
+            make validation available in appropriate forms to guarantee the quality of the XML
+            documents that the public health organizations receive from hospitals and other
+            healthcare organizations.</para><para>This paper introduces Clinical Document Architecture (CDA) concepts to show why
+            Schematron validation is needed to supplement schema validation, discusses how we
+            currently produce and test the Schematron validation, and explores some challenges. We
+            are interested in other approaches to quality management and testing that we could
+            investigate to supplement our current methods. </para><note><para>The documentation examples used in this paper are taken from the HL7
+                Implementation Guide for CDA® Release 2 - Level 3: Healthcare Associated Infection
+                Reports, Release 7 (US Realm) (HAI R7 IG), available at
+                http://www.hl7.org/dstucomments/. </para><para>Much of this work was carried out for the Lantana Consulting Group.</para><para>The authors appreciate the comments made by the anonymous peer reviewers as well
+                as Rick Geimer and Liora Alschuler from Lantana.</para></note></section><!-- top-level --><section><title> Aspects of the CDA Model </title><para>Those seeking to represent clinical documents in XML face the same choices as in many
+            other areas: where do we place the line between a centrally-mandated model that omits
+            data that only a few participants need to record, and a free-for-all in which no two
+            documents are modelled in the same way? CDA addresses this in a two-pronged approach
+            — the abstract model is expressed as elements; attribute values refine the
+            meaning, with heavy reliance on public vocabularies. These vocabularies are slightly
+            different than the ones often assumed in an XML context; they are not concepts described
+            in an XML schema but rather an ontology or set of codes that can be (and are) described
+            in many different formats. In many ways they play a role similar to that played by
+            elements in some schemas -- they associate semantic meaning with the data. Healthcare
+            professionals who specialize in vocabulary can spend just as long arguing over the precise meaning of a 
+            term that is to be defined in a codeset, or over which one to use in which context, as XML
+            schema designers spend in arguing over what name to give a particular element in its
+            context. We will come back to vocabularies again throughout this paper.</para><para>What does it mean to say that attribute values refine the meaning of an
+            element?</para><para>CDA has two aspects: a text-heavy document aspect, called the narrative block, that is
+            recorded in HTML-like elements; and an interoperable, machine-processable aspect with
+            more precise semantics, called clinical statements or coded entries. Coded entries do not record presentational aspects such as section,
+            paragraph, table, list, or figure. Rather, they record specializations of the abstract concepts of
+            entities, acts, and relationships. These specializations have XML
+            names: a participant is a specialization of the entity concept;
+            procedure and substanceAdministration are specializations of an act; 
+            component-of, is-reason-for, is-cause-of are types of relationship. Some of these examples are elements, others are attributes.</para><para>In many applications of XML, attribute values are not central to interpretation.
+            Some of us were taught, when first learning a pointy-bracket syntax,
+            that an element name classifies the content and an attribute provides
+            additional, secondary information:
+            <programlisting xml:space="preserve">
+                &lt;animal coatColor="brown"&gt;dog&lt;/animal&gt;</programlisting>
+            In CDA attributes have a stronger role: rather than providing supplementary
+            information, they usually  continue refining the taxonomic distinctions 
+            made by elements.</para><para>
+            In the procedure element below, the code element refines its parent's meaning
+            by specifying the kind of procedure, using a value from a specific vocabulary. The vocabulary
+            is identified in the codeSystem attribute by a dot-notation object identifier (OID):
+            <programlisting xml:space="preserve">
+                &lt;procedure&gt;
+                  &lt;!--ID of procedure --&gt;
+                  &lt;id root="2.16.840.1.113883.3.117.1.1.5.1.1" extension="232323"/&gt;
+                  &lt;code codeSystem="2.16.840.1.113883.6.96" code="423827005"
+                        displayName="Endoscopy"/&gt;
+                &lt;/procedure&gt;</programlisting></para><para>The refinement of meaning can have multiple levels. The previous example captures "A
+            procedure; what kind of procedure? An endoscopy." The next example shows a
+            waterfall-like nesting of questions and answers: "A participant; what kind of
+            participant? A location; what kind of location? A service delivery location; what kind
+            of service delivery location? A Medical/Surgical Critical Care unit."
+            <programlisting xml:space="preserve">
+            &lt;participant typeCode="LOC"&gt;
+                &lt;associatedEntity classCode="SDLOC"&gt;
+                    &lt;!--ID of facility --&gt;
+                    &lt;id root="2.16.840.1.113883.3.117.1.1.5.1.1" extension="9W""/&gt;
+                    &lt;code codeSystem="2.16.840.1.113883.6.259"
+                          codeSystemName="HL7 Healthcare Service Location Code" code="1029-8"
+                          displayName="Medical/Surgical Critical Care"/&gt;
+                &lt;/associatedEntity&gt;
+                &lt;/participant&gt;</programlisting></para><para>CDA has two more general specializations of the act concept,
+            the observation elements and act elements.
+        <programlisting xml:space="preserve">
+            &lt;observation classCode="OBS" moodCode="EVN" negationInd="false"&gt;
+             &lt;code codeSystem="2.16.840.1.113883.6.96" code="50373000" 
+                    displayName="Body Height"/&gt;
+                &lt;value xsi:type="PQ" value="180" unit="cm"/&gt;
+            &lt;/observation&gt;
+        </programlisting>
+            This captures "An observation; of what? A body height; what height was observed? 180cm."
+        </para><para>
+            A consequence of the semantic role of attributes in CDA XML is that the words "value" and "code" have several usages: the value element,
+            its value attribute, the value of that attribute (which may be a code),  the value of the code element's code attribute (which is always a code), or -- which is usually clear from context -- the value of some other attribute. (Ordinary speech is similarly challenged in distinguishing between the abstract concepts, which are UML classes, such as Act, and XML elements in the CDA schema, such as act.) To cut through that confusion, don't think about the XML first! Focus on the clinical content -- what is being expressed? -- and consider the XML elements and attributes as packaging.
+           <programlisting xml:space="preserve">
+      What is to be expressed? A body height.
+      That's an observation. An observation of what? body height (code element: code attribute).
+      What was observed? 180cm. (value element: datatype is physical quantity, value is 180, unit is cm)
+            </programlisting>
+        </para><section><title>Uses of Attribute Values</title><para>In CDA, attribute values can have implications for the node tree, primarily
+                through alternatives and through conditional requirements.</para><section><title>Relationships</title><para>The range of
+                    relationships in clinical content goes far beyond
+                    child containment, so the model interposes a wrapper that can carry
+                    information about the relationship. Here we’re recording the micro-organism
+                    cause of a positive blood culture: </para><programlisting xml:space="preserve">            &lt;observation classCode="OBS" moodCode="EVN" negationInd="false"&gt;
+                &lt;code code="ASSERTION" codeSystem="2.16.840.1.113883.5.4"/&gt;
+                &lt;statusCode code="completed"/&gt;
+                &lt;value xsi:type="CD"
+                       codeSystem="2.16.840.1.113883.6.277" code="1955-4"
+                       displayName="Positive blood culture"/&gt;
+                        
+                    &lt;entryRelationship typeCode="CAUS" inversionInd="true"&gt;
+                        &lt;observation classCode="OBS" moodCode="EVN"&gt;
+                            ...
+                        &lt;/observation&gt;
+                    &lt;/entryRelationship&gt;
+            &lt;/observation&gt;</programlisting><para> One powerful attribute, @moodCode, expresses something akin to mood in
+                    English verbs: it can change the sense of a substanceAdministration element from
+                    prescription (an intent) to application (an event). </para></section><section><title>Negation</title><para> To record that something did not happen or was not done, CDA provides a
+                    negation mechanism — this is also an attribute value. This patient experienced
+                    no adverse reaction: </para><programlisting xml:space="preserve">            &lt;observation classCode="OBS" moodCode="EVN" negationInd="false"&gt;
+            &lt;code codeSystem="2.16.840.1.113883.5.4" code="ASSERTION"/&gt;
+            &lt;statusCode code="completed"/&gt;
+                        &lt;value xsi:type="CD"
+                            codeSystem="2.16.840.1.113883.6.96" code="281647001"
+                            displayName="Adverse reaction"/&gt;
+            &lt;/observation&gt;</programlisting><para> This has great expressive power when used in combination with relationships
+                (the cause of the fever was not the bacterium).</para><para>Of course, that is not the same as not
+                    knowing <emphasis>whether</emphasis> the cause of the fever was the bacterium.... </para></section><section><title>Null Flavors</title><para>Unlike many paper forms and database tables, CDA makes a strong distinction between a value and
+                    the reason a value is not recorded. Such reasons are recorded in a @nullFlavor
+                    attribute. Here, we haven’t asked for the patient’s birthdate (perhaps the
+                    patient arrived unconscious and without his wallet): </para><programlisting xml:space="preserve">
+                &lt;dateOfBirth nullFlavor=”NASK”/&gt;</programlisting><para> For an elderly person living in a remote village, the appropriate nullFlavor
+                    might be “UNK” —  the question was asked, but
+                    the answer wasn’t known. </para></section></section><section><title>The Price of Power</title><para>The price of this expressive power and interoperability is complexity, of course.
+                Nevertheless this provides a reasonably concise expression of the very large world
+                of clinical documents that is the model's scope. Every layer has a role; any
+                collapsing of the model leaves some body of information out. The act relationships
+                and moods are elegant: convert an intent to administer tachytherapy into a report of
+                having done it by changing the moodCode from INT to EVN, and look forward to
+                processing the a volume of XML documents to compare the number of intents to the number of events, or to
+                report on the average elapsed time between intent and event.</para></section><section><title>Vocabulary for those Attribute Values</title><para>Controlled and widely-used vocabularies are crucial to making this approach work.
+                There are several vocabularies covering every aspect of healthcare, from units of
+                measure to precise descriptions of body parts as a surgeon would view them). These
+                public vocabularies are crucial for interoperability. </para><para>There are many public vocabularies in the healthcare realm: for example, <link xlink:href="http://www.nlm.nih.gov/research/umls/Snomed/snomed_main.html" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">SNOMED
+                    CT</link> is a core general terminology with more than 311,000 active concepts
+                organized into hierarchies that is commonly used for clinical findings and body
+                parts; <link xlink:href="http://www.nlm.nih.gov/research/umls/rxnorm/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">RxNorm</link> provides
+                normalized names for clinical drugs and ingredients. There are, of course,
+                overlapping vocabularies with concepts that almost, but not quite agree with each
+                other, so in practice many healthcare systems need to support multiple vocabularies
+                to cover all the cases. </para><para>These vocabularies are made available under differing licensing terms, and in
+                different formats. For the schematron testing purposes we create custom XML files
+                with only the terms (codes) that are relevant to the specific implementation guide.
+                The format we use has entries like this:</para><programlisting xml:space="preserve">
+&lt;code value="413495001" displayName="ASA physical status class 1" 
+      NHSNdisplayName="Normally healthy patient" 
+      codeSystem="2.16.840.1.113883.6.96"/&gt;
+&lt;code value="413496000" displayName="ASA physical status class 2" 
+      NHSNdisplayName="Patient with mild systemic disease" 
+      codeSystem="2.16.840.1.113883.6.96"/&gt;
+&lt;code value="413497009" displayName="ASA physical status class 3" 
+      NHSNdisplayName="Patient with severe systemic disease, not incapacitating" 
+      codeSystem="2.16.840.1.113883.6.96"/&gt;
+&lt;code value="413498004" displayName="ASA physical status class 4" 
+      NHSNdisplayName="Patient with incapacitating systemic disease, constant threat to life" 
+      codeSystem="2.16.840.1.113883.6.96"/&gt;
+&lt;code value="413499007" displayName="ASA physical status class 5" 
+      NHSNdisplayName="Moribund patient, &lt; 24-hour life expectancy" 
+      codeSystem="2.16.840.1.113883.6.96"/&gt;
+&lt;/system&gt;</programlisting><para>The many-digit numbers are globally unique object identifiers (usually abbreviated
+                as OID). These identifiers are the preferred method of identifying objects in HL7
+                standards such as CDA, and are used for everything from sets of vocabulary (e.g.,
+                the ValueSet definition above) to chunks of the implementation guide, known as
+                templates (referenced in the pattern id in the schematron snippet). HL7 has an OI
+                registry, available at <link xlink:href="http://www.hl7.org/oid/index.cfm" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.hl7.org/oid/index.cfm</link>, with more information about the design
+                and use of OIDs.</para><para>One thing to note about OIDS: there is something of a structure in that the
+                left-most number is considered the root and the right-most number the leaf node on
+                the tree. OIDs are assigned to organizations at a particular sub-tree level, and how
+                that organization chooses to arrange its sub-tree depends on that organization. It
+                may choose to have a logical structure for its OIDs, or not.</para></section><section><title>Constraints, Value Sets, Alternatives and Conditionals</title><para>In any healthcare record there are rules about which information must be present.
+                In CDA convention these are represented as constraints on the CDA model. The
+                constraints have a formal prose representation that is published in a document called
+                an Implementation Guide because it defines an implementation of CDA. 
+                For example, an observation representing an
+                adverse reaction:
+                <programlisting xml:space="preserve">
+        5.     SHALL contain [1..1] code (CONF:11542). 
+        a.     This code SHALL contain [1..1] @code, which SHALL be selected from ValueSet 
+               2.16.840.1.114222.4.11.3391 NHSNAdverseReactionTypeCode DYNAMIC (CONF:4698). 
+                </programlisting>
+                We generate this prose representation from a database. A constraint is associated with
+                a context (observation) and is recorded in data such as "conformance verb" (SHALL), "value", 
+                "value conformance", and "value set".</para><para>A value set is a set of coded concepts, drawn from one or more public vocabularies,
+                that are appropriate for the context. In the example above, the value set members are types
+                of adverse reaction. The concepts in the previous example, showing patient status,
+                are members of a value set named ASAClassCode.</para><para>Constraints that express alternatives are common in some implementations of CDA. 
+                One necessary usage is to require that
+                a code element contain either (a) both the <code>code</code> and <code>codeSystem</code> attributes OR (b) a <code>nullFlavor</code> attribute.</para><para>Value-driven conditional rules arise for specific content situations;
+                for example, if the procedure being recorded was a cesarean (the relevant <code>code/@code=2115-4</code>),
+                the report must also specify the estimated maternal blood loss. </para><!-- <programlisting/> --></section></section><!-- top-level --><section><title>Why Schematron validation is Needed to Supplement Schema Validation</title><para>As we've seen, much of the meaning of a CDA document resides in an element's attribute
+            values, which are used to <orderedlist><listitem><para>refine the meaning of those elements (rather than merely to describe the
+                        object, as in <code>&lt;dog color=”brown”&gt;</code>)</para></listitem><listitem><para>expand the varieties of relationship beyond what’s available from the XML
+                        tree,</para></listitem><listitem><para>vary the verb mood,</para></listitem><listitem><para>switch the subject and object of a compound expression,</para></listitem><listitem><para>negate, and</para></listitem><listitem><para>explain the absence of a value.</para></listitem></orderedlist></para><para> These tools can build remarkably complex sentences. “Marie’s grandmother, who is her
+            legal guardian, said Marie had pneumonia when she was six, which went untreated and is a
+            possible explanation for the scarring on her lungs; however, Marie’s mother denied this
+            and her father was unsure.” </para><para> In any healthcare records there are report-specific rules about which data must be
+            present. Since so much of the content in CDA is recorded in attribute values, these
+            rules amount to value dependencies, which are not adequately expressible in W3C Schema
+            validation. Some of the report-specific rules could be tested with a custom W3C Schema,
+            but not all, and, in practice, many of the most important report-dependent rules cannot
+            be checked by even a custom W3C Schema.</para><para>The two main problem areas for validation are alternatives and value-dependent conditionals.</para><para>As we saw above, one commonly-used construct in CDA is to require that a code element
+            contain either the code and codeSystem attributes (with optional displayname and
+            codeSystemName attributes), OR a nullFlavor attribute. The CDA Schema allows all the relevant attributes to appear on the code element, in any
+            combination. As a result, a valid document instance might  populate the code attribute without
+            the codeSystem attribute, or populate both the code and nullFlavor attributes. Both combinations are inherently meaningless, but the CDA Schema
+            can’t check for them.</para><para>The conditional rules that arise for specific content situations can be expressed as
+            <programlisting xml:space="preserve">
+if [some XPath] then [some other XPath]</programlisting>
+            For example,
+            <programlisting xml:space="preserve">
+     If procedure/code/@code="1234" (a specific type of procedure), then performer/id must be present.
+                </programlisting>
+            Since the type of procedure is recorded as an attribute value, even
+            a custom XML Schema can’t check this requirement. </para><para> Schematron covers the gap. We use a two-step validation approach: first against the
+            CDA XML Schema file (CDA.xsd), and then against a Schematron file and custom vocabulary
+            file that tests the rules that cannot be expressed in the
+            CDA.xsd. Currently we are using Schematron 1.5 and XPath 1, for compatibility/historical
+            reasons; we are gradually moving to ISO Schematron and thence to XPath 2. </para></section><!-- top-level --><section><title>Creating the Schematron Validation</title><para>A typical schematron section looks like this:</para><programlisting xml:space="preserve">
+&lt;sch:pattern id="p-2.16.840.1.113883.10.20.5.6.41-errors" name="p-2.16.840.1.113883.10.20.5.6.41-errors"&gt;
+&lt;sch:rule context="cda:observation[cda:templateId/@root='2.16.840.1.113883.10.20.5.6.41']"&gt;
+&lt;sch:assert test="count(cda:statusCode[@code='completed'])=1"&gt;shall contain 1..1 statusCode=completed 
+"Completed" (CodeSystem: 2.16.840.1.113883.5.14) (CONF:2282)&lt;/sch:assert&gt;
+&lt;sch:assert test="count(cda:code[@codeSystem='2.16.840.1.113883.6.1'][@code='41852-5'])=1"&gt;shall contain 
+1..1 code=41852-5 "Microorganism Identified" (CodeSystem: 2.16.840.1.113883.6.1) (CONF:2281)&lt;/sch:assert&gt;
+&lt;sch:assert test="@classCode='OBS'"&gt;shall contain 1..1 @classCode=OBS "Observation" 
+(CodeSystem: 2.16.840.1.113883.5.6) (CONF:2279)&lt;/sch:assert&gt;
+&lt;sch:assert test="@moodCode='EVN'"&gt;shall contain 1..1 @moodCode=EVN "Event" 
+(CodeSystem: 2.16.840.1.113883.5.1001) (CONF:2280)&lt;/sch:assert&gt;
+&lt;sch:assert test="cda:value[@xsi:type='CD']"&gt;shall contain 1..3 value, which SHALL be selected from 
+ValueSet 2.16.840.1.114222.4.11.3194 STATIC (CONF:2283)&lt;/sch:assert&gt;
+&lt;/sch:rule&gt;
+&lt;/sch:pattern&gt;
+</programlisting><para>This shows the standard set of attribute/attribute value testing, and an example of
+            the vocabulary testing that is such an important part of testing the validity of CDA
+            documents.</para></section><!-- top-level --><section><title>Testing Schematron Validation</title><section><title>Testing requirements</title><para> The first reaction of most people is to wonder why you test the Schematron, when
+                everyone knows the Schematron is used to test the document instances. The second
+                reaction is to say “of course” — we need to ensure that the combination of XML
+                Schema and Schematron that we create correctly confirms the validity of all the
+                files that conform to the constraints, while flagging any errors. </para><para> We also need to ensure that all Schematron error messages point to the real error
+                that needs to be fixed. Many of the parser error messages that arise from validation
+                errors are difficult to understand, particularly for those who are not XML experts.
+                This adds a testing requirement — not only does the Schematron have to fail a
+                bad test file, but it has to fail it with an understandable message. 
+         </para><para>As we discussed earlier, the CDA schema does not 
+                catch quite all the CDA errors people might make, and of course it does not validate
+                rules that constrain CDA; so our testing concentrates on the those aspects of the Schematron
+            validation.</para><para>The database that stores the constraints and exports prose for the Implementation Guide
+                also generates the basic schematron validation file. 
+                We make the most of the fact that Schematron error messages can be more tailored:
+                the error message we generate cites the constraint prose just as it appears in the
+                Implementation Guide.
+            </para><para>In general the items that the CDA XML Schema doesn't validate,
+                such as alternative attributes and value-dependent conditionals, currently can't be
+                recorded as computable constraints and thus can't be 
+                generated from the database. These aspects of validation are written by hand, and
+                therefore need to be thoroughly tested before delivering the resultant Schematron
+                file to the customer. Since the automatic generation process is constantly beng
+                developed and upgraded, we also need to do regression testing on new releases of the
+                Schematron export. </para><para>When we are creating Schematron for a client, as opposed to testing the
+                Schematron generation system ugrades, the automatically-generated Schematron
+                requires only spot checks to make sure nothing went wrong with the generation. The
+                hand-coded portion requires far more in-depth testing. </para></section><section><title>The testing process</title><section><title>Overview </title><para> We use the phrase “good-test files” for the test files that ought to pass
+                    validation. “Bad-test files” are those which should throw errors. </para><para> The first step is to create good-test files — combinations of elements,
+                    attributes, and attribute values that are allowed. Once the Schematron passes
+                    those correctly, it’s time to ensure it fails the bad-test files, and fails them
+                    in the correct way. This is where the bulk of the testing work comes in. </para><para> We take the good test-files as a base, and make them incorrect by deleting a
+                    required element, or setting an attribute value that is not allowed at that
+                    point. The Schematron has to fail all the bad-test files, with a reasonable
+                    error message, at the right spot. Then we create more bad-test files, taking the
+                    documentation of the report type as a guide, to cover any combination of wrong
+                    choices that a user could make. </para><para> We don’t want to go overboard with the number of test files though, as we do
+                    need, at some stage, to ship the Schematron. Thus we are constantly looking for
+                    ways to ensure better and more time-efficient coverage of the possible error
+                    conditions while maintaining confidence of complete coverage. One approach is
+                to create a complete set of alternatives
+                for each constraint we want to test. That gives us perfect confidence on coverage
+                (with some challenges for tracking which file tests which condition) but requires a
+                very large number of test files. We add efficiencies by making carefully-chosen 
+                assumptions such as: 
+                The mechanism that generates a test for membership in a value set is applied 
+                in the same way wherever used; we will only test it once. This significantly reduces the
+                number of test files we must create, but having a dozen or so such rules complicates the
+                business of drawing up a test list.</para></section><section><title>Details</title><para> Creating the good-test files requires a solid understanding of the report
+                    rules. In practice, this means that creating the good-test files also tests the
+                    quality of the documentation. The best way to test this is for the person
+                    who creates the test files to be someone other than the person who wrote the
+                    documentation.</para><para> The prose representation of a CDA constraint has precise meanings for
+                    every part of the sentence. The constraint is documented in reference to an XML
+                    fragment in CDA, and the element and attribute combination are defined in terms
+                    of XPaths. Each constraint has a conformance number (the 10304 and 10907 listed
+                    here). In the following snippet, the topic is the administration of a drug:</para><programlisting xml:space="preserve">
+SHALL contain consumable/manufacturedProduct/manufacturedMaterial/code (CONF:10304).
+
+  a.  In an Evidence of Infection (Dialysis) Report,
+
+    i.   If the antimicrobial started was Vancomycin, 
+         the value of @code SHALL be  '11124' Vancomycin [CodeSystem: 2.16.840.1.113883.6.88 RxNorm].
+
+    ii.  Otherwise, the value of @nullFlavor SHALL be 'NI'. (CONF: 10907)</programlisting><para> This specifies: in the context of this substance administration, there must be a code element
+                    at the bottom of that XPath chain. If the report is of type “Evidence of
+                    Infection (Dialysis)”, we're only collecting statistics about one drug: if the antimicrobial started was Vancomycin, then the
+                    code element must have an xsi:type attribute with value ‘CE’, a code attribute
+                    with value ‘11124’, and a codeSystem attribute with value
+                    ‘2.16.840.1.113883.6.88’. (It may also have a displayName attribute with value
+                    ‘Vancomycin’ and/or a codeSystemName attribute with value ‘RxNorm’.) Otherwise the code element has neither of those attributes; instead it must have the attribute nullFlavor with value ‘NI’. </para><para> To test this, we need a good-test file that shows when Vancomycin was
+                    started, a good-test file that shows when it wasn’t Vancomycin, but something
+                    else, and a good-test file that shows when no IV antimicrobial was started. That
+                    makes three separate good-test files, and at least that number of bad test files
+                    to test the number of ways in which things can be wrong. </para><para>This is a relatively simple constraint; we have some that run to several
+                    alternative branches, each with a number of options. Independent values can be
+                    tested separately (recording which antimicrobial was started does not depend on
+                    whether the person administering it washed their hands), but some values
+                    interact even though widely separated in the CDA document (maternal blood loss
+                    after a caesarian section cannot logically be recorded for a male patient, nor
+                    can a male patient logically be treated in a pre-natal ward). </para><para>Ensuring reasonable test coverage is one of the big issues we face. For one
+                    project we created 91 good and 133 bad test files by hand to test one
+                    medium-sized chunk of a report. Not surprisingly, we’ve started looking into
+                    ways to generate test files as variations of base sample files to save time. We
+                    also don’t want to create more test files than we need; testing unnecessary
+                    combinations costs time and effort, delaying delivery without benefitting the
+                    customer. </para><para> We need to itemize the combinations and variations, determine which we will
+                    test, and ensure that at least one good and one bad test file exists for each of
+                    those combinations and variants that can't be tested by the CDA Schema. We need
+                    to create a few bad test files to ensure the CDA.xsd validation is triggered by
+                    the validation process, but not for every possible error. We need to be sure
+                    that the error message thrown by the Schematron for each bad file is reasonable;
+                    this involves keeping track of the file name and the error message(s) through
+                    iterative development cycles. </para><para> Currently we keep track of the files in a spreadsheet, using
+                    carefully-constructed filenames that indicate what is being tested. (The
+                    file-naming conventions aren’t strictly necessary, but they are a significant
+                    practical help to the person creating the test files and the person checking the
+                    test files.) The test files are commented to show what is being tested, and
+                    where the error (if a bad test file) is. The comments reference the conformance
+                    numbers in the documentation. We track and improve error messages that are
+                    inaccurate or unhelpful. The spreadsheet goes through iterations to match the
+                    Schematron development iterations. </para></section><section><title>Testing challenges</title><para> We have a number of challenges apart from creating the test files. Many of
+                    these are typical testing challenges, such as how to assess the results quickly,
+                    and what the best type of testing system is (which depends to some extent on
+                    what the various developers are used to). </para><para> A bigger issue is the best way to indicate how many errors should be present
+                    in a given bad test file. Any given single error in an XML document can
+                    potentially be the cause of more than one error message. When the Schematron
+                    finds a different number of errors in an XML file to the expected number, it
+                    could be due to error(s) in the Schematron, or error(s) in the XML. Once the XML
+                    file has been checked, what remains are the Schematron error(s). And the number
+                    of those may change as the Schematron is developed. </para><para> There are a few ways to tell the error-testing system how many errors go with
+                    a particular file. Tony Graham published a poster at XML Prague 2012
+                    (http://www.mentea.net/resources/schematron-testing-framework.pdf) discussing
+                    his framework, which uses processing instructions in the XML file itself (along
+                    with XProc). We use a spreadsheet with the filename and expected number of
+                    errors (along with some custom Java code that invokes the standard JUnit testing
+                    framework). Both systems then use ant to run the tests against all the test
+                    files and report results. If the number of expected errors remains stable,
+                    either method should work well. </para></section></section></section><!-- top-level --><section><title>Conclusion</title><para>We have shown why we need to test Schematron files in the context of healthcare
+            standards, how we use the standard testing methods of good files and bad files, and
+            discussed some of the challenges we find. We welcome feedback, suggestions for
+            improvement in the process, and comments. </para></section></article>

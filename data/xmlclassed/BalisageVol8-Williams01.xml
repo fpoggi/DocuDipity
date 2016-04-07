@@ -1,0 +1,1550 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?><classedDocument><article xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink" class="po-hcontainer e0 e0" version="5.0-subset Balisage-1.3" xml:id="wadl-balisage"><title class="po-block e1 e1"><textual class="po-textual">Using XProc, XSLT 2.0, and XSD 1.1 to validate RESTful services</textual></title><info class="po-record e2 e2"><confgroup class="po-record e3 e3"><conftitle class="po-field e4 e4"><textual class="po-textual">Balisage: The Markup Conference 2012</textual></conftitle><confdates class="po-field e5 e5"><textual class="po-textual">August 7 - 10, 2012</textual></confdates></confgroup><abstract class="po-container e6 e6"><para class="po-block e7 e7"><textual class="po-textual">
+                Documentation of RESTful services must be accurate and
+                detailed. As a REST service is being developed, the
+                documentation must be kept up to date and its accuracy
+                constantly validated. Once the REST service is
+                released the documentation becomes a contract; clients
+                may break if an implementation drifts from the
+                documented rules. Also, third-party implementations
+                must adhere to the rules in order for clients to
+                interact with multiple implementations without
+                issue. Ensuring conformance to the documentation is
+                complicated, tedious, and error prone. We use our
+                existing XML documentation pipeline to generate highly
+                efficient validators which can check a RESTful service
+                (and it's clients) for conformance to the
+                documentation at runtime. We validate all aspects of
+                the HTTP request including message content, URI
+                templates, query parameters, headers, etc. We describe
+                the transformation process and some of the
+                optimizations that enable real time optimization and
+                discuss challenges including testing the documentation
+                pipeline and the validators themselves.
+            </textual></para></abstract><author class="po-record e8 e8"><personname class="po-record e9 e9"><firstname class="po-field e10 e10"><textual class="po-textual">Jorge</textual></firstname><othername class="po-field e11 e11"><textual class="po-textual">Luis</textual></othername><surname class="po-field e12 e12"><textual class="po-textual">Williams</textual></surname></personname><personblurb class="po-container e13 e13"><para class="po-block e14 e14"><textual class="po-textual">Jorge Williams is a principal architect on the
+                    Cloud Integration Team at Rackspace Hosting where
+                    he develops tools and services to solve
+                    integration problems. He has aided in the design
+                    and development of the Repose HTTP proxy, the
+                    Cloud Servers API, the OpenStack Compute and
+                    Identity APIs, and the OpenStack extension
+                    mechanism. He holds a PhD in computer science.
+                </textual></para></personblurb><affiliation class="po-record e15 e15"><orgname class="po-block e16 e16"><textual class="po-textual">Rackspace Hosting</textual></orgname></affiliation><email class="po-field e17 e17"><textual class="po-textual">jorge.williams@rackspace.com</textual></email></author><author class="po-record e18 e18"><personname class="po-record e19 e19"><firstname class="po-field e20 e20"><textual class="po-textual">David</textual></firstname><surname class="po-field e21 e21"><textual class="po-textual">Cramer</textual></surname></personname><personblurb class="po-container e22 e22"><para class="po-block e23 e23"><textual class="po-textual">David Cramer is a Documentation Build Developer
+                    on the Cloud Doc Tools team at Rackspace Hosting
+                    where he helps maintain the XML-based tool chain
+                    used to produce Rackspace and OpenStack API
+                    documentation. He has also been involved with the
+                    DocBook project for several years.</textual></para></personblurb><affiliation class="po-record e24 e24"><orgname class="po-block e25 e25"><textual class="po-textual">Rackspace Hosting</textual></orgname></affiliation><email class="po-field e26 e26"><textual class="po-textual">david.cramer@rackspace.com</textual></email></author><legalnotice class="po-container e27 e27"><para class="po-block e28 e28"><textual class="po-textual">Copyright © 2012 Rackspace US, Inc.</textual></para></legalnotice><keywordset class="po-table e29 e29" role="author"><keyword class="po-field e30 e30"><textual class="po-textual">WADL</textual></keyword><keyword class="po-field e31 e31"><textual class="po-textual">REST</textual></keyword><keyword class="po-field e32 e32"><textual class="po-textual">APIs</textual></keyword><keyword class="po-field e33 e33"><textual class="po-textual">validation</textual></keyword><keyword class="po-field e34 e34"><textual class="po-textual">documentation</textual></keyword><keyword class="po-field e35 e35"><textual class="po-textual">DocBook</textual></keyword><keyword class="po-field e36 e36"><textual class="po-textual">automata</textual></keyword></keywordset></info><section class="po-hcontainer e37 e37" xml:id="Introduction"><title class="po-block e38 e38"><textual class="po-textual">Introduction</textual></title><para class="po-block e39 e39"><textual class="po-textual"> REST is fast becoming the standard method by which
+            different software systems interact with one another. As
+            such, Rackspace produces a large number of RESTful
+            services both for both internal and public consumption.
+            Because these RESTful services act as integration points,
+            they must be documented accurately and at a very high
+            level of detail. As a REST service is being developed, the
+            documentation must be kept up to date, and the accuracy of
+            the documentation as it relates to the actual
+            implementation of the service must be constantly
+            validated. That said, once the REST service is released
+            the documentation becomes a fixed contract. At this time,
+            there exists the possibility that an implementation my
+            inadvertently drift from what is described in the
+            documentation and this may cause clients to break. Also,
+            when dealing with open source services, other
+            implementations of the same service may be developed by
+            third parties, and it's important for these implementation
+            to behave according to the rules specified by the
+            documentation as well in order for clients to interact
+            with multiple implementations without issue. The process
+            of ensuring conformance to the documentation is
+            complicated, tedious, and error prone. </textual></para><para class="po-block e40 e40"><textual class="po-textual"> To automate the process, we had the idea to use our
+            existing XML documentation pipeline based on XProc, XSLT
+            2.0, DocBook and WADL, which already produced HTML and PDF
+            documentation artifacts, to generate highly efficient
+            validators as well. These validators can be used to check
+            a RESTful service (and its clients) for conformance to the
+            documentation at runtime in a very efficient manner. The
+            validators are capable of using an XSD 1.1 implementation
+            (either Xerces or Saxon) to validate not just the content
+            of a request, but also to perform checks on URI templates
+            and query parameters. The process illustrates the power of
+            single sourcing, in that the same source that is used to
+            produce human readable artifacts is also used to produce
+            machine readable validation instructions. As a result,
+            from the same artifact, we are able to:</textual><itemizedlist class="po-table e41 e41"><listitem class="po-container e42 e42"><para class="po-block e43 e43"><textual class="po-textual"> document APIs consistently and efficiently.
+                    </textual></para></listitem><listitem class="po-container e44 e44"><para class="po-block e45 e45"><textual class="po-textual"> produce different documentation artifacts
+                        such as user guides, specifications, and quick
+                        reference web pages. </textual></para></listitem><listitem class="po-container e46 e46"><para class="po-block e47 e47"><textual class="po-textual"> validate the accuracy of our API
+                        implementations and their clients. </textual></para></listitem><listitem class="po-container e48 e48"><para class="po-block e49 e49"><textual class="po-textual"> help describe the calls a particular user
+                        is authorized to make in an API. </textual></para></listitem></itemizedlist></para><para class="po-block e50 e50"><textual class="po-textual"> The purpose of this paper is to describe our REST
+            documentation pipeline and discuss how it was adapted to
+            produce REST validators. We give a detailed overview of
+            the transformation process, including a description of
+            some of the optimizations performed to achieve efficient
+            real time validation. We also describe some of the
+            challenges we've encountered -- including testing the
+            documentation pipeline.
+        </textual></para></section><section class="po-hcontainer e51 e51" xml:id="Background"><title class="po-block e52 e52"><textual class="po-textual">Background</textual></title><section class="po-hcontainer e53 e53" xml:id="REST"><title class="po-block e54 e54"><textual class="po-textual">About REST</textual></title><para class="po-block e55 e55"><textual class="po-textual"> REST (REpresentational State Transfer) is an
+                "architectural style" described by Roy Fielding in his
+                PhD dissertation </textual><xref class="po-milestone e56 e56" linkend="Fielding2000"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">. REST
+                seeks to adapt the architecture of the Web, along with
+                its scalability, performance, and other advantages, as
+                a platform for any kind of application. In REST, as on
+                the Web, a </textual><emphasis class="po-inline e57 e57"><textual class="po-textual">resource</textual></emphasis><textual class="po-textual"> is an item of
+                interest. Each resource has an address (URI) and one
+                or more </textual><emphasis class="po-inline e58 e58"><textual class="po-textual">representations</textual></emphasis><textual class="po-textual"> (a file
+                with a given media type). A client can interact with a
+                resource through a URL and these interactions in turn
+                act as the engine of application state because the
+                representations provide hypermedia links offering
+                alternative directions the client can take to proceed
+                through the workflow. The RESTful ideal is that just
+                as you interact with a Web site and choose which step
+                to take next, without being frustrated that the layout
+                of the page and links offered have changed since the
+                last time you visited the site, so a client using a
+                RESTful API can pick its way through a workflow
+                without demanding a fixed, brittle contract. Likewise,
+                the Web's mature and well-understood caching
+                mechanisms can improve the performance and scalability
+                of your application, protecting the server from spikes
+                in traffic and the client from brief interruptions in
+                the server's availability.  </textual></para><para class="po-block e59 e59"><textual class="po-textual">While many APIs describe themselves as RESTful, some
+                RESTful APIs are more RESTful than others. At the most
+                rudimentary level, APIs may employ one or more URIs,
+                but still use only one method (GET, POST) to tunnel
+                their requests over HTTP and do not represent a
+                radical break from WS-* services. APIs that embrace
+                the RESTful architecture more fully offer a larger
+                number of resources, each with a URI, and map a
+                variety of HTTP verbs to the Create Read Update Delete
+                (CRUD) operations found in most applications. In these
+                services, parameters are passed in with requests
+                either as elements of the URI or as query parameters
+                appended to the URI. The Web's caching infrastructure
+                also comes into play. Finally, in an ideal more often
+                discussed than achieved, services that fully embrace
+                the idea of hypermedia as the engine of application
+                state (HATEOS), relying on the client to navigate
+                through the workflow in the same way an end-user at an
+                e-commerce site would, by inspecting the available
+                links and picking the appropriate one. </textual></para></section><section class="po-hcontainer e60 e60" xml:id="Pipeline"><title class="po-block e61 e61"><textual class="po-textual">About Rackspace and OpenStack Developer
+                Documentation</textual></title><para class="po-block e62 e62"><link class="po-inline e63 e63" xlink:actuate="onRequest" xlink:href="http://www.rackspace.com" xlink:show="new" xlink:type="simple"><textual class="po-textual">Rackspace</textual></link><textual class="po-textual"> is a hosting company that found
+                itself well positioned to play a significant role in
+                the sea change from traditional hosting to cloud
+                computing started by Amazon Web Services. The
+                Rackspace strategy involves creating an open source
+                alternative to the closed, proprietary world of vendor
+                lock-in that AWS represents. To that end, Rackspace
+                partnered with NASA to create a collection of open
+                source cloud software, called </textual><link class="po-inline e64 e64" xlink:actuate="onRequest" xlink:href="http://www.openstack.org" xlink:show="new" xlink:type="simple"><textual class="po-textual">OpenStack</textual></link><textual class="po-textual">. Since its launch in 2010,
+                OpenStack has enjoyed rapid growth as an open source
+                project with hundreds of companies and individuals
+                participating. Since much of the code that we develop
+                is contributed to OpenStack, we needed an approach to
+                documentation that facilitated interchange and
+                collaboration. DocBook and the XSLT stylesheets from
+                the </textual><link class="po-inline e65 e65" xlink:actuate="onRequest" xlink:href="http://docbook.sourceforge.net/" xlink:show="new" xlink:type="simple"><textual class="po-textual">DocBook Open Repository</textual></link><textual class="po-textual"> provide the basis
+                for our documentation tool chain. </textual></para><para class="po-block e66 e66"><textual class="po-textual">Our documentation pipeline contains the typical
+                components: a schema, authoring environment, source
+                control system, build system, and hosted artifacts. In
+                particular, we use:</textual><itemizedlist class="po-table e67 e67"><listitem class="po-container e68 e68"><para class="po-block e69 e69"><textual class="po-textual">A variant of the DocBook 5.0 schema,
+                            called RackBook. </textual></para></listitem><listitem class="po-container e70 e70"><para class="po-block e71 e71"><textual class="po-textual">A Java Web Start version of the </textual><link class="po-inline e72 e72" xlink:actuate="onRequest" xlink:href="http://www.oxygenxml.com/" xlink:show="new" xlink:type="simple"><textual class="po-textual">oXygen XML editor</textual></link><textual class="po-textual"> with a
+                            custom framework to support RackBook and
+                            our specific needs. Contributors are free
+                            to use any text editor, but the </textual><link class="po-inline e73 e73" xlink:actuate="onRequest" xlink:href="http://docs.rackspace.com/oxygen" xlink:show="new" xlink:type="simple"><textual class="po-textual">customized version of oXygen</textual></link><textual class="po-textual">
+                            provides many convenience features.
+                        </textual></para></listitem><listitem class="po-container e74 e74"><para class="po-block e75 e75"><textual class="po-textual">Customizations on top of the DocBook
+                            XSLT stylesheets to produce pdf and HTML
+                            output branded for Rackspace, OpenStack,
+                            or other partners as necessary. </textual></para></listitem><listitem class="po-container e76 e76"><para class="po-block e77 e77"><textual class="po-textual">An extended version of the </textual><link class="po-inline e78 e78" xlink:actuate="onRequest" xlink:href="http://docbkx-tools.sourceforge.net/docbkx-maven-plugin/" xlink:show="new" xlink:type="simple"><textual class="po-textual">Docbkx</textual></link><textual class="po-textual">
+                            </textual><link class="po-inline e79 e79" xlink:actuate="onRequest" xlink:href="https://maven.apache.org/" xlink:show="new" xlink:type="simple"><textual class="po-textual">Maven</textual></link><textual class="po-textual"> plugin to manage
+                            build-time dependencies and perform the
+                            build logic to generate artifacts. We've
+                            extended Docbkx to incorporate </textual><link class="po-inline e80 e80" xlink:actuate="onRequest" xlink:href="http://xmlcalabash.com/" xlink:show="new" xlink:type="simple"><textual class="po-textual">Calabash</textual></link><textual class="po-textual"> so that we can
+                            preprocess our source code with XProc
+                            pipelines. Because OpenStack also relies
+                            on this tool, we have open sourced our
+                            version of the Maven plugin (</textual><link class="po-inline e81 e81" xlink:actuate="onRequest" xlink:href="https://github.com/rackspace/clouddocs-maven-plugin" xlink:show="new" xlink:type="simple"><textual class="po-textual">clouddocs-maven-plugin</textual></link><textual class="po-textual">).</textual></para></listitem><listitem class="po-container e82 e82"><para class="po-block e83 e83"><textual class="po-textual">We store our source code in a internal
+                            git repositories and schedule builds using
+                            Jenkins jobs.</textual></para></listitem></itemizedlist></para></section><section class="po-hcontainer e84 e84" xml:id="WhyWADL"><title class="po-block e85 e85"><textual class="po-textual">Why WADL?</textual></title><para class="po-block e86 e86"><textual class="po-textual"> We evaluated frameworks that provide test consoles
+                and some level of documentation for RESTful APIs like
+                    </textual><link class="po-inline e87 e87" xlink:actuate="onRequest" xlink:href="http://www.apigee.com" xlink:show="new" xlink:type="simple"><textual class="po-textual">Apigee</textual></link><textual class="po-textual">, </textual><link class="po-inline e88 e88" xlink:actuate="onRequest" xlink:href="http://mashery.com/" xlink:show="new" xlink:type="simple"><textual class="po-textual">Mashery</textual></link><textual class="po-textual">,
+                and </textual><link class="po-inline e89 e89" xlink:actuate="onRequest" xlink:href="http://swagger.wordnik.com/" xlink:show="new" xlink:type="simple"><textual class="po-textual">Swagger</textual></link><textual class="po-textual">, but found each lacking one or
+                another important feature. We ultimately decided to
+                leverage our DocBook-based tool chain to create human
+                and machine readable descriptions of the APIs from the
+                same source. The human readable artifacts are the
+                documentation, and the machine readable WADL would
+                facilitate the run-time validation of API calls in the
+                via Open Repose, our open source RESTful proxy. There
+                are a number of reasons why we chose WADL over using
+                an existing alternative description languages or
+                designing our DSL: </textual><itemizedlist class="po-table e90 e90"><listitem class="po-container e91 e91"><para class="po-block e92 e92"><textual class="po-textual">The WADL vocabulary includes a number of
+                            features that facilitate authoring and
+                            content reuse. </textual></para></listitem><listitem class="po-container e93 e93"><para class="po-block e94 e94"><textual class="po-textual">Since WADL is XML, it fit easily into
+                            our existing DocBook pipeline. </textual></para></listitem><listitem class="po-container e95 e95"><para class="po-block e96 e96"><textual class="po-textual">The format is extensible and thus it is
+                            simple to add support for new features and
+                            niche use-cases. </textual></para></listitem><listitem class="po-container e97 e97"><para class="po-block e98 e98"><textual class="po-textual">The format is grammar agnostic. This
+                            means that a grammar can be specified in
+                            XML Schema for XML media types and JSON
+                            Schema for JSON media types. </textual></para></listitem><listitem class="po-container e99 e99"><para class="po-block e100 e100"><textual class="po-textual">Additionally, grammars can be used not
+                            just to make assertions about the content
+                            of HTTP payloads as a whole, but also to
+                            make assertions about a particular subset
+                            of it. </textual></para></listitem><listitem class="po-container e101 e101"><para class="po-block e102 e102"><textual class="po-textual">Grammars can also be used to make
+                            assertions over all aspects of an HTTP
+                            request or response: template parameters,
+                            matrix parameters, query parameters and
+                            headers. </textual></para></listitem><listitem class="po-container e103 e103"><para class="po-block e104 e104"><textual class="po-textual">WADL is specific to the HTTP protocol
+                            and captures all of that protocol's
+                            features. As such, it's a perfect markup
+                            language for semantically describing
+                            RESTful services. </textual></para></listitem></itemizedlist><textual class="po-textual"> We elaborate on some of the more
+                important features in detail in the following
+                sections. </textual></para><section class="po-hcontainer e105 e105" xml:id="flexability"><title class="po-block e106 e106"><textual class="po-textual">Flexibility</textual></title><para class="po-block e107 e107"><textual class="po-textual">One of the nice features of WADL is that it has
+                    a very flexible schema especially when associating
+                    URI paths to resources. For example, suppose we
+                    have a very sparse API that allows a
+                        </textual><code class="po-atom e108 e108"><textual class="po-textual">GET</textual></code><textual class="po-textual"> and </textual><code class="po-atom e109 e109"><textual class="po-textual">DELETE</textual></code><textual class="po-textual">
+                    operation to occur only at the URI
+                        </textual><code class="po-atom e110 e110"><textual class="po-textual">https://test.api.openstack.com/path/to/my/resource</textual></code><textual class="po-textual">.
+                    This can be represented in a WADL in the following
+                    manner: </textual></para><figure class="po-container e111 e111" xml:id="WADLTree" xreflabel="Example 1"><title class="po-block e112 e112"><textual class="po-textual">WADL in Tree Form</textual></title><programlisting class="po-block e113 e113" xml:space="preserve"><textual class="po-textual">&lt;application xmlns="http://wadl.dev.java.net/2009/02"&gt;
+    &lt;grammars/&gt;
+    &lt;resources base="https://test.api.openstack.com"&gt;
+        &lt;resource path="path"&gt;
+            &lt;resource path="to"&gt;
+                &lt;resource path="my"&gt;
+                    &lt;resource path="resource"&gt;
+                        &lt;method name="GET"&gt;
+                            &lt;response status="200 203"/&gt;
+                        &lt;/method&gt;
+                        &lt;method name="DELETE"&gt;
+                            &lt;response status="200"/&gt;
+                        &lt;/method&gt;
+                    &lt;/resource&gt;
+                &lt;/resource&gt;
+            &lt;/resource&gt;
+        &lt;/resource&gt;
+    &lt;/resources&gt;
+&lt;/application&gt;
+</textual></programlisting></figure><para class="po-block e114 e114"><textual class="po-textual">Note that each individual path segment in the
+                    URI is represented by a
+                        </textual><code class="po-atom e115 e115"><textual class="po-textual">&lt;resource&gt;</textual></code><textual class="po-textual"> element. While
+                    the approach would work well in cases where the
+                    API has a complex structure with many resources,
+                    it's overkill for this example. Instead, we can
+                    represent the API like this: </textual></para><figure class="po-container e116 e116" xml:id="WADLFlat" xreflabel="Example 2"><title class="po-block e117 e117"><textual class="po-textual">WADL in Flat Form</textual></title><programlisting class="po-block e118 e118" xml:space="preserve"><textual class="po-textual">&lt;application xmlns="http://wadl.dev.java.net/2009/02"&gt;
+    &lt;grammars/&gt;
+    &lt;resources base="https://test.api.openstack.com"&gt;
+        &lt;resource path="path/to/my/resource"&gt;
+            &lt;method name="GET"&gt;
+                &lt;response status="200 203"/&gt;
+            &lt;/method&gt;
+            &lt;method name="DELETE"&gt;
+                &lt;response status="200"/&gt;
+            &lt;/method&gt;
+        &lt;/resource&gt;
+    &lt;/resources&gt;
+&lt;/application&gt;
+</textual></programlisting></figure><para class="po-block e119 e119"><textual class="po-textual"> Here, a </textual><code class="po-atom e120 e120"><textual class="po-textual">&lt;resource&gt;</textual></code><textual class="po-textual"> element
+                    covers multiple segments in the path all at once,
+                    in this case </textual><code class="po-atom e121 e121"><textual class="po-textual">path/to/my/resource</textual></code><textual class="po-textual">.
+                    Given the sparse API, this is far more convenient.
+                    The WADL need not be entirely written in the form
+                    illustrated in </textual><xref class="po-milestone e122 e122" linkend="WADLTree"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual"> (tree
+                    form) or in the form in </textual><xref class="po-milestone e123 e123" linkend="WADLFlat"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">
+                    (flat form). A WADL can contain resources that are
+                    simultaneously in both forms (mixed form) as
+                    illustrated here: </textual></para><figure class="po-container e124 e124" xml:id="WADLMix" xreflabel="Example 3"><title class="po-block e125 e125"><textual class="po-textual">WADL in Mix Form</textual></title><programlisting class="po-block e126 e126" xml:space="preserve"><textual class="po-textual">&lt;application xmlns="http://wadl.dev.java.net/2009/02"&gt;
+    &lt;grammars/&gt;
+    &lt;resources base="https://test.api.openstack.com"&gt;
+        &lt;resource path="path/to/my"&gt;
+            &lt;resource path="resource"&gt;
+                &lt;method name="GET"&gt;
+                    &lt;response status="200 203"/&gt;
+                &lt;/method&gt;
+                &lt;method name="DELETE"&gt;
+                    &lt;response status="200"/&gt;
+                &lt;/method&gt;
+            &lt;/resource&gt;
+        &lt;/resource&gt;
+    &lt;/resources&gt;
+&lt;/application&gt;
+</textual></programlisting></figure><para class="po-block e127 e127"><textual class="po-textual"> In </textual><xref class="po-milestone e128 e128" linkend="WADLMix"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual"> we have two
+                        </textual><code class="po-atom e129 e129"><textual class="po-textual">&lt;resource&gt;</textual></code><textual class="po-textual"> elements, one
+                    for </textual><code class="po-atom e130 e130"><textual class="po-textual">path/to/my</textual></code><textual class="po-textual"> and another for
+                        </textual><code class="po-atom e131 e131"><textual class="po-textual">resource</textual></code><textual class="po-textual">. The ability to intermix
+                    flat and tree forms, allows the WADL author the
+                    flexibility to start with a simple API description
+                    and expand on it as the API grows in complexity.
+                </textual></para></section><section class="po-hcontainer e132 e132" xml:id="content_reuse"><title class="po-block e133 e133"><textual class="po-textual">Content Reuse</textual></title><para class="po-block e134 e134"><textual class="po-textual">WADL contains a number of features that
+                    encourages content reuse. First,
+                        </textual><code class="po-atom e135 e135"><textual class="po-textual">&lt;method&gt;</textual></code><textual class="po-textual">,
+                        </textual><code class="po-atom e136 e136"><textual class="po-textual">&lt;representation&gt;</textual></code><textual class="po-textual">, and
+                        </textual><code class="po-atom e137 e137"><textual class="po-textual">&lt;param&gt;</textual></code><textual class="po-textual"> elements can be
+                    specified separately from individual resources and
+                    therefore can be shared between them. For example
+                    suppose that you have two resources
+                        </textual><code class="po-atom e138 e138"><textual class="po-textual">widgets</textual></code><textual class="po-textual"> and </textual><code class="po-atom e139 e139"><textual class="po-textual">gadgets</textual></code><textual class="po-textual">
+                    both of these resources contain a method to access
+                    metadata. You can repeat the method definition in
+                    both resources as illustrated in </textual><xref class="po-milestone e140 e140" linkend="wg-one"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">. </textual></para><figure class="po-container e141 e141" xml:id="wg-one" xreflabel="Example 4"><title class="po-block e142 e142"><textual class="po-textual">Two resources with a common method</textual></title><programlisting class="po-block e143 e143" xml:space="preserve"><textual class="po-textual">&lt;application xmlns="http://wadl.dev.java.net/2009/02"
+             xmlns:wapi="http://widget/api/v1"&gt;
+    &lt;grammars&gt;
+        &lt;include href="xsd/widget.xsd"/&gt;
+    &lt;/grammars&gt;
+    &lt;resources base="https://test.api.openstack.com"&gt;
+        &lt;resource path="widgets"&gt;
+            &lt;method name="GET"&gt;
+                &lt;response status="200 203"&gt;
+                    &lt;representation mediaType="application/xml" element="wapi:metadata"/&gt;
+                &lt;/response&gt;
+            &lt;/method&gt;
+        &lt;/resource&gt;
+        &lt;resource path="gadgets"&gt;
+            &lt;method name="GET"&gt;
+                &lt;response status="200 203"&gt;
+                    &lt;representation mediaType="application/xml" element="wapi:metadata"/&gt;
+                &lt;/response&gt;
+            &lt;/method&gt;
+        &lt;/resource&gt;
+    &lt;/resources&gt;
+&lt;/application&gt;
+</textual></programlisting></figure><para class="po-block e144 e144"><textual class="po-textual">Repeating the method however can be error prone
+                    and tedious. Instead, the method can be written
+                    once and referenced from the individual resource
+                    as illustrated in </textual><xref class="po-milestone e145 e145" linkend="wg-two"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">. </textual></para><figure class="po-container e146 e146" xml:id="wg-two" xreflabel="Example 5"><title class="po-block e147 e147"><textual class="po-textual">Two resources with a common shared
+                        method</textual></title><programlisting class="po-block e148 e148" xml:space="preserve"><textual class="po-textual">&lt;application xmlns="http://wadl.dev.java.net/2009/02"
+             xmlns:wapi="http://widget/api/v1"&gt;
+    &lt;grammars&gt;
+        &lt;include href="xsd/widget.xsd"/&gt;
+    &lt;/grammars&gt;
+    &lt;resources base="https://test.api.openstack.com"&gt;
+        &lt;resource path="widgets"&gt;
+            &lt;method href="#getMetadata"/&gt;
+        &lt;/resource&gt;
+        &lt;resource path="gadgets"&gt;
+            &lt;method href="#getMetadata"/&gt;
+        &lt;/resource&gt;
+    &lt;/resources&gt;
+    &lt;method name="GET" id="getMetadata"&gt;
+        &lt;response status="200 203"&gt;
+            &lt;representation mediaType="application/xml" element="wapi:metadata"/&gt;
+        &lt;/response&gt;
+    &lt;/method&gt;
+&lt;/application&gt;
+</textual></programlisting></figure><para class="po-block e149 e149"><textual class="po-textual">Note that the method is referred to by its
+                        </textual><code class="po-atom e150 e150"><textual class="po-textual">id</textual></code><textual class="po-textual"> and the hash (#) is used to
+                    denote the internal link. It's possible that
+                    multiple related methods can be shared between
+                    resources. One can express multiple methods
+                    together, as in </textual><xref class="po-milestone e151 e151" linkend="wg-three"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">,
+                    however this too can get tedious an error prone. </textual></para><figure class="po-container e152 e152" xml:id="wg-three" xreflabel="Example 6"><title class="po-block e153 e153"><textual class="po-textual">Two resources with a common shared
+                        methods</textual></title><programlisting class="po-block e154 e154" xml:space="preserve"><textual class="po-textual">&lt;application xmlns="http://wadl.dev.java.net/2009/02"
+             xmlns:wapi="http://widget/api/v1"&gt;
+    &lt;grammars&gt;
+        &lt;include href="xsd/widget.xsd"/&gt;
+    &lt;/grammars&gt;
+    &lt;resources base="https://test.api.openstack.com"&gt;
+        &lt;resource path="widgets"&gt;
+            &lt;method href="#getMetadata"/&gt;
+            &lt;method href="#setMetadata"/&gt;
+        &lt;/resource&gt;
+        &lt;resource path="gadgets"&gt;
+            &lt;method href="#getMetadata"/&gt;
+            &lt;method href="#setMetadata"/&gt;
+        &lt;/resource&gt;
+    &lt;/resources&gt;
+    &lt;method name="GET" id="getMetadata"&gt;
+        &lt;response status="200 203"&gt;
+            &lt;representation mediaType="application/xml" element="wapi:metadata"/&gt;
+        &lt;/response&gt;
+    &lt;/method&gt;
+    &lt;method name="POST" id="setMetadata"&gt;
+        &lt;request&gt;
+            &lt;representation mediaType="application/xml" element="wapi:metadata"/&gt;
+        &lt;/request&gt;
+        &lt;response status="200"&gt;
+            &lt;representation mediaType="application/xml" element="wapi:metadata"/&gt;
+        &lt;/response&gt;
+    &lt;/method&gt;
+&lt;/application&gt;
+</textual></programlisting></figure><para class="po-block e155 e155"><textual class="po-textual">To alleviate this issue, WADL defines the
+                    concept of a </textual><code class="po-atom e156 e156"><textual class="po-textual">resource_type</textual></code><textual class="po-textual">. A
+                        </textual><code class="po-atom e157 e157"><textual class="po-textual">resource_type</textual></code><textual class="po-textual"> contains common
+                    behavior that can be shared between multiple
+                    resources. This is illustrated in </textual><xref class="po-milestone e158 e158" linkend="wg-four"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">. </textual></para><figure class="po-container e159 e159" xml:id="wg-four" xreflabel="Example 7"><title class="po-block e160 e160"><textual class="po-textual">Two resources with a common resource
+                        type</textual></title><programlisting class="po-block e161 e161" xml:space="preserve"><textual class="po-textual">&lt;application xmlns="http://wadl.dev.java.net/2009/02"
+             xmlns:wapi="http://widget/api/v1"&gt;
+    &lt;grammars&gt;
+        &lt;include href="xsd/widget.xsd"/&gt;
+    &lt;/grammars&gt;
+    &lt;resources base="https://test.api.openstack.com"&gt;
+        &lt;resource path="widgets" type="#containsMetadata"/&gt;
+        &lt;resource path="gadgets" type="#containsMetadata"/&gt;
+    &lt;/resources&gt;
+    &lt;resource_type id="containsMetadata"&gt;
+        &lt;method name="GET" id="getMetadata"&gt;
+            &lt;response status="200 203"&gt;
+                &lt;representation mediaType="application/xml" element="wapi:metadata"/&gt;
+            &lt;/response&gt;
+        &lt;/method&gt;
+        &lt;method name="POST" id="setMetadata"&gt;
+            &lt;request&gt;
+                &lt;representation mediaType="application/xml" element="wapi:metadata"/&gt;
+            &lt;/request&gt;
+            &lt;response status="200"&gt;
+                &lt;representation mediaType="application/xml" element="wapi:metadata"/&gt;
+            &lt;/response&gt;
+        &lt;/method&gt;
+    &lt;/resource_type&gt;
+&lt;/application&gt;
+</textual></programlisting></figure><para class="po-block e162 e162"><textual class="po-textual"> Realistically, </textual><code class="po-atom e163 e163"><textual class="po-textual">resource_type</textual></code><textual class="po-textual">s may
+                    capture many different methods. They may also
+                    introduce common sub-resources as illustrated in
+                        </textual><xref class="po-milestone e164 e164" linkend="wg-five"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">. </textual></para><figure class="po-container e165 e165" xml:id="wg-five" xreflabel="Example 8"><title class="po-block e166 e166"><textual class="po-textual">Two resources with a common complex
+                        resource type</textual></title><programlisting class="po-block e167 e167" xml:space="preserve"><textual class="po-textual">&lt;application xmlns="http://wadl.dev.java.net/2009/02"
+             xmlns:wapi="http://widget/api/v1"&gt;
+    &lt;grammars&gt;
+        &lt;include href="xsd/widget.xsd"/&gt;
+    &lt;/grammars&gt;
+    &lt;resources base="https://test.api.openstack.com"&gt;
+        &lt;resource path="widgets" type="#containsMetadata"/&gt;
+        &lt;resource path="gadgets" type="#containsMetadata"/&gt;
+    &lt;/resources&gt;
+    &lt;resource_type id="containsMetadata"&gt;
+        &lt;method href="#getMetadata"/&gt;
+        &lt;method href="#setMetadata"/&gt;
+        &lt;resource id="MetadataKey" path="{key}"&gt;
+            &lt;param name="key" style="template" type="wapi:MetadataKey"/&gt;
+            &lt;method href="#getMetadataItem"/&gt;
+            &lt;method href="#setMetadataItem"/&gt;
+            &lt;method href="#deleteMetadataItem"/&gt;
+        &lt;/resource&gt;
+    &lt;/resource_type&gt;
+&lt;/application&gt;
+</textual></programlisting></figure><para class="po-block e168 e168"><textual class="po-textual">Note that </textual><code class="po-atom e169 e169"><textual class="po-textual">&lt;method&gt;</textual></code><textual class="po-textual">,
+                        </textual><code class="po-atom e170 e170"><textual class="po-textual">&lt;representation&gt;</textual></code><textual class="po-textual">,
+                        </textual><code class="po-atom e171 e171"><textual class="po-textual">&lt;param&gt;</textual></code><textual class="po-textual">, and
+                        </textual><code class="po-atom e172 e172"><textual class="po-textual">&lt;resource_type&gt;</textual></code><textual class="po-textual"> elements
+                    need not appear in the same WADL, they may be
+                    linked in from an external WADL as illustrated
+                    below. </textual></para><figure class="po-container e173 e173" xml:id="wg-six" xreflabel="Example 9"><title class="po-block e174 e174"><textual class="po-textual">Two resources with a common external
+                        resource type</textual></title><programlisting class="po-block e175 e175" xml:space="preserve"><textual class="po-textual">&lt;application xmlns="http://wadl.dev.java.net/2009/02"
+             xmlns:wapi="http://widget/api/v1"&gt;
+    &lt;grammars&gt;
+        &lt;include href="xsd/widget.xsd"/&gt;
+    &lt;/grammars&gt;
+    &lt;resources base="https://test.api.openstack.com"&gt;
+        &lt;resource path="widgets" type="common.wadl#containsMetadata"&gt;
+            &lt;!-- widget specific subresources / methods --&gt;
+        &lt;/resource&gt;
+        &lt;resource path="gadgets" type="common.wadl#containsMetadata"&gt;
+            &lt;!-- gadget specific subresources / methods --&gt;
+        &lt;/resource&gt;
+    &lt;/resources&gt;
+&lt;/application&gt;
+</textual></programlisting></figure><para class="po-block e176 e176"><textual class="po-textual"> Finally, note that multiple
+                        </textual><code class="po-atom e177 e177"><textual class="po-textual">resource_type</textual></code><textual class="po-textual">s may be associated
+                    with a single resource. </textual></para><figure class="po-container e178 e178" xml:id="wg-seven" xreflabel="Example 10"><title class="po-block e179 e179"><textual class="po-textual">Two resources inheriting from multiple
+                        resource types</textual></title><programlisting class="po-block e180 e180" xml:space="preserve"><textual class="po-textual">&lt;application xmlns="http://wadl.dev.java.net/2009/02"
+             xmlns:wapi="http://widget/api/v1"&gt;
+    &lt;grammars&gt;
+        &lt;include href="xsd/widget.xsd"/&gt;
+    &lt;/grammars&gt;
+    &lt;resources base="https://test.api.openstack.com"&gt;
+        &lt;resource path="widgets" type="common.wadl#containsMetadata common.wadl#commonMethods"&gt;
+            &lt;!-- widget specific subresources / methods --&gt;
+        &lt;/resource&gt;
+        &lt;resource path="gadgets" type="common.wadl#containsMetadata common.wadl#commonMethods"&gt;
+            &lt;!-- gadget specific subresources / methods --&gt;
+        &lt;/resource&gt;
+    &lt;/resources&gt;
+&lt;/application&gt;
+</textual></programlisting></figure></section><section class="po-hcontainer e181 e181" xml:id="inline_docs"><title class="po-block e182 e182"><textual class="po-textual">Inline Documentation</textual></title><para class="po-block e183 e183"><textual class="po-textual">All elements defined by the WADL specification
+                    can be associated with inline documentation via
+                    the </textual><code class="po-atom e184 e184"><textual class="po-textual">&lt;doc&gt;</textual></code><textual class="po-textual"> element. A simple
+                    illustration of this is shown in the example
+                    below. </textual></para><figure class="po-container e185 e185" xml:id="doc" xreflabel="Example 11"><title class="po-block e186 e186"><textual class="po-textual">Resource type with doc element</textual></title><programlisting class="po-block e187 e187" xml:space="preserve"><textual class="po-textual">&lt;resource_type id="BackupList"&gt;
+    &lt;doc xml:lang="EN" title="Backup List"&gt;
+        &lt;p xmlns="http://www.w3.org/1999/xhtml"&gt;
+            A list of backups. Each backup contains IDs, names, and
+            links -- other attributes are omitted.
+        &lt;/p&gt;
+    &lt;/doc&gt;
+    &lt;method href="#listBackups"/&gt;
+&lt;/resource_type&gt;
+</textual></programlisting></figure><para class="po-block e188 e188"><textual class="po-textual">Note that </textual><xref class="po-milestone e189 e189" linkend="doc"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual"> uses the XHTML
+                    grammar for narrative text. This is not a
+                    requirement, different narrative text grammars can
+                    be used. Also note the used of the
+                        </textual><code class="po-atom e190 e190"><textual class="po-textual">xml:lang</textual></code><textual class="po-textual"> attribute, multiple
+                        </textual><code class="po-atom e191 e191"><textual class="po-textual">&lt;doc&gt;</textual></code><textual class="po-textual"> elements can be used
+                    each in a different language to aid in the
+                    internationalization of the WADL. The
+                        </textual><code class="po-atom e192 e192"><textual class="po-textual">title</textual></code><textual class="po-textual"> element can be used to give
+                    an overview of the documentation text. </textual></para></section><section class="po-hcontainer e193 e193" xml:id="grammar_aug"><title class="po-block e194 e194"><textual class="po-textual">Grammar Agnostic Assertions</textual></title><para class="po-block e195 e195"><textual class="po-textual">WADLs contain a </textual><code class="po-atom e196 e196"><textual class="po-textual">&lt;grammars&gt;</textual></code><textual class="po-textual">
+                    element that allows the association of grammars
+                    such as XML Schema with a REST API. Grammars may
+                    be included by means of the
+                        </textual><code class="po-atom e197 e197"><textual class="po-textual">&lt;include&gt;</textual></code><textual class="po-textual"> element as
+                    illustrated in </textual><xref class="po-milestone e198 e198" linkend="wg-seven"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual"> or they
+                    may be written inline as shown in </textual><xref class="po-milestone e199 e199" linkend="inline"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">. </textual></para><para class="po-block e200 e200"><textual class="po-textual">The WADL specification does not encourage the
+                    use of a specific schema grammar over another, but
+                    allows the usage of multiple grammars within the
+                    same WADL. This enables support for APIs where
+                    resources are exposed via multiple mediatypes such
+                    as XML and JSON.
+                </textual></para><para class="po-block e201 e201"><textual class="po-textual">Besides using grammars to make assertions about
+                    a particular media types, they can also be used to
+                    make assertions about other aspects of the HTTP
+                    request and response. This is illustrated in </textual><xref class="po-milestone e202 e202" linkend="inline"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">. </textual></para><figure class="po-container e203 e203" xml:id="inline" xreflabel="Example 12"><title class="po-block e204 e204"><textual class="po-textual">WADL with inline grammar</textual></title><programlisting class="po-block e205 e205" xml:space="preserve"><textual class="po-textual">&lt;application xmlns="http://wadl.dev.java.net/2009/02"
+             xmlns:csapi="http://docs.openstack.org/compute/api/v1.1"&gt;
+    &lt;grammars&gt;
+        &lt;schema elementFormDefault="qualified"
+                attributeFormDefault="unqualified"
+                xmlns="http://www.w3.org/2001/XMLSchema"
+                xmlns:csapi="http://docs.openstack.org/compute/api/v1.1"
+                xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+                targetNamespace="http://docs.openstack.org/compute/api/v1.1"&gt;
+            &lt;simpleType name="Progress"&gt;
+                &lt;restriction base="xsd:int"&gt;
+                    &lt;minInclusive value="0"/&gt;
+                    &lt;maxInclusive value="100" /&gt;
+                &lt;/restriction&gt;
+            &lt;/simpleType&gt;
+            &lt;simpleType name="UUID"&gt;
+                &lt;restriction base="xsd:string"&gt;
+                    &lt;length value="36" fixed="true"/&gt;
+                    &lt;pattern value="[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}"/&gt;
+                &lt;/restriction&gt;
+            &lt;/simpleType&gt;
+        &lt;/schema&gt;
+    &lt;/grammars&gt;
+    &lt;resources base="https://test.api.openstack.com"&gt;
+        &lt;resource id="uuid" path="path/to/my/resource/{uuid}"&gt;
+            &lt;param name="uuid" style="template" type="csapi:UUID"/&gt;
+            &lt;method href="#getMethod" /&gt;
+        &lt;/resource&gt;
+        &lt;resource id="progress" path="path/to/{progress}"&gt;
+            &lt;param name="progress" style="template" type="csapi:Progress"/&gt;
+            &lt;method href="#getMethod" /&gt;
+        &lt;/resource&gt;
+    &lt;/resources&gt;
+    &lt;method id="getMethod" name="GET"&gt;
+        &lt;response status="200 203"/&gt;
+    &lt;/method&gt;
+&lt;/application&gt;
+</textual></programlisting></figure><para class="po-block e206 e206"><textual class="po-textual"> Here, we define two simple types: </textual><variablelist class="po-table e207 e207"><varlistentry class="po-record e208 e208"><term class="po-block e209 e209"><code class="po-atom e210 e210"><textual class="po-textual">Progress</textual></code></term><listitem class="po-container e211 e211"><para class="po-block e212 e212"><textual class="po-textual"> An int with a value between 0
+                                   and 100 inclusive. </textual></para></listitem></varlistentry><varlistentry class="po-record e213 e213"><term class="po-block e214 e214"><code class="po-atom e215 e215"><textual class="po-textual">UUID</textual></code></term><listitem class="po-container e216 e216"><para class="po-block e217 e217"><textual class="po-textual"> A 36 character long string that
+                                   represents five groups of
+                                   hexadecimal digits separated by
+                                   hyphens. </textual></para></listitem></varlistentry></variablelist><textual class="po-textual">We associate these simple types
+                    with path elements in the URI by means of template
+                    parameters. Thus, we are denoting that the URI
+                    paths:
+                        </textual><code class="po-atom e218 e218"><textual class="po-textual">path/to/my/resource/3bba8e68-8af5-11e1-ac65-17a552dd2535</textual></code><textual class="po-textual">
+                    and </textual><code class="po-atom e219 e219"><textual class="po-textual">path/to/98</textual></code><textual class="po-textual"> are valid according to
+                    the WADL, but URI paths such as
+                        </textual><code class="po-atom e220 e220"><textual class="po-textual">path/to/my/resource/xyz</textual></code><textual class="po-textual"> and
+                        </textual><code class="po-atom e221 e221"><textual class="po-textual">path/to/101</textual></code><textual class="po-textual"> are not. </textual></para><para class="po-block e222 e222"><textual class="po-textual">Finally, we can use grammars to make assertions
+                    about individual sections of the mediatype by
+                    means of </textual><code class="po-atom e223 e223"><textual class="po-textual">plain</textual></code><textual class="po-textual"> parameters. This is
+                    illustrated in method in </textual><xref class="po-milestone e224 e224" linkend="plain"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">. </textual></para><figure class="po-container e225 e225" xml:id="plain" xreflabel="Example 13"><title class="po-block e226 e226"><textual class="po-textual">Method with a plain parameter and a
+                        link</textual></title><programlisting class="po-block e227 e227" xml:space="preserve"><textual class="po-textual">&lt;method name="GET" id="versionDetails"&gt;
+    &lt;response status="200 203"&gt;
+        &lt;representation mediaType="application/xml" element="common:version"&gt;
+            &lt;param name="location" style="plain" type="xsd:anyURI"
+                   required="true"
+                   path="/common:version/atom:link[@rel='self']/@href"&gt;
+                &lt;link resource_type="#VersionDetails" rel="self"/&gt;
+            &lt;/param&gt;
+        &lt;/representation&gt;
+    &lt;/response&gt;
+&lt;/method&gt;
+</textual></programlisting></figure><para class="po-block e228 e228"><textual class="po-textual">Here we define that the response to the
+                        </textual><code class="po-atom e229 e229"><textual class="po-textual">versionDetails</textual></code><textual class="po-textual"> method should
+                    contain an XML payload that validates against the
+                    element defined by the QName
+                        </textual><code class="po-atom e230 e230"><textual class="po-textual">common:version</textual></code><textual class="po-textual">. Additionally, we
+                    make an assertion that at the XPath
+                        </textual><code class="po-atom e231 e231"><textual class="po-textual">/common:version/atom:link[@rel='self']/@href</textual></code><textual class="po-textual">
+                    there should be a value that validates against the
+                    type </textual><code class="po-atom e232 e232"><textual class="po-textual">xsd:anyURI</textual></code><textual class="po-textual">. Furthermore, this
+                    URI should provide a link to a resource with a
+                        </textual><code class="po-atom e233 e233"><textual class="po-textual">resource_type</textual></code><textual class="po-textual"> of
+                        </textual><code class="po-atom e234 e234"><textual class="po-textual">VersionDetails</textual></code><textual class="po-textual">. </textual></para><para class="po-block e235 e235"><textual class="po-textual">Note that plain parameters can also be used by
+                mediatypes that are not XML based. </textual><link class="po-inline e236 e236" xlink:actuate="onRequest" xlink:href="https://launchpad.net/" xlink:show="new" xlink:type="simple"><textual class="po-textual">Launchpad</textual></link><textual class="po-textual">
+                uses JSONPath to make similar assertions on its JSON
+                based API. This is illustrated in </textual><xref class="po-milestone e237 e237" linkend="jsonpath"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">. </textual></para><figure class="po-container e238 e238" xml:id="jsonpath" xreflabel="Example 14"><title class="po-block e239 e239"><textual class="po-textual">Excerpt from Launchpad WADL</textual></title><programlisting class="po-block e240 e240" xml:space="preserve"><textual class="po-textual">&lt;representation mediaType="application/json" id="wiki_name-page"&gt;
+    &lt;param style="plain" name="total_size" path="$['total_size']" required="true"/&gt;
+    &lt;param style="plain" name="start" path="$['start']" required="true"/&gt;
+    &lt;param style="plain" name="entries" path="$['entries']" required="true"/&gt;
+    &lt;param style="plain" name="resource_type_link" path="$['resource_type_link']"&gt;
+        &lt;link/&gt;
+    &lt;/param&gt;
+    &lt;param style="plain" name="next_collection_link" path="$['next_collection_link']"&gt;
+        &lt;link resource_type="#wiki_name-page-resource"/&gt;
+    &lt;/param&gt;
+    &lt;param style="plain" name="prev_collection_link" path="$['prev_collection_link']"&gt;
+        &lt;link resource_type="#wiki_name-page-resource"/&gt;
+    &lt;/param&gt;
+    &lt;param style="plain" name="entry_links" path="$['entries'][*]['self_link']"&gt;
+        &lt;link resource_type="https://api.staging.launchpad.net/1.0/#wiki_name"/&gt;
+    &lt;/param&gt;
+  &lt;/representation&gt;
+</textual></programlisting></figure><para class="po-block e241 e241"><textual class="po-textual">Here we state that there should exist JSON
+                    attributes at the JSONPaths given by
+                        </textual><code class="po-atom e242 e242"><textual class="po-textual">$['total_size']</textual></code><textual class="po-textual">,
+                        </textual><code class="po-atom e243 e243"><textual class="po-textual">$['start']</textual></code><textual class="po-textual">, and
+                        </textual><code class="po-atom e244 e244"><textual class="po-textual">$['entries']</textual></code><textual class="po-textual">. Additionally the
+                    fields at </textual><code class="po-atom e245 e245"><textual class="po-textual">$['resource_type_link']</textual></code><textual class="po-textual">,
+                        </textual><code class="po-atom e246 e246"><textual class="po-textual">$['next_collection_link']</textual></code><textual class="po-textual">,
+                        </textual><code class="po-atom e247 e247"><textual class="po-textual">$['prev_collection_link']</textual></code><textual class="po-textual">, and
+                        </textual><code class="po-atom e248 e248"><textual class="po-textual">$['entries'][*]['self_link']</textual></code><textual class="po-textual">
+                    should contain links to other resources. </textual></para><para class="po-block e249 e249"><textual class="po-textual">Note that Launchpad uses plain parameters to
+                    make assertions about various aspects of the JSON
+                        </textual><code class="po-atom e250 e250"><textual class="po-textual">representation</textual></code><textual class="po-textual"> without having to
+                    rely directly on JSON schema. </textual></para><para class="po-block e251 e251"><textual class="po-textual">This ability to reference elements from external
+                    WADLs allows for common behavior to be shared
+                    between different APIs and has the potential to
+                    significantly accelerate the definition of APIs
+                    with common attributes and behaviors. </textual></para></section><section class="po-hcontainer e252 e252" xml:id="extensibility"><title class="po-block e253 e253"><textual class="po-textual">Extensibility</textual></title><para class="po-block e254 e254"><textual class="po-textual">The WADL specification defines a fairly standard
+                    extensibility model of allowing elements and
+                    attributes in foreign namespaces. The example
+                    below illustrates a number of Apigee extensions,
+                    including one which indicates that authentication
+                    credentials are not required in this particular
+                    method call. </textual></para><figure class="po-container e255 e255" xml:id="apigeeext" xreflabel="Example 15"><title class="po-block e256 e256"><textual class="po-textual">Method with Apigee Extensions</textual></title><programlisting class="po-block e257 e257" xml:space="preserve"><textual class="po-textual">&lt;method id="statusespublic_timeline" name="GET" xmlns:apigee="http://api.apigee.com/wadl/2010/07/"&gt;
+    &lt;apigee:tags&gt;
+        &lt;apigee:tag primary="true"&gt;Timeline&lt;/apigee:tag&gt;
+        &lt;apigee:tag&gt;Status&lt;/apigee:tag&gt;
+    &lt;/apigee:tags&gt;
+    &lt;apigee:authentication required="false"/&gt;
+    &lt;apigee:example url="/statuses/public_timeline.{format}"/&gt;
+    &lt;doc title=""
+         apigee:url="http://dev.twitter.com/doc/get/statuses/public_timeline"&gt;Returns
+    the 20 most recent statuses, including retweets if they exist,
+    from non-protected users.&lt;/doc&gt;
+&lt;/method&gt;
+</textual></programlisting></figure><para class="po-block e258 e258"><textual class="po-textual"> The ability to support extensions means that
+                    niche capabilities can be inserted into the WADL
+                    in a compatible manner. </textual></para></section></section><section class="po-hcontainer e259 e259" xml:id="WADL2Docs"><title class="po-block e260 e260"><textual class="po-textual">Documentation from WADL</textual></title><para class="po-block e261 e261"><textual class="po-textual">A WADL describes a RESTful API in a machine readable
+                format. There is often a need, however, for humans to
+                study and understand the available methods,
+                parameters, and representations the API offers. Rather
+                than manually reproducing that information in a
+                documentation format and trying to keep these
+                synchronized, clearly a literate programming approach
+                is called for. </textual></para><para class="po-block e262 e262"><textual class="po-textual">In pursuing our literate program approach, we
+                considered extending DocBook with custom markup that
+                we could then use to generate WADL. This approach was
+                attractive in that it would allow us to make the
+                contract author's experience like writing
+                documentation. However, we worried that we would be
+                reinventing the wheel and would spend too much time
+                creating a content model that could be turned into
+                WADL. We also felt that we would need to support
+                round-tripping between our extended-DocBook and the
+                generated WADL. Ultimately, we decided to allow
+                authors to embed WADL markup directly in the DocBook.
+                To allow for this we: </textual><itemizedlist class="po-table e263 e263"><listitem class="po-container e264 e264"><para class="po-block e265 e265"><textual class="po-textual">Added support for certain elements from
+                            the WADL namespace in our customization of
+                            DocBook.</textual></para></listitem><listitem class="po-container e266 e266"><para class="po-block e267 e267"><textual class="po-textual">Added steps to our processing pipeline
+                            to turn the WADL elements into
+                            DocBook.</textual></para></listitem></itemizedlist><textual class="po-textual">In writing the narrative description of
+                the API, you can include either pointers to an
+                external WADL or literal WADL. The following example
+                shows a fragment of our DocBook-variant with a pointer
+                to resource/method combination in an external WADL: </textual></para><figure class="po-container e268 e268" xml:id="docbookWADL" xreflabel="Example 16"><title class="po-block e269 e269"><textual class="po-textual">DocBook With WADL Elements</textual></title><programlisting class="po-block e270 e270" xml:space="preserve"><textual class="po-textual">&lt;section&gt;
+    &lt;title&gt;Volume Lists&lt;/title&gt;
+    &lt;para&gt;
+        These operations provide a list of volumes associated
+        with a particular tenant. Volumes contain a status
+        attribute that can be used as an indication of the
+        current volume state.  Volumes with an
+        &lt;code&gt;AVAILABLE&lt;/code&gt; status are available for
+        use.  A volume with an &lt;code&gt;ATTACHED&lt;/code&gt; is
+        currently attached to a server.  Other possible values
+        for the status attribute include:
+        &lt;code&gt;CREATING&lt;/code&gt;,
+        &lt;code&gt;ATTACHING&lt;/code&gt;,
+        &lt;code&gt;DETACHING&lt;/code&gt;,
+        &lt;code&gt;DELETING&lt;/code&gt;,
+        &lt;code&gt;DELETED&lt;/code&gt;,
+        &lt;code&gt;UNKNOWN&lt;/code&gt;, and
+        &lt;code&gt;ERROR&lt;/code&gt;.
+    &lt;/para&gt;
+    &lt;para&gt;
+        The list of volumes may be filtered by type, backup,
+        name, and status via the respective query parameters.
+        When retrieving a list of volumes via the
+        changes-since parameter, the list will contain volumes
+        that have been deleted since the changes-since time
+        (see Section 3.5, in the OpenStack Compute Dev Guide
+        for a description of Changes-Since).
+    &lt;/para&gt;
+    &lt;resources xmlns="http://wadl.dev.java.net/2009/02"&gt;
+        &lt;resource href="os-block-storage-1.0.wadl#Volumes"&gt;
+            &lt;method href="listVolumes"/&gt;
+        &lt;/resource&gt;
+    &lt;/resources&gt;
+&lt;/section&gt;
+
+</textual></programlisting></figure><para class="po-block e271 e271"><textual class="po-textual">
+                </textual><itemizedlist class="po-table e272 e272"><listitem class="po-container e273 e273"><para class="po-block e274 e274"><textual class="po-textual">The </textual><code class="po-atom e275 e275"><textual class="po-textual">wadl:resources</textual></code><textual class="po-textual"> element
+                            wraps one or more resources, as it would
+                            in a normal wadl. </textual></para></listitem><listitem class="po-container e276 e276"><para class="po-block e277 e277"><textual class="po-textual">The </textual><code class="po-atom e278 e278"><textual class="po-textual">wadl:resource</textual></code><textual class="po-textual"> element
+                            wraps one or more methods and defines the
+                            location of the wadl and the
+                                </textual><code class="po-atom e279 e279"><textual class="po-textual">id</textual></code><textual class="po-textual"> of the resource for
+                            the methods. </textual></para></listitem><listitem class="po-container e280 e280"><para class="po-block e281 e281"><textual class="po-textual">The </textual><code class="po-atom e282 e282"><textual class="po-textual">wadl:method</textual></code><textual class="po-textual"> element
+                            points to a method defined in the WADL.
+                            Each method becomes a </textual><code class="po-atom e283 e283"><textual class="po-textual">section</textual></code><textual class="po-textual">
+                            in the resulting DocBook. All of the
+                            methods with a common DocBook
+                                </textual><code class="po-atom e284 e284"><textual class="po-textual">section</textual></code><textual class="po-textual"> ancestor become
+                                </textual><code class="po-atom e285 e285"><textual class="po-textual">section</textual></code><textual class="po-textual">s within that
+                                </textual><code class="po-atom e286 e286"><textual class="po-textual">section</textual></code><textual class="po-textual">. Alternatively,
+                            you can omit the </textual><code class="po-atom e287 e287"><textual class="po-textual">wadl:method</textual></code><textual class="po-textual">
+                            and the system will create sections for
+                            all of the methods that are children of
+                            the resource in the target wadl. </textual></para></listitem></itemizedlist><textual class="po-textual">
+            </textual></para><para class="po-block e288 e288"><textual class="po-textual">To ease the burden on authors, we have created
+                schematron rule in a custom framework for the </textual><link class="po-inline e289 e289" xlink:actuate="onRequest" xlink:href="http://www.oxygenxml.com/" xlink:show="new" xlink:type="simple"><textual class="po-textual">oXygen
+                    editor</textual></link><textual class="po-textual"> to validate that the references to
+                the WADL point to ids in the WADL. </textual></para><para class="po-block e290 e290"><textual class="po-textual">In addition to pointing to resource and method
+                combinations, it is also possible to point to a
+                resource and have all the methods within that resource
+                pulled into the document or to point to the WADL and
+                have all of the resources and methods from the WADL
+                pulled in. </textual></para><para class="po-block e291 e291"><textual class="po-textual">Finally, instead of pointing to an external WADL,
+                the author can simply include the entire
+                    </textual><code class="po-atom e292 e292"><textual class="po-textual">wadl:resource</textual></code><textual class="po-textual"> and
+                    </textual><code class="po-atom e293 e293"><textual class="po-textual">wadl:method</textual></code><textual class="po-textual">(s) in the DocBook
+                document directly. </textual></para><para class="po-block e294 e294"><textual class="po-textual"> The following is an image of the section produced
+                in PDF result after processing [</textual><xref class="po-milestone e295 e295" linkend="docbookWADL"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">]: </textual></para><figure class="po-container e296 e296"><title class="po-block e297 e297"><textual class="po-textual">Resulting WADL PDF Section</textual></title><mediaobject class="po-container e298 e298"><imageobject class="po-container e299 e299"><imagedata class="po-meta e300 e300" fileref="../../../vol8/graphics/Williams01/Williams01-001.png" format="png" width="75%"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></imagedata></imageobject></mediaobject></figure><para class="po-block e301 e301"><textual class="po-textual"> The following is the WADL method that is being
+                imported into the DocBook: </textual></para><figure class="po-container e302 e302" xml:id="WADLDocMethod" xreflabel="Example 18"><title class="po-block e303 e303"><textual class="po-textual">WADL Method</textual></title><programlisting class="po-block e304 e304" xml:space="preserve"><textual class="po-textual">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;!-- Volume Methods --&gt;
+&lt;method name="GET" id="listVolumes"&gt;
+    &lt;doc xml:lang="EN" title="List Volumes"&gt;
+        &lt;db:para role="shortdesc"&gt;
+            List all volumes (IDs, names, links).
+        &lt;/db:para&gt;
+        &lt;db:para&gt;
+            A list of volumes. Each volume contains IDs, names, and
+            links -- other attributes are omitted.
+        &lt;/db:para&gt;
+    &lt;/doc&gt;
+    &lt;request&gt;
+        &lt;param name="changes-since" style="query" required="false" type="xsd:dateTime"/&gt;
+        &lt;param name="type" style="query" required="false" type="osapi:UUID"/&gt;
+        &lt;param name="backup" style="query" required="false" type="osapi:UUID"/&gt;
+        &lt;param name="name"   style="query" required="false" type="xsd:string"/&gt;
+        &lt;param name="marker" style="query" required="false" type="osapi:UUID"/&gt;
+        &lt;param name="limit"  style="query" required="false" type="xsd:int"/&gt;
+    &lt;/request&gt;
+    &lt;response status="200 203"&gt;
+        &lt;representation mediaType="application/xml" element="bs:volumes"&gt;
+            &lt;doc xml:lang="EN"&gt;
+                &lt;xsdxt:code href="samples/core/volumes-sparse.xml" /&gt;
+            &lt;/doc&gt;
+        &lt;/representation&gt;
+        &lt;representation mediaType="application/json"&gt;
+            &lt;doc xml:lang="EN"&gt;
+                &lt;xsdxt:code href="samples/core/volumes-sparse.json" /&gt;
+            &lt;/doc&gt;
+        &lt;/representation&gt;
+    &lt;/response&gt;
+    &lt;!-- Common Faults --&gt;
+    &lt;response&gt;
+        &lt;representation mediaType="application/xml" element="bs:blockstorageFault"/&gt;
+        &lt;representation mediaType="application/json"/&gt;
+    &lt;/response&gt;
+    &lt;response status="503"&gt;
+        &lt;representation mediaType="application/xml" element="bs:serviceUnavailable"/&gt;
+        &lt;representation mediaType="application/json"/&gt;
+    &lt;/response&gt;
+    &lt;response status="401"&gt;
+        &lt;representation mediaType="application/xml" element="bs:unauthorized"/&gt;
+        &lt;representation mediaType="application/json"/&gt;
+    &lt;/response&gt;
+    &lt;response status="403"&gt;
+        &lt;representation mediaType="application/xml" element="bs:forbidden"/&gt;
+        &lt;representation mediaType="application/json"/&gt;
+    &lt;/response&gt;
+&lt;/method&gt;</textual></programlisting></figure><para class="po-block e305 e305"><textual class="po-textual"> Note that while many of the attributes and elements
+                map directly from the WADL representation to the PDF
+                rendering, there exist some subtleties: </textual></para><itemizedlist class="po-table e306 e306"><listitem class="po-container e307 e307"><para class="po-block e308 e308"><textual class="po-textual">Query parameters are rendered in two
+                        different ways: Inline with the URI and in the
+                        Request Parameters table </textual></para></listitem><listitem class="po-container e309 e309"><para class="po-block e310 e310"><textual class="po-textual">Section, Table, and Example titles are
+                        automatically generated based on context. For
+                        example, the example title "List Volumes
+                        Response: XML" is generated because there is a
+                        representation example of mediaType
+                        application/xml that is contained within
+                        method called "List Volumes". </textual></para></listitem><listitem class="po-container e311 e311"><para class="po-block e312 e312"><textual class="po-textual">Parameter descriptions are also generated
+                        based on context. </textual></para></listitem><listitem class="po-container e313 e313"><para class="po-block e314 e314"><textual class="po-textual">Other parameters such as the
+                            </textual><code class="po-atom e315 e315"><textual class="po-textual">tenantId</textual></code><textual class="po-textual"> parameter are
+                        implied simply because of the URI the method
+                        is associated with. </textual></para></listitem><listitem class="po-container e316 e316"><para class="po-block e317 e317"><textual class="po-textual">Note the use of the </textual><code class="po-atom e318 e318"><textual class="po-textual">xsdxt:code</textual></code><textual class="po-textual">
+                        extension to associate an example document
+                        with the API response. </textual></para></listitem></itemizedlist></section><section class="po-hcontainer e319 e319" xml:id="WADLNorm"><title class="po-block e320 e320"><textual class="po-textual">WADL Normalization</textual></title><para class="po-block e321 e321"><textual class="po-textual">As described in </textual><xref class="po-milestone e322 e322" linkend="content_reuse"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">, the
+                WADL format includes a number of features that
+                facilitate WADL authoring and content reuse. For
+                example, when creating a WADL, it is typical to put
+                all of the </textual><emphasis class="po-inline e323 e323" role="bold"><textual class="po-textual">method</textual></emphasis><textual class="po-textual">
+                elements at the end of the document and refer to them
+                indirectly from the </textual><emphasis class="po-inline e324 e324" role="bold"><textual class="po-textual">resource</textual></emphasis><textual class="po-textual">s where they are used. You can
+                link to methods in a separate WADL. Likewise, you can
+                define </textual><emphasis class="po-inline e325 e325" role="bold"><textual class="po-textual">resource_type</textual></emphasis><textual class="po-textual">
+                elements containing various methods and parameters.
+                Each </textual><emphasis class="po-inline e326 e326" role="bold"><textual class="po-textual">resource</textual></emphasis><textual class="po-textual"> can
+                then be declared to be of one or more resource types
+                to avoid repeated information. Finally, WADLs can
+                refer to XSD files to define data types used in the
+                WADL. The XSD files in turn often have a modular
+                design. While these features facilitate information
+                reuse and support "single point of truth" practices, a
+                side effect of the indirection is that WADLs can be
+                difficult to process. To address this issue, we
+                created a </textual><link class="po-inline e327 e327" xlink:actuate="onRequest" xlink:href="https://github.com/rackspace/wadl-tools/" xlink:show="new" xlink:type="simple"><textual class="po-textual">WADL normalizer</textual></link><textual class="po-textual"> which uses XSLT to flatten
+                out the WADL and associated XSDs. In the WADL, for
+                example, all references to </textual><code class="po-atom e328 e328"><textual class="po-textual">method</textual></code><textual class="po-textual">s and
+                    </textual><code class="po-atom e329 e329"><textual class="po-textual">resource_type</textual></code><textual class="po-textual">s are resolved. Further
+                processing is therefore greatly simplified. We have
+                made this tool available as open source software. </textual></para><para class="po-block e330 e330"><textual class="po-textual">Use cases for the WADL normalizer include:</textual><itemizedlist class="po-table e331 e331"><listitem class="po-container e332 e332"><para class="po-block e333 e333"><textual class="po-textual">Preparing the WADL for use with tools
+                            like </textual><link class="po-inline e334 e334" xlink:actuate="onRequest" xlink:href="http://www.soapui.org/" xlink:show="new" xlink:type="simple"><textual class="po-textual">SoapUI</textual></link><textual class="po-textual">. Limitations and bugs
+                            in SoapUI cause it to fail if certain
+                            features of the WADL are used. For example
+                            if you use </textual><code class="po-atom e335 e335"><textual class="po-textual">resource_types</textual></code><textual class="po-textual"> or
+                            refer to a method in an external WADL,
+                            SoapUI cannot load the WADL and throws and
+                            exception. </textual></para></listitem><listitem class="po-container e336 e336"><para class="po-block e337 e337"><textual class="po-textual">Preparing the WADL before using it to
+                            generate human-readable documentation, as
+                            described in </textual><xref class="po-milestone e338 e338" linkend="WADL2Docs"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">.</textual></para></listitem><listitem class="po-container e339 e339"><para class="po-block e340 e340"><link class="po-inline e341 e341" xlink:actuate="onRequest" xlink:href="http://www.openrepose.org/" xlink:show="new" xlink:type="simple"><textual class="po-textual">Open
+                        Repose</textual></link><textual class="po-textual"> uses the WADL normalizer as a
+                        preprocessing step before using the WADL for
+                        validation is discussed in </textual><xref class="po-milestone e342 e342" linkend="validationPipeline"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">.</textual></para></listitem></itemizedlist><textual class="po-textual">The WADL normalizer is implemented as
+                XSLT 2.0 stylesheets. In their current form, the
+                stylesheets use modes to take several passes at the
+                WADL, but they would benefit from being implemented as
+                an </textual><link class="po-inline e343 e343" xlink:actuate="onRequest" xlink:href="http://xproc.org/" xlink:show="new" xlink:type="simple"><textual class="po-textual">XProc</textual></link><textual class="po-textual">
+                pipeline. </textual></para><para class="po-block e344 e344"><textual class="po-textual">The WADL normalizer offers a number of options to
+                control the formatting of the normalized wadl file,
+                summarized by the usage
+                below:</textual><programlisting class="po-block e345 e345" xml:space="preserve"><textual class="po-textual">dcramer@anatine ~/rax/wadl-tools/src/test/scala (scalaCLI)
+        $ normalizeWadl.sh -?
+
+        Usage: normalizeWadl.sh [-?fvx] -w wadlFile
+
+        OPTIONS:
+        -w wadlFile: The wadl file to normalize.
+        -f Wadl format. path or tree
+        path: Format resources in path format, 
+        e.g. &lt;resource path='foo/bar'/&gt;
+        tree: Format resources in tree format, 
+        e.g. &lt;resource path='foo'&gt;&lt;resource path='bar'&gt;...
+        If you omit the -f switch, the script makes no 
+        changes to the structure of the resources.
+        -v XSD Version (1.0 and 1.1 supported, 1.1 is the default)
+        -x true or false. Flatten xsds (true by default).
+        -r keep or omit. Omit resource_type elements (keep by default).</textual></programlisting></para><para class="po-block e346 e346"><textual class="po-textual">One of the most important options is the format of
+                the resource paths. By default, the normalizer leaves
+                the path attributes on the resource elements
+                unchanged. So if the source wadl contains a mixture of
+                hierarchical and flat path attribute values, these are
+                left untouched. In the following code listing, notice
+                that some of the resource elements are nested and
+                others have multiple items in the path
+                attribute:</textual><programlisting class="po-block e347 e347" xml:space="preserve"><textual class="po-textual">&lt;application xmlns="http://wadl.dev.java.net/2009/02"
+	     xmlns:xsd="http://www.w3.org/2001/XMLSchema"&gt;
+  &lt;resources base="https://test.api.openstack.com"&gt;
+    &lt;resource path="a/b"&gt;
+      &lt;resource path="c"&gt;
+        &lt;method href="#foo"/&gt;
+      &lt;/resource&gt;
+    &lt;/resource&gt;
+    &lt;resource path="d"&gt;
+      &lt;resource path="e/f"/&gt;
+    &lt;/resource&gt;
+    &lt;resource path="g"/&gt;
+    &lt;resource path="h/i/{j}/k"&gt;
+      &lt;param name="j" style="template" type="xsd:string" required="true"/&gt;
+      &lt;method href="#foo"/&gt;
+    &lt;/resource&gt;
+    &lt;resource path="h/i/{j}/k/l"&gt;
+      &lt;method href="#foo"/&gt;		
+    &lt;/resource&gt;
+  &lt;/resources&gt;
+  &lt;method id="foo"/&gt;
+&lt;/application&gt;</textual></programlisting><textual class="po-textual">However,
+                you can also flatten out these paths or expand them so
+                that all the resources are nested. Here's the same
+                wadl in the </textual><quote class="po-inline e348 e348"><textual class="po-textual">path</textual></quote><textual class="po-textual">
+                format:</textual><programlisting class="po-block e349 e349" xml:space="preserve"><textual class="po-textual">&lt;application xmlns="http://wadl.dev.java.net/2009/02"
+	     xmlns:xsd="http://www.w3.org/2001/XMLSchema"&gt;
+  &lt;resources base="https://test.api.openstack.com"&gt;
+    &lt;resource path="a/b/c" id="d12e4"&gt;
+      &lt;method xmlns:rax="http://docs.rackspace.com/api" rax:id="foo"/&gt;
+    &lt;/resource&gt;
+    &lt;resource path="h/i/{j}/k" id="d12e9"&gt;
+      &lt;param xmlns:rax="http://docs.rackspace.com/api" name="j" style="template"
+	     type="xsd:string"
+	     required="true"
+	     rax:id=""/&gt;
+      &lt;method xmlns:rax="http://docs.rackspace.com/api" rax:id="foo"/&gt;
+    &lt;/resource&gt;
+    &lt;resource path="h/i/{j}/k/l" id="d12e12"&gt;
+      &lt;method xmlns:rax="http://docs.rackspace.com/api" rax:id="foo"/&gt;
+    &lt;/resource&gt;
+  &lt;/resources&gt;
+  &lt;method id="foo"/&gt;
+&lt;/application&gt;</textual></programlisting><textual class="po-textual">The
+                    </textual><code class="po-atom e350 e350"><textual class="po-textual">rax:id</textual></code><textual class="po-textual"> attributes have been added to
+                preserve the original ids that could not be duplicated
+                in the normalized wadl without making the wadl
+                invalid. These are required for down-stream processing
+                when we generate documentation from the normalized
+                wadl. </textual></para><para class="po-block e351 e351"><textual class="po-textual">You can also expand the flat paths into a fully
+                hierarchical tree format. The following example shows
+                the same wadl expanded into the tree
+                format:</textual><programlisting class="po-block e352 e352" xml:space="preserve"><textual class="po-textual">&lt;application xmlns="http://wadl.dev.java.net/2009/02"
+	     xmlns:xsd="http://www.w3.org/2001/XMLSchema"&gt;
+  &lt;resources base="https://test.api.openstack.com"&gt;
+    &lt;resource path="a"&gt;
+      &lt;resource path="b"&gt;
+        &lt;resource path="c"&gt;
+          &lt;method xmlns:rax="http://docs.rackspace.com/api" rax:id="foo"/&gt;
+        &lt;/resource&gt;
+      &lt;/resource&gt;
+    &lt;/resource&gt;
+    &lt;resource path="d"&gt;
+      &lt;resource path="e"&gt;
+        &lt;resource path="f"/&gt;
+      &lt;/resource&gt;
+    &lt;/resource&gt;
+    &lt;resource path="g"/&gt;
+    &lt;resource path="h"&gt;
+      &lt;resource path="i"&gt;
+        &lt;resource path="{j}"&gt;
+          &lt;param name="j" style="template" type="xsd:string" required="true"/&gt;
+          &lt;resource path="k"&gt;
+            &lt;method xmlns:rax="http://docs.rackspace.com/api" rax:id="foo"/&gt;
+            &lt;resource path="l"&gt;
+              &lt;method xmlns:rax="http://docs.rackspace.com/api" rax:id="foo"/&gt;
+            &lt;/resource&gt;
+          &lt;/resource&gt;
+        &lt;/resource&gt;
+      &lt;/resource&gt;
+    &lt;/resource&gt;
+  &lt;/resources&gt;
+  &lt;method id="foo"/&gt;
+&lt;/application&gt;</textual></programlisting></para><para class="po-block e353 e353"><textual class="po-textual">In addition, the normalizer can optionally flatten
+                out XSDs by pulling in included XSDs and filtering
+                based on the </textual><code class="po-atom e354 e354"><textual class="po-textual">vc:minVersion</textual></code><textual class="po-textual"> and
+                    </textual><code class="po-atom e355 e355"><textual class="po-textual">vc:maxVersion</textual></code><textual class="po-textual"> attributes. </textual></para><para class="po-block e356 e356"><textual class="po-textual">Finally, you can optionally filter out
+                    </textual><code class="po-atom e357 e357"><textual class="po-textual">resource_type</textual></code><textual class="po-textual"> elements from the
+                normalized wadls. In some cases, it is useful to
+                preserve these element, but they can cause problems
+                for certain tools. Therefore a parameter is provided
+                filter out the </textual><code class="po-atom e358 e358"><textual class="po-textual">resource_types</textual></code><textual class="po-textual">. </textual></para></section></section><section class="po-hcontainer e359 e359" xml:id="validation"><title class="po-block e360 e360"><textual class="po-textual">The Validation Problem</textual></title><para class="po-block e361 e361"><textual class="po-textual">
+            As a REST service is being developed, the goal is to
+            ensure that the documentation accurately matches the
+            implementation. Once a REST service reaches a mature
+            state, or is released publicly, the documentation becomes
+            a contract; both clients and alternate implementations use
+            this contract to guide their development. Iteroperability
+            between all parties requires that both the documentation
+            and the implementation remain stable, even in the face of
+            bug fixes, upgrades, enhancements, and the introduction of
+            new features via extensions.
+        </textual></para><para class="po-block e362 e362"><textual class="po-textual">
+            In the presence of these changes, there always exist the
+            possibility that either the implementation or its docs may
+            inadvertently drift from one another.  This drift often
+            introduces incompatibilities that can cause clients to
+            fail. Thus, it's important to constantly test that the
+            implementation and its documentation conform to one
+            another. Unfortunately, our quality engineering teams are
+            often not focused on document conformance, or on the
+            intricate details of the REST/HTTP aspects of the
+            service. Instead, these teams are focused on the
+            functionality of the service itself.  It's been our
+            experience that a number of incompatibilities often slip
+            through the cracks as a result. What's more, because this
+            focus on functional testing has little to no regard to
+            documentation of the service, we've found cases where both
+            the implementation and its tests drift away from the docs
+            simultaneously.  Adding to the complexity is the fact that
+            service developers tend to allow their implementations to
+            be flexible and loose when accepting messages from clients
+            — this means that conformance and functional tests
+            themselves may inadvertently drift from the service
+            contract without notice.
+        </textual></para><para class="po-block e363 e363"><textual class="po-textual">
+            One of our main goals is to better incorporate the
+            documentation in the testing process in an automated
+            way. The idea is to use the documentation pipeline to
+            generate validation rules that can be checked in a layer
+            between the function tests and the service itself. This is
+            illustrated in </textual><xref class="po-milestone e364 e364" linkend="valid"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">.
+        </textual></para><figure class="po-container e365 e365" xml:id="valid"><title class="po-block e366 e366"><textual class="po-textual">A REST validator</textual></title><mediaobject class="po-container e367 e367"><imageobject class="po-container e368 e368"><imagedata class="po-meta e369 e369" fileref="../../../vol8/graphics/Williams01/Williams01-002.png" format="png"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></imagedata></imageobject></mediaobject></figure><para class="po-block e370 e370"><textual class="po-textual">
+            Here, the validator intercepts requests from the
+            functional tests before they reach the service and check
+            them for strict conformance to the documentation.
+            Likewise, the validator intercepts the response for the REST
+            service and also validates them. There are several
+            advantages to taking this approach:
+            </textual><itemizedlist class="po-table e371 e371"><listitem class="po-container e372 e372"><para class="po-block e373 e373"><textual class="po-textual">
+                        Because the validation rules are generated
+                        directly from the documentation, we can ensure
+                        that the validator is strictly accurate with
+                        conformance to the docs.
+                    </textual></para></listitem><listitem class="po-container e374 e374"><para class="po-block e375 e375"><textual class="po-textual">
+                        Because the validator sits between the
+                        functional tests and the service itself, it
+                        can be used to check for drift by both parties
+                        simultaneously.
+                    </textual></para></listitem><listitem class="po-container e376 e376"><para class="po-block e377 e377"><textual class="po-textual">
+                        The technique can be easily incorporated into
+                        existing services — it does not require
+                        changes to existing functional tests.                  
+                    </textual></para></listitem></itemizedlist><textual class="po-textual">
+        </textual></para></section><section class="po-hcontainer e378 e378" xml:id="language"><title class="po-block e379 e379"><textual class="po-textual">Validating REST with Automata</textual></title><para class="po-block e380 e380"><textual class="po-textual">
+            Given any possible HTTP message, the validator in </textual><xref class="po-milestone e381 e381" linkend="valid"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual"> needs to be able to tell the difference
+            between an HTTP message that meets all of the criteria
+            defined in the documentation, from an HTTP message that
+            does not.  In other words, the validator must accept the
+            subset of all HTTP messages that are valid according to
+            the description in the source document. The validator also
+            needs to categorize those messages that are not valid
+            according to the error code that should be generated by
+            the underlying REST service, so that the error code that
+            the REST service produces can also be verified.
+        </textual></para><para class="po-block e382 e382"><textual class="po-textual">
+            Accepting messages that meet some criteria is a common
+            problem in computer science. One technique for solving the
+            problem is to utilize an automaton. An automaton is a
+            state machine that transitions from an initial
+            </textual><emphasis class="po-inline e383 e383"><textual class="po-textual">start</textual></emphasis><textual class="po-textual"> state to other states based on
+            the current input. If after the message is read the
+            machine is in an </textual><emphasis class="po-inline e384 e384"><textual class="po-textual">accept</textual></emphasis><textual class="po-textual"> state, then
+            the message is accepted, otherwise the message does not
+            meet the required criteria.
+        </textual></para><para class="po-block e385 e385"><textual class="po-textual">
+            The idea behind our validators is to translate
+            documentation in the form of a WADL (either stand-alone or
+            extracted from the contents of a RackBook document), into a
+            representation of an automaton that can be used to
+            validate messages as they are intercepted between
+            functional tests and the REST service.
+        </textual></para><para class="po-block e386 e386"><textual class="po-textual">
+            An example automata is illustrated in </textual><xref class="po-milestone e387 e387" linkend="automaton"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">.
+        </textual></para><figure class="po-container e388 e388" xml:id="automaton"><title class="po-block e389 e389"><textual class="po-textual">A REST Automaton</textual></title><mediaobject class="po-container e390 e390"><imageobject class="po-container e391 e391"><imagedata class="po-meta e392 e392" fileref="../../../vol8/graphics/Williams01/Williams01-003.png" format="png" width="70%"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></imagedata></imageobject></mediaobject></figure><para class="po-block e393 e393"><textual class="po-textual">
+           For simplicity, the automaton above is only checking for
+           conformance to the URL path and the HTTP method.  In this
+           particular API, the only allowed operation is a GET on the
+           path /path/to/record/{date}, where {date} is an xs:date as
+           defined by W3C XML Schema </textual><xref class="po-milestone e394 e394" linkend="W3CSchema2010"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">. The start state is S0. There are
+           three accept states:
+           </textual><orderedlist class="po-table e395 e395"><listitem class="po-container e396 e396"><para class="po-block e397 e397"><textual class="po-textual">
+                       SA: accepts HTTP messages that follow the
+                       constraints defined by the API.
+                   </textual></para></listitem><listitem class="po-container e398 e398"><para class="po-block e399 e399"><textual class="po-textual">
+                       d30U: accepts HTTP messages for which a 404
+                       (Not Found) response should be expected from
+                       the REST service.
+                   </textual></para></listitem><listitem class="po-container e400 e400"><para class="po-block e401 e401"><textual class="po-textual">
+                       d30M: accepts HTTP messages for which a 405
+                       (Method Not Allowed) should be expected.
+                   </textual></para></listitem></orderedlist><textual class="po-textual">
+        </textual></para><para class="po-block e402 e402"><textual class="po-textual">
+            Starting at state S0, the process examines the URL path,
+            one path segment at a time. The HTTP method is not
+            accessible until the path has been completely parsed. The
+            transition from one state to another is based on input
+            matches, except in the case of an ε transition,
+            where a state is advanced without regard to the current
+            input.  In the machine above, U(x) matches the current URL
+            path segment to x, where x may be a regular expression or
+            a QName representing an XML Schema simple type. U!(x),
+            matches an URL segment that is </textual><emphasis class="po-inline e403 e403"><textual class="po-textual">not</textual></emphasis><textual class="po-textual">
+            accepted by x. On a successful match the URL path is
+            advanced to the next path element.  After the URL path is
+            completely read, the machine proceeds to read the HTTP
+            Method. Here, M(x) and M!(x), work the same as U(x) and
+            U!(x), except they match against the HTTP method instead
+            of the URL path segment. Because the automaton is only
+            checking for URL paths and Methods the process ends after
+            the HTTP method has been read.
+        </textual></para><para class="po-block e404 e404"><textual class="po-textual">
+            </textual><xref class="po-milestone e405 e405" linkend="inputTable"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual"> illustrates the states that are
+            transitioned based on an example set of inputs.
+        </textual></para><table class="po-container e406 e406" xml:id="inputTable"><caption class="po-container e407 e407"><para class="po-block e408 e408"><textual class="po-textual"> Sample input to the automaton on </textual><xref class="po-milestone e409 e409" linkend="automaton"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref></para></caption><thead class="po-container e410 e410"><tr class="po-table e411 e411"><td class="po-block e412 e412"><textual class="po-textual">Input</textual></td><td class="po-block e413 e413"><textual class="po-textual">States Traveled</textual></td><td class="po-block e414 e414"><textual class="po-textual">Result</textual></td></tr></thead><tbody class="po-table e415 e415"><tr class="po-table e416 e416"><td class="po-block e417 e417"><textual class="po-textual">GET /path/to/record/2001-01-02</textual></td><td class="po-block e418 e418"><textual class="po-textual">S0, d18e4, d18e5, d18e6, d18e7, d18e9, SA</textual></td><td class="po-block e419 e419"><textual class="po-textual">200 Okay</textual></td></tr><tr class="po-table e420 e420"><td class="po-block e421 e421"><textual class="po-textual">GET /my/path/</textual></td><td class="po-block e422 e422"><textual class="po-textual">S0, d30U, d30U, d30U</textual></td><td class="po-block e423 e423"><textual class="po-textual">404 Not Found</textual></td></tr><tr class="po-table e424 e424"><td class="po-block e425 e425"><textual class="po-textual">PUT /path/to/record/2001-01-02</textual></td><td class="po-block e426 e426"><textual class="po-textual">S0, d18e4, d18e5, d18e6, d18e7, d30M</textual></td><td class="po-block e427 e427"><textual class="po-textual">405 Bad Method</textual></td></tr></tbody></table></section><section class="po-hcontainer e428 e428" xml:id="checker"><title class="po-block e429 e429"><textual class="po-textual">The Checker Format</textual></title><para class="po-block e430 e430"><textual class="po-textual">
+            REST Automata are internally represented by an XML format,
+            which we call the </textual><emphasis class="po-inline e431 e431"><textual class="po-textual">checker format</textual></emphasis><textual class="po-textual">. An
+            instance document in this format is illustrated in </textual><xref class="po-milestone e432 e432" linkend="checkerFormat"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">.
+        </textual></para><figure class="po-container e433 e433" xml:id="checkerFormat"><title class="po-block e434 e434"><textual class="po-textual">A representation of the automaton from </textual><xref class="po-milestone e435 e435" linkend="automaton"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual"> in checker format.</textual></title><programlisting class="po-block e436 e436" xml:space="preserve"><textual class="po-textual">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;checker xmlns="http://www.rackspace.com/repose/wadl/checker"
+         xmlns:xs="http://www.w3.org/2001/XMLSchema"&gt;
+   &lt;step id="S0" type="START" next="d18e4 SE1 d21e2u"/&gt;
+   &lt;step type="URL_FAIL" id="d21e2u" notMatch="path"/&gt;
+   &lt;step type="URL" id="d18e4" match="path" next="d18e5 SE1 d21e3u"/&gt;
+   &lt;step type="URL_FAIL" id="d21e3u" notMatch="to"/&gt;
+   &lt;step type="URL" id="d18e5" match="to" next="d18e6 SE1 d21e4u"/&gt;
+   &lt;step type="URL_FAIL" id="d21e4u" notMatch="record"/&gt;
+   &lt;step type="URL" id="d18e6" match="record" next="d18e7 SE1 d21e5u"/&gt;
+   &lt;step type="URL_FAIL" id="d21e5u" notTypes="xs:date"/&gt;
+   &lt;step type="URLXSD"
+         id="d18e7"
+         match="xs:date"
+         label="date"
+         next="d18e9 d21e6m SE0"/&gt;
+   &lt;step type="METHOD_FAIL" id="d21e6m" notMatch="GET"/&gt;
+   &lt;step type="METHOD" id="d18e9" match="GET" next="SA"/&gt;
+   &lt;step id="SE0" type="URL_FAIL"/&gt;
+   &lt;step id="SE1" type="METHOD_FAIL"/&gt;
+   &lt;step id="SA" type="ACCEPT"/&gt;
+&lt;/checker&gt;
+</textual></programlisting></figure><para class="po-block e437 e437"><textual class="po-textual">
+            This simple, terse, document type maps each state in the
+            state machine, along with the edges that it connects to,
+            into a single step element. All steps in the checker
+            format contain an id attribute of type xs:ID which
+            uniquely identifies the step in the machine and a type
+            attribute which indicates the type of check the step
+            performs. Note, that in </textual><xref class="po-milestone e438 e438" linkend="checkerFormat"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">,
+            there are two types of URL checks: the steps that check a
+            path segment against a regular expression are of type URL,
+            and those that check the segment against a simple XML
+            Schema type are of type URLXSD.  Connections between steps
+            are represented by a next attribute of type
+            xs:IDREFs. Additionally, most steps also contain a match
+            or notMatch attribute that provides the details of how the
+            a match is interpreted.
+        </textual></para><para class="po-block e439 e439"><textual class="po-textual">
+            Currently there exist steps to match against all aspects
+            of the HTTP request, including steps that match against
+            request media types, that check the well formness of XML
+            and JSON content, that validate XML via an W3C XML Schema
+            (XSD) 1.1 validator and that check for the presence of
+            required elements by means of XPath expressions. Note that
+            this is particularly important because a REST service may
+            define many different types of elements, the element
+            attribute in a representation binds an element to a
+            particular operation — and this is enforced via an
+            XPath expression step in the machine.
+        </textual></para><para class="po-block e440 e440"><textual class="po-textual">
+            Another important checker step is the XSLT step, which
+            performs a transformation of the request message before it
+            is validated by the XSD step.  It may seem odd to that an
+            XSLT transform may be required for validation, but the
+            requirement comes into play in cases where the type of the
+            request document needs to be restricted (or extended)
+            based on the operation being performed.  Let's say, for
+            example, that a REST API dealing with Widgets allows a
+            Widget to have all attributes when performing a PUT
+            operation, but restricts the POST operation to Widget
+            documents containing only a subset of the available
+            attributes — this is a common pattern in REST
+            services.  The restriction on POST is specified in the
+            WADL in </textual><xref class="po-milestone e441 e441" linkend="WidgetWADL"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">.
+        </textual></para><figure class="po-container e442 e442" xml:id="WidgetWADL"><title class="po-block e443 e443"><textual class="po-textual">Widget WADL</textual></title><programlisting class="po-block e444 e444" xml:space="preserve"><textual class="po-textual">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+
+&lt;application xmlns="http://wadl.dev.java.net/2009/02"
+    xmlns:widget="http://rackspace.com/sample/widget"
+    xmlns:xs="http://www.w3.org/2001/XMLSchema"&gt;
+    &lt;grammars&gt;
+        &lt;include href="widget.xsd"&gt;&lt;/include&gt;
+    &lt;/grammars&gt;
+    &lt;resources base="http://localhost/"&gt;
+        &lt;resource path="widget"&gt;
+            &lt;param style="template" type="xs:date" name="date"/&gt;
+            &lt;!-- The PUT operation allows all widgets as request
+                 representation. --&gt;
+            &lt;method name="PUT"&gt;
+                &lt;request&gt;
+                    &lt;representation mediaType="application/xml" element="widget:widget"/&gt;
+                &lt;/request&gt;
+                &lt;response&gt;
+                    &lt;representation mediaType="applicaiton/xml" element="widget:widget"/&gt;
+                &lt;/response&gt;
+            &lt;/method&gt;
+            &lt;!-- The POST operation allows only widgets of the restricted type WidgetForCreate --&gt;
+            &lt;method name="POST"&gt;
+                &lt;request&gt;
+                    &lt;representation mediaType="application/xml" element="widget:widget"&gt;
+                        &lt;param style="plain" path="/widget:widget" type="widget:WidgetForCreate"/&gt;
+                    &lt;/representation&gt;
+                &lt;/request&gt;
+                &lt;response&gt;
+                    &lt;representation mediaType="applicaiton/xml" element="widget:widget"/&gt;
+                &lt;/response&gt;
+            &lt;/method&gt;
+        &lt;/resource&gt;
+    &lt;/resources&gt;
+&lt;/application&gt;
+</textual></programlisting></figure><para class="po-block e445 e445"><textual class="po-textual">
+            Note that we use a WADL plain parameter (described in
+            </textual><xref class="po-milestone e446 e446" linkend="grammar_aug"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">) to connect a restricted
+            type (which prohibits a number of attributes) of the
+            Widget to the POST operation, by specifying the
+            WidgetForCreate type and an XPath of where the type should
+            apply. In the automaton, this is translated into an XSLT
+            step that modifies the request document by adding an
+            xsi:type parameter, thus informing the validator to
+            validate the contents of the Widget message as an instance
+            of the restricted type. In this case, the restriction is
+            made in the root document, but these types of restrictions
+            can be placed on any element in an XML document.
+        </textual></para><figure class="po-container e447 e447" xml:id="WidgetBefore"><title class="po-block e448 e448"><textual class="po-textual">Widget Request (before XSLT step)</textual></title><programlisting class="po-block e449 e449" xml:space="preserve"><textual class="po-textual">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+
+&lt;widget xmlns="http://rackspace.com/sample/widget"
+        name="MyWidget"/&gt;
+</textual></programlisting></figure><figure class="po-container e450 e450" xml:id="WidgetAfter"><title class="po-block e451 e451"><textual class="po-textual">Widget Request (after XSLT step)</textual></title><programlisting class="po-block e452 e452" xml:space="preserve"><textual class="po-textual">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+
+&lt;widget xmlns="http://rackspace.com/sample/widget"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    name="MyWidget"  xsi:type="WidgetForCreate"/&gt;
+</textual></programlisting></figure></section><section class="po-hcontainer e453 e453" xml:id="optimization"><title class="po-block e454 e454"><textual class="po-textual">Optimization</textual></title><para class="po-block e455 e455"><textual class="po-textual">
+            The automata created to validate REST services may be
+            quite complex, often involving many states and
+            connections. As an example, </textual><xref class="po-milestone e456 e456" linkend="compute"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">
+            illustrates the automaton for validating the OpenStack
+            Compute API (excluding extensions).
+        </textual></para><figure class="po-container e457 e457" xml:id="compute"><title class="po-block e458 e458"><textual class="po-textual">OpenStack compute API Automaton</textual></title><mediaobject class="po-container e459 e459"><imageobject class="po-container e460 e460"><imagedata class="po-meta e461 e461" fileref="../../../vol8/graphics/Williams01/Williams01-004.png" format="png"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></imagedata></imageobject></mediaobject></figure><para class="po-block e462 e462"><textual class="po-textual">
+            Optimization stages may be introduced into the
+            transformation process to try to reduce the number of
+            states in the automaton. Each optimization stage is simply
+            an XSLT that takes a checker document as input and creates
+            a checker document with less states as output.
+            Optimization stages can therefore be chained together.
+            With each stage, the checker document produced should
+            perform the exact same function as the original
+            unoptimized one.
+        </textual></para><para class="po-block e463 e463"><textual class="po-textual">
+            Currently, optimization stages work by compressing
+            redundant (or nondistinguishable) states into a single
+            state. Redundant states occur quite frequently because the
+            translation code that converts a WADL to a checker
+            document does so without regard to the number of states
+            produce in order to keep the translation code simple. </textual><xref class="po-milestone e464 e464" linkend="compute-nodups"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual"> illustrates the effect of
+            running these optimization stages on the compute API.
+            Note that the number of states is reduced dramatically.
+        </textual></para><figure class="po-container e465 e465" xml:id="compute-nodups"><title class="po-block e466 e466"><textual class="po-textual">OpenStack compute API Automaton (Optimized)</textual></title><mediaobject class="po-container e467 e467"><imageobject class="po-container e468 e468"><imagedata class="po-meta e469 e469" fileref="../../../vol8/graphics/Williams01/Williams01-005.png" format="png"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></imagedata></imageobject></mediaobject></figure><para class="po-block e470 e470"><textual class="po-textual">
+            Other optimization techniques are possible.  For example
+            an optimization stage may:
+            </textual><itemizedlist class="po-table e471 e471"><listitem class="po-container e472 e472"><para class="po-block e473 e473"><textual class="po-textual">
+                        Convert the simple type checks in URLXSD steps
+                        into regular expression URL steps.
+                    </textual></para></listitem><listitem class="po-container e474 e474"><para class="po-block e475 e475"><textual class="po-textual">
+                        Compress multiple regular extension checks
+                        into a single check.
+                    </textual></para></listitem><listitem class="po-container e476 e476"><para class="po-block e477 e477"><textual class="po-textual">
+                        Compress multiple boolean XPath expressions
+                        into a single expression.
+                    </textual></para></listitem><listitem class="po-container e478 e478"><para class="po-block e479 e479"><textual class="po-textual">
+                        Compress XPath expressions, XSLT
+                        transformations, and XSD schema validation
+                        into a single schema aware XSLT transform
+                        step.
+                    </textual></para></listitem></itemizedlist><textual class="po-textual">
+        </textual></para></section><section class="po-hcontainer e480 e480" xml:id="validationPipeline"><title class="po-block e481 e481"><textual class="po-textual">The Validation Pipeline</textual></title><para class="po-block e482 e482"><textual class="po-textual">
+            The validation pipeline is responsible for producing REST
+            automata from WADLs. The pipeline is illustrated in
+            </textual><xref class="po-milestone e483 e483" linkend="pipeline"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">.
+        </textual></para><figure class="po-container e484 e484" xml:id="pipeline"><title class="po-block e485 e485"><textual class="po-textual">Validation Pipeline</textual></title><mediaobject class="po-container e486 e486"><imageobject class="po-container e487 e487"><imagedata class="po-meta e488 e488" fileref="../../../vol8/graphics/Williams01/Williams01-006.png" format="png" width="80%"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></imagedata></imageobject></mediaobject></figure><para class="po-block e489 e489"><textual class="po-textual">
+            The first three parts of the pipeline are shared with our
+            general documentation pipeline.  The stages utilize XProc,
+            XSLT2, and XSD 1.1 to generate the final checker document.
+            The final stage, creates an immutable data structure from
+            this document that is used by the Repose WADL proxy
+            component to process and validate API requests within the
+            Repose HTTP proxy. This stage is implemented by means of a
+            specialized </textual><link class="po-inline e490 e490" xlink:actuate="onRequest" xlink:href="http://www.saxproject.org/" xlink:show="new" xlink:type="simple"><textual class="po-textual">SAX</textual></link><textual class="po-textual">
+            handler. The data structure the handler produces is
+            essentially a model of the automaton that can be executed
+            by the Repose component when validating request. The
+            process for validating HTTP request with the data
+            structure avoids the use of global state, meaning that
+            most context is passed via the call stack. Because of
+            this, and because the internal data structure is
+            immutable, the entire process is thread safe, meaning that
+            it can validate multiple HTTP request simultaneously in
+            different threads of execution.
+        </textual></para><para class="po-block e491 e491"><textual class="po-textual">
+            It's important to note that the validation pipeline above
+            is a prepossessing step.  Once the immutable data
+            structure is create it can be used to handle many HTTP
+            request simultaneously, at run-time, and in an efficient
+            manner.
+        </textual></para><para class="po-block e492 e492"><textual class="po-textual">
+            Another note is that the stages in the validation pipeline
+            are configurable. There are configuration options that
+            dictate:
+            </textual><itemizedlist class="po-table e493 e493"><listitem class="po-container e494 e494"><para class="po-block e495 e495"><textual class="po-textual">
+                        The strictness of the validation — which
+                        itself is determined by which validation steps
+                        should be added to the final checker.
+                    </textual></para></listitem><listitem class="po-container e496 e496"><para class="po-block e497 e497"><textual class="po-textual">
+                        Specialized options for each individual
+                        steps. For example, should an XPath version 2
+                        implementation be used in an XPath step?
+                        Should Saxon EE or Xerces be used for XSD 1.1
+                        validation in the XSD step?
+                    </textual></para></listitem><listitem class="po-container e498 e498"><para class="po-block e499 e499"><textual class="po-textual">
+                        The optimization stages to use.
+                    </textual></para></listitem></itemizedlist><textual class="po-textual">
+        </textual></para></section><section class="po-hcontainer e500 e500" xml:id="usecases"><title class="po-block e501 e501"><textual class="po-textual">Other Use Cases</textual></title><para class="po-block e502 e502"><textual class="po-textual"> The initial goal for creating validators from REST
+            documentation is described in </textual><xref class="po-milestone e503 e503" linkend="validation"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">, however, once an implementation of the validation
+            pipeline was created, it became evident that the pipeline
+            can be used to solve other problems. Some of these
+            additional use cases are described below. </textual></para><section class="po-hcontainer e504 e504" xml:id="filtering"><title class="po-block e505 e505"><textual class="po-textual">Filtering and Error Reporting</textual></title><para class="po-block e506 e506"><textual class="po-textual">
+                REST services receive many millions of HTTP requests a
+                day. Many of these requests are malformed — the
+                result of user errors. Because a validator can detect
+                malformed requests, it can filter these from the
+                underlying REST implementation. What's more, the
+                validator has enough context to respond with an
+                appropriate error message.  For example, rather than
+                responding with simply a 404 (Not Found), the
+                validator can respond with:
+                404 /path/to/widget not found, expecting "server |
+                image" instead of "widget".
+            </textual></para><para class="po-block e507 e507"><textual class="po-textual">
+                Our implementation has added support to this
+                capability and it has proved useful.
+            </textual></para></section><section class="po-hcontainer e508 e508" xml:id="authz"><title class="po-block e509 e509"><textual class="po-textual">Authorization</textual></title><para class="po-block e510 e510"><textual class="po-textual">
+                Often different sets of users can access different
+                parts of the API. For example, administrators may have
+                the capability to reboot a server, but regular users
+                may not.  The idea here is to build on the filtering
+                capabilities in the previous section and assign
+                different sets of users different validators, so that
+                administrators have a validator that accepts the
+                reboot operation, and regular users have a validator
+                that does not.  The interesting thing about this
+                use case is that the WADL becomes an authorization
+                policy file.
+            </textual></para></section><section class="po-hcontainer e511 e511" xml:id="coverage"><title class="po-block e512 e512"><textual class="po-textual">API Coverage</textual></title><para class="po-block e513 e513"><textual class="po-textual">
+                Validators are capable of logging what the stages in
+                the automaton have been visited. This information can
+                be used to compute test coverage. If there are states
+                in the automaton that are not visited by functional
+                tests, then the functional tests are obviously missing
+                something. Also, in production, the information can be
+                used to gain insight into what parts of an API are
+                frequently accessed by users.
+            </textual></para></section></section><section class="po-hcontainer e514 e514" xml:id="Conclusions"><title class="po-block e515 e515"><textual class="po-textual">Conclusions</textual></title><para class="po-block e516 e516"><textual class="po-textual">
+            In this paper, we described the process by which we used
+            an existing documentation pipeline for documenting REST
+            APIs and extend it to support the creation of validators
+            that can help confirm that the documentation accurately
+            reflects reality or that an implementation does not drift
+            from what's stated in the docs.
+        </textual></para><para class="po-block e517 e517"><textual class="po-textual">
+            We took an intermediary approach for performing validation,
+            where messages are intercepted between client and server
+            applications and an automata-based programming approach
+            that enabled the efficient validation of messages at
+            run-time.  The technique opened up other use cases such as
+            filtering, accurate error reporting, authorization, and
+            API coverage. We feel that a main key to the success of
+            the project was in choosing a tag set that semantically
+            described all aspects of a RESTful service and contained
+            author friendly features.
+        </textual></para><para class="po-block e518 e518"><textual class="po-textual">
+            In the next sections we describe some of the challenges we
+            encountered while developing the validation pipeline and
+            discuss some possible future extensions to the pipeline.
+        </textual></para><section class="po-hcontainer e519 e519" xml:id="Challenges"><title class="po-block e520 e520"><textual class="po-textual">Challenges</textual></title><section class="po-hcontainer e521 e521" xml:id="XSD11"><title class="po-block e522 e522"><textual class="po-textual">XSD 1.1, early adoption</textual></title><para class="po-block e523 e523"><textual class="po-textual">
+                    Because OpenStack APIs are extensible, describing the
+                    XML media types with XSD 1.0 was not an option, we
+                    need the new open content features that are now
+                    offered by the XSD 1.1 standard. Since OpenStack is an
+                    open and free platform, we have the goal of ensuring
+                    that everything that we develop remains open and
+                    accessible to the community, while still remaining
+                    friendly to enterprise customers. To that end we
+                    decided that our validators should support both the
+                    Xerces (open source) and the Saxon EE (proprietary)
+                    XSD 1.1 implementations.
+                </textual></para><para class="po-block e524 e524"><textual class="po-textual">
+                    We've had great success in ensuring that our
+                    validators interoperate with both implementations
+                    seamlessly, however, during the development of the
+                    pipeline we have encountered a number of errors with
+                    the Xerces implementation.  In fairness, the Xerces
+                    implementation is still labeled BETA, and the Xerces
+                    team has done a great job of resolving most of the
+                    issues we've discovered thus far. The major challenge,
+                    for us however, is we've come to rely on XSD 1.1
+                    features when there is yet a full, production ready,
+                    and free open source XSD 1.1 implementation.
+                </textual></para></section><section class="po-hcontainer e525 e525" xml:id="XPath"><title class="po-block e526 e526"><textual class="po-textual">Parsing XPaths in XSLT 2</textual></title><para class="po-block e527 e527"><textual class="po-textual">
+                    WADL makes references to XPaths when describing plain
+                    parameters. These XPaths need to be successfully
+                    copied as they proceed along the validation
+                    pipeline. Ensuring that the XPaths remain in tact
+                    under all circumstances has proved difficult given
+                    that there may be conflicts with namespace prefixes,
+                    or worst, contention for the default namespace.
+                </textual></para><para class="po-block e528 e528"><textual class="po-textual">
+                    Our implementation makes a best effort to keep XPath
+                    valid, but there are still some edge cases that trip
+                    it up. We are debating whether to create an XSLT
+                    extension that will enable us to leverage an XPath 2
+                    parser, or to write our own XPath 2 parser in XSLT to
+                    resolve the issue.
+                </textual></para></section><section class="po-hcontainer e529 e529" xml:id="testing"><title class="po-block e530 e530"><textual class="po-textual">Testing The Validation Pipeline</textual></title><para class="po-block e531 e531"><textual class="po-textual">
+                    An early challenge that we encountered was that we
+                    needed to develop a method of testing the
+                    validation pipeline. Because validation and our
+                    documentation pipeline both rely on the WADL
+                    normalizer, it is important to ensure that the
+                    output of the normalizer accurately reflects the
+                    intent of the original WADL author. To avoid
+                    regressions as we add new features, we implemented
+                    a functional testing framework that takes
+                    advantage of the xml features of Scala to perform
+                    transformations on simple WADLs and WADL+XSD
+                    combinations and compare those with the expected
+                    result. The following code sample shows one of
+                    these tests.
+                </textual></para><figure class="po-container e532 e532" xml:id="WADLTest"><title class="po-block e533 e533"><textual class="po-textual">A WADL normalizer test</textual></title><programlisting class="po-block e534 e534" xml:space="preserve"><textual class="po-textual">scenario ("The original WADL is in mixed path/tree format"){
+	given("a WADL with resources in mixed path/tree format")
+	val inWADL =
+&lt;application xmlns="http://wadl.dev.java.net/2009/02"
+    xmlns:xsd="http://www.w3.org/2001/XMLSchema"&gt;
+  &lt;resources base="https://test.api.openstack.com"&gt;
+    &lt;resource path="a/b"&gt;
+      &lt;resource path="c"&gt;
+	&lt;method href="#foo"/&gt;
+      &lt;/resource&gt;
+    &lt;/resource&gt;
+    &lt;resource path="d"&gt;
+      &lt;resource path="e/f"/&gt;
+    &lt;/resource&gt;
+    &lt;resource path="g"/&gt;
+    &lt;resource path="h/i/{j}/k"&gt;
+      &lt;param name="j" style="template" type="xsd:string" required="true"/&gt;
+      &lt;method href="#foo"/&gt;
+    &lt;/resource&gt;
+    &lt;resource path="h/i/{j}/k/l"&gt;
+      &lt;method href="#foo"/&gt;		
+    &lt;/resource&gt;
+  &lt;/resources&gt;
+  &lt;method id="foo"/&gt;
+&lt;/application&gt;
+	val treeWADL = 
+&lt;application xmlns="http://wadl.dev.java.net/2009/02"
+      xmlns:xsd="http://www.w3.org/2001/XMLSchema"&gt;
+   &lt;resources base="https://test.api.openstack.com"&gt;
+      &lt;resource queryType="application/x-www-form-urlencoded" path="a"&gt;
+         &lt;resource queryType="application/x-www-form-urlencoded" path="b"&gt;
+            &lt;resource queryType="application/x-www-form-urlencoded" path="c"&gt;
+               &lt;method xmlns:rax="http://docs.rackspace.com/api" rax:id="foo"/&gt;
+            &lt;/resource&gt;
+         &lt;/resource&gt;
+      &lt;/resource&gt;
+      &lt;resource queryType="application/x-www-form-urlencoded" path="d"&gt;
+         &lt;resource queryType="application/x-www-form-urlencoded" path="e"&gt;
+            &lt;resource queryType="application/x-www-form-urlencoded" path="f"/&gt;
+         &lt;/resource&gt;
+      &lt;/resource&gt;
+      &lt;resource queryType="application/x-www-form-urlencoded" path="g"/&gt;
+      &lt;resource queryType="application/x-www-form-urlencoded" path="h"&gt;
+         &lt;resource queryType="application/x-www-form-urlencoded" path="i"&gt;
+            &lt;resource queryType="application/x-www-form-urlencoded" path="{j}"&gt;
+               &lt;param name="j" style="template" type="xsd:string" required="true" 
+                     repeating="false"/&gt;
+               &lt;resource queryType="application/x-www-form-urlencoded" path="k"&gt;
+                  &lt;method xmlns:rax="http://docs.rackspace.com/api" rax:id="foo"/&gt;
+                  &lt;resource queryType="application/x-www-form-urlencoded" path="l"&gt;
+                     &lt;method xmlns:rax="http://docs.rackspace.com/api" rax:id="foo"/&gt;
+                  &lt;/resource&gt;
+               &lt;/resource&gt;
+            &lt;/resource&gt;
+         &lt;/resource&gt;
+      &lt;/resource&gt;
+   &lt;/resources&gt;
+   &lt;method id="foo"/&gt;
+&lt;/application&gt;
+      when("the WADL is normalized")
+      val normWADL = wadl.normalize(inWADL, TREE)
+      then("the resources should now be in tree format")
+      canon(treeWADL) should equal (canon(normWADL))
+    }</textual></programlisting></figure><para class="po-block e535 e535"><textual class="po-textual">
+                    Notice that the test infrastructure supports the
+                    scenario/given/when/then format of behavioral driven
+                    development.
+                </textual></para></section></section><section class="po-hcontainer e536 e536" xml:id="FutureWork"><title class="po-block e537 e537"><textual class="po-textual">Future Work</textual></title><para class="po-block e538 e538"><textual class="po-textual">
+                The goal described in </textual><xref class="po-milestone e539 e539" linkend="validation"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual"> is
+                not entirely complete because we are still missing
+                considerable checks on the HTTP response generated by
+                the REST service. We plan on extending the automata to
+                account for this.  Additionally, we plan on adding
+                JSONPath and JSON Schema stages as only JSON
+                well formness is currently tested. We also plan on
+                adding support for other validation languages in XML
+                such as RelaxNG and Schematron.  Finally, we plan to
+                pursue some of the extended use cases we discussed in
+                </textual><xref class="po-milestone e540 e540" linkend="usecases"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual"> such as authorization and
+                API coverage.
+            </textual></para></section></section><bibliography class="po-hcontainer e541 e541"><title class="po-block e542 e542"><textual class="po-textual">Bibliography</textual></title><bibliomixed class="po-block e543 e543" xml:id="ApigeeWADL2012" xreflabel="ApigeeWADL2012"><textual class="po-textual">
+        Apigee. </textual><emphasis class="po-inline e544 e544" role="ital"><textual class="po-textual">The Apigee WADL Library</textual></emphasis><textual class="po-textual">
+        </textual><link class="po-inline e545 e545" xlink:actuate="onRequest" xlink:show="new" xlink:type="simple"><textual class="po-textual">https://github.com/apigee/wadl-library</textual></link><textual class="po-textual">
+    </textual></bibliomixed><bibliomixed class="po-block e546 e546" xml:id="Fielding2000" xreflabel="Fielding2000"><textual class="po-textual">
+        Fielding, Roy Thomas.  </textual><emphasis class="po-inline e547 e547" role="ital"><textual class="po-textual">Architectural
+        Styles and the Design of Network-based Software
+        Architectures.</textual></emphasis><textual class="po-textual"> 2000. </textual><link class="po-inline e548 e548" xlink:actuate="onRequest" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://www.ics.uci.edu/~fielding/pubs/dissertation/top.htm.</textual></link><textual class="po-textual">
+    </textual></bibliomixed><bibliomixed class="po-block e549 e549" xml:id="Steiner2007" xreflabel="Steiner2007"><textual class="po-textual">
+        T. Steiner. </textual><emphasis class="po-inline e550 e550" role="ital"><textual class="po-textual">Automatic Multi Language
+        Program Library Generation for REST APIs</textual></emphasis><textual class="po-textual"> Master
+        Thesis, Institute for Algorithms and Cognitive Systems
+        University of Karlsruhe. </textual><link class="po-inline e551 e551" xlink:actuate="onRequest" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://www.lsi.upc.edu/~tsteiner/papers/2007/automatic-multi-language-program-library-generation-for-rest-apis-masters-thesis-2007.pdf</textual></link><textual class="po-textual">
+    </textual></bibliomixed><bibliomixed class="po-block e552 e552" xml:id="hREST2008" xreflabel="hREST2008"><textual class="po-textual">
+        Kopecky, J., Gomadam, K., Vitvar, T.: </textual><emphasis class="po-inline e553 e553" role="ital"><textual class="po-textual">hRESTS: an HTML Microformat for Describing RESTful Web Services</textual></emphasis><textual class="po-textual">. In: The 2008 IEEE/WIC/ACM International Conference on Web Intelligence (WI2008), Sydney, Australia, IEEE CS Press
+        (November 2008)
+    </textual></bibliomixed><bibliomixed class="po-block e554 e554" xml:id="JSONPath2008" xreflabel="JSONPath2008"><textual class="po-textual">
+        Goessner S. </textual><emphasis class="po-inline e555 e555" role="ital"><textual class="po-textual">JSONPath - XPath for
+        JSON</textual></emphasis><textual class="po-textual"> </textual><link class="po-inline e556 e556" xlink:actuate="onRequest" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://goessner.net/articles/JsonPath/</textual></link><textual class="po-textual">
+    </textual></bibliomixed><bibliomixed class="po-block e557 e557" xml:id="Jaxrs2009" xreflabel="Jaxrs2009"><textual class="po-textual">
+        M. Hadley and P. Sandoz, </textual><emphasis class="po-inline e558 e558" role="ital"><textual class="po-textual">JAX-RS:
+        Java API for RESTful Web Services</textual></emphasis><textual class="po-textual">, Java
+        Specification Request (JSR), vol. 311, 2009. </textual><link class="po-inline e559 e559" xlink:actuate="onRequest" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://jcp.org/en/jsr/detail?id=311.</textual></link><textual class="po-textual">
+    </textual></bibliomixed><bibliomixed class="po-block e560 e560" xml:id="Launchpad2012" xreflabel="Launchpad2012"><textual class="po-textual">
+        Launchpad.  </textual><emphasis class="po-inline e561 e561" role="ital"><textual class="po-textual">Hacking the Launchpad
+        web service</textual></emphasis><textual class="po-textual"> </textual><link class="po-inline e562 e562" xlink:actuate="onRequest" xlink:show="new" xlink:type="simple"><textual class="po-textual">https://help.launchpad.net/API/Hacking</textual></link><textual class="po-textual">
+    </textual></bibliomixed><bibliomixed class="po-block e563 e563" xml:id="Mashery2009" xreflabel="Mashery2009"><textual class="po-textual">
+        Mashery.; </textual><emphasis class="po-inline e564 e564" role="ital"><textual class="po-textual">Mashery: Untold Secrets
+        Behind Managing an API </textual></emphasis><link class="po-inline e565 e565" xlink:actuate="onRequest" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://www.readwriteweb.com/archives/mashery_secrets_behind_managing_an_api.php</textual></link><textual class="po-textual">
+    </textual></bibliomixed><bibliomixed class="po-block e566 e566" xml:id="O2007" xreflabel="O2007"><textual class="po-textual">
+        L. Richardson and S. Ruby. </textual><emphasis class="po-inline e567 e567" role="ital"><textual class="po-textual">RESTful Web Services</textual></emphasis><textual class="po-textual">. O’Reilly Media, Inc., May 2007.
+    </textual></bibliomixed><bibliomixed class="po-block e568 e568" xml:id="O2010" xreflabel="O2010"><textual class="po-textual">
+        Allamaraju, S., and Amudsen, M. </textual><emphasis class="po-inline e569 e569" role="ital"><textual class="po-textual">RESTful Web Services
+        Cookbook.</textual></emphasis><textual class="po-textual"> O’Reilly. 2010.
+    </textual></bibliomixed><bibliomixed class="po-block e570 e570" xml:id="O2011" xreflabel="O2011"><textual class="po-textual">
+        Webber, J., Parastatidis, S., Robinson, I.: </textual><emphasis class="po-inline e571 e571" role="ital"><textual class="po-textual">REST in Practice: Hypermedia and
+        Systems Architecture.</textual></emphasis><textual class="po-textual"> O’Reilly &amp; Associates, Sebastopol (2010).
+    </textual></bibliomixed><bibliomixed class="po-block e572 e572" xml:id="Maleshkova2009" xreflabel="Maleshkova2009"><textual class="po-textual">
+        Maria Maleshkova, Jacek Kopecky, and Carlos Pedrinaci. </textual><emphasis class="po-inline e573 e573" role="ital"><textual class="po-textual">Adapting SAWSDL for Semantic Annotations of RESTful Services.</textual></emphasis><textual class="po-textual"> In Workshop: Beyond SAWSDL at OnTheMove Federated Conferences &amp; Workshops, 2009.
+    </textual></bibliomixed><bibliomixed class="po-block e574 e574" xml:id="Swager2011" xreflabel="Swager2011"><textual class="po-textual">
+        Swagger.  </textual><emphasis class="po-inline e575 e575" role="ital"><textual class="po-textual">Swagger Specification.</textual></emphasis><textual class="po-textual"> </textual><link class="po-inline e576 e576" xlink:actuate="onRequest" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://swagger.wordnik.com/spec</textual></link><textual class="po-textual">
+    </textual></bibliomixed><bibliomixed class="po-block e577 e577" xml:id="Takase2008" xreflabel="Takase2008"><textual class="po-textual">
+        T. Takase, S. Makino, S. Kawanaka, K. Ueno, C. Ferris, and A. Ryman, </textual><emphasis class="po-inline e578 e578" role="ital"><textual class="po-textual">Definition Languages for RESTful Web Services: WADL vs. WSDL 2.0</textual></emphasis><textual class="po-textual">, IBM Reasearch, 2008
+    </textual></bibliomixed><bibliomixed class="po-block e579 e579" xml:id="WADL2Java2008" xreflabel="WADL2Java2008"><textual class="po-textual">
+        WADL2Java.  wadl2java Tool Documentation. http://wadl.java.net/wadl2java.html
+    </textual></bibliomixed><bibliomixed class="po-block e580 e580" xml:id="WSDL2007" xreflabel="WSDL2007"><textual class="po-textual">
+        Chinnici R., Moreau J., Ryan A., and  Weerawarana S. </textual><emphasis class="po-inline e581 e581" role="ital"><textual class="po-textual">Web
+        Services Description Language (WSDL) Version 2.0.</textual></emphasis><textual class="po-textual"> June
+        2007. </textual><link class="po-inline e582 e582" xlink:actuate="onRequest" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://www.w3.org/TR/wsdl20/</textual></link><textual class="po-textual">
+    </textual></bibliomixed><bibliomixed class="po-block e583 e583" xml:id="W3CSchema2010" xreflabel="W3CSchema2010"><textual class="po-textual">
+        Gao S., Sperberg-McQueen C. M, and Thompson H. </textual><emphasis class="po-inline e584 e584" role="ital"><textual class="po-textual">W3C XML
+        Schema Definition Language (XSD)</textual></emphasis><textual class="po-textual">. </textual><link class="po-inline e585 e585" xlink:actuate="onRequest" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://www.w3.org/TR/xmlschema11-1/</textual></link><textual class="po-textual">
+    </textual></bibliomixed><bibliomixed class="po-block e586 e586" xml:id="Hadley2009" xreflabel="Hadley2009"><textual class="po-textual">
+        M. Hadley.; </textual><emphasis class="po-inline e587 e587" role="ital"><textual class="po-textual">Web Application Description Language</textual></emphasis><textual class="po-textual">
+        W3C Member Submission. August 2009
+        </textual><link class="po-inline e588 e588" xlink:actuate="onRequest" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://www.w3.org/Submission/wadl/</textual></link><textual class="po-textual">
+    </textual></bibliomixed></bibliography></article></classedDocument>

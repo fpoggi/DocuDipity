@@ -1,0 +1,1058 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?><classedDocument><article xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink" class="po-hcontainer e0 e0" version="5.0-subset Balisage-1.3"><title class="po-block e1 e1"><textual class="po-textual">Analysing XSLT Streamability</textual></title><info class="po-record e2 e2"><confgroup class="po-record e3 e3"><conftitle class="po-field e4 e4"><textual class="po-textual">Balisage: The Markup Conference 2014</textual></conftitle><confdates class="po-field e5 e5"><textual class="po-textual">August 5 - 8, 2014</textual></confdates></confgroup><abstract class="po-container e6 e6"><para class="po-block e7 e7"><textual class="po-textual">Determining streamability of constructs in XSLT3.0 involves application of a set of
+        rules that appear to be complex. A tool that analyses these rules on a given stylesheet has
+        been developed to help developers understand why sections which were designed with streaming
+        might fail the required conditions. This paper discusses the structure of this analysis
+        tool. The development was funded by Saxonica. </textual></para></abstract><author class="po-record e8 e8"><personname class="po-record e9 e9"><firstname class="po-field e10 e10"><textual class="po-textual">John</textual></firstname><surname class="po-field e11 e11"><textual class="po-textual">Lumley</textual></surname></personname><personblurb class="po-container e12 e12"><para class="po-block e13 e13"><textual class="po-textual">A Cambridge engineer by background, John Lumley created the AI group at Cambridge
+          Consultants in the early 1980s and then joined HPLabs Bristol as one of its founding
+          members. He worked there for 25 years, managing and contributing in a variety of
+          software/systems fields, latterly specialising in XSLT-based document engineering, in
+          which he subsequently gained a PhD. He is currently helping develop the Saxon XSLT
+          processor for Saxonica.</textual></para></personblurb><affiliation class="po-record e14 e14"><orgname class="po-block e15 e15"><textual class="po-textual">jωL Research</textual></orgname></affiliation><affiliation class="po-record e16 e16"><orgname class="po-block e17 e17"><textual class="po-textual">Saxonica</textual></orgname></affiliation><email class="po-field e18 e18"><textual class="po-textual">john@jwlresearch.com</textual></email></author><legalnotice class="po-container e19 e19"><para class="po-block e20 e20"><textual class="po-textual">Copyright © 2014 jωL Research Ltd. All rights reserved.</textual></para></legalnotice></info><section class="po-hcontainer e21 e21"><title class="po-block e22 e22"><textual class="po-textual">Introduction</textual></title><para class="po-block e23 e23"><textual class="po-textual">XSLT has gradually developed over the past decade from a 'browser-based' document
+      transformer/generator into a fully-fledged, industrial scale, functional processing tool,
+      aimed at XML documents. As such its 3.0 version has introduced support for
+        </textual><quote class="po-inline e24 e24"><textual class="po-textual">streaming</textual></quote><textual class="po-textual"> processing of very large documents. To do this effectively, the
+      XSLT specification has had to outline a very extensive, very detailed, and ostensibly very
+      complex, set of rules defining the conditions under which a given program can be guaranteed to
+      be processable in a streaming manner.</textual></para><para class="po-block e25 e25"><textual class="po-textual">This paper describes an interactive static analysis and display tool that can be used to
+      examine the evaluation of these rules on (fragments of) a given XSLT stylesheet, so developers
+      of processes intended for streaming may understand better whether their programs can indeed be
+      processed in a streaming fashion, and if not, perhaps why not. This tool also includes active
+      linking to appropriate sections of the specification to further increase comprehension. </textual></para><para class="po-block e26 e26"><textual class="po-textual">As the tool was being developed while these rules were being developed, proven and changed
+      by the XSLT Working Group, it was important that the tool itself could be flexible to changes
+      in these rules. [See </textual><xref class="po-milestone e27 e27" linkend="type.model"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual"> for a very good case of this happening.]
+      Accordingly, the tool makes significant use of declarative descriptions of sections of the
+      rules rather than direct code, some defined directly within the tool, some as external data
+      files and some extracted from the specification itself, or other parts of the specification
+      definitional framework. </textual></para><para class="po-block e28 e28"><textual class="po-textual">This paper is organised as follows: </textual></para><itemizedlist class="po-table e29 e29"><listitem class="po-container e30 e30"><para class="po-block e31 e31"><textual class="po-textual">The model for streaming in XSLT 3.0 is presented and the specification-defined rules
+          are discussed briefly.</textual></para></listitem><listitem class="po-container e32 e32"><para class="po-block e33 e33"><textual class="po-textual">The tool is illustrated in action on a simple example taken from the XSLT
+          specification.</textual></para></listitem><listitem class="po-container e34 e34"><para class="po-block e35 e35"><textual class="po-textual">The basic overall design is discussed: analysing the streaming properties, displaying
+          the results and delivering the tool as a web service.</textual></para></listitem><listitem class="po-container e36 e36"><para class="po-block e37 e37"><textual class="po-textual">XPath expressions embedded in XSLT programs need to be expanded into their parse trees
+          for analysis – the model for doing this is detailed. </textual></para></listitem><listitem class="po-container e38 e38"><para class="po-block e39 e39"><textual class="po-textual">The model for evaluating the streamability rules is discussed in some detail, with all
+          the streaming properties being attached to the stylesheet tree as attributive
+          properties.</textual></para></listitem><listitem class="po-container e40 e40"><para class="po-block e41 e41"><textual class="po-textual">Interactive display of the results involves serialisation of the annotated result tree
+          as an HTML page, with styling through CSS and interaction through a Saxon-CE supported
+          XSLT2.0 stylesheet. </textual></para></listitem><listitem class="po-container e42 e42"><para class="po-block e43 e43"><textual class="po-textual">A final conclusion presents lessons for the development of this type of analysis tool
+          within the XML world.</textual></para></listitem></itemizedlist><para class="po-block e44 e44"><textual class="po-textual">The entirety of the tool is written in XSLT3.0 and of course is about manipulating
+      XSLT3.0. Thus a reasonable knowledge of XSLT3.0 (or at least 2.0) is assumed on the part of
+      the reader.</textual></para><note class="po-container e45 e45"><para class="po-block e46 e46"><textual class="po-textual">This paper discusses interpreting the rules for guaranteed streamability within XSLT,
+        but through the imperfect eyes of the author and the potentially fallible medium of a
+        program that ostensibly follows those rules. In particular the samples and examples in the
+        paper date mainly from the Working Draft specification of December 2013 and several changes
+        have occurred since, especially in a new static type model. </textual><emphasis class="po-inline e47 e47"><textual class="po-textual">The definitive guide
+          is the specification itself, which is, and always will be, the ultimate
+        arbiter</textual></emphasis><textual class="po-textual">. The author assumes no responsibility for errors (positive or negative),
+        omissions and shortcomings. If in doubt read the 20,000 words yourself!</textual></para></note><section class="po-hcontainer e48 e48"><title class="po-block e49 e49"><textual class="po-textual">Major points</textual></title><para class="po-block e50 e50"><textual class="po-textual">The development of this tool is based on three major points, which can be relevant to
+        any similar system that needs to analyse properties of an XSLT program:</textual></para><itemizedlist class="po-table e51 e51"><listitem class="po-container e52 e52"><para class="po-block e53 e53"><textual class="po-textual">The entire coding can be, and perhaps is best, written in XSLT3.0</textual></para></listitem><listitem class="po-container e54 e54"><para class="po-block e55 e55"><textual class="po-textual">The best data structure to hold a lot of varied information about an XSLT program is
+            the tree that defines the program itself.</textual></para></listitem><listitem class="po-container e56 e56"><para class="po-block e57 e57"><textual class="po-textual">Declarative structures (tables, trees, even parts of the specification) can be used
+            effectively to either i) be interpreted to evaluate effect, or even ii) compiled to
+            program sections, or an intermediate computational form such as maps.</textual></para></listitem></itemizedlist></section></section><section class="po-hcontainer e58 e58"><title class="po-block e59 e59"><textual class="po-textual">Streaming in XSLT3.0</textual></title><para class="po-block e60 e60"><textual class="po-textual">One of the design goals in updating XSLT from version 2.0 to version 3.0 was support for
+      processing </textual><quote class="po-inline e61 e61"><textual class="po-textual">very large</textual></quote><textual class="po-textual"> documents – XML documents whose complete tree
+      descriptions could not fit in memory, and for which processing or generation of output would
+      have to proceed before all input had been read. The full details of the design chosen can be
+      found in the </textual><link class="po-inline e62 e62" xlink:actuate="onRequest" xlink:href="http://www.w3.org/TR/xslt-30/#streaming" xlink:show="new" xlink:type="simple"><textual class="po-textual">Streaming</textual></link><textual class="po-textual"> and
+        </textual><link class="po-inline e63 e63" xlink:actuate="onRequest" xlink:href="http://www.w3.org/TR/xslt-30/#streamability" xlink:show="new" xlink:type="simple"><textual class="po-textual">Streamability</textual></link><textual class="po-textual"> sections
+      of the XSLT3.0 specification. Two papers on streaming presented at XML Prague 2014 (</textual><xref class="po-milestone e64 e64" linkend="Braaksma1"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">, </textual><xref class="po-milestone e65 e65" linkend="Kay"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">) give much more detail.</textual></para><para class="po-block e66 e66"><textual class="po-textual">The basic approach chosen is to declare that a given document should be processed in a
+      streaming manner by using the </textual><code class="po-atom e67 e67"><textual class="po-textual">&lt;xsl:stream
+        href="</textual></code><emphasis class="po-inline e68 e68"><code class="po-atom e69 e69"><textual class="po-textual">doc</textual></code></emphasis><code class="po-atom e70 e70"><textual class="po-textual">"&gt;</textual></code><textual class="po-textual"> instruction which
+      processes the (XML) data of the given document according to the instructions supplied as
+      children of the </textual><code class="po-atom e71 e71"><textual class="po-textual">xsl:stream</textual></code><textual class="po-textual"> and returns the result. The essential issue is whether
+      the instructions requested as a set can process the document without having to either i)
+      collect and </textual><emphasis class="po-inline e72 e72"><textual class="po-textual">store</textual></emphasis><textual class="po-textual"> the whole document to produce the result or ii)
+        </textual><emphasis class="po-inline e73 e73"><textual class="po-textual">back-up</textual></emphasis><textual class="po-textual"> to parts of the document </textual><emphasis class="po-inline e74 e74"><textual class="po-textual">before</textual></emphasis><textual class="po-textual"> the
+      current context node. </textual></para><para class="po-block e75 e75"><textual class="po-textual">The model used is to examine two contextual properties of the instructions:
+        </textual><emphasis class="po-inline e76 e76"><textual class="po-textual">posture</textual></emphasis><textual class="po-textual"> and </textual><emphasis class="po-inline e77 e77"><textual class="po-textual">sweep</textual></emphasis><textual class="po-textual">, and determine whether the
+      sequence constructor (the sequence of contained instructions) of the </textual><code class="po-atom e78 e78"><textual class="po-textual">xsl:stream</textual></code><textual class="po-textual">
+      has a </textual><code class="po-atom e79 e79"><textual class="po-textual">grounded</textual></code><textual class="po-textual"> posture. If so then the processing of the </textual><code class="po-atom e80 e80"><textual class="po-textual">xsl:stream</textual></code><textual class="po-textual">
+      is </textual><emphasis class="po-inline e81 e81"><textual class="po-textual">guaranteed streamable</textual></emphasis><textual class="po-textual"> and a compliant streaming XSLT3.0 processor will
+      process the document in a streaming manner. Such analysis is completely static and can be
+      performed either at compile time (which is what a compiler will need to do) or in a separate
+      phase of static analysis and display, which this paper is about.</textual></para><para class="po-block e82 e82"><textual class="po-textual">Partially quoting </textual><xref class="po-milestone e83 e83" linkend="Kay"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">, these two properties are functions of the
+      construct itself (an XSL instruction, an XPath expression term or a function call), the
+      context posture (i.e. the posture generally of the 'parent') and sometimes the data type. They
+      have the following meanings: </textual></para><blockquote class="po-container e84 e84"><title class="po-block e85 e85"><textual class="po-textual">The sweep of a construct</textual></title><para class="po-block e86 e86"><textual class="po-textual">The </textual><emphasis class="po-inline e87 e87"><textual class="po-textual">sweep</textual></emphasis><textual class="po-textual"> indicates how much of the input document is needed to
+        evaluate the construct. The values are</textual></para><itemizedlist class="po-table e88 e88"><listitem class="po-container e89 e89"><para class="po-block e90 e90"><emphasis class="po-inline e91 e91"><textual class="po-textual">Motionless</textual></emphasis><textual class="po-textual">: the construct either doesn’t look at the input
+            document at all, or it only needs to look at the place where the input document is
+            currently positioned.</textual></para></listitem><listitem class="po-container e92 e92"><para class="po-block e93 e93"><emphasis class="po-inline e94 e94"><textual class="po-textual">Consuming</textual></emphasis><textual class="po-textual">: the construct needs to read everything between the
+            current start tag and the corresponding end tag</textual></para></listitem><listitem class="po-container e95 e95"><para class="po-block e96 e96"><emphasis class="po-inline e97 e97"><textual class="po-textual">Free-ranging</textual></emphasis><textual class="po-textual">: the construct potentially needs to read outside
+            the slice of the document represented by the current element and its ancestors.</textual></para></listitem></itemizedlist></blockquote><blockquote class="po-container e98 e98"><title class="po-block e99 e99"><textual class="po-textual">The posture of a construct</textual></title><para class="po-block e100 e100"><textual class="po-textual">The </textual><emphasis class="po-inline e101 e101"><textual class="po-textual">posture</textual></emphasis><textual class="po-textual"> is concerned with determining whether an expression
+        returns nodes from the streamed input document, and if so, where these nodes come from.
+        There are five values:</textual></para><itemizedlist class="po-table e102 e102"><listitem class="po-container e103 e103"><para class="po-block e104 e104"><emphasis class="po-inline e105 e105"><textual class="po-textual">Grounded</textual></emphasis><textual class="po-textual">: this means that the expression doesn't return nodes
+            from the streamed input. It either returns atomic values (or function items), or it
+            returns nodes from non-streamed documents only.</textual></para></listitem><listitem class="po-container e106 e106"><para class="po-block e107 e107"><emphasis class="po-inline e108 e108"><textual class="po-textual">Striding</textual></emphasis><textual class="po-textual">: this means that the expression returns a set of nodes
+            from the streamed input document, in document order, and that none of these nodes will
+            contain another node in the result (none is an ancestor or descendant of
+            another).</textual></para></listitem><listitem class="po-container e109 e109"><para class="po-block e110 e110"><emphasis class="po-inline e111 e111"><textual class="po-textual">Crawling</textual></emphasis><textual class="po-textual">: again, the expression returns a set of nodes from the
+            streamed input document, in document order, but this time some of the nodes may be
+            ancestors or descendants of others.</textual></para></listitem><listitem class="po-container e112 e112"><para class="po-block e113 e113"><emphasis class="po-inline e114 e114"><textual class="po-textual">Climbing</textual></emphasis><textual class="po-textual">: The specification assumes that when an input document
+            is streamed, a stack of information is retained containing details of the names and
+            attributes of all ancestor elements of the element at which the stream is currently
+            positioned. Any expression that accesses ancestor nodes or their attributes from this
+            stack has a posture of climbing.</textual></para></listitem><listitem class="po-container e115 e115"><para class="po-block e116 e116"><emphasis class="po-inline e117 e117"><textual class="po-textual">Roaming</textual></emphasis><textual class="po-textual"> : This indicates that an expression navigates off to
+            parts of the document that aren't accessible when streaming, such as preceding or
+            following siblings.</textual></para></listitem></itemizedlist></blockquote><section class="po-hcontainer e118 e118"><title class="po-block e119 e119"><textual class="po-textual">Streamability rules</textual></title><para class="po-block e120 e120"><textual class="po-textual">The specification provides a </textual><emphasis class="po-inline e121 e121"><textual class="po-textual">very</textual></emphasis><textual class="po-textual"> detailed and very large set of
+        rules for determining these properties for a given construct in a given situation within an
+        XSLT stylesheet. (To give a sense of the size, the streamability rules take approximately
+        20,000 words of the 160,000 in the specification's main body, and the section on streaming
+        itself another 6000 words.) The detail is necessary to ensure that simple constructs, which
+        at first glance should be streamable, actually are – a highly conservative simpler set of
+        rules would exclude many common cases.</textual></para><note class="po-container e122 e122"><para class="po-block e123 e123"><textual class="po-textual">Whilst these rules are intended to be complete, </textual><xref class="po-milestone e124 e124" linkend="Braaksma2"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">, presented
+          at XML London , gives a more informal set of guidelines, intended to support designers
+          creating or refactoring their code for streaming.</textual></para></note><para class="po-block e125 e125"><textual class="po-textual">These rules split into four general categories: i) a set of </textual><emphasis class="po-inline e126 e126"><textual class="po-textual">General
+          Streamability Rules</textual></emphasis><textual class="po-textual"> (usually abbreviated to GSR), ii) a set of specific rules
+        for every XSL instruction, iii) rules for each XPath expression term and iv) rules for all
+        built-in XPath functions. Examples of these rules will be given in later sections.</textual></para><para class="po-block e127 e127"><textual class="po-textual">To analyse the streamability of a given </textual><code class="po-atom e128 e128"><textual class="po-textual">xsl:stream</textual></code><textual class="po-textual"> instruction it is
+        (usually) necessary to recursively apply these rules to </textual><emphasis class="po-inline e129 e129"><textual class="po-textual">every</textual></emphasis><textual class="po-textual"> construct
+        contained within (every XSL instruction, every XPath term), and in addition any 'external'
+        resources, such as </textual><code class="po-atom e130 e130"><textual class="po-textual">xsl:template</textual></code><textual class="po-textual"> or </textual><code class="po-atom e131 e131"><textual class="po-textual">xsl:function</textual></code><textual class="po-textual"> (and their
+        definitions) that may be invoked.</textual><footnote class="po-popup e132 e132"><para class="po-block e133 e133"><textual class="po-textual">Applicable templates must be invoked in a mode that has been declared to be
+            streamable (</textual><code class="po-atom e134 e134"><textual class="po-textual">xsl:mode name=".." streamable="yes"</textual></code><textual class="po-textual">) so the set of templates to
+            be examined is restricted.</textual></para></footnote></para><para class="po-block e135 e135"><textual class="po-textual">It is anticipated that developers who are designing streamable transformations, will
+        acquire a sense of the spirit of these rules, but to start may have to work through the
+        rules in detail on a given problem. Whilst these calculations can be performed 'by hand', it
+        can be somewhat tortuous, and slow, involving very deep recursions and much scrolling back
+        and forth through the specification</textual><footnote class="po-popup e136 e136"><para class="po-block e137 e137"><textual class="po-textual">The author was present when the XSLT Working Group analysed 'by hand' (and
+            conference call) the streamability of a 5 instruction stylesheet, with XPath expressions
+            perhaps 4-5 terms deep. They almost managed to complete the process in about 50
+            minutes.</textual></para></footnote><textual class="po-textual">.</textual></para><para class="po-block e138 e138"><textual class="po-textual">To assist in such early study of streamability, the author has built a tool, funded by
+        Saxonica, to perform such analysis on a given stylesheet and display the results in a form
+        that the intermediate properties and the relevant rules can be explored interactively. The
+        rest of this paper is about the structure of this tool.</textual></para><note class="po-container e139 e139"><para class="po-block e140 e140"><textual class="po-textual">The tool is at the time of writing available at </textual><link class="po-inline e141 e141" xlink:actuate="onRequest" xlink:href="http://dev.saxonica.com/stream/index.html" xlink:show="new" xlink:type="simple"><textual class="po-textual">Saxonica Community: Streaming
+            Analysis</textual></link><textual class="po-textual"> which is intended only to analyse small single stylesheets (no support
+          for inclusion), or some of the specification and W3C test-case examples. Saxonica Ltd
+          reserves the right to withdraw this service without notice and makes no guarantees as to
+          the veracity of the results. </textual></para></note></section></section><section class="po-hcontainer e142 e142"><title class="po-block e143 e143"><textual class="po-textual">A Quick Tour</textual></title><para class="po-block e144 e144"><textual class="po-textual">The tool is controlled by and presents its results as an XHTML web page, which is usually
+      connected to a server providing the analysis operation. It's best to start off with a quick
+      picture of what the tool provides, operating in this case on one of the examples from the
+      specification:</textual></para><figure class="po-container e145 e145" xml:id="sample-a"><title class="po-block e146 e146"><textual class="po-textual">Sample stylesheet</textual></title><mediaobject class="po-container e147 e147"><imageobject class="po-container e148 e148"><imagedata class="po-meta e149 e149" fileref="../../../vol13/graphics/Lumley01/Lumley01-001.png" format="png"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></imagedata></imageobject></mediaobject></figure><para class="po-block e150 e150"><textual class="po-textual">A stylesheet can be uploaded to the analysis tool, or as in this case, a pre-loaded
+      example taken from the specification is selected. A serialised version of the source is
+      displayed, with styling, line-numbering and fold/unfold controls. The
+        </textual><code class="po-atom e151 e151"><textual class="po-textual">xsl:template</textual></code><textual class="po-textual"> and </textual><code class="po-atom e152 e152"><textual class="po-textual">xsl:stream</textual></code><textual class="po-textual"> have green backgrounds as the analysis
+      has concluded that they are </textual><emphasis class="po-inline e153 e153"><textual class="po-textual">guaranteed streamable</textual></emphasis><textual class="po-textual"> – if this were not the
+      case they would have red backgrounds. The implicit sequence constructors have been displayed
+      explicitly. Many of the elements of the serialisation are sensitive to mouse-click...</textual></para><figure class="po-container e154 e154" xml:id="sample-b"><title class="po-block e155 e155"><textual class="po-textual">XPath expressions revealed</textual></title><mediaobject class="po-container e156 e156"><imageobject class="po-container e157 e157"><imagedata class="po-meta e158 e158" fileref="../../../vol13/graphics/Lumley01/Lumley01-002.png" format="png"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></imagedata></imageobject></mediaobject></figure><para class="po-block e159 e159"><textual class="po-textual">By clicking on the two XPath-containing attributes (</textual><code class="po-atom e160 e160"><textual class="po-textual">@match</textual></code><textual class="po-textual"> and
+        </textual><code class="po-atom e161 e161"><textual class="po-textual">@select</textual></code><textual class="po-textual"> of lines 2 and 5 respectively) we reveal the full trees representing
+      the parsing of these expressions, whose properties will become crucial in determining
+      streamability. By selecting amongst the check-boxes we can then show some of the streaming
+      properties that have been calculated:</textual></para><figure class="po-container e162 e162" xml:id="sample-c"><title class="po-block e163 e163"><textual class="po-textual">Streaming properties displayed</textual></title><mediaobject class="po-container e164 e164"><imageobject class="po-container e165 e165"><imagedata class="po-meta e166 e166" fileref="../../../vol13/graphics/Lumley01/Lumley01-003.png" format="png"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></imagedata></imageobject></mediaobject></figure><para class="po-block e167 e167"><textual class="po-textual">Here we have chosen to display both the </textual><quote class="po-inline e168 e168"><textual class="po-textual">role</textual></quote><textual class="po-textual"> of each of the XPath
+      expressions (whose importance will be explained later), and the calculated </textual><emphasis class="po-inline e169 e169"><textual class="po-textual">static
+        type</textual></emphasis><textual class="po-textual"> and </textual><emphasis class="po-inline e170 e170"><textual class="po-textual">posture</textual></emphasis><textual class="po-textual"> for each element in both XPath expression
+      and XSLT instruction constructs. These are displayed in distinctly shortened and styled forms,
+      as if they were attributive properties of each element.</textual></para><figure class="po-container e171 e171" xml:id="sample-d"><title class="po-block e172 e172"><textual class="po-textual">Applied rules identified</textual></title><mediaobject class="po-container e173 e173"><imageobject class="po-container e174 e174"><imagedata class="po-meta e175 e175" fileref="../../../vol13/graphics/Lumley01/Lumley01-004.png" format="png"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></imagedata></imageobject></mediaobject></figure><para class="po-block e176 e176"><textual class="po-textual">Not only is it useful to display the calculated property, but it is also exceptionally
+      helpful to understand why it has that value. In this case we have displayed the sections of
+      the </textual><quote class="po-inline e177 e177"><textual class="po-textual">General Streamability Rules</textual></quote><textual class="po-textual"> that were triggered, if those rules were used
+      on that particular construct. If we click on one of these decorations a subsidiary browser
+      window or tab shows the first section of the rules which were applied:.</textual></para><figure class="po-container e178 e178" xml:id="sample-e"><title class="po-block e179 e179"><textual class="po-textual">Applicable general streamability rules</textual></title><mediaobject class="po-container e180 e180"><imageobject class="po-container e181 e181"><imagedata class="po-meta e182 e182" fileref="../../../vol13/graphics/Lumley01/Lumley01-005.png" format="png"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></imagedata></imageobject></mediaobject></figure><para class="po-block e183 e183"><textual class="po-textual">Here case </textual><code class="po-atom e184 e184"><textual class="po-textual">1.b.iii.A.II</textual></code><textual class="po-textual"> was appropriate (the </textual><quote class="po-inline e185 e185"><textual class="po-textual">usage</textual></quote><textual class="po-textual"> wasn't
+      modified). Other relevant portions of the specification can be displayed in a similar manner –
+      clicking on the </textual><code class="po-atom e186 e186"><textual class="po-textual">AxisStep</textual></code><textual class="po-textual"> element brings up the specification-defined process for
+      determination of the streamability of such an expression:</textual></para><figure class="po-container e187 e187" xml:id="sample-f"><title class="po-block e188 e188"><textual class="po-textual">Relevant specification sections linked</textual></title><mediaobject class="po-container e189 e189"><imageobject class="po-container e190 e190"><imagedata class="po-meta e191 e191" fileref="../../../vol13/graphics/Lumley01/Lumley01-006.png" format="png"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></imagedata></imageobject></mediaobject></figure><para class="po-block e192 e192"><textual class="po-textual">The rest of this paper looks at the details of the design of the tools to achieve these
+      effects.</textual></para></section><section class="po-hcontainer e193 e193"><title class="po-block e194 e194"><textual class="po-textual">Basic Design</textual></title><para class="po-block e195 e195"><textual class="po-textual">The tool splits broadly into three sections: i) determining the appropriate streaming
+      properties for all nodes on a stylesheet 'tree', ii) preparing an interactive display of the
+      stylesheet where these properties can be examined and iii) combining these in a web-server
+      such that stylesheets can be uploaded and interactive result web pages returned. With the
+      exception of the web-server package deployment, the analysis tool is built entirely in
+      XSLT3.0, generating an interactive display result which is a combination of (X)HTML, CSS and
+      XSLT2.0 delivered using Saxon-CE. </textual></para><section class="po-hcontainer e196 e196"><title class="po-block e197 e197"><textual class="po-textual">Determining streaming properties</textual></title><para class="po-block e198 e198"><textual class="po-textual">To analyse the streaming properties for a given stylesheet, we at least need to
+        recursively descend the stylesheet tree from any </textual><code class="po-atom e199 e199"><textual class="po-textual">xsl:stream</textual></code><textual class="po-textual"> instructions, or
+          </textual><code class="po-atom e200 e200"><textual class="po-textual">xsl:template</textual></code><textual class="po-textual"> nodes that can be invoked in a streamable mode, and calculate
+        these properties based on a contextual state, the specific construct and most likely the
+        properties of its children, hence the deep recursion. Not only does this process have to
+        involve XSLT instructions, it must also involve XPath expressions contained within various
+        attributes of those instructions, as they are the mechanisms whereby XSLT selects data nodes
+        of interest, and their behaviour in 'moving around' the data tree is critical to
+        streamability. In effect, for purposes of streamability, the XPath expressions (which can be
+        described from their parse trees) are tree-extensions of the main stylesheet, albeit
+        technically anchored through attributes rather than elemental children. </textual></para><para class="po-block e201 e201"><textual class="po-textual">This process starts by producing a modified version of the XSLT tree, in which
+        additional sub-trees describe these XPath expressions and which has explicit sequence
+        constructors. For example the template:</textual></para><figure class="po-container e202 e202" xml:id="show-2"><title class="po-block e203 e203"><textual class="po-textual">Sample XSLT</textual></title><programlisting class="po-block e204 e204" xml:space="preserve"><textual class="po-textual">&lt;xsl:template match="/"&gt;
+  &lt;xsl:stream href="book.xml"&gt;
+    &lt;xsl:for-each select="book"&gt;
+      &lt;xsl:for-each select="chapter"&gt;
+        &lt;xsl:result-document href="chapter{position()}.xml"&gt;
+          &lt;xsl:copy-of select="."/&gt;
+        &lt;/xsl:result-document&gt;
+      &lt;/xsl:for-each&gt;
+    &lt;/xsl:for-each&gt;
+  &lt;/xsl:stream&gt;
+&lt;/xsl:template&gt;</textual></programlisting></figure><para class="po-block e205 e205"><textual class="po-textual">is transformed into another tree with additional children and attributes:</textual></para><figure class="po-container e206 e206" xml:id="show-3"><title class="po-block e207 e207"><textual class="po-textual">Transformed XSLT</textual></title><programlisting class="po-block e208 e208" xml:space="preserve"><textual class="po-textual">&lt;xsl:template match="/" l:no="2" xmlns:xp="http://saxonica.com/xpathParse" xmlns:s="StreamAnalysis"&gt;
+  &lt;xp:AxisStep axis="self" nodeTest="document-node()" s:role="match"/&gt;
+  &lt;s:sequence-constructor&gt;
+    &lt;xsl:stream href="book.xml" l:no="3"&gt;
+      &lt;s:sequence-constructor&gt;
+        &lt;xsl:for-each select="book" l:no="4"&gt;
+          &lt;xp:AxisStep axis="child" nodeTest="element(book)" s:role="select"/&gt;
+          &lt;s:sequence-constructor&gt;
+            &lt;xsl:for-each select="chapter" l:no="5"&gt;
+              &lt;xp:AxisStep axis="child" nodeTest="element(chapter)" s:role="select"/&gt;
+              &lt;s:sequence-constructor&gt;
+                &lt;xsl:result-document href="chapter{position()}.xml" l:no="6"&gt;
+                  &lt;xp:FunctionCall name="position" s:role="AVT.href.1"/&gt;
+                  &lt;s:sequence-constructor&gt;
+                    &lt;xsl:copy-of select="." l:no="7"&gt;
+                      &lt;xp:ContextItemExpr s:role="select"/&gt;
+                    &lt;/xsl:copy-of&gt;
+                  &lt;/s:sequence-constructor&gt;
+                &lt;/xsl:result-document&gt;
+              &lt;/s:sequence-constructor&gt;
+            &lt;/xsl:for-each&gt;
+          &lt;/s:sequence-constructor&gt;
+        &lt;/xsl:for-each&gt;
+      &lt;/s:sequence-constructor&gt;
+    &lt;/xsl:stream&gt;
+  &lt;/s:sequence-constructor&gt;
+&lt;/xsl:template&gt;</textual></programlisting></figure><para class="po-block e209 e209"><textual class="po-textual">The sequence constructors have been made explicit as </textual><code class="po-atom e210 e210"><textual class="po-textual">s:sequence-constructor</textual></code><textual class="po-textual"> children</textual><footnote class="po-popup e211 e211"><para class="po-block e212 e212"><textual class="po-textual">We could have used </textual><code class="po-atom e213 e213"><textual class="po-textual">xsl:sequence</textual></code><textual class="po-textual"> which in XSLT3.0 can contain a sequence
+            constructor (!) but placing it in a separate namespace makes the implementation
+            tidier.</textual></para></footnote><textual class="po-textual">. If, for example, the </textual><code class="po-atom e214 e214"><textual class="po-textual">xsl:for-each select="book"</textual></code><textual class="po-textual"> had contained an
+          </textual><code class="po-atom e215 e215"><textual class="po-textual">xsl:sort</textual></code><textual class="po-textual"> directive, this would </textual><emphasis class="po-inline e216 e216"><textual class="po-textual">not</textual></emphasis><textual class="po-textual"> be contained within
+        the sequence constructor pseudo-child. The XPath expressions contained within attributes
+        have been placed as children in the </textual><code class="po-atom e217 e217"><textual class="po-textual">xp:</textual></code><textual class="po-textual"> namespace, each having an attribute
+          (</textual><code class="po-atom e218 e218"><textual class="po-textual">@s:role</textual></code><textual class="po-textual">) describing the role it takes within the containing instruction,
+        using a simple naming scheme for identifying expressions contained within attribute value
+        templates. (The </textual><code class="po-atom e219 e219"><textual class="po-textual">@l:no</textual></code><textual class="po-textual"> attributes have been added to denote original source line
+        numbers, for use in eventual display.) </textual></para><para class="po-block e220 e220"><textual class="po-textual">With the expanded XSLT tree, a top-down analysis of the streamability is performed, by
+        evaluating the extensive rules outlined in the specification over tree nodes and their
+        children. The results are returned as a copy of the input tree decorated with a series of
+        attributes describing the streaming properties of each node. The inner
+          </textual><code class="po-atom e221 e221"><textual class="po-textual">xsl:result-document</textual></code><textual class="po-textual"> sub-tree of our example becomes: </textual></para><figure class="po-container e222 e222" xml:id="show-4"><title class="po-block e223 e223"><textual class="po-textual">Analysed XSLT</textual></title><programlisting class="po-block e224 e224" xml:space="preserve"><textual class="po-textual">&lt;xsl:result-document id="d7794e12" href="chapter{position()}.xml" l:no="6"
+  s:contextItemType="element(chapter)" s:staticType="item()*" s:usage="transmission"
+  s:contextPosture="striding" s:href="#streamability-xsl-result-document" s:posture="grounded"
+  s:sweep="consuming" s:general="2.d.ii"&gt;
+  &lt;xp:FunctionCall id="d7794e13" name="position" s:role="AVT.href.1"
+    s:contextItemType="element(chapter)" s:staticType="xs:integer" s:contextPosture="striding"
+    s:href="#streamability-fn-position" s:posture="grounded" s:sweep="motionless" s:general="2.a"
+    s:sweepOriginal="motionless" s:generalOperand="1.b.ii"/&gt;
+  &lt;s:sequence-constructor id="d7794e14" s:contextItemType="element(chapter)"
+    s:staticType="element(chapter)" s:usage="absorption" s:href="#classifying-sequence-constructors"
+    s:contextPosture="striding" s:posture="grounded" s:sweep="consuming" s:sweepOriginal="consuming"
+    s:usageOriginal="absorption" s:generalOperand="1.b.ii,1.c.i" s:potentialConsumer=""&gt;
+    &lt;xsl:copy-of id="d7794e15" select="." l:no="7" s:contextItemType="element(chapter)"
+      s:staticType="element(chapter)" s:usage="transmission" s:contextPosture="striding"
+      s:href="#streamability-xsl-copy-of" s:posture="grounded" s:sweep="consuming"
+      s:general="2.d.ii"&gt;
+      &lt;xp:ContextItemExpr id="d7794e16" s:role="select" s:contextItemType="element(chapter)"
+        s:staticType="element(chapter)" s:usage="absorption"
+        s:href="#streamability-of-context-item-expression" s:contextPosture="striding"
+        s:posture="striding" s:sweep="consuming" s:sweepOriginal="motionless"
+        s:usageOriginal="absorption" s:generalOperand="1.b.iii.A.II,1.b.iii.B.2.1,1.c.i"
+        s:potentialConsumer=""/&gt;
+    &lt;/xsl:copy-of&gt;
+  &lt;/s:sequence-constructor&gt;
+&lt;/xsl:result-document&gt;</textual></programlisting></figure><para class="po-block e225 e225"><textual class="po-textual">(The details of these annotations will be described later.) </textual></para></section><section class="po-hcontainer e226 e226"><title class="po-block e227 e227"><textual class="po-textual">Displaying the results</textual></title><para class="po-block e228 e228"><textual class="po-textual">At this point, technically the analysis of the streamability is complete – examining
+        these streaming properties can assess whether an </textual><code class="po-atom e229 e229"><textual class="po-textual">xsl:stream</textual></code><textual class="po-textual"> instruction is
+        indeed </textual><emphasis class="po-inline e230 e230"><textual class="po-textual">guaranteed streamable</textual></emphasis><textual class="po-textual">. However to be useful these results should
+        be displayed in a meaningful way, and with some interaction to restrict the almost certain
+        information overload. The basic approach is to convert the result tree into a serialised
+        HTML </textual><code class="po-atom e231 e231"><textual class="po-textual">pre</textual></code><textual class="po-textual">, which is styled through CSS, and where the visibility of various
+        sections can be controlled interactively, in this case using Saxon-CE transforms attached to
+        callbacks. The </textual><code class="po-atom e232 e232"><textual class="po-textual">xp:FunctionCall[@name='position']</textual></code><textual class="po-textual"> shown highlighted in </textual><xref class="po-milestone e233 e233" linkend="show-4"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual"> is displayed as a line:</textual></para><figure class="po-container e234 e234" xml:id="show-5"><title class="po-block e235 e235"><textual class="po-textual">Displayed analysed expression</textual></title><mediaobject class="po-container e236 e236"><imageobject class="po-container e237 e237"><imagedata class="po-meta e238 e238" fileref="../../../vol13/graphics/Lumley01/Lumley01-007.png" format="png"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></imagedata></imageobject></mediaobject></figure><para class="po-block e239 e239"><textual class="po-textual">which is actually represented as a structure within </textual><code class="po-atom e240 e240"><textual class="po-textual">pre</textual></code><textual class="po-textual"> as</textual><footnote class="po-popup e241 e241"><para class="po-block e242 e242"><textual class="po-textual">Multi-line expansion and indentation is shown for clarity, but the single line is
+            actually </textual><quote class="po-inline e243 e243"><textual class="po-textual">flat</textual></quote><textual class="po-textual">.</textual></para></footnote><textual class="po-textual">:</textual></para><figure class="po-container e244 e244" xml:id="show-6"><title class="po-block e245 e245"><textual class="po-textual">Serialised display of analysed XSLT</textual></title><programlisting class="po-block e246 e246" xml:space="preserve"><textual class="po-textual">&lt;span class="XPtop" role="AVT.href" style="display:inline"&gt;
+  &lt;span class="lineNumber"&gt; &lt;/span&gt;
+  &lt;span class="XPelem"&gt;
+    &lt;a target="_spec" href="XSLT3.0-Spec#streamability-fn-position"&gt;FunctionCall&lt;/a&gt;
+  &lt;/span&gt;
+  &lt;span class="XMLatt"&gt;
+      name=&lt;span class="XMLquot"&gt;"position"&lt;/span&gt;
+  &lt;/span&gt;
+  &lt;span class="stream"&gt;
+    &lt;span class="streamProperty role" type="role" style="display:inline"&gt;
+      &lt;span class="propName"&gt;r:&lt;/span&gt; AVT.href.1
+    &lt;/span&gt;
+    &lt;span class="streamProperty contextItemType" type="contextItemType" style="display:none"&gt;
+      &lt;span class="propName"&gt;ct:&lt;/span&gt; document-node()
+    &lt;/span&gt;
+    &lt;span class="streamProperty staticType" type="staticType" style="display:inline"&gt;
+      &lt;span class="propName"&gt;t:&lt;/span&gt; xs:integer
+    &lt;/span&gt;
+    ...
+    &lt;span class="streamProperty posture" type="posture" style="display:inline"&gt;
+      &lt;span class="propName"&gt;p:&lt;/span&gt; grounded
+    &lt;/span&gt;
+    ...
+    &lt;span class="streamProperty generalOperand" type="generalOperand" style="display:inline"&gt;
+      &lt;a target="_spec" href="XSLT3.0-Spec#gsr-1.b.ii"&gt;
+        &lt;span class="propName"&gt;rule.op:&lt;/span&gt;1.b.ii&lt;/a&gt;
+    &lt;/span&gt;
+  &lt;/span&gt;
+  &gt;
+&lt;/span&gt;</textual></programlisting></figure><para class="po-block e247 e247"><textual class="po-textual">The </textual><quote class="po-inline e248 e248"><textual class="po-textual">stream</textual></quote><textual class="po-textual"> span contains all the streaming properties, each being styled
+        and differentiated via CSS through the </textual><code class="po-atom e249 e249"><textual class="po-textual">@class</textual></code><textual class="po-textual"> attribute. Interaction through
+        the tool check-boxes toggles the </textual><code class="po-atom e250 e250"><textual class="po-textual">@style</textual></code><textual class="po-textual"> between </textual><code class="po-atom e251 e251"><textual class="po-textual">display:none</textual></code><textual class="po-textual"> and
+          </textual><code class="po-atom e252 e252"><textual class="po-textual">display:inline</textual></code><textual class="po-textual">, thus revealing or concealing the properties. The
+          </textual><code class="po-atom e253 e253"><textual class="po-textual">generalOperand</textual></code><textual class="po-textual"> class contains a hyperlink to the section of the General
+        Streamability Rules that was used when treating this construct as an operand of its parent.
+        How these decorations are added is described later. </textual></para></section><section class="po-hcontainer e254 e254"><title class="po-block e255 e255"><textual class="po-textual">Delivering the service</textual></title><para class="po-block e256 e256"><textual class="po-textual">The analysis tool is an XSLT transform that delivers a modified XSLT tree. The display
+        generator is another transform that takes that tree and delivers an (interactive) HTML page.
+        These could be combined into a single package, but we have chosen to implement this analysis
+        as a web service, permitting stylesheets to be uploaded for examination. To do this we've
+        used the </textual><xref class="po-milestone e257 e257" linkend="Servlex"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual"> webapp package tool . The general architecture of the
+        delivery platform is: </textual></para><figure class="po-container e258 e258" xml:id="show-7"><title class="po-block e259 e259"><textual class="po-textual">Streamability analysis as a web service</textual></title><mediaobject class="po-container e260 e260"><imageobject class="po-container e261 e261"><imagedata class="po-meta e262 e262" fileref="../../../vol13/graphics/Lumley01/Lumley01-008.png" format="png"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></imagedata></imageobject></mediaobject></figure><para class="po-block e263 e263"><textual class="po-textual">Apart from delivery of resource classes (e.g. </textual><code class="po-atom e264 e264"><textual class="po-textual">*.html</textual></code><textual class="po-textual">,</textual><code class="po-atom e265 e265"><textual class="po-textual">*.css</textual></code><textual class="po-textual"> and
+          </textual><code class="po-atom e266 e266"><textual class="po-textual">*.js</textual></code><textual class="po-textual">, which includes the Saxon-CE 'compiler'...), three principal messages
+        are processed by the web package:</textual></para><variablelist class="po-table e267 e267"><varlistentry class="po-record e268 e268"><term class="po-block e269 e269"><textual class="po-textual">analyze.html</textual></term><listitem class="po-container e270 e270"><para class="po-block e271 e271"><textual class="po-textual">Executes an XSLT transform that generates the main tool page, including collecting
+              all the preloaded examples and forming drop-down selectors to choose them.</textual></para></listitem></varlistentry><varlistentry class="po-record e272 e272"><term class="po-block e273 e273"><textual class="po-textual">analyzeStream</textual></term><listitem class="po-container e274 e274"><para class="po-block e275 e275"><textual class="po-textual">Is accompanied by the upload of the source stylesheet</textual><footnote class="po-popup e276 e276"><para class="po-block e277 e277"><textual class="po-textual">At present relative indirect stylesheets (e.g. </textual><code class="po-atom e278 e278"><textual class="po-textual">xsl:include
+                    href="more.xsl"</textual></code><textual class="po-textual">) are not supported, as of course the server cannot
+                  request from the client file system, though 'web-accessible' links could be
+                  followed. A system where all the stylesheets were web-accessible could be
+                  developed easily.</textual></para></footnote><textual class="po-textual">which is processed for analysis followed by serialisation of the result
+              into an interactive web-page, which displays in a frame in the main tool.</textual></para></listitem></varlistentry><varlistentry class="po-record e279 e279"><term class="po-block e280 e280"><textual class="po-textual">XSLT3.0-Spec</textual></term><listitem class="po-container e281 e281"><para class="po-block e282 e282"><textual class="po-textual">Generates an annotated version of the current W3C specification, mostly in terms
+              of labelling all the cases in the </textual><quote class="po-inline e283 e283"><textual class="po-textual">General Streamability Rules</textual></quote><textual class="po-textual"> so they
+              can linked to by fragment identifiers (e.g. </textual><code class="po-atom e284 e284"><textual class="po-textual">#gsr-1.b.iii.A.II</textual></code><textual class="po-textual">). The
+              specification is displayed in a separate tab or window for ease of use. (The annotated
+              specification should be stored in the Servlex web cache, so this regeneration should
+              be infrequent.)</textual></para></listitem></varlistentry></variablelist><para class="po-block e285 e285"><textual class="po-textual"> This delivery mechanism will not be described further in this paper, save that we found
+        Servlex to be an excellent vehicle for constructing such a service.</textual></para></section><section class="po-hcontainer e286 e286"><title class="po-block e287 e287"><textual class="po-textual">Limitations and assumptions</textual></title><para class="po-block e288 e288"><textual class="po-textual">The tool assumes of course that the stylesheets are well formed XML, and syntactically
+        correct XSLT, or more correctly only analyses them on the basis that they are syntactically
+        correct. Little error checking is performed.</textual></para></section></section><section class="po-hcontainer e289 e289"><title class="po-block e290 e290"><textual class="po-textual">Expanding XPath Expressions</textual></title><para class="po-block e291 e291"><textual class="po-textual">To analyse XSLT streamability it is necessary to examine from where in the XML input tree
+      data is being collected by stylesheet instructions. These operations are obviously described
+      as XPath expressions, which can be highly compound in nature, such as mixing searches along
+      different axes (child, ancestor, following etc.), predicates and a number of built-in
+      functions. Analysis of streamability has to examine the structures of these expressions - the
+      rules are described with reference to the EBNF grammar for XPath, defined in </textual><link class="po-inline e292 e292" xlink:actuate="onRequest" xlink:href="http://www.w3.org/TR/xpath-30/#nt-bnf" xlink:show="new" xlink:type="simple"><textual class="po-textual">XPath 3.0 Grammar</textual></link><textual class="po-textual">. Thus for our
+      purposes it is most convenient to generate parse result trees corresponding to the XPath
+      expressions contained in attribute values (e.g. </textual><code class="po-atom e293 e293"><textual class="po-textual">@select</textual></code><textual class="po-textual">) or attribute value
+      templates (e.g. </textual><code class="po-atom e294 e294"><textual class="po-textual">href="example{position()}.xml"</textual></code><textual class="po-textual">).</textual></para><para class="po-block e295 e295"><textual class="po-textual">As the analysis is being performed in an XSLT environment, such parsing can be performed
+      most conveniently with a parser itself written in XSLT. Luckily the </textual><xref class="po-milestone e296 e296" linkend="REx"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">
+      parser generator can be configured to generate parsers in several languages, including XSLT,
+      which can both test against a grammar and built a result XML parse tree. REx can indeed
+      generate a working XPath 3.0 parser to run in XSLT. The nub of the expansion is shown in </textual><xref class="po-milestone e297 e297" linkend="operand"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual"> :</textual></para><figure class="po-container e298 e298" xml:id="operand"><title class="po-block e299 e299"><textual class="po-textual">Parsing XPath expressions</textual></title><programlisting class="po-block e300 e300" xml:space="preserve"><textual class="po-textual">&lt;xsl:include href="../rex/xpath3.0-parse.xslt"/&gt;
+...
+&lt;xsl:template match="@select|@test|@match|@group-adjacent" mode="operand"&gt;
+  &lt;xsl:variable name="role" select="name(.)"/&gt;
+  &lt;xsl:for-each select="xp:parse.xpath(.)"&gt;
+    &lt;xsl:copy&gt;
+      &lt;xsl:sequence select="@*"/&gt;
+      &lt;xsl:attribute name="s:role" select="$role"/&gt;
+      &lt;xsl:sequence select="*|text()"/&gt;
+    &lt;/xsl:copy&gt;
+  &lt;/xsl:for-each&gt;
+&lt;/xsl:template&gt;
+</textual></programlisting></figure><para class="po-block e301 e301"><code class="po-atom e302 e302"><textual class="po-textual">xpath3.0-parse.xslt</textual></code><textual class="po-textual"> links to the transform that has been generated by REx.
+        </textual><code class="po-atom e303 e303"><textual class="po-textual">xp:parse.xpath()</textual></code><textual class="po-textual"> performs some tactical rewriting of an XPath string (see </textual><xref class="po-milestone e304 e304" linkend="rewrites"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">), calls the REx-generated parser and does some post-processing
+      (namespace remapping, collapsing of singleton leaf sub-trees, etc...) before returning the
+      completed parse-tree. The </textual><code class="po-atom e305 e305"><textual class="po-textual">operand</textual></code><textual class="po-textual"> mode generates a child element containing that
+      XPath parse tree, identified with the role of the expression (in this case the attribute name)
+      - this role will be used in later operations to identify different instruction-specific
+      treatments as far as effect on streaming is concerned. These operands trees are generated from
+      a main template shown in </textual><xref class="po-milestone e306 e306" linkend="Expand-constructs"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">, where not only are common XPath
+      carriers (e.g. </textual><code class="po-atom e307 e307"><textual class="po-textual">@select</textual></code><textual class="po-textual">) processed, but also attributes that are identified as
+      containing </textual><emphasis class="po-inline e308 e308"><textual class="po-textual">attribute value templates</textual></emphasis><textual class="po-textual">, using the predicate test function
+        </textual><code class="po-atom e309 e309"><textual class="po-textual">xp:is.AVT()</textual></code><textual class="po-textual">.</textual></para><figure class="po-container e310 e310" xml:id="Expand-constructs"><title class="po-block e311 e311"><textual class="po-textual">Expanding constructs</textual></title><programlisting class="po-block e312 e312" xml:space="preserve"><textual class="po-textual">&lt;xsl:template match="xsl:*" mode="xp:P"&gt;
+  &lt;xsl:copy&gt;
+    &lt;xsl:apply-templates select="@*" mode="#current"/&gt;
+    &lt;xsl:call-template name="line-number"/&gt;
+    &lt;xsl:apply-templates select="." mode="xp:implict-select"/&gt;
+    &lt;xsl:apply-templates select="@select,@test,@match,@group-adjacent" mode="operand"/&gt;
+    &lt;xsl:apply-templates select="@*[xp:is.AVT(.)]" mode="operand"/&gt;
+    &lt;xsl:for-each-group select="*|text()[matches(.,'\S+')]"
+      group-adjacent="xp:is.sequence-constructor(.)"&gt;
+      &lt;xsl:choose&gt;
+        &lt;xsl:when test="current-grouping-key()"&gt;
+          &lt;s:sequence-constructor&gt;
+            &lt;xsl:apply-templates select="current-group()" mode="#current"/&gt;
+          &lt;/s:sequence-constructor&gt;
+        &lt;/xsl:when&gt;
+        &lt;xsl:otherwise&gt;
+          &lt;xsl:apply-templates select="current-group()" mode="#current"/&gt;
+        &lt;/xsl:otherwise&gt;
+      &lt;/xsl:choose&gt;
+    &lt;/xsl:for-each-group&gt;
+  &lt;/xsl:copy&gt;
+&lt;/xsl:template&gt;</textual></programlisting></figure><para class="po-block e313 e313"><textual class="po-textual">As well as generating the operand trees, this template also: </textual></para><itemizedlist class="po-table e314 e314"><listitem class="po-container e315 e315"><para class="po-block e316 e316"><textual class="po-textual">processes instructions that have an implicit selection role, such as
+            </textual><code class="po-atom e317 e317"><textual class="po-textual">xsl:apply-templates[empty(@select)]</textual></code><textual class="po-textual"> or </textual><code class="po-atom e318 e318"><textual class="po-textual">xsl:next-match</textual></code><textual class="po-textual"> to add
+          the implicit context XPath expression tree,</textual></para></listitem><listitem class="po-container e319 e319"><para class="po-block e320 e320"><textual class="po-textual">assigns a line-number-recording attribute, and</textual></para></listitem><listitem class="po-container e321 e321"><para class="po-block e322 e322"><textual class="po-textual">collects all the contiguous elements and text nodes of the sequence constructor(s)
+          together under </textual><code class="po-atom e323 e323"><textual class="po-textual">s:sequence-constructor</textual></code><textual class="po-textual"> elements. The function
+            </textual><code class="po-atom e324 e324"><textual class="po-textual">xp:is.sequence-constructor()</textual></code><textual class="po-textual"> provides a suitable test – elements which are
+          configurations or parameters of the instruction, such as </textual><code class="po-atom e325 e325"><textual class="po-textual">xsl:param</textual></code><textual class="po-textual"> or
+            </textual><code class="po-atom e326 e326"><textual class="po-textual">xsl:sort</textual></code><textual class="po-textual">, return </textual><code class="po-atom e327 e327"><textual class="po-textual">false()</textual></code><textual class="po-textual">.</textual></para></listitem></itemizedlist><section class="po-hcontainer e328 e328"><title class="po-block e329 e329"><textual class="po-textual">Inclusions</textual></title><para class="po-block e330 e330"><textual class="po-textual">Stylesheets often include resources from other stylesheets, using
+          </textual><code class="po-atom e331 e331"><textual class="po-textual">xsl:include</textual></code><textual class="po-textual"> and </textual><code class="po-atom e332 e332"><textual class="po-textual">xsl:import</textual></code><textual class="po-textual"> redirection instructions. For
+        purposes of streamability analysis they can both be treated similarly (implicit match
+        priorities are immaterial) and their document bodies are expanded as children of the
+        instruction. As far as this analysis is concerned, templates, functions and variable
+        directly within such inclusions are considered </textual><quote class="po-inline e333 e333"><textual class="po-textual">top-level</textual></quote><textual class="po-textual"> to the outer
+        stylesheet. (The web-delivered service cannot process relative inclusions from uploaded
+        stylesheets.) </textual></para></section></section><section class="po-hcontainer e334 e334"><title class="po-block e335 e335"><textual class="po-textual">Applying Streamability Rules</textual></title><para class="po-block e336 e336"><textual class="po-textual">With the complete expanded stylesheet we have all the necessary program information to
+      commence the streamability analysis. Whilst the rules are written recursively
+        </textual><quote class="po-inline e337 e337"><textual class="po-textual">top-down</textual></quote><textual class="po-textual">, the author found it helpful to split the process into three
+      sequential phases during which the tree is modified: required functionally equivalent rewrites
+      of some expressions to ensure possible streamability, determination of context focus and
+      construct type, followed by assessment of posture and sweep.</textual></para><section class="po-hcontainer e338 e338" xml:id="rewrites"><title class="po-block e339 e339"><textual class="po-textual">Preprocessing and rewriting</textual></title><para class="po-block e340 e340"><textual class="po-textual">There are a number of (equivalence) rewrites defined in the specification that are
+        required to either i) generate a canonical form or ii) make common constructs streamable.
+        Some of these are most conveniently applied as textual rewrites to the original string (e.g.
+          </textual><code class="po-atom e341 e341"><textual class="po-textual">//</textual></code><textual class="po-textual"> -&gt; </textual><code class="po-atom e342 e342"><textual class="po-textual">/descendant-or-self::node()/</textual></code><textual class="po-textual"> ). Others are best applied as
+        rewrites on the tree, such as </textual><xref class="po-milestone e343 e343" linkend="rootNode"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual"> where the </textual><code class="po-atom e344 e344"><textual class="po-textual">treat as</textual></code><textual class="po-textual">
+        expression, forcing </textual><code class="po-atom e345 e345"><textual class="po-textual">document-node()</textual></code><textual class="po-textual"> type, has been parsed to a tree.</textual></para><figure class="po-container e346 e346" xml:id="rootNode"><title class="po-block e347 e347"><textual class="po-textual">Root node rewriting</textual></title><programlisting class="po-block e348 e348" xml:space="preserve"><textual class="po-textual">&lt;xsl:template match="PathExpr[Token[1]='/'][count(*) gt 1]"&gt;
+  &lt;RelativePathExpr&gt;  
+    &lt;xsl:apply-templates select="
+      xp:parse.xPath('root(self::node()) treat as document-node()'),
+      tail(*)"/&gt;
+  &lt;/RelativePathExpr&gt;
+&lt;/xsl:template&gt;</textual></programlisting></figure></section><section class="po-hcontainer e349 e349" xml:id="declarative.tables"><title class="po-block e350 e350"><textual class="po-textual">Declarative tables</textual></title><para class="po-block e351 e351"><textual class="po-textual">While the tree modifications described in this section are actually carried out by sets
+        of XSLT templates and functions, as much use as possible has been made of declarative tables
+        that define appropriate properties, that the XSLT can interpret to process sections
+        correctly. Using such tables increases flexibility and coherence extensively, collecting all
+        relevant properties together in one place and often making some changes merely altering the
+        value of an attribute.</textual></para><figure class="po-container e352 e352" xml:id="instructionConstructs"><title class="po-block e353 e353"><textual class="po-textual">Instruction descriptions</textual></title><programlisting class="po-block e354 e354" xml:space="preserve"><textual class="po-textual">&lt;xsltConstructs&gt;
+      &lt;X:for-each focus-changing="controlling controlled"
+        f-c="select:controlling sequence:controlled"/&gt;
+      &lt;X:iterate focus-changing="controlling controlled"/&gt;
+      &lt;X:result-document staticType="item()*"/&gt;
+      &lt;X:stream focus-changing="controlled" context-posture="striding"/&gt;
+      &lt;X:template focus-changing="controlling controlled" href="#streamable-templates"/&gt;
+      &lt;X:text staticType="text()"/&gt;
+      &lt;X:value-of staticType="text()"/&gt;
+      &lt;X:when href="#streamability-xsl-choose"/&gt;
+      &lt;X:otherwise href="#streamability-xsl-choose"/&gt;
+      &lt;s:sequence-constructor href="#classifying-sequence-constructors"/&gt;
+&lt;/xsltConstructs&gt;</textual></programlisting></figure><para class="po-block e355 e355"><textual class="po-textual">These descriptions for some XSLT instructions describe i) if they are focus-changing and
+        if so, which of their operands control and are controlled by the change, using an order or
+        simple proforma, ii) a static type for the instruction, if it is independent of that
+        determined from context or children and iii) a hyperlink to the relevant streamability
+        specification section if it is not in the canonical form (e.g.
+          </textual><code class="po-atom e356 e356"><textual class="po-textual">#streambility-of-xsl-copy</textual></code><textual class="po-textual">). This description is used to produce a series of
+        maps relating instruction name to property such as </textual><code class="po-atom e357 e357"><textual class="po-textual">$spec-ref()</textual></code><textual class="po-textual">,
+          </textual><code class="po-atom e358 e358"><textual class="po-textual">$staticTypes()</textual></code><textual class="po-textual"> that are used within XSLT processes described later.</textual></para><figure class="po-container e359 e359" xml:id="expressionConstructs"><title class="po-block e360 e360"><textual class="po-textual">Expression descriptions</textual></title><programlisting class="po-block e361 e361" xml:space="preserve"><textual class="po-textual">&lt;expressionConstructs href="#classifying-expressions"&gt;
+      &lt;xp:Expr usage="T*"/&gt;
+      &lt;xp:ForExpr usage="N T" href="#streamability-of-for-expressions"/&gt;
+      &lt;xp:SimpleForClause/&gt;
+      &lt;xp:LetExpr usage="N T"/&gt;
+      &lt;xp:QuantifiedExpr staticType="xs:boolean" href="#streamability-of-quantified-expressions"/&gt;
+      &lt;xp:IfExpr usage="if:I then:T else:T" href="#streamability-of-if-expressions"
+        choice-group="then else"/&gt;
+      &lt;xp:OrExpr staticType="xs:boolean" usage="I I"/&gt;
+      &lt;xp:AndExpr staticType="xs:boolean" usage="I I"/&gt;
+      &lt;xp:ComparisonExpr staticType="xs:boolean" usage="A A"/&gt;
+      ...
+      &lt;xp:Root staticType="document-node()"/&gt;
+&lt;/expressionConstructs&gt;</textual></programlisting></figure><para class="po-block e362 e362"><textual class="po-textual">For XPath expression constructs we also describe the </textual><emphasis class="po-inline e363 e363"><textual class="po-textual">usage</textual></emphasis><textual class="po-textual"> using a
+        proforma derived from a table (</textual><link class="po-inline e364 e364" xlink:actuate="onRequest" xlink:href="http://www.w3.org/TR/xslt-30/#streaming" xlink:show="new" xlink:type="simple"><textual class="po-textual">Classifying Expressions</textual></link><textual class="po-textual">) within the specification </textual><footnote class="po-popup e365 e365"><para class="po-block e366 e366"><textual class="po-textual">It didn't quite appear that the table was itself regular enough to derive this data
+            from it automatically, but perhaps I should have persisted.</textual></para></footnote><textual class="po-textual">, and membership of a </textual><emphasis class="po-inline e367 e367"><textual class="po-textual">choice group</textual></emphasis><textual class="po-textual"> of some of the operands.
+        For example, the </textual><code class="po-atom e368 e368"><textual class="po-textual">IfExpr</textual></code><textual class="po-textual"> usage is defined to be that the operand having the
+          </textual><code class="po-atom e369 e369"><textual class="po-textual">if</textual></code><textual class="po-textual"> role has an </textual><emphasis class="po-inline e370 e370"><textual class="po-textual">inspection</textual></emphasis><textual class="po-textual"> usage, and both the
+          </textual><code class="po-atom e371 e371"><textual class="po-textual">then</textual></code><textual class="po-textual"> and </textual><code class="po-atom e372 e372"><textual class="po-textual">else</textual></code><textual class="po-textual"> operands have </textual><code class="po-atom e373 e373"><textual class="po-textual">transmission</textual></code><textual class="po-textual"> usage, as
+        well defining that the </textual><code class="po-atom e374 e374"><textual class="po-textual">then</textual></code><textual class="po-textual"> and </textual><code class="po-atom e375 e375"><textual class="po-textual">else</textual></code><textual class="po-textual"> operands constitute a
+          </textual><code class="po-atom e376 e376"><textual class="po-textual">choice-group</textual></code><textual class="po-textual"> (which effectively means that only </textual><emphasis class="po-inline e377 e377"><textual class="po-textual">one</textual></emphasis><textual class="po-textual"> of
+        them, not both, must read the input stream).</textual></para><section class="po-hcontainer e378 e378" xml:id="type.model"><title class="po-block e379 e379"><textual class="po-textual">Type model</textual></title><para class="po-block e380 e380"><textual class="po-textual">For some constructs the </textual><emphasis class="po-inline e381 e381"><textual class="po-textual">static type</textual></emphasis><textual class="po-textual"> is needed to assess
+          streamability properties. [The most common case is assessing the value of a node which is
+          known to be childless, such as an attribute or a text node - in this case no subtree has
+          to be traversed to derive the complete string value.]</textual></para><para class="po-block e382 e382"><textual class="po-textual">Initially the analysis model used a type hierarchy, which for streaming could be
+          somewhat coarser than can be strictly assessed - all XSL instructions were assessed as
+          having static type </textual><code class="po-atom e383 e383"><textual class="po-textual">item()*</textual></code><textual class="po-textual">, whereas a finer granularity was available, but
+          not needed, for the streamability analysis. The type hierarchy was defined for the
+          analysis tool by a tree:</textual></para><figure class="po-container e384 e384" xml:id="types"><title class="po-block e385 e385"><textual class="po-textual">Type hierarchy</textual></title><programlisting class="po-block e386 e386" xml:space="preserve"><textual class="po-textual">&lt;item&gt;
+  &lt;node&gt;
+    &lt;document-node/&gt;
+    &lt;element/&gt;
+    &lt;attribute childless="true"/&gt;
+    &lt;text childless="true"/&gt;
+    &lt;comment childless="true"/&gt;
+    &lt;processing-instruction childless="true"/&gt;
+    &lt;namespace childless="true"/&gt;
+  &lt;/node&gt;
+  &lt;xs:anyAtomicType&gt;
+    &lt;xs:boolean/&gt;
+    &lt;xs:string/&gt;
+    &lt;xs:anyURI/&gt;
+    &lt;xs:QName/&gt;
+    ...
+    &lt;xs:gMonthDay/&gt;
+    &lt;xs:gDay/&gt;
+    &lt;xs:duration&gt;
+      &lt;xs:dayTimeDuration/&gt;
+      &lt;xs:yearMonthDuration/&gt;
+    &lt;/xs:duration&gt;
+    &lt;xs:double/&gt;
+    &lt;xs:float/&gt;
+    &lt;xs:decimal&gt;
+      &lt;xs:integer/&gt;
+    &lt;/xs:decimal&gt;
+  &lt;/xs:anyAtomicType&gt;
+  &lt;!-- Function and map types --&gt;
+&lt;/item&gt;</textual></programlisting></figure><para class="po-block e387 e387"><textual class="po-textual">The most common operation required using this type hierarchy was to assess a composite
+          type for a sequence of operands, calculated as the narrowest type in the type hierarchy
+          which is the type or super-type of all members of the sequence. This was most readily
+          assessed using a precomputed map of maps
+            </textual><code class="po-atom e388 e388"><textual class="po-textual">xp:least-common-supertypes($type0)($type1)</textual></code><textual class="po-textual"> derived from this tree of types. </textual></para><para class="po-block e389 e389"><textual class="po-textual">Subsequent detailed study (see note in the next section) revealed that a more general
+          model involving union of types was needed. Thus between the first submission of this paper
+          and the final publication the type model migrated to a </textual><emphasis class="po-inline e390 e390"><textual class="po-textual">U-type</textual></emphasis><textual class="po-textual"> where
+          types were classified as a partial union of 28 fundamental types (7 nodal, e.g.
+            </textual><code class="po-atom e391 e391"><textual class="po-textual">element()</textual></code><textual class="po-textual">; 19 primitive atomic, e.g. </textual><code class="po-atom e392 e392"><textual class="po-textual">xs:string</textual></code><textual class="po-textual">;
+            </textual><code class="po-atom e393 e393"><textual class="po-textual">function()</textual></code><textual class="po-textual"> and </textual><code class="po-atom e394 e394"><textual class="po-textual">xs:untypedAtomic</textual></code><textual class="po-textual">) A sequence is an instance of
+          a U-type </textual><emphasis class="po-inline e395 e395"><textual class="po-textual">U</textual></emphasis><textual class="po-textual"> if every item in the sequence is an instance of one of the
+          fundamental types in </textual><emphasis class="po-inline e396 e396"><textual class="po-textual">U</textual></emphasis><textual class="po-textual">, considered as a set. For example, the
+          sequence </textual><code class="po-atom e397 e397"><textual class="po-textual">(23, "Paris")</textual></code><textual class="po-textual"> is an instance of the U-type </textual><code class="po-atom e398 e398"><textual class="po-textual">U{xs:string,
+            xs:decimal, xs:date}</textual></code><textual class="po-textual"> because both items in the sequence belong to item types in
+          this U-type. Shorthand forms for common groupings were defined, e.g.
+            </textual><emphasis class="po-inline e399 e399"><textual class="po-textual">U{N}</textual></emphasis><textual class="po-textual"> denotes the union of all the node types.</textual></para><para class="po-block e400 e400"><textual class="po-textual">Luckily the tool could migrate relatively smoothly, by representing a U-type as an
+          order-insensitive sequence of the constituent fundamental types as </textual><code class="po-atom e401 e401"><textual class="po-textual">xs:string*</textual></code><textual class="po-textual">
+          (and stored as an attribute value as a whitespace-separated string, that can easily be
+          tokenised back to a sequence), with a small number of additional helper maps and
+          functions, such as </textual><code class="po-atom e402 e402"><textual class="po-textual">$uTypes('N')</textual></code><textual class="po-textual"> and </textual><code class="po-atom e403 e403"><textual class="po-textual">xp:union-type($types as
+            xs:string*)</textual></code><textual class="po-textual">. Some of the special cases for expressions, instructions and
+          functions had to be altered to use these type-determination functions rather than those
+          using the type-hierarchy tree. </textual></para></section></section><section class="po-hcontainer e404 e404"><title class="po-block e405 e405"><textual class="po-textual">Context focus and type</textual></title><para class="po-block e406 e406"><textual class="po-textual">Whilst </textual><emphasis class="po-inline e407 e407"><textual class="po-textual">posture</textual></emphasis><textual class="po-textual"> and </textual><emphasis class="po-inline e408 e408"><textual class="po-textual">sweep</textual></emphasis><textual class="po-textual"> are the main
+        properties to be analysed, two other subsidiary properties need to be assessed:
+          </textual><emphasis class="po-inline e409 e409"><textual class="po-textual">static type</textual></emphasis><textual class="po-textual"> and </textual><emphasis class="po-inline e410 e410"><textual class="po-textual">control focus</textual></emphasis><textual class="po-textual">. Whilst this could
+        be achieved contemporary with the posture/sweep analysis, it is somewhat clearer, and
+        certainly easier to debug, to carry this out as a recursive descent/ascent pre-pass. </textual></para><para class="po-block e411 e411"><textual class="po-textual">Certain instructions and expressions change the context focus for evaluation of their
+        children. For a simple example, </textual><code class="po-atom e412 e412"><textual class="po-textual">xsl:for-each</textual></code><textual class="po-textual"> obviously can (and almost
+        invariably does) change the sequence of context nodes for evaluation of its descendant
+        instructions. An </textual><code class="po-atom e413 e413"><textual class="po-textual">xsl:for-each</textual></code><textual class="po-textual"> is said to be </textual><emphasis class="po-inline e414 e414"><textual class="po-textual">focus
+        changing</textual></emphasis><textual class="po-textual">, its </textual><code class="po-atom e415 e415"><textual class="po-textual">@select</textual></code><textual class="po-textual"> expression (which of course is represented as
+        an expression tree identified </textual><code class="po-atom e416 e416"><textual class="po-textual">@s:role="select"</textual></code><textual class="po-textual">) is said to be
+          </textual><emphasis class="po-inline e417 e417"><textual class="po-textual">focus-controlling</textual></emphasis><textual class="po-textual"> and its sequence constructor is
+          </textual><emphasis class="po-inline e418 e418"><textual class="po-textual">focus-controlled</textual></emphasis><textual class="po-textual">. These are identified on the tree through attributes
+          </textual><code class="po-atom e419 e419"><textual class="po-textual">s:focus="change|controlling|controlled"</textual></code><textual class="po-textual"> respectively.</textual></para><para class="po-block e420 e420"><textual class="po-textual">During this pass it is also possibly to analyse static type, propagating a
+          </textual><emphasis class="po-inline e421 e421"><textual class="po-textual">context item type</textual></emphasis><textual class="po-textual"> downwards (as a tunneled variable), changing it
+        through focus-changing instructions, where generally the context item type for the
+        controlled children is that of the assessed static type of the controlling (child) operand.
+        For example the sequence constructor of </textual><code class="po-atom e422 e422"><textual class="po-textual">xsl:for-each select="amount"</textual></code><textual class="po-textual"> will have
+        a context item type of </textual><code class="po-atom e423 e423"><textual class="po-textual">element(amount)*</textual></code><textual class="po-textual"> as that is the assessed static type of
+        the XPath expression tree. The context type is recorded for subsequent display as a
+          </textual><code class="po-atom e424 e424"><textual class="po-textual">@s:contextType</textual></code><textual class="po-textual"> attribute.</textual></para><para class="po-block e425 e425"><textual class="po-textual">When leaves are reached, either it defines its own type (e.g. </textual><code class="po-atom e426 e426"><textual class="po-textual">FunctionCall
+          name="position"</textual></code><textual class="po-textual"> has type </textual><code class="po-atom e427 e427"><textual class="po-textual">xs:integer</textual></code><textual class="po-textual">, which can be inferred from the
+        function signature; </textual><code class="po-atom e428 e428"><textual class="po-textual">StringLiteral value="foo"</textual></code><textual class="po-textual"> has type </textual><code class="po-atom e429 e429"><textual class="po-textual">xs:string</textual></code><textual class="po-textual">)
+        or its static type is the context type (e.g. </textual><code class="po-atom e430 e430"><textual class="po-textual">ContextItemExpr</textual></code><textual class="po-textual">, aka '.'). On the
+        way back either there are definitive rules provided (e.g. </textual><code class="po-atom e431 e431"><textual class="po-textual">QuantifiedExpr</textual></code><textual class="po-textual"> has
+        type </textual><code class="po-atom e432 e432"><textual class="po-textual">xs:boolean</textual></code><textual class="po-textual"> and </textual><code class="po-atom e433 e433"><textual class="po-textual">PostfixExpr A[B]</textual></code><textual class="po-textual"> has a type which is the type
+        of </textual><code class="po-atom e434 e434"><textual class="po-textual">A</textual></code><textual class="po-textual">), or it has a sequence composite type, or appropriate union type
+        calculated as described above. </textual></para><para class="po-block e435 e435"><textual class="po-textual">For expressions the specification gives a table of type determination
+          </textual><quote class="po-inline e436 e436"><textual class="po-textual">formulae</textual></quote><textual class="po-textual"> (</textual><link class="po-inline e437 e437" xlink:actuate="onRequest" xlink:href="http://www.w3.org/TR/xslt-30/#determining-static-type" xlink:show="new" xlink:type="simple"><textual class="po-textual">Determining the Static
+          Type of a Construct</textual></link><textual class="po-textual">). Whilst the static types defined (e.g. </textual><code class="po-atom e438 e438"><textual class="po-textual">AndExpr</textual></code><textual class="po-textual">
+        has type </textual><code class="po-atom e439 e439"><textual class="po-textual">xs:boolean</textual></code><textual class="po-textual">) are determined from entries in the declarative table of
+          </textual><xref class="po-milestone e440 e440" linkend="expressionConstructs"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual"> , currently most of these cases are defined by
+        pattern-matching templates. </textual></para><note class="po-container e441 e441"><para class="po-block e442 e442"><textual class="po-textual">The tool proved to be of some worth in this area when I discovered a test-case that
+          was failing to be streamable, involving the expression </textual><code class="po-atom e443 e443"><textual class="po-textual">xsl:value-of
+            select="head(/BOOKLIST/BOOKS/ITEM[1]/PRICE/ancestor::*/@*)"</textual></code><textual class="po-textual">. The issue was that
+          whilst the static type of </textual><code class="po-atom e444 e444"><textual class="po-textual">head()</textual></code><textual class="po-textual"> was </textual><code class="po-atom e445 e445"><textual class="po-textual">item()?</textual></code><textual class="po-textual"> the instruction
+          failed streamability (a potentially overlapping sub-tree would have to be traversed to
+          determine the textual value, due to the </textual><code class="po-atom e446 e446"><textual class="po-textual">ancestor::*</textual></code><textual class="po-textual"> step.) However if the
+          type of </textual><code class="po-atom e447 e447"><textual class="po-textual">head()</textual></code><textual class="po-textual"> is inferred to be the same type as its principal argument, in
+          this case </textual><code class="po-atom e448 e448"><textual class="po-textual">attribute()?</textual></code><textual class="po-textual">, then that is technically a
+            </textual><emphasis class="po-inline e449 e449"><textual class="po-textual">childless-node</textual></emphasis><textual class="po-textual">, whose text value </textual><emphasis class="po-inline e450 e450"><textual class="po-textual">can</textual></emphasis><textual class="po-textual"> be
+          retrieved without further movement across the tree. A set of about a dozen functions (e.g.
+            </textual><code class="po-atom e451 e451"><textual class="po-textual">subsequence()</textual></code><textual class="po-textual">) needed such specialist treatment. The XSLT Working Group had
+          to change the type model to encompass unions of fundamental types (see above) and classify
+          functions that used their principal arguments in a </textual><emphasis class="po-inline e452 e452"><textual class="po-textual">transmission</textual></emphasis><textual class="po-textual"> usage
+          (such as </textual><code class="po-atom e453 e453"><textual class="po-textual">head()</textual></code><textual class="po-textual"> ) to use such unions.</textual></para></note></section><section class="po-hcontainer e454 e454"><title class="po-block e455 e455"><textual class="po-textual">Resource references</textual></title><para class="po-block e456 e456"><textual class="po-textual">Whilst most of the assessment is carried out in a recursive tree descent/ascent manner,
+        XSLT (and XPath) constructs can reference non-child resources in three specific ways:
+          </textual><emphasis class="po-inline e457 e457"><textual class="po-textual">variable / param</textual></emphasis><textual class="po-textual"> references, </textual><emphasis class="po-inline e458 e458"><textual class="po-textual">function / named
+          template</textual></emphasis><textual class="po-textual"> calls and </textual><emphasis class="po-inline e459 e459"><textual class="po-textual">template</textual></emphasis><textual class="po-textual"> applications. To complete
+        streaming analysis these references must be examined and require </textual><quote class="po-inline e460 e460"><textual class="po-textual">off-tree</textual></quote><textual class="po-textual">
+        mechanisms. We'll discuss each in term:</textual></para><section class="po-hcontainer e461 e461"><title class="po-block e462 e462"><textual class="po-textual">Variables</textual></title><para class="po-block e463 e463"><textual class="po-textual">Variables can be declared both in XSLT (</textual><code class="po-atom e464 e464"><textual class="po-textual">xsl:variable</textual></code><textual class="po-textual"> and
+            </textual><code class="po-atom e465 e465"><textual class="po-textual">xsl:param</textual></code><textual class="po-textual">) and in XPath (</textual><code class="po-atom e466 e466"><textual class="po-textual">let $v :=..</textual></code><textual class="po-textual">, </textual><code class="po-atom e467 e467"><textual class="po-textual">for $v in
+            ...</textual></code><textual class="po-textual">) and in both cases the scoping of reference to their
+            </textual><emphasis class="po-inline e468 e468"><textual class="po-textual">value</textual></emphasis><textual class="po-textual"> follows the
+            </textual><code class="po-atom e469 e469"><textual class="po-textual">following-sibling::*/descendant-or-self::*</textual></code><textual class="po-textual"> compound axis</textual><footnote class="po-popup e470 e470"><para class="po-block e471 e471"><textual class="po-textual">Within our expanded XSLT trees all references will be through elements such as
+                </textual><code class="po-atom e472 e472"><textual class="po-textual">VarRef</textual></code><textual class="po-textual"> - even </textual><emphasis class="po-inline e473 e473"><textual class="po-textual">text-value-templates</textual></emphasis><textual class="po-textual"> will have been
+              expanded into element trees.</textual></para></footnote><textual class="po-textual">. Processing such references is most simply achieved by
+            </textual><emphasis class="po-inline e474 e474"><textual class="po-textual">iterating</textual></emphasis><textual class="po-textual"> across construct bodies, accumulating maps of processed
+          variables which are tunneled down through to following-siblings and their descendants. For
+          example in assessing static type, sections of the code relating to variables are
+          approximately:</textual></para><figure class="po-container e475 e475" xml:id="variableTypes"><title class="po-block e476 e476"><textual class="po-textual">Variables and types</textual></title><programlisting class="po-block e477 e477" xml:space="preserve"><textual class="po-textual">&lt;xsl:template match="xp:*|xsl:*|s:sequence-constructor" mode="s:Type"&gt;
+   &lt;xsl:param name="variables" as="map(xs:string,element())" select="map:new()" tunnel="yes"/&gt;
+   ...
+   &lt;xsl:iterate select="*|text()"&gt;
+     &lt;xsl:param name="variables" select="$variables"/&gt;
+     &lt;xsl:variable name="temp" as="item()*"&gt;
+       &lt;xsl:apply-templates select="." mode="#current"&gt;
+         &lt;xsl:with-param name="variables" select="$variables" tunnel="yes"/
+       &lt;/xsl:apply-templates&gt;
+     &lt;/xsl:variable&gt;
+     &lt;xsl:sequence select="$temp"/&gt;
+     &lt;xsl:if test="self::xsl:variable|self::xsl:param|self::xp:QE.var"&gt;
+       &lt;xsl:next-iteration&gt;
+         &lt;xsl:with-param name="variables" as="map(xs:string,element())"
+             select="map:new(($variables,map:entry(@name,$temp)))"/&gt;
+       &lt;/xsl:next-iteration&gt;
+     &lt;/xsl:if&gt;
+   &lt;/xsl:iterate&gt;
+   ...
+&lt;/xsl:template&gt;
+
+&lt;xsl:template match="xsl:variable|xsl:param" mode="s:staticTypeVal" as="xs:string?" priority="1.5"&gt;
+  &lt;xsl:param name="children" select="()" as="element()*"/&gt;
+  &lt;xsl:value-of select="xp:composite-type-multiple($children/@s:staticType)"/&gt;
+&lt;/xsl:template&gt;
+
+&lt;xsl:template match="xp:VarRef" mode="s:staticTypeVal" as="xs:string"&gt;
+  &lt;xsl:param name="variables" as="map(xs:string,element())" select="map:new()" tunnel="yes"/&gt;
+  &lt;xsl:value-of select="($variables(@name)/@s:staticType,'UNKNOWN VAR/TYPE')[1]"/&gt;
+&lt;/xsl:template&gt;</textual></programlisting></figure><para class="po-block e478 e478"><textual class="po-textual">In the first template, the iteration across the children using
+            </textual><code class="po-atom e479 e479"><textual class="po-textual">xsl:iterate</textual></code><textual class="po-textual"> accumulates a parameter </textual><code class="po-atom e480 e480"><textual class="po-textual">$variables</textual></code><textual class="po-textual"> as a map which
+          relates variable name to the in-scope processed variable tree for that name. The tree
+          value will i) be fully decorated with its properties (in this case including
+            </textual><code class="po-atom e481 e481"><textual class="po-textual">@staticType</textual></code><textual class="po-textual"> and ii) have had all variables </textual><emphasis class="po-inline e482 e482"><textual class="po-textual">it</textual></emphasis><textual class="po-textual"> refers
+          to in its definition interpolated fully as regards streaming properties. Each child in
+          turn is processed with a full current binding of variables passed as a tunneled parameter
+            </textual><code class="po-atom e483 e483"><textual class="po-textual">$variables</textual></code><textual class="po-textual">, which can in turn be updated in scope</textual><footnote class="po-popup e484 e484"><para class="po-block e485 e485"><textual class="po-textual">Whilst this of course can be processed using a recursive template, using
+                </textual><code class="po-atom e486 e486"><textual class="po-textual">xsl:iterate</textual></code><textual class="po-textual"> introduces much more coherence in what is essentially a
+              contained tail-recursive iteration. Using a high-order function such as
+                </textual><code class="po-atom e487 e487"><textual class="po-textual">fold()</textual></code><textual class="po-textual"> isn't terribly practical when XSLT instructions predominate.
+              Equally the immutable </textual><code class="po-atom e488 e488"><textual class="po-textual">map()</textual></code><textual class="po-textual"> of XSLT3.0 makes tracking variable scoping
+              vastly easier than alternative methods.</textual></para></footnote><textual class="po-textual">.</textual></para><para class="po-block e489 e489"><textual class="po-textual">The second template assesses the static type of a variable as the composite type of
+            </textual><emphasis class="po-inline e490 e490"><textual class="po-textual">its</textual></emphasis><textual class="po-textual"> children, which actually should be null or a singleton - either
+          the </textual><code class="po-atom e491 e491"><textual class="po-textual">@select</textual></code><textual class="po-textual"> operand, or a single sequence constructor. The final template
+          shows how the static type is evaluated for a </textual><code class="po-atom e492 e492"><textual class="po-textual">VarRef</textual></code><textual class="po-textual"> construct (the only
+          construct within the XPath grammar which actually interpolates variable name references),
+          by lookup in the supplied map. </textual></para></section><section class="po-hcontainer e493 e493" xml:id="functions"><title class="po-block e494 e494"><textual class="po-textual">Functions</textual></title><para class="po-block e495 e495"><textual class="po-textual">Built-in and stylesheet functions are global entities, which may be referenced
+          (almost) anywhere within the stylesheet tree. Fortunately the streamability rules only
+          require knowledge of the type of the result and the required type of the arguments to
+          assess the streamability of a call. For built-in functions, the </textual><link class="po-inline e496 e496" xlink:actuate="onRequest" xlink:href="http://www.w3.org/TR/xpath-functions-30/" xlink:show="new" xlink:type="simple"><textual class="po-textual">XPath and XQuery Functions and
+            Operators 3.0</textual></link><textual class="po-textual"> specification uses a definitional XML file
+            </textual><code class="po-atom e497 e497"><textual class="po-textual">function-catalog.xml</textual></code><textual class="po-textual"> that contains all the data defining each function,
+          such as signatures, and from which the specification is constructed. The specification
+          contains a table in </textual><link class="po-inline e498 e498" xlink:actuate="onRequest" xlink:href="http://www.w3.org/TR/xslt-30/#classifying-built-in-functions" xlink:show="new" xlink:type="simple"><textual class="po-textual">Classifying
+            Calls to Built-In Functions</textual></link><textual class="po-textual"> that defines further (usage) properties. By taking a
+          copy of </textual><code class="po-atom e499 e499"><textual class="po-textual">function-catalog.xml</textual></code><textual class="po-textual"> and adding some minor annotations, we can
+          construct maps that will both identify type and usage for function calls and their
+          arguments:</textual></para><figure class="po-container e500 e500" xml:id="functionCatalog"><title class="po-block e501 e501"><textual class="po-textual">Built-in function catalog</textual></title><programlisting class="po-block e502 e502" xml:space="preserve"><textual class="po-textual">&lt;fos:functions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"&gt;
+  ...
+  &lt;fos:function name="head" diff="add" at="E"&gt;
+    &lt;fos:signatures&gt;
+      &lt;fos:proto name="head" return-type="item()?"&gt;
+        &lt;fos:arg name="arg" type="item()*" usage="transmission"/&gt;
+      &lt;/fos:proto&gt;
+     &lt;/fos:signatures&gt;
+     &lt;fos:properties&gt;
+       &lt;fos:property&gt;deterministic&lt;/fos:property&gt;
+       &lt;fos:property&gt;context-independent&lt;/fos:property&gt;
+       &lt;fos:property&gt;focus-independent&lt;/fos:property&gt;
+     &lt;/fos:properties&gt;
+     ...
+  &lt;/fos:function&gt;
+  ...
+&lt;/fos:functions&gt;
+
+&lt;xsl:variable name="functions" as="map(xs:string,item()*)" use-when="false()"
+    select="map:new(
+    for $f in (doc('function-catalog.xml')//fos:function[not(@prefix='op')]) 
+    return map:entry(
+              $f/(if(@prefix = ('math')) then @prefix||':' else '') || @name,
+              let 
+                $proto := $f/fos:signatures/fos:proto
+              return 
+                map:new((
+                   map:entry('returnType',distinct-values($proto/@return-type)[last()]),
+                   map:entry('args',$proto[last()]/map:new(fos:arg/map:entry(position(),.)))
+                        ))))"/&gt;
+
+&lt;xsl:variable name="default-dot-functions" as="xs:string*"
+    select="map:keys($functions)! .[$functions(.)('args')(1)/@default='.']"/&gt;</textual></programlisting></figure><para class="po-block e503 e503"><textual class="po-textual">In </textual><xref class="po-milestone e504 e504" linkend="functionCatalog"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual"> we show the entry for </textual><code class="po-atom e505 e505"><textual class="po-textual">head()</textual></code><textual class="po-textual"> in
+          which we have added a </textual><code class="po-atom e506 e506"><textual class="po-textual">transmission</textual></code><textual class="po-textual"> usage property to its sole argument. The
+          variable </textual><code class="po-atom e507 e507"><textual class="po-textual">$functions</textual></code><textual class="po-textual"> has been constructed from that file as a map keyed by the
+          function name, each entry containing a map of some properties of that function,
+            </textual><emphasis class="po-inline e508 e508"><textual class="po-textual">viz.</textual></emphasis><textual class="po-textual"> the </textual><code class="po-atom e509 e509"><textual class="po-textual">returnType</textual></code><textual class="po-textual"> and a further map containing
+          entries for each argument of the last definition (which is usually the most complete),
+          keyed by position. This map, and others like it are used extensively within the analysis</textual><footnote class="po-popup e510 e510"><para class="po-block e511 e511"><textual class="po-textual">It is tempting to see whether the table </textual><link class="po-inline e512 e512" xlink:actuate="onRequest" xlink:href="http://www.w3.org/TR/xslt-30/#classifying-built-in-functions" xlink:show="new" xlink:type="simple"><textual class="po-textual">Classifying Calls to Built-In Functions</textual></link><textual class="po-textual"> in the specification is regular
+              enough that the usage can be extracted automatically. On the other hand one can argue
+              that fundamental properties of the function, such as usage, belong in the definitive
+              catalog. </textual></para></footnote><textual class="po-textual">: expanding implicit </textual><code class="po-atom e513 e513"><textual class="po-textual">'.'</textual></code><textual class="po-textual"> arguments for built-in functions (e.g.
+            </textual><code class="po-atom e514 e514"><textual class="po-textual">name()</textual></code><textual class="po-textual"> being equivalent to </textual><code class="po-atom e515 e515"><textual class="po-textual">name(.)</textual></code><textual class="po-textual">) is supported by computing
+          the set of function names for which that is the case as shown
+            </textual><code class="po-atom e516 e516"><textual class="po-textual">$default-dot-functions</textual></code><textual class="po-textual">.</textual></para><para class="po-block e517 e517"><textual class="po-textual">Stylesheet functions can be analysed as a global set at top level: type signatures can
+          then be recorded as a similar map to that used for built-in functions. Fortunately, and
+          certainly avoiding issues of analysing recursive functions, the return type is generalised
+          as </textual><code class="po-atom e518 e518"><textual class="po-textual">item()*</textual></code><textual class="po-textual">. Similar mechanisms can be used for named templates. </textual></para></section><section class="po-hcontainer e519 e519"><title class="po-block e520 e520"><textual class="po-textual">Applied templates</textual></title><para class="po-block e521 e521"><code class="po-atom e522 e522"><textual class="po-textual">xsl:apply-templates</textual></code><textual class="po-textual"> invokes pattern-matching processing on each of the
+          members of their selected sequence. As such complete assessment of their return would
+          require some indirect assessment. Fortunately as far as streamability is concerned this is
+          much simpler – the instruction is assumed to generate results of </textual><code class="po-atom e523 e523"><textual class="po-textual">item()*</textual></code><textual class="po-textual">
+          type, and the </textual><emphasis class="po-inline e524 e524"><textual class="po-textual">posture/sweep</textual></emphasis><textual class="po-textual"> streamability properties can be
+          determined mostly locally within the </textual><code class="po-atom e525 e525"><textual class="po-textual">xsl:apply-templates</textual></code><textual class="po-textual"> instruction itself:
+          other templates that may be triggered only have to be assessed as being in a totally
+          streamable </textual><code class="po-atom e526 e526"><textual class="po-textual">mode-set</textual></code><textual class="po-textual">. </textual></para></section></section><section class="po-hcontainer e527 e527"><title class="po-block e528 e528"><textual class="po-textual">Assessing sweep and posture</textual></title><para class="po-block e529 e529"><textual class="po-textual">A similar, though much more complex, recursive descent/ascent process is used to
+        determine the posture and sweep. A </textual><emphasis class="po-inline e530 e530"><textual class="po-textual">context posture</textual></emphasis><textual class="po-textual"> is propagated
+        downwards, and alters through focus-changing instructions, with generally the context
+        posture for controlled sub-trees being the assessed </textual><emphasis class="po-inline e531 e531"><textual class="po-textual">posture</textual></emphasis><textual class="po-textual"> of the
+        controlling operand. The sweep of each of the construct operands is assessed and the
+        composite sweep and posture is then calculated for the ensemble and becomes the sweep and
+        posture for the construct. As much of the analysis as possible is calculated from definition
+        tables described earlier.</textual></para><para class="po-block e532 e532"><textual class="po-textual">The properties are represented on the tree as attributes (e.g.
+          </textual><code class="po-atom e533 e533"><textual class="po-textual">s:posture="striding"</textual></code><textual class="po-textual">), so they can be extracted from result through XPath.
+        But to reduce errors through mistyping, a defined set of global variables, each having an
+          </textual><code class="po-atom e534 e534"><textual class="po-textual">attribute()</textual></code><textual class="po-textual"> type and suitable name/value can be defined, such as
+          </textual><code class="po-atom e535 e535"><textual class="po-textual">$p.grounded</textual></code><textual class="po-textual"> whose value is </textual><code class="po-atom e536 e536"><textual class="po-textual">@s:posture="grounded"</textual></code><textual class="po-textual">. Moreover, the
+        most common 'stream failure' results from </textual><emphasis class="po-inline e537 e537"><textual class="po-textual">roaming</textual></emphasis><textual class="po-textual"> posture and
+          </textual><emphasis class="po-inline e538 e538"><textual class="po-textual">free-ranging</textual></emphasis><textual class="po-textual"> sweep, so this is abbreviated: </textual><code class="po-atom e539 e539"><textual class="po-textual">$RFR =
+          ($p.roaming,$s.free-ranging)</textual></code><textual class="po-textual">. Using these variables when setting properties reduces
+        typing errors extensively, as the complier will of course complain about undefined
+        variables. </textual></para><para class="po-block e540 e540"><textual class="po-textual">The generic form of processing is a template of the following canonical
+        structure:</textual></para><figure class="po-container e541 e541" xml:id="generic.posture.sweep"><title class="po-block e542 e542"><textual class="po-textual">Generic assessment of posture and sweep</textual></title><programlisting class="po-block e543 e543" xml:space="preserve"><textual class="po-textual">&lt;xsl:template match="</textual><emphasis class="po-inline e544 e544"><textual class="po-textual">construct</textual></emphasis><textual class="po-textual">" mode="addPosture"&gt;
+  &lt;xsl:param name="contextPosture" as="xs:string?" tunnel="yes"/&gt;  
+  &lt;xsl:variable name="children" as="element()*"&gt;
+    &lt;xsl:apply-templates select="*" mode="#current"/&gt;
+  &lt;/xsl:variable&gt;     
+  &lt;xsl:copy&gt;
+    &lt;xsl:call-template name="expr-init"/&gt;
+</textual><emphasis class="po-inline e545 e545"><textual class="po-textual">    Code to decide posture sweep and return:
+    i) suitable @s:posture, @s:sweep
+    ii) $children, in document order, each appropriately decorated.</textual></emphasis><textual class="po-textual">
+&lt;/xsl:template&gt;</textual></programlisting></figure><para class="po-block e546 e546"><textual class="po-textual">Usually all children are evaluated, sometimes when focus changes, altering the
+          </textual><emphasis class="po-inline e547 e547"><textual class="po-textual">context posture</textual></emphasis><textual class="po-textual"> for their evaluation. Then the result is constructed
+        as a copy of the original node, a series of initial attributes (all existing attributes, a
+        hyperlink to the appropriate section of the specification, the context posture etc.) are
+        written on by the template </textual><code class="po-atom e548 e548"><textual class="po-textual">expr-init</textual></code><textual class="po-textual">, followed by the calculated posture and
+        sweep, again as attributes, and finally the evaluated children are added.</textual></para><para class="po-block e549 e549"><textual class="po-textual">Currently there are 12 primary templates of for assessing </textual><code class="po-atom e550 e550"><textual class="po-textual">xsl:*</textual></code><textual class="po-textual"> XSLT
+        instructions and 18 for processing </textual><code class="po-atom e551 e551"><textual class="po-textual">xp:*</textual></code><textual class="po-textual"> XPath expression constructs. Many of
+        these make calls on the General Streamability Rules.</textual></para><para class="po-block e552 e552"><textual class="po-textual">A subsidiary property needed for analysis, </textual><emphasis class="po-inline e553 e553"><textual class="po-textual">usage</textual></emphasis><textual class="po-textual">, described below,
+        is written on to the tree by push-processing in mode </textual><code class="po-atom e554 e554"><textual class="po-textual">addUsage</textual></code><textual class="po-textual">, before the main
+        evaluating is performed, again through mostly push-processing in mode
+          </textual><code class="po-atom e555 e555"><textual class="po-textual">addPosture</textual></code><textual class="po-textual">. </textual></para><section class="po-hcontainer e556 e556"><title class="po-block e557 e557"><textual class="po-textual">Usage</textual></title><para class="po-block e558 e558"><textual class="po-textual">Constructs act as </textual><emphasis class="po-inline e559 e559"><textual class="po-textual">operands</textual></emphasis><textual class="po-textual"> for their parents (or sometimes
+          ancestors) and as such the parent can use the information from the operand in several
+          ways, described as the </textual><emphasis class="po-inline e560 e560"><textual class="po-textual">usage</textual></emphasis><textual class="po-textual"> property, which again partially quoting
+            </textual><xref class="po-milestone e561 e561" linkend="Kay"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">, can take the following values:</textual></para><itemizedlist class="po-table e562 e562"><listitem class="po-container e563 e563"><para class="po-block e564 e564"><emphasis class="po-inline e565 e565"><textual class="po-textual">Absorption</textual></emphasis><textual class="po-textual">: the parent expression makes use of information
+              from the entire sub-tree rooted at nodes returned by the operand expression.</textual></para></listitem><listitem class="po-container e566 e566"><para class="po-block e567 e567"><emphasis class="po-inline e568 e568"><textual class="po-textual">Inspection</textual></emphasis><textual class="po-textual">: the parent expression makes use of properties of
+              the nodes returned by the operand expression that can be established while positioned
+              at a node's start tag.</textual></para></listitem><listitem class="po-container e569 e569"><para class="po-block e570 e570"><emphasis class="po-inline e571 e571"><textual class="po-textual">Transmission</textual></emphasis><textual class="po-textual">: the parent expression returns nodes delivered
+              by the operand expression.</textual></para></listitem><listitem class="po-container e572 e572"><para class="po-block e573 e573"><emphasis class="po-inline e574 e574"><textual class="po-textual">Navigation</textual></emphasis><textual class="po-textual">: the parent expression performs arbitrary
+              reordering of the returned nodes, or navigates away from them in arbitrary
+              ways.</textual></para></listitem></itemizedlist><para class="po-block e575 e575"><textual class="po-textual">As these properties are used quite extensively, the constructs in the tree are
+          decorated with an </textual><code class="po-atom e576 e576"><textual class="po-textual">@s:usage</textual></code><textual class="po-textual"> attribute in a single pass before posture and
+          sweep is assessed, by consulting declarations and suitable maps.</textual></para></section><section class="po-hcontainer e577 e577" xml:id="GSR"><title class="po-block e578 e578"><textual class="po-textual">General Streamability Rules</textual></title><para class="po-block e579 e579"><textual class="po-textual">Rules for assessing posture and sweep for many of the constructs devolve to some
+          assessment of a set of more general rules with different configured treatments for the
+          individual operands of the construct. For example:</textual></para><blockquote class="po-container e580 e580"><title class="po-block e581 e581"><textual class="po-textual">19.8.4.37 Streamability of xsl:value-of</textual></title><para class="po-block e582 e582"><textual class="po-textual">The posture and sweep of </textual><code class="po-atom e583 e583"><textual class="po-textual">xsl:value-of</textual></code><textual class="po-textual"> follow the general streamability
+            rules. The operand roles and their usages are as follows:</textual></para><itemizedlist class="po-table e584 e584"><listitem class="po-container e585 e585"><para class="po-block e586 e586"><textual class="po-textual">The </textual><code class="po-atom e587 e587"><textual class="po-textual">select</textual></code><textual class="po-textual"> expression (usage
+                </textual><emphasis class="po-inline e588 e588"><textual class="po-textual">absorption</textual></emphasis><textual class="po-textual">)</textual></para></listitem><listitem class="po-container e589 e589"><para class="po-block e590 e590"><textual class="po-textual"> The </textual><code class="po-atom e591 e591"><textual class="po-textual">separator</textual></code><textual class="po-textual"> attribute value template (usage
+                  </textual><emphasis class="po-inline e592 e592"><textual class="po-textual">absorption</textual></emphasis><textual class="po-textual">)</textual></para></listitem><listitem class="po-container e593 e593"><para class="po-block e594 e594"><textual class="po-textual">The contained sequence constructor (usage
+                </textual><emphasis class="po-inline e595 e595"><textual class="po-textual">absorption</textual></emphasis><textual class="po-textual">).</textual></para></listitem></itemizedlist></blockquote><para class="po-block e596 e596"><textual class="po-textual">The General Streamability Rules, part of which is shown in </textual><xref class="po-milestone e597 e597" linkend="sample-e"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">
+          are a nested tree of calculations and decisions, up to six levels deep, with 25 separate
+          steps and cases (many of which are applied iteratively to each operand) and an embedded
+          decision table. To apply these for a given construct we need to i) identify which of the
+          child (or sometimes descendant) constructs have influence and what are their mode of
+            </textual><quote class="po-inline e598 e598"><textual class="po-textual">usage</textual></quote><textual class="po-textual">.</textual></para><para class="po-block e599 e599"><textual class="po-textual">While expanding XPath expressions the role of a construct was attached to the parse
+          tree as an </textual><code class="po-atom e600 e600"><textual class="po-textual">@s:role</textual></code><textual class="po-textual"> attribute, so simple XPath search can extract necessary
+          operands. In this case we have already given every node a unique </textual><code class="po-atom e601 e601"><textual class="po-textual">id</textual></code><textual class="po-textual"> so simple
+          maps of </textual><code class="po-atom e602 e602"><textual class="po-textual">id</textual></code><textual class="po-textual"> and associated property can be used.</textual></para><para class="po-block e603 e603"><textual class="po-textual">The GSR are implemented as a single named XSLT template, which has the following
+          features:</textual></para><itemizedlist class="po-table e604 e604"><listitem class="po-container e605 e605"><para class="po-block e606 e606"><textual class="po-textual">The context item is assumed to be the construct element to be assessed.</textual></para></listitem><listitem class="po-container e607 e607"><para class="po-block e608 e608"><textual class="po-textual">The following parameters can be supplied, or may be derived:</textual></para><variablelist class="po-table e609 e609"><varlistentry class="po-record e610 e610"><term class="po-block e611 e611"><textual class="po-textual">contextPosture</textual></term><listitem class="po-container e612 e612"><para class="po-block e613 e613"><textual class="po-textual">The context posture from the parent</textual></para></listitem></varlistentry><varlistentry class="po-record e614 e614"><term class="po-block e615 e615"><textual class="po-textual">operands</textual></term><listitem class="po-container e616 e616"><para class="po-block e617 e617"><textual class="po-textual">a set of descendant items that should be considered as operands. These can
+                    be searched for through a push mode </textual><code class="po-atom e618 e618"><textual class="po-textual">GS-find-operands</textual></code><textual class="po-textual">.</textual></para></listitem></varlistentry><varlistentry class="po-record e619 e619"><term class="po-block e620 e620"><textual class="po-textual">context-postures</textual></term><listitem class="po-container e621 e621"><para class="po-block e622 e622"><textual class="po-textual">A map of operand </textual><code class="po-atom e623 e623"><textual class="po-textual">id</textual></code><textual class="po-textual">s and the associated or required posture for
+                    the operand having that </textual><code class="po-atom e624 e624"><textual class="po-textual">id</textual></code><textual class="po-textual">. (This becomes useful for complex
+                    instructions such as </textual><code class="po-atom e625 e625"><textual class="po-textual">xsl:apply-templates</textual></code><textual class="po-textual"> or
+                      </textual><code class="po-atom e626 e626"><textual class="po-textual">xsl:iterate</textual></code><textual class="po-textual"> where the operands can include sections of attribute
+                    value templates within child elements, and postures can vary across the set of
+                    operands.)</textual></para></listitem></varlistentry><varlistentry class="po-record e627 e627"><term class="po-block e628 e628"><textual class="po-textual">children</textual></term><listitem class="po-container e629 e629"><para class="po-block e630 e630"><textual class="po-textual">Possible children of the construct, which will otherwise be evaluated
+                    recursively.</textual></para></listitem></varlistentry></variablelist></listitem></itemizedlist><para class="po-block e631 e631"><textual class="po-textual">The first action in this template is to assess the sweeps of all the operands,
+          corresponding to step 1 of </textual><link class="po-inline e632 e632" xlink:actuate="onRequest" xlink:href="http://www.w3.org/TR/xslt-30/#dt-general-streamability-rules" xlink:show="new" xlink:type="simple"><textual class="po-textual">GSR</textual></link><textual class="po-textual">,
+          consisting of some dozen tests and a table lookup for each operand. After such processing
+          each operand element will be decorated with attributes </textual><code class="po-atom e633 e633"><textual class="po-textual">@s:sweep</textual></code><textual class="po-textual"> (a possibly
+          adjusted sweep), </textual><code class="po-atom e634 e634"><textual class="po-textual">@s:sweepOriginal</textual></code><textual class="po-textual"> (when the sweep was changed by the GSR
+          rules), </textual><code class="po-atom e635 e635"><textual class="po-textual">@s:usageOriginal</textual></code><textual class="po-textual"> (when the usage has been altered likewise) and
+            </textual><code class="po-atom e636 e636"><textual class="po-textual">@s:potentialConsumer</textual></code><textual class="po-textual"> if the operand is so judged from rule
+          </textual><code class="po-atom e637 e637"><textual class="po-textual">1.c</textual></code><textual class="po-textual">. Parts of the code to do this are:</textual></para><figure class="po-container e638 e638" xml:id="GSR.code.sweep"><title class="po-block e639 e639"><textual class="po-textual">Calculating sweep</textual></title><programlisting class="po-block e640 e640" xml:space="preserve"><textual class="po-textual">&lt;xsl:variable name="table.1.b.iii.B" as="map(*)"
+  select="map{
+    'grounded' := map{'absorption':='S',            'inspection':='S', 'transmission':='S', 'navigation':='S'},
+    'climbing' := map{'absorption':='free-ranging', 'inspection':='S', 'transmission':='S', 'navigation':='free-ranging'},
+    'striding' := map{'absorption':='consuming',    'inspection':='S', 'transmission':='S', 'navigation':='free-ranging'},
+    'crawling' := map{'absorption':='free-ranging', 'inspection':='S', 'transmission':='S', 'navigation':='free-ranging'}
+    }"/&gt;
+&lt;xsl:variable name="swept" as="item()*"&gt;
+  &lt;xsl:for-each select="$children/descendant-or-self::*[@id=$operands.id]"&gt;
+    &lt;xsl:variable name="T" select="@s:staticType"/&gt;
+    &lt;xsl:variable name="P" select="@s:posture"/&gt;
+    &lt;xsl:variable name="S" select="@s:sweep"/&gt;
+    &lt;xsl:variable name="U" select="@s:usage"/&gt;
+    &lt;xsl:copy&gt;
+      &lt;xsl:sequence select="@*"/&gt;
+      &lt;xsl:attribute name="s:sweepOriginal" select="@s:sweep" on-empty="()"/&gt;
+      &lt;xsl:attribute name="s:usageOriginal" select="@s:usage" on-empty="()"/&gt;
+      &lt;xsl:variable name="results" as="map(*)*"&gt;
+        &lt;xsl:sequence select="map{'posture':=$P, 'USAGE':=$U}"/&gt;
+        &lt;xsl:choose&gt;
+          &lt;xsl:when test="$S = 'free-ranging' or $P = 'roaming'"&gt;
+            &lt;xsl:sequence select="map{'rule':='1.b.i','sweep':='free-ranging'}"/&gt;
+          &lt;/xsl:when&gt;
+          &lt;xsl:when test="$P = 'grounded'"&gt;
+            &lt;xsl:sequence select="map{'rule':='1.b.ii','sweep':= @s:sweep}"/&gt;
+          &lt;/xsl:when&gt;
+          &lt;xsl:otherwise&gt;
+            &lt;xsl:variable name="childless.absorption" select="$U = 'absorption' and xp:is-childless-type($T)"/&gt;
+            &lt;xsl:variable name="Up" select="if($childless.absorption) then 'inspection' else $U"/&gt;
+            &lt;xsl:sequence select="map{'rule' := '1.b.iii.A.' || (if($childless.absorption) then 'I' else 'II'),
+                                      'usage':= if(empty($Up)) then 'NO USAGE DEFINED' else $Up}"/&gt;
+            &lt;xsl:if test="exists($Up) and exists($P)"&gt;
+               &lt;xsl:sequence select="map{'rule':=string-join(('1.b.iii.B',($P,$Up)!$table.axes(.)!string(.)),'.')}"/&gt;
+               &lt;xsl:if test="map:keys($table.1.b.iii.B) = $P"&gt;
+                 &lt;xsl:variable name="row" select="$table.1.b.iii.B($P)"/&gt;
+                 &lt;xsl:if test="map:keys($row)=$Up"&gt;
+                   &lt;xsl:sequence select="map{
+                      'sweep':= (let $s := $table.1.b.iii.B($P)($Up) return (if($s eq 'S') then @s:sweep else $s))}"/&gt;
+                 &lt;/xsl:if&gt;
+               &lt;/xsl:if&gt;
+             &lt;/xsl:if&gt;
+           &lt;/xsl:otherwise&gt;
+         &lt;/xsl:choose&gt;
+       &lt;/xsl:variable&gt;
+       &lt;xsl:attribute name="s:sweep" select="$results!.('sweep')"/&gt;
+       &lt;xsl:attribute name="s:usage" select="$results!.('usage')" on-empty="()"/&gt;
+       &lt;xsl:attribute name="s:generalOperand" select="$results!.('rule')" separator=","/&gt;
+       &lt;xsl:choose&gt;
+         &lt;xsl:when test="$results!.('sweep')='consuming'"&gt;
+            &lt;xsl:attribute name="s:generalOperand" select="$results!.('rule'),'1.c.i'" separator=","/&gt;
+            &lt;xsl:attribute name="s:potentialConsumer"/&gt;
+         &lt;/xsl:when&gt;
+         &lt;xsl:when test="@s:usage='transmission' and not(@s:posture = 'grounded')"&gt;
+           &lt;xsl:attribute name="s:generalOperand" select="$results!.('rule'),'1.c.ii'" separator=","/&gt;
+           &lt;xsl:attribute name="s:potentialConsumer"/&gt;
+         &lt;/xsl:when&gt;
+       &lt;/xsl:choose&gt;
+       &lt;xsl:sequence select="*|text()"/&gt;
+     &lt;/xsl:copy&gt;
+   &lt;/xsl:for-each&gt;
+&lt;/xsl:variable&gt;</textual></programlisting></figure><para class="po-block e641 e641"><textual class="po-textual">What </textual><xref class="po-milestone e642 e642" linkend="GSR.code.sweep"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual"> is showing is that the code generally tries to
+          reflect the structure of the rules as laid out in the specification, even using a map to
+          represent table </textual><code class="po-atom e643 e643"><textual class="po-textual">1.b.iii.B</textual></code><textual class="po-textual">, and with the same abbreviations</textual><footnote class="po-popup e644 e644"><para class="po-block e645 e645"><textual class="po-textual">It would be comparatively trivial to parse that map from an even simpler
+              representation, possibly even from the specification itself.</textual></para></footnote><textual class="po-textual">. Note that the intermediate variable </textual><code class="po-atom e646 e646"><textual class="po-textual">$results</textual></code><textual class="po-textual"> computed for each
+          operand is typed as a sequence of </textual><code class="po-atom e647 e647"><textual class="po-textual">item()</textual></code><textual class="po-textual"> but is actually a sequence of
+            </textual><code class="po-atom e648 e648"><textual class="po-textual">map()*</textual></code><textual class="po-textual">, which can be used to transmit heterogeneous information, in this
+          case both the properties of direct interest (e.g. </textual><emphasis class="po-inline e649 e649"><textual class="po-textual">sweep</textual></emphasis><textual class="po-textual">) but also the
+          rule-invoked indicators. Using the XPath simple map operator, we can extract multiple
+          values through an expression such as </textual><code class="po-atom e650 e650"><textual class="po-textual">$results!.('rule')</textual></code><textual class="po-textual">.</textual></para><note class="po-container e651 e651"><para class="po-block e652 e652"><textual class="po-textual">It would be possible to use the same technique here as is used for posture and sweep
+            attributes described above, i.e. defining variables which are map entries, e.g.
+              </textual><code class="po-atom e653 e653"><textual class="po-textual">$map:p.grounded := map{'posture':='grounded'}</textual></code><textual class="po-textual">, which would reduce the
+            effect of typing errors.</textual></para></note><para class="po-block e654 e654"><textual class="po-textual">Assessing the posture is handled similarly, checking the conditions of section 2 over
+          the sweep-assessed operands. Finally the posture and sweep of the construct is determined,
+          written onto a copy of the construct element (together with GSR provenance from section 2)
+          and the children are placed in the new parent. </textual></para></section><section class="po-hcontainer e655 e655"><title class="po-block e656 e656"><textual class="po-textual">Evaluating expressions and instructions</textual></title><para class="po-block e657 e657"><textual class="po-textual">Most XPath expression terms can be evaluated with the General Streamability Rules,
+          suitable usage having been written onto operands from the maps described in </textual><xref class="po-milestone e658 e658" linkend="declarative.tables"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">. Others require more specialist treatment, such as the
+            </textual><code class="po-atom e659 e659"><textual class="po-textual">ForExpr</textual></code><textual class="po-textual"> for which the test can be two-stage:</textual></para><figure class="po-container e660 e660" xml:id="ForExpr"><title class="po-block e661 e661"><textual class="po-textual">Posture and sweep of the ForExpr</textual></title><programlisting class="po-block e662 e662" xml:space="preserve"><textual class="po-textual">&lt;xsl:choose&gt;
+   &lt;xsl:when test="$children[2]/@s:posture = 'grounded'"&gt;
+      &lt;xsl:call-template name="general-streamability.operands"&gt;
+         &lt;xsl:with-param name="children" as="item()*" select="$children"/&gt;
+      &lt;/xsl:call-template&gt;
+   &lt;/xsl:when&gt;
+   &lt;xsl:otherwise&gt;
+      &lt;xsl:sequence select="$RFR,$children"/&gt;
+   &lt;/xsl:otherwise&gt;
+&lt;/xsl:choose&gt;</textual></programlisting></figure><para class="po-block e663 e663"><textual class="po-textual">where if the return (the second child) is grounded, the General Streamability Rules
+          apply, otherwise the construct is </textual><code class="po-atom e664 e664"><textual class="po-textual">roaming</textual></code><textual class="po-textual"> and
+            </textual><emphasis class="po-inline e665 e665"><textual class="po-textual">free-ranging</textual></emphasis><textual class="po-textual">. The most interesting and perhaps important, are the
+            </textual><code class="po-atom e666 e666"><textual class="po-textual">AxisStep</textual></code><textual class="po-textual"> terms, which really define movement around the input tree. The
+          tests (</textual><link class="po-inline e667 e667" xlink:actuate="onRequest" xlink:href="http://www.w3.org/TR/xslt-30/#streamability-of-axis-steps" xlink:show="new" xlink:type="simple"><textual class="po-textual">19.8.7.7 Streamability of Axis Steps</textual></link><textual class="po-textual">) are a little more complex and involve six
+          cases and a tabular form, relating context posture and the axis of travel. Whilst this
+          could perhaps be interpreted, in the end an extended </textual><code class="po-atom e668 e668"><textual class="po-textual">xsl:choose</textual></code><textual class="po-textual"> was the
+          simplest form.</textual></para><para class="po-block e669 e669"><textual class="po-textual">XSLT instructions tend to be more complex in their streamability than XPath
+          expressions, so while some (e.g. </textual><code class="po-atom e670 e670"><textual class="po-textual">xsl:copy</textual></code><textual class="po-textual">) are analysed completely with the
+          General Streamability Rules, many require specialist templates, especially to handle
+          issues such as instruction configuration elements (e.g. </textual><code class="po-atom e671 e671"><textual class="po-textual">xsl:sort</textual></code><textual class="po-textual">) and
+          determining what are the active operands for streamability. To make these somewhat more
+          coherent, a number of helper functions are used: </textual></para><variablelist class="po-table e672 e672"><varlistentry class="po-record e673 e673"><term class="po-block e674 e674"><textual class="po-textual">xp:AVT()</textual></term><listitem class="po-container e675 e675"><para class="po-block e676 e676"><textual class="po-textual">Returns all the nodes of the input that represent </textual><emphasis class="po-inline e677 e677"><textual class="po-textual">attribute value
+                  templates</textual></emphasis><textual class="po-textual"> in the instruction.</textual></para></listitem></varlistentry><varlistentry class="po-record e678 e678"><term class="po-block e679 e679"><textual class="po-textual">xp:active()</textual></term><listitem class="po-container e680 e680"><para class="po-block e681 e681"><textual class="po-textual">Returns all operands of input nodes that are </textual><emphasis class="po-inline e682 e682"><textual class="po-textual">active</textual></emphasis><textual class="po-textual"> in
+                creating a sequence (</textual><code class="po-atom e683 e683"><textual class="po-textual">@select</textual></code><textual class="po-textual"> or
+                </textual><code class="po-atom e684 e684"><textual class="po-textual">s:sequence-constructor</textual></code><textual class="po-textual">)</textual></para></listitem></varlistentry></variablelist><para class="po-block e685 e685"><textual class="po-textual">Similarly, some of the common instruction-varying actions can be cast as templates in
+          a specific mode, such as </textual><code class="po-atom e686 e686"><textual class="po-textual">GS-find-operands</textual></code><textual class="po-textual">, which finds the appropriate
+          operands for an instruction for application of General Streamability Rules. For example </textual></para><figure class="po-container e687 e687" xml:id="find.GSR.operands"><title class="po-block e688 e688"><textual class="po-textual">Find operands for General Streamability Rules</textual></title><programlisting class="po-block e689 e689" xml:space="preserve"><textual class="po-textual"> &lt;xsl:template match="xsl:apply-templates" mode="GS-find-operands"&gt;
+    &lt;xsl:sequence select="xp:active(.)|
+       xp:active(xsl:with-param)|xp:active(xsl:sort)|xp:AVT(xsl:sort)"/&gt;
+  &lt;/xsl:template&gt;</textual></programlisting></figure><para class="po-block e690 e690"><textual class="po-textual">where for </textual><code class="po-atom e691 e691"><textual class="po-textual">xsl:apply-templates</textual></code><textual class="po-textual"> operands could appear i) as active parts of
+          the instruction itself (in this case </textual><code class="po-atom e692 e692"><textual class="po-textual">@select</textual></code><textual class="po-textual">), ii) within active sections of
+            </textual><code class="po-atom e693 e693"><textual class="po-textual">xsl:param</textual></code><textual class="po-textual"> and </textual><code class="po-atom e694 e694"><textual class="po-textual">xsl:sort</textual></code><textual class="po-textual"> options (either as </textual><code class="po-atom e695 e695"><textual class="po-textual">@select</textual></code><textual class="po-textual">
+          or sequence constructors) or iii) within </textual><emphasis class="po-inline e696 e696"><textual class="po-textual">attribute value templates</textual></emphasis><textual class="po-textual">
+          within the </textual><code class="po-atom e697 e697"><textual class="po-textual">xsl:sort</textual></code><textual class="po-textual"> declarations (typically in attributes such as
+            </textual><code class="po-atom e698 e698"><textual class="po-textual">@order</textual></code><textual class="po-textual">). </textual></para></section><section class="po-hcontainer e699 e699"><title class="po-block e700 e700"><textual class="po-textual">Evaluating built-in functions</textual></title><para class="po-block e701 e701"><textual class="po-textual">Calls to built-in functions (mostly from XPath, but a few, such as </textual><code class="po-atom e702 e702"><textual class="po-textual">key()</textual></code><textual class="po-textual">,
+          that are specialist for XSLT) have to be examined in terms of both the streamability
+          properties of their arguments and the use the function makes of the results of those
+          arguments. For most functions this can be expressed as an evaluation of the General
+          Streamability Rules, with suitable </textual><emphasis class="po-inline e703 e703"><textual class="po-textual">usage</textual></emphasis><textual class="po-textual">. In the specification this
+          is described as a list with an entry of each function using a proforma representation,
+          e.g. </textual><quote class="po-inline e704 e704"><code class="po-atom e705 e705"><textual class="po-textual">fn:fold-left(N,A,I)</textual></code></quote><textual class="po-textual"> which indicates that the arguments
+          have usage </textual><emphasis class="po-inline e706 e706"><textual class="po-textual">navigation</textual></emphasis><textual class="po-textual">, </textual><emphasis class="po-inline e707 e707"><textual class="po-textual">absorption</textual></emphasis><textual class="po-textual"> and
+            </textual><emphasis class="po-inline e708 e708"><textual class="po-textual">inspection</textual></emphasis><textual class="po-textual"> respectively. Currently these usages are written onto
+          the arguments of the function definitions in </textual><code class="po-atom e709 e709"><textual class="po-textual">function-catalog.xml</textual></code><textual class="po-textual"> whence they
+          are converted into maps as described in </textual><xref class="po-milestone e710 e710" linkend="functions"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">, but in theory these
+          properties could be read from the specification itself. For some dozen functions (such as
+            </textual><code class="po-atom e711 e711"><textual class="po-textual">last()</textual></code><textual class="po-textual">) there are specialist rules - these are handled by simple templates: </textual></para><figure class="po-container e712 e712" xml:id="function.last"><title class="po-block e713 e713"><textual class="po-textual">Streamability of last()</textual></title><programlisting class="po-block e714 e714" xml:space="preserve"><textual class="po-textual">&lt;xsl:template match="xp:FunctionCall[@name='last']" mode="addPosture"&gt;
+  &lt;xsl:param name="contextPosture" as="xs:string?" tunnel="yes"/&gt;
+  &lt;xsl:copy&gt;
+    &lt;xsl:call-template name="expr-init"/&gt;
+    &lt;xsl:sequence
+      select="if($contextPosture = ('striding','crawling','roaming'))
+       then $RFR else ($p.grounded,$s.motionless)"/&gt;
+    &lt;/xsl:copy&gt;
+&lt;/xsl:template&gt;</textual></programlisting></figure><para class="po-block e715 e715"><textual class="po-textual">where </textual><code class="po-atom e716 e716"><textual class="po-textual">$RFR</textual></code><textual class="po-textual"> denotes </textual><emphasis class="po-inline e717 e717"><textual class="po-textual">roaming</textual></emphasis><textual class="po-textual"> and
+            </textual><emphasis class="po-inline e718 e718"><textual class="po-textual">free-ranging</textual></emphasis><textual class="po-textual"> as described earlier.</textual></para></section><section class="po-hcontainer e719 e719"><title class="po-block e720 e720"><textual class="po-textual">Determining </textual><emphasis class="po-inline e721 e721"><textual class="po-textual">guaranteed streamabilty</textual></emphasis></title><para class="po-block e722 e722"><textual class="po-textual">Finally all the components of a top-level </textual><code class="po-atom e723 e723"><textual class="po-textual">xsl:stream</textual></code><textual class="po-textual"> or
+            </textual><code class="po-atom e724 e724"><textual class="po-textual">xsl:template</textual></code><textual class="po-textual"> have been evaluated against the rules and any sequence
+          constructor can be examined for a </textual><emphasis class="po-inline e725 e725"><textual class="po-textual">grounded</textual></emphasis><textual class="po-textual"> posture and a template
+            </textual><code class="po-atom e726 e726"><textual class="po-textual">@match</textual></code><textual class="po-textual"> checked for a </textual><emphasis class="po-inline e727 e727"><textual class="po-textual">motionless</textual></emphasis><textual class="po-textual"> sweep. The element is
+          marked </textual><code class="po-atom e728 e728"><textual class="po-textual">@s:streamable</textual></code><textual class="po-textual"> with the boolean satisfaction of these conditions,
+          whence the analysis of that sub-tree is complete. Later display can give visual
+          indication. For templates of course they form a modal group which might be invoked by
+          other templates - the mode is marked streamable (in a map) only if i) the mode is declared
+          streamable and ii) all templates within that mode are themselves proven guaranteed streamable</textual><footnote class="po-popup e729 e729"><para class="po-block e730 e730"><textual class="po-textual">Mutually interacting streamable modes are not supported in this tool.</textual></para></footnote><textual class="po-textual">.</textual></para></section></section></section><section class="po-hcontainer e731 e731"><title class="po-block e732 e732"><textual class="po-textual">Interactive Display</textual></title><para class="po-block e733 e733"><textual class="po-textual">Once the analysis has been completed, the result needs to be displayed. As all the
+      information is attached to the expanded XLST/expression tree as namespaced attributes, we
+      could either i) display the original program in some serialised form and arrange some linkage
+      from that serialisation to appropriate points in the 'shadow tree' or ii) display the whole
+      expanded tree including properties as a serialisation and selectively display desired
+      sections. The second appeared to be the simplest route, albeit at the cost of a </textual><emphasis class="po-inline e734 e734"><textual class="po-textual">very
+        large</textual></emphasis><textual class="po-textual"> serialised form even for modest programs. </textual></para><section class="po-hcontainer e735 e735"><title class="po-block e736 e736"><textual class="po-textual">Serialising to HTML</textual></title><para class="po-block e737 e737"><textual class="po-textual">The tree is serialised to be displayed within a </textual><code class="po-atom e738 e738"><textual class="po-textual">pre</textual></code><textual class="po-textual"> section of the web
+        page, by a specialist XSLT-coded serialiser with the following features:</textual></para><itemizedlist class="po-table e739 e739"><listitem class="po-container e740 e740"><para class="po-block e741 e741"><textual class="po-textual">As the tree is well-formed XML, and space is at a premium, indentation is strict and
+            closing tags are omitted.</textual></para></listitem><listitem class="po-container e742 e742"><para class="po-block e743 e743"><textual class="po-textual">Line numbering follows the document order of elements in the original XSLT and is
+            displayed at the start of each corresponding line in the serialisation.</textual></para></listitem><listitem class="po-container e744 e744"><para class="po-block e745 e745"><textual class="po-textual">A fold/unfold group (as a </textual><code class="po-atom e746 e746"><textual class="po-textual">span</textual></code><textual class="po-textual"> containing two span-contained images,
+            only one of which should be visible) follows for any element in the result tree that has
+            children.</textual></para></listitem><listitem class="po-container e747 e747"><para class="po-block e748 e748"><textual class="po-textual">The element name and primary attributes are written surrounded by classifying
+              </textual><code class="po-atom e749 e749"><textual class="po-textual">span</textual></code><textual class="po-textual">s - some note of line length is considered and line-breaks can be
+            interpolated. Some names are shortened and the information is attached to the span
+            class, e.g. the </textual><code class="po-atom e750 e750"><textual class="po-textual">xp:</textual></code><textual class="po-textual"> prefix dropped from XPath constructs.</textual></para></listitem><listitem class="po-container e751 e751"><para class="po-block e752 e752"><textual class="po-textual">The span of elements decorated </textual><code class="po-atom e753 e753"><textual class="po-textual">@s:streamable</textual></code><textual class="po-textual"> (i.e.
+              </textual><code class="po-atom e754 e754"><textual class="po-textual">xsl:template</textual></code><textual class="po-textual">, </textual><code class="po-atom e755 e755"><textual class="po-textual">xsl:stream</textual></code><textual class="po-textual">) are classified as
+              </textual><code class="po-atom e756 e756"><textual class="po-textual">xslstreamyes</textual></code><textual class="po-textual"> or </textual><code class="po-atom e757 e757"><textual class="po-textual">xslstreamno</textual></code><textual class="po-textual"> as appropriate. </textual></para></listitem><listitem class="po-container e758 e758"><para class="po-block e759 e759"><textual class="po-textual">All the streaming properties follow, each with an enveloping </textual><code class="po-atom e760 e760"><textual class="po-textual">span</textual></code><textual class="po-textual"> and
+            differentiating classes: e.g. </textual><code class="po-atom e761 e761"><textual class="po-textual">class="streamProperty posture"</textual></code><textual class="po-textual">. Name/values
+            for these properties are simplified, e.g. </textual><code class="po-atom e762 e762"><textual class="po-textual">s:posture="grounded"</textual></code><textual class="po-textual"> displays as
+              </textual><code class="po-atom e763 e763"><textual class="po-textual">p:grounded</textual></code><textual class="po-textual">. </textual></para></listitem><listitem class="po-container e764 e764"><para class="po-block e765 e765"><textual class="po-textual">Specification hyperlinks are cast as </textual><code class="po-atom e766 e766"><textual class="po-textual">a[@href]</textual></code><textual class="po-textual"> elements around the
+            appropriate display text. </textual></para></listitem><listitem class="po-container e767 e767"><para class="po-block e768 e768"><textual class="po-textual">All the children of an element exist within a </textual><code class="po-atom e769 e769"><textual class="po-textual">span
+              class="XMLBody|XSLBody"</textual></code><textual class="po-textual"> on the line following the element head. Thus when
+            folding an element this </textual><code class="po-atom e770 e770"><textual class="po-textual">span</textual></code><textual class="po-textual"> is set to </textual><code class="po-atom e771 e771"><textual class="po-textual">style="display:none"</textual></code><textual class="po-textual">.
+            This provides a consistent model for fold/unfold, albeit at the cost of an additional
+            nested </textual><code class="po-atom e772 e772"><textual class="po-textual">span</textual></code><textual class="po-textual"> for every element.</textual></para></listitem></itemizedlist><para class="po-block e773 e773"><textual class="po-textual">The styling is defined by a CSS stylesheet that exploits these classes, starting with
+        the </textual><code class="po-atom e774 e774"><textual class="po-textual">display</textual></code><textual class="po-textual"> styling all XPath expansions and streaming properties set to
+          </textual><code class="po-atom e775 e775"><textual class="po-textual">none</textual></code><footnote class="po-popup e776 e776"><para class="po-block e777 e777"><textual class="po-textual">For large stylesheets 'top-level' constructs (e.g. </textual><code class="po-atom e778 e778"><textual class="po-textual">xsl:template</textual></code><textual class="po-textual">) could
+            of course be defined to display in a folded state. The streamability of such entities
+            would still be visible as red/green backgrounds of course.</textual></para></footnote><textual class="po-textual">.</textual></para></section><section class="po-hcontainer e779 e779"><title class="po-block e780 e780"><textual class="po-textual">Interactivity</textual></title><para class="po-block e781 e781"><textual class="po-textual">The selection of stylesheets to analyse and examine is a simple use of forms and server
+        response, piping the serialised response HTML into a given target frame. More interesting is
+        the interaction within the analysed stylesheet. There are four types of interaction, three
+        of which are implemented by triggered templates in a simple Saxon-CE executed XSLT 2.0
+        transform.</textual></para><variablelist class="po-table e782 e782"><varlistentry class="po-record e783 e783"><term class="po-block e784 e784"><textual class="po-textual">Fold/unfold</textual></term><listitem class="po-container e785 e785"><para class="po-block e786 e786"><textual class="po-textual">The fold/unfold buttons are intercepted by </textual><code class="po-atom e787 e787"><textual class="po-textual"> &lt;xsl:template
+                match="span[@class='folder']/span[@class=('collapse','expand')]"
+                mode="ixsl:onclick"&gt;</textual></code><textual class="po-textual"> which arranges to swap the visibility of the
+                </textual><emphasis class="po-inline e788 e788"><textual class="po-textual">collapse</textual></emphasis><textual class="po-textual"> and </textual><emphasis class="po-inline e789 e789"><textual class="po-textual">expand</textual></emphasis><textual class="po-textual"> buttons, and then
+              proceeds to change the display style of the following </textual><quote class="po-inline e790 e790"><textual class="po-textual">body</textual></quote><textual class="po-textual"> span
+                (</textual><code class="po-atom e791 e791"><textual class="po-textual">@class=('XMLBody','XSLBody')</textual></code><textual class="po-textual">) accordingly.</textual></para></listitem></varlistentry><varlistentry class="po-record e792 e792"><term class="po-block e793 e793"><textual class="po-textual">Expanding XPath expressions</textual></term><listitem class="po-container e794 e794"><para class="po-block e795 e795"><textual class="po-textual"> All displays of attributes that contain XPath expressions (and
+                </textual><emphasis class="po-inline e796 e796"><textual class="po-textual">attribute value templates</textual></emphasis><textual class="po-textual"> as well) are classed as
+                </textual><code class="po-atom e797 e797"><textual class="po-textual">XPExpr</textual></code><textual class="po-textual">, together with an attribute on the span that identifies the
+                </textual><emphasis class="po-inline e798 e798"><textual class="po-textual">role</textual></emphasis><textual class="po-textual">. </textual><code class="po-atom e799 e799"><textual class="po-textual">&lt;xsl:template match="span[@class='XPExpr']"
+                mode="ixsl:onclick"&gt;</textual></code><textual class="po-textual"> when triggered, searches in the following instruction
+              body serialisation for the </textual><code class="po-atom e800 e800"><textual class="po-textual">span</textual></code><textual class="po-textual"> that contains the tree for that
+              expression, marked with a </textual><code class="po-atom e801 e801"><textual class="po-textual">@role</textual></code><textual class="po-textual"> attribute, and then toggles the state of
+              the display property.</textual></para></listitem></varlistentry><varlistentry class="po-record e802 e802"><term class="po-block e803 e803"><textual class="po-textual">Displaying streaming properties</textual></term><listitem class="po-container e804 e804"><para class="po-block e805 e805"><textual class="po-textual">Changes in the state of the check-boxes (which are computed as part of the
+              returned HTML for an analysed stylesheet) are recognised by </textual><code class="po-atom e806 e806"><textual class="po-textual">&lt;xsl:template
+                match="input[@class='showType']" mode="ixsl:onclick"&gt;</textual></code><textual class="po-textual">, which then alter the
+              display state of </textual><emphasis class="po-inline e807 e807"><textual class="po-textual">all</textual></emphasis><textual class="po-textual"> the effected stream property spans through
+                </textual><code class="po-atom e808 e808"><textual class="po-textual">ixsl:page()//pre//span[@type=$type]</textual></code><textual class="po-textual">, using the
+                </textual><code class="po-atom e809 e809"><textual class="po-textual">ixsl:set-attribute</textual></code><textual class="po-textual"> instruction. (This also of course changes display
+              state of properties which are invisible for higher reasons, such as being in a folded
+              structure, but it maintains coherence.)</textual></para></listitem></varlistentry><varlistentry class="po-record e810 e810"><term class="po-block e811 e811"><textual class="po-textual">Specification hyper-linking</textual></term><listitem class="po-container e812 e812"><para class="po-block e813 e813"><textual class="po-textual">As the result HTML has already been decorated with </textual><code class="po-atom e814 e814"><textual class="po-textual">a[@href]</textual></code><textual class="po-textual"> links to
+              the appropriate section anchors in the (modified) specification, these links operate
+              outside the purview of the Saxon-CE based stylesheet. The specification is displayed
+              typically in a separate window or tab</textual><footnote class="po-popup e815 e815"><para class="po-block e816 e816"><textual class="po-textual">Under some arrangements with all being displayed in a single tab/window, it is
+                  possible to enrich the explanation of application of the General Streamability
+                  Rules, by highlighting all the rules that were relevant to a particular case. This
+                  requires i) </textual><code class="po-atom e817 e817"><textual class="po-textual">div</textual></code><textual class="po-textual"> grouping of sections of the specification GSR (which
+                  can be done automatically) and ii) altering the display properties of these
+                    </textual><code class="po-atom e818 e818"><textual class="po-textual">div</textual></code><textual class="po-textual"> sections. Unfortunately this appears not to be possible (as one
+                  would wish) between different tabs or windows within a browser....</textual></para></footnote><textual class="po-textual">.</textual></para></listitem></varlistentry></variablelist><para class="po-block e819 e819"><textual class="po-textual">The point to note here is that </textual><emphasis class="po-inline e820 e820"><textual class="po-textual">all</textual></emphasis><textual class="po-textual"> the decisions of </textual><quote class="po-inline e821 e821"><textual class="po-textual">display
+          this line?, wrap onto a new line?</textual></quote><textual class="po-textual"> are performed by the browser, requiring a
+        minimalist approach from the analysis tool itself. </textual></para></section></section><section class="po-hcontainer e822 e822"><title class="po-block e823 e823"><textual class="po-textual">Conclusion</textual></title><para class="po-block e824 e824"><textual class="po-textual">This paper has described a tool that performs a very detailed and exhaustive analysis of
+      the streaming properties of an XSLT program, and displays the results in a form where a human
+      designer might be able to examine these properties to either i) understand why a program
+      cannot stream or ii) get a better feel for the interaction between XSLT instructions and XPath
+      expressions and streaming behaviour.</textual></para><para class="po-block e825 e825"><textual class="po-textual">But it could also be considered as an example of analysing a program (or other data
+      structure) for certain properties within an XML-based framework, using a tree-based 'parsing'
+      of the program as the main data structure, adding properties as attributes and processing the
+      tree in a generally top-down recursive manner</textual><footnote class="po-popup e826 e826"><para class="po-block e827 e827"><textual class="po-textual">A critical requirement might be that referential mechanisms and dependencies (e.g.
+          variables) follow descendant or following-sibling scoping.</textual></para></footnote><textual class="po-textual">. Thus some of the lessons from this tool might be pertinent to other situations,
+      which are normally the province of opaque compilers, such as reachability analysis.</textual></para><section class="po-hcontainer e828 e828"><title class="po-block e829 e829"><textual class="po-textual">Doing what the compiler (usually) doesn't</textual></title><para class="po-block e830 e830"><textual class="po-textual">A comformant XSLT compiler supporting streaming of course has to apply these rules to
+        check streamability</textual><footnote class="po-popup e831 e831"><para class="po-block e832 e832"><textual class="po-textual">Actually they are permitted to extend the cases in which they can stream, but they
+            must support cases which are </textual><emphasis class="po-inline e833 e833"><textual class="po-textual">guaranteed streamable</textual></emphasis><textual class="po-textual"> according to the
+            specification rules.</textual></para></footnote><textual class="po-textual"> but does not have to explain why a construct cannot be streamed. This tool
+        effectively animates the analysis leaving a trail both of its conclusions, in results and
+        intermediate data, and pointers to the relevant rules that were applied, making it less of a
+        hit-and-miss affair for the designer to acheive his streamability goals. Of course a
+        compiler could do similar (e.g. Saxon has an </textual><code class="po-atom e834 e834"><textual class="po-textual">-explain</textual></code><textual class="po-textual"> option that displays the
+        optimised execution plan) but this tool does this independently of any implementation, as
+        the rules are strictly part of the specification. </textual></para></section><section class="po-hcontainer e835 e835"><title class="po-block e836 e836"><textual class="po-textual">Controlling the volume of displayed data</textual></title><para class="po-block e837 e837"><textual class="po-textual">One of the problems was the sheer amount of data to be viewed/displayed – some 8-10
+        additional properties, stored as attributes for every construction element, both instruction
+        and XPath expression. One option was to display all the properties for a single given
+        element at a time, perhaps on a status bar, or a popup, but much of the understanding of the
+        streaming rules in action comes from examining the properties of all the operands of a
+        construct as an ensemble, together with the relevant rules. I chose to enable entire classes
+        to be viewed selectively – it certainly permits one to view </textual><quote class="po-inline e838 e838"><textual class="po-textual">reverse-cascades</textual></quote><textual class="po-textual">
+        of usually </textual><code class="po-atom e839 e839"><textual class="po-textual">roaming</textual></code><textual class="po-textual"> posture propagating from some errant action.</textual></para><para class="po-block e840 e840"><textual class="po-textual">Alternatives, that could be programmed relatively easily using more detailed Saxon-CE
+        interaction, could show properties for a small portion of the tree at a time (e.g. selected
+        element, direct children and a limited number of ancestors), or even explore graphical
+        symbology and other shorthand forms.</textual></para></section><section class="po-hcontainer e841 e841"><title class="po-block e842 e842"><textual class="po-textual">Who &amp; how best to process XSLT?</textual></title><para class="po-block e843 e843"><textual class="po-textual">The problem involved analysis of a program most of whose components are written in XML.
+        Thus an XSLT enthusiast, such as the author, would reach for that tool as the primary
+        instrument. The fact that the program to be analysed was itself XSLT caused very few
+        problems, and made several areas easier. </textual></para><para class="po-block e844 e844"><textual class="po-textual">The first issue was how to analyse the XPath expressions. Initially I chose to add an
+        expansion to Saxon to exploit its </textual><code class="po-atom e845 e845"><textual class="po-textual">Expression.explain()</textual></code><textual class="po-textual"> method to generate a
+        parse tree, but after some success it became clear that a lot of rewrites that Saxon was
+        doing internally needed to be </textual><quote class="po-inline e846 e846"><textual class="po-textual">undone</textual></quote><textual class="po-textual"> or otherwise modified to get to the
+        constructs that streamability required. Then a switch to a parser, written in XSLT and
+        generated by </textual><xref class="po-milestone e847 e847" linkend="REx"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">, made the situation much clearer and the whole analysis
+        solution could be written entirely in non-extended XLST 3.0</textual><footnote class="po-popup e848 e848"><para class="po-block e849 e849"><textual class="po-textual">To be fair, Mike Kay had suggested </textual><xref class="po-milestone e850 e850" linkend="REx"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual"> as a possibility in the
+            initial project outline, but the author had had some experience, before working with
+            Saxonica, on using </textual><code class="po-atom e851 e851"><textual class="po-textual">Expression.explain()</textual></code><textual class="po-textual">, so that was in the first design.
+          </textual></para></footnote><textual class="po-textual">. </textual></para><para class="po-block e852 e852"><textual class="po-textual">Probably the most useful lesson is that a simple variant of the source XSLT program,
+        held as an XML tree, can act as its own parse tree, which can be traversed, read and
+        decorated entirely by XSLT programs. Of course properties have to be capable of being
+        grounded to effective strings to attach to tree element nodes, which was possible even at a
+        stretch when the type model moved to a union type. With with a suitable system of indexed
+        map structures held within the analyser, and keyed through unique ids, even this restriction
+        might be overcome.</textual></para></section><section class="po-hcontainer e853 e853"><title class="po-block e854 e854"><textual class="po-textual">A syntactically coherent specification</textual></title><para class="po-block e855 e855"><textual class="po-textual">Early on in the development it became imperative that there should be some means of
+        finding the correct place in the XSLT specification to examine constructs that were being
+        evaluated, if only for debugging the tool itself. Whilst much of the specification is very
+        richly hyper-linked internally, there was still an enormous amount of scrolling around,
+        losing a place, having to revert to and search through the table of contents (which on the
+        author's browser occupies some 14 </textual><quote class="po-inline e856 e856"><textual class="po-textual">pages</textual></quote><textual class="po-textual">) all the while trying to retain a
+        mental (stack) model in one's head. Could we build a hyperlink from say an
+          </textual><code class="po-atom e857 e857"><textual class="po-textual">xsl:value-of</textual></code><textual class="po-textual"> element to the relevant section of the specification?</textual></para><para class="po-block e858 e858"><textual class="po-textual">Most fortunately, but certainly by design, many of the sections (in this case
+          </textual><code class="po-atom e859 e859"><textual class="po-textual">19.8.4.37</textual></code><textual class="po-textual"> of the December 2013 Working Draft) had hyperlink anchors which
+        were extremely coherent, quite fine-grained and followed the scheme
+          </textual><code class="po-atom e860 e860"><textual class="po-textual">#streamability-xsl-</textual></code><emphasis class="po-inline e861 e861"><code class="po-atom e862 e862"><textual class="po-textual">{local-name(.)}</textual></code></emphasis><textual class="po-textual">, in this
+        case </textual><code class="po-atom e863 e863"><textual class="po-textual">#streamability-xsl-value-of</textual></code><textual class="po-textual">. The exceptions (which were often to a parent
+        category) could be handled by attributive declarations in a table, such as shown in </textual><xref class="po-milestone e864 e864" linkend="expressionConstructs"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">. In the case of the General Streamability Rules, the
+        combination of nested lists and a table required preprocessing to bury a series of anchor
+        points (and </textual><code class="po-atom e865 e865"><textual class="po-textual">div</textual></code><textual class="po-textual"> groupings) to support display.</textual></para><para class="po-block e866 e866"><textual class="po-textual">Equally, the existence of and access to, even more definitive documents behind the
+        specification, such as </textual><code class="po-atom e867 e867"><textual class="po-textual">function-catalog.xml</textual></code><textual class="po-textual">, meant we could latch onto and use
+        definitive information, avoiding transcription errors and making it possible for the tool to
+        track eventual changes in some cases automatically.</textual></para></section><section class="po-hcontainer e868 e868"><title class="po-block e869 e869"><textual class="po-textual">Problems</textual></title><para class="po-block e870 e870"><textual class="po-textual">Apart from the size and apparent complexity of the streamability rules themselves, a
+        small number of other problems appeared including</textual></para><itemizedlist class="po-table e871 e871"><listitem class="po-container e872 e872"><para class="po-block e873 e873"><textual class="po-textual">the size of the resultant fully-serialised output</textual></para></listitem><listitem class="po-container e874 e874"><para class="po-block e875 e875"><textual class="po-textual">debugging the tool itself</textual></para></listitem></itemizedlist><para class="po-block e876 e876"><textual class="po-textual">Whilst the analysis of streamability for a modest stylesheet is relatively quick
+        (seconds or less), the serialisation, and particularly the browser display of that
+        serialisation can be lengthy. A glance at </textual><xref class="po-milestone e877 e877" linkend="show-6"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual"> shows that each streaming
+        property takes about 100 characters to define for display in the current serialised form,
+        which means each construct (instruction, expression term) takes about 1kB to display. (The
+        serialisation of the example in </textual><xref class="po-milestone e878 e878" linkend="sample-a"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual"> is just under 14kB long.) Clearly
+        there could be economies in the terms used (class names are over-generous for example) and
+        some server-performed compression of the results and associated CSS might improve matters by
+        perhaps a factor of three. With some more active participation from the Saxon-CE stylesheet,
+        such as encoding/decoding property values perhaps an order of magnitude could be gained</textual><footnote class="po-popup e879 e879"><para class="po-block e880 e880"><textual class="po-textual">Technically we might be able to implement the analysis tool in XSLT2.0 and hence
+            consider a total Saxon-CE in-browser solution, but the use of XSLT3.0 facilities
+            (especially mode declarations and maps, as curiously HOFs were confined to a very small
+            number of cases) makes the development very much more straighforward. Of course anyone
+            using streaming must be using XSLT3.0 anyway.</textual></para></footnote><textual class="po-textual">. </textual></para><para class="po-block e881 e881"><textual class="po-textual">The simplicity of keeping all the analysed data on the XSLT tree and then serialising
+        the whole was very effective in getting the tool developed, but an alternative would be to
+        split off the data just before serialisation and provide that as a separate
+        </textual><code class="po-atom e882 e882"><textual class="po-textual">id</textual></code><textual class="po-textual">-mapped data structure that the Saxon-CE stylesheet would use. </textual></para><para class="po-block e883 e883"><textual class="po-textual">Unsurprisingly early debugging of the tool wasn't extremely easy, as the sheer volume of
+        data and especially the O(100) different types of instructions and expressions made
+        focussing on a single problem difficult. Building the tools as a number of phases helped
+        (e.g. expanding all the XPath trees, marking the focus control, calculating the static type)
+        so that successive phases could be checked to </textual><quote class="po-inline e884 e884"><textual class="po-textual">mostly</textual></quote><textual class="po-textual"> work</textual><footnote class="po-popup e885 e885"><para class="po-block e886 e886"><textual class="po-textual">The main phases expand / focus control / static type / usage / posture &amp; sweep
+            were pretty separable until the new U-type model introduced </textual><quote class="po-inline e887 e887"><textual class="po-textual">usage-dependent
+              type</textual></quote><textual class="po-textual"> to complement the existing </textual><quote class="po-inline e888 e888"><textual class="po-textual">type-dependent usage</textual></quote><textual class="po-textual"> . At this
+            point some sections of the type and usage phases had to be merged.</textual></para></footnote><textual class="po-textual">. However once a certain stage was reached a lot of the further development could
+        be carried out merely by altering or expanding tables. </textual></para></section><section class="po-hcontainer e889 e889"><title class="po-block e890 e890"><textual class="po-textual">Acknowledgements</textual></title><para class="po-block e891 e891"><textual class="po-textual">Apart from funding the venture, Mike Kay set me a very interesting and what turned out
+        to be a surprisingly complex challenge, but one of XSLT working on XSLT that I very much
+        enjoy. Florent Georges deserves thanks for the excellence of, and excellent support for, the
+        Servlex webapp delivery mechanism which made mounting the tool as a web service
+        comparatively plain (all XML) sailing, with </textual><emphasis class="po-inline e892 e892"><textual class="po-textual">no PHP or Java required</textual></emphasis><textual class="po-textual">!
+        O'Neil Delpratt was his usual cheerful self in helping get the tool installed on Saxonica
+        servers.</textual></para></section><section class="po-hcontainer e893 e893"><title class="po-block e894 e894"><textual class="po-textual">Quo vadis?</textual></title><para class="po-block e895 e895"><textual class="po-textual">During the writing of this paper it became clear that more of the tool's behaviour could
+        be derived from direct interpretation of some sections of the specification, thanks mainly
+        to the coherence in its logical structure. This would increase the tolerance of the tool to
+        (modest) changes in the specification. Changes to the serialisation and storage outlined
+        above could be helpful also.</textual></para><para class="po-block e896 e896"><textual class="po-textual">Whilst the original intention of the tool was to enable a given stylesheet to be
+        analysed, perhaps its future value is really in being able to increase understanding of what
+        the essence of the streamability rules is, by providing a highly detailed
+          </textual><quote class="po-inline e897 e897"><textual class="po-textual">walkthrough</textual></quote><textual class="po-textual"> of their application on fragments of XSLT of interest. It might
+        also be interesting to see whether a rudimentary </textual><quote class="po-inline e898 e898"><textual class="po-textual">expert system</textual></quote><textual class="po-textual">, in the form
+        of patterns matching some design metaphors (e.g. adding a </textual><code class="po-atom e899 e899"><textual class="po-textual">copy()</textual></code><textual class="po-textual"> action to
+        avoid returning nodes from the input) might be able to suggest alterations that might enable
+        streamability where originially this cannot be guaranteed. </textual></para></section></section><bibliography class="po-hcontainer e900 e900"><title class="po-block e901 e901"><textual class="po-textual">References</textual></title><bibliomixed class="po-block e902 e902" xml:id="Braaksma1" xreflabel="Braaksma1"><textual class="po-textual">Braaksma, Abel: </textual><quote class="po-inline e903 e903"><textual class="po-textual">XSLT 3.0 Streaming
+        for the masses</textual></quote><textual class="po-textual"> [online] XML Prague 2014 proceedings, pp29–80,
+        </textual><link class="po-inline e904 e904" xlink:actuate="onRequest" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://archive.xmlprague.cz/2014/files/xmlprague-2014-proceedings.pdf</textual></link><textual class="po-textual">
+    </textual></bibliomixed><bibliomixed class="po-block e905 e905" xml:id="Braaksma2" xreflabel="Braaksma2"><textual class="po-textual">Braaksma, Abel: </textual><quote class="po-inline e906 e906"><textual class="po-textual">Streaming Design
+        Patterns or: How I Learned to Stop Worrying and Love the Stream</textual></quote><textual class="po-textual"> [online] XML London
+      2014 proceedings, pp24–52,
+        </textual><link class="po-inline e907 e907" xlink:actuate="onRequest" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://xmllondon.com/2014/xmllondon-2014-proceedings.pdf</textual></link><textual class="po-textual">
+    </textual></bibliomixed><bibliomixed class="po-block e908 e908" xml:id="Kay" xreflabel="Kay"><textual class="po-textual">Kay, Michael: </textual><quote class="po-inline e909 e909"><textual class="po-textual">Streaming in the Saxon XSLT
+        Processor</textual></quote><textual class="po-textual">[online] XML Prague 2014 proceedings, pp81–102
+        </textual><link class="po-inline e910 e910" xlink:actuate="onRequest" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://archive.xmlprague.cz/2014/files/xmlprague-2014-proceedings.pdf</textual></link><textual class="po-textual">
+    </textual></bibliomixed><bibliomixed class="po-block e911 e911" xml:id="REx" xreflabel="REx"><textual class="po-textual">Rademacher, Gunther: </textual><quote class="po-inline e912 e912"><textual class="po-textual">REx Parser
+        Generator</textual></quote><textual class="po-textual">[online] </textual><link class="po-inline e913 e913" xlink:actuate="onRequest" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://www.bottlecaps.de/rex/</textual></link><textual class="po-textual">
+    </textual></bibliomixed><bibliomixed class="po-block e914 e914" xml:id="Servlex" xreflabel="Servlex"><textual class="po-textual">Georges, Florent: </textual><quote class="po-inline e915 e915"><textual class="po-textual">Servlex: (: Web
+        Applications and REST Services Framework for XQuery, XProc and XSLT. :)</textual></quote><textual class="po-textual">[online]
+        </textual><link class="po-inline e916 e916" xlink:actuate="onRequest" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://serlvex.net</textual></link><textual class="po-textual">
+    </textual></bibliomixed></bibliography></article></classedDocument>

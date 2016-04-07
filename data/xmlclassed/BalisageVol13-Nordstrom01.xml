@@ -1,0 +1,1132 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?><classedDocument><article xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink" class="po-hcontainer e0 e0" version="5.0-subset Balisage-1.3"><title class="po-block e1 e1"><textual class="po-textual">Multilevel Versioning</textual></title><info class="po-record e2 e2"><confgroup class="po-record e3 e3"><conftitle class="po-field e4 e4"><textual class="po-textual">Balisage: The Markup Conference 2014</textual></conftitle><confdates class="po-field e5 e5"><textual class="po-textual">August 5 - 8, 2014</textual></confdates></confgroup><abstract class="po-container e6 e6"><para class="po-block e7 e7"><textual class="po-textual">
+                </textual><quote class="po-inline e8 e8"><textual class="po-textual">Straight</textual></quote><textual class="po-textual"> versioning systems for XML documents that produce a new
+                version for every save, such as eXist DB's versioning extension, aren't as useful as
+                they could be. They produce far too many versions, of which far too few are
+                significant, and so each significant version is very hard to find or use. An old
+                version, for example, cannot be easily located or reliably referenced. Adding
+                check-out and check-in functionality would help alleviate some of the problems but
+                not solve them.</textual></para><para class="po-block e9 e9"><textual class="po-textual">In this paper, I propose adding a multilevel, XML-based versioning abstraction on
+                top of this </textual><quote class="po-inline e10 e10"><textual class="po-textual">straight</textual></quote><textual class="po-textual"> versioning system, where any new versions are
+                placed on different levels or stages, based on check-out and check-in operations
+                that move the resources up or down in the versioning structure.</textual></para><para class="po-block e11 e11"><textual class="po-textual">The multilevel versioning is achieved using several different areas within the
+                system, each of which in themselves is version handled using the system's
+                    </textual><quote class="po-inline e12 e12"><textual class="po-textual">straight</textual></quote><textual class="po-textual"> versioning extension and where each save produces a
+                system address to a specific (straight) version in that area. These addresses are
+                kept track of and mapped to the multilevel versions in an XML-based version mapping
+                file when a resource is checked in or out, as defined by the business rules for the
+                abstraction.</textual></para></abstract><author class="po-record e13 e13"><personname class="po-record e14 e14"><firstname class="po-field e15 e15"><textual class="po-textual">Ari</textual></firstname><surname class="po-field e16 e16"><textual class="po-textual">Nordström</textual></surname></personname><personblurb class="po-container e17 e17"><para class="po-block e18 e18"><textual class="po-textual">Ari Nordström is the resident XML
+                    guy at Condesign AB in Göteborg, Sweden. His information structures and
+                    solutions are used by Volvo Cars, Ericsson, and many others. His favourite XML
+                    specification remains XLink so quite a few of his frequent talks and
+                    presentations on XML focus on linking and various aspects of reuse. </textual></para><para class="po-block e19 e19"><textual class="po-textual">Ari spends some of his spare time
+                    playing with old 35/70 mm film projectors and has a respectable collection of
+                    Dolby cinema processors, which goes some way towards explaining why he wanted to
+                    automate cinemas using XML, once upon a time. He has now fully accepted that
+                    it's too late.</textual></para></personblurb></author><legalnotice class="po-container e20 e20"><para class="po-block e21 e21"><textual class="po-textual">Ari Nordström © 2014</textual></para></legalnotice><keywordset class="po-table e22 e22" role="author"><keyword class="po-field e23 e23"><textual class="po-textual">Reuse</textual></keyword><keyword class="po-field e24 e24"><textual class="po-textual">Modularisation</textual></keyword><keyword class="po-field e25 e25"><textual class="po-textual">Versioning</textual></keyword><keyword class="po-field e26 e26"><textual class="po-textual">eXist-DB</textual></keyword><keyword class="po-field e27 e27"><textual class="po-textual">XML databases</textual></keyword></keywordset></info><section class="po-hcontainer e28 e28" xml:id="section_cjv_bnb_5n"><title class="po-block e29 e29"><textual class="po-textual">Intro</textual></title><section class="po-hcontainer e30 e30"><title class="po-block e31 e31"><textual class="po-textual">Modularised XML Example</textual></title><para class="po-block e32 e32"><textual class="po-textual">Let's say we have a modularised XML document. It consists of a number of linked
+                resources, XML or otherwise:</textual></para><figure class="po-container e33 e33" xml:id="figure_qfc_k4b_5n"><title class="po-block e34 e34"><textual class="po-textual">Document Tree</textual></title><mediaobject class="po-container e35 e35"><imageobject class="po-container e36 e36"><imagedata class="po-meta e37 e37" fileref="../../../vol13/graphics/Nordstrom01/Nordstrom01-001.png" width="500px"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></imagedata></imageobject></mediaobject></figure><para class="po-block e38 e38"><textual class="po-textual">Each resource</textual><textual class="po-textual"> is version handled
+                separately, and every significant change to a resource will result in a new version
+                of that resource</textual><footnote class="po-popup e39 e39"><para class="po-block e40 e40"><textual class="po-textual">Using a check-out/check-in procedure that bumps up the version with every
+                        check-in.</textual></para></footnote><textual class="po-textual">. Many of the resources are reused in other documents as well. For
+                example, the three warnings are used in many documents and might be edited by a
+                separate legal team. </textual></para><para class="po-block e41 e41"><textual class="po-textual">Furthermore, each link includes not only the resource's name but also its exact
+                version. This means that while the document pictured above may use version 12 of
+                    </textual><emphasis class="po-inline e42 e42"><textual class="po-textual">Warning 3</textual></emphasis><textual class="po-textual">, another document may have linked to a later
+                version of that same warning, say version 18. This means that, in a version handling
+                system, any modularised document such as the one above can be precisely recreated
+                later, using the right versions of each participating resource, as every link
+                includes both name and version.</textual></para></section><section class="po-hcontainer e43 e43" xml:id="section_ksr_3bh_5n"><title class="po-block e44 e44"><textual class="po-textual">The Versioning Module in eXist</textual></title><para class="po-block e45 e45"><textual class="po-textual">I've implemented the above modularisation and version handling in a document
+                management system based on an XML editor coupled with a SQL database and a document
+                management layer, but I'd very much like to implement something like that in an
+                XML-based database. Something like eXist.</textual></para><para class="po-block e46 e46"><textual class="po-textual">I love eXist. It's extremely powerful: it supports handling and storing XML as XML
+                using XML technologies from XSLT to XQuery, XProc to XForms, and more, which means
+                that geeks such as yours truly who are markup-centric rather than code-centric</textual><footnote class="po-popup e47 e47"><para class="po-block e48 e48"><textual class="po-textual">A nicer way of grouping together those of us who think </textual><quote class="po-inline e49 e49"><textual class="po-textual">Java</textual></quote><textual class="po-textual">
+                        is really a drink.</textual></para></footnote><textual class="po-textual"> can do a lot of cool stuff in eXist using those technologies and nothing
+                else.</textual></para><para class="po-block e50 e50"><textual class="po-textual">There is a simple versioning module available for eXist. It allows you to version
+                handle your stored resources, basically adding a new version whenever you hit Save.
+                It works quite well for what it is intended, well but there are problems:</textual></para><itemizedlist class="po-table e51 e51"><listitem class="po-container e52 e52"><para class="po-block e53 e53"><textual class="po-textual">You get a lot of versions, most of which are irrelevant.</textual></para></listitem><listitem class="po-container e54 e54"><para class="po-block e55 e55"><textual class="po-textual">It is therefore difficult to identify the relevant versions.</textual></para></listitem><listitem class="po-container e56 e56"><para class="po-block e57 e57"><textual class="po-textual">There's no concept of a workflow beyond that save operation, no check-outs
+                        or check-ins.</textual></para></listitem><listitem class="po-container e58 e58"><para class="po-block e59 e59"><textual class="po-textual">Addressing the stored versions is somewhat difficult.</textual></para></listitem><listitem class="po-container e60 e60"><para class="po-block e61 e61"><textual class="po-textual">The version number itself is just an integer number, with a single counter
+                        for everything version handled. </textual></para></listitem></itemizedlist><para class="po-block e62 e62"><textual class="po-textual">A more code-centric markup geek would probably write a better versioning module
+                using Java or some such language, adding basic functionality for check-outs and
+                check-ins, metadata for versions, etc. I'm not one of them, unfortunately, so I need
+                to make do with what I have, which is XML and the XML-based technologies available
+                to me in eXist.</textual></para></section><section class="po-hcontainer e63 e63" xml:id="section_ss5_jbh_5n"><title class="po-block e64 e64"><textual class="po-textual">The </textual><quote class="po-inline e65 e65"><textual class="po-textual">Use Latest</textual></quote><textual class="po-textual"> Problem</textual></title><para class="po-block e66 e66"><textual class="po-textual">There are problems when updating a modularised document such as the one
+                above:</textual></para><para class="po-block e67 e67"><textual class="po-textual">Let's say, for example, that the link to </textual><emphasis class="po-inline e68 e68"><textual class="po-textual">Warning 3</textual></emphasis><textual class="po-textual"> needs to
+                be updated from the old version 12 to the latest version, 18. It should be a simple
+                matter of checking out </textual><emphasis class="po-inline e69 e69"><textual class="po-textual">Chapter 2</textual></emphasis><textual class="po-textual">, updating the link, and
+                checking in the updated chapter again.</textual></para><para class="po-block e70 e70"><textual class="po-textual">But this means that the root document's (</textual><emphasis class="po-inline e71 e71"><textual class="po-textual">Root doc</textual></emphasis><textual class="po-textual">'s) link to
+                    </textual><emphasis class="po-inline e72 e72"><textual class="po-textual">Chapter 2</textual></emphasis><textual class="po-textual"> needs to be updated as well, which entails
+                checking out the root, updating the link, and checking in the root again.</textual></para><para class="po-block e73 e73"><textual class="po-textual">This causes several potential problems:</textual></para><itemizedlist class="po-table e74 e74"><listitem class="po-container e75 e75"><para class="po-block e76 e76"><textual class="po-textual">Since </textual><emphasis class="po-inline e77 e77"><textual class="po-textual">Chapter 2</textual></emphasis><textual class="po-textual">might have been used elsewhere, what
+                        if it had been </textual><emphasis class="po-inline e78 e78"><textual class="po-textual">edited</textual></emphasis><textual class="po-textual"> elsewhere? What if that edit was
+                        more recent, meaning that </textual><emphasis class="po-inline e79 e79"><textual class="po-textual">Chapter 2</textual></emphasis><textual class="po-textual"> had been updated
+                        after our example document was first put together, with </textual><emphasis class="po-inline e80 e80"><textual class="po-textual">Warning
+                            3</textual></emphasis><textual class="po-textual"> in version 12 inserted into </textual><emphasis class="po-inline e81 e81"><textual class="po-textual">Chapter 2</textual></emphasis><textual class="po-textual">?
+                        This would mean that </textual><emphasis class="po-inline e82 e82"><textual class="po-textual">Chapter 2</textual></emphasis><textual class="po-textual"> might contain
+                        incompatible changes. </textual></para></listitem><listitem class="po-container e83 e83"><para class="po-block e84 e84"><textual class="po-textual">The problem is the same for any ancestor module, of course. They might
+                        have been edited and updated since the document at hand was published and
+                        could therefore include incompatible content.</textual></para></listitem><listitem class="po-container e85 e85"><para class="po-block e86 e86"><textual class="po-textual">That later version of </textual><emphasis class="po-inline e87 e87"><textual class="po-textual">Chapter 2</textual></emphasis><textual class="po-textual"> might, of course, now
+                        also include new links in addition to in-module content.</textual></para></listitem><listitem class="po-container e88 e88"><para class="po-block e89 e89"><textual class="po-textual">It would then not be possible to update </textual><emphasis class="po-inline e90 e90"><textual class="po-textual">Chapter 2</textual></emphasis><textual class="po-textual"> to
+                        include a new version of the </textual><emphasis class="po-inline e91 e91"><textual class="po-textual">Warning 3</textual></emphasis><textual class="po-textual"> link without
+                        immediately creating a problem for the other documents using
+                            </textual><emphasis class="po-inline e92 e92"><textual class="po-textual">Chapter 2</textual></emphasis><textual class="po-textual"> once someone needed to update
+                            </textual><emphasis class="po-inline e93 e93"><textual class="po-textual">them</textual></emphasis><textual class="po-textual">.</textual></para></listitem></itemizedlist><para class="po-block e94 e94"><textual class="po-textual">So, with all this in mind, what if one always wanted to use the latest versions of
+                some of the resources but not others? </textual></para><para class="po-block e95 e95"><textual class="po-textual">Leaf nodes such as images are an obvious choice; it's perfectly reasonable to,
+                say, always require the latest approved versions of warnings. In our example, the
+                warnings are authored by a separate legal team, so it makes sense that the latest
+                version approved is always the one to be used. It would then also make sense to
+                automate the handling of links, automatically updating such a link to the latest
+                version when editing the rest of the document.</textual></para><para class="po-block e96 e96"><textual class="po-textual">Which means that we'll run into the problems outlined above, that is, how to
+                (automatically) update the ancestor's link versions, considering that their contents
+                (links) have potentially been updated with incompatible content. A change in
+                contents means that a new version must result.</textual></para><para class="po-block e97 e97"><textual class="po-textual">The problem here is, in the words of Eliot Kimber, </textual><quote class="po-inline e98 e98"><textual class="po-textual">bad configurations
+                    management</textual></quote><textual class="po-textual">
+                </textual><footnote class="po-popup e99 e99"><para class="po-block e100 e100"><textual class="po-textual">His comment was given at Balisage 2013, in response to a description of
+                        the problems involved in updating a document link tree such as the one in
+                            </textual><xref class="po-milestone e101 e101" linkend="figure_qfc_k4b_5n"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">. It's an insightful comment, and one that
+                        directly caused this paper to come into being. Incidentally, the paper
+                        presented, </textual><emphasis class="po-inline e102 e102"><textual class="po-textual">Semantic Profiling</textual></emphasis><textual class="po-textual"> (</textual><xref class="po-milestone e103 e103" linkend="id-semantic-profiling"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">), also used URNs.</textual></para></footnote><textual class="po-textual">. The document link tree is allowed to be updated freely and
+                uncontrollably, creating a situation that is next to impossible to handle. More
+                specifically, the idea of always using the latest version does not play well with
+                the version management; every resource is updated separately and independently. </textual></para><para class="po-block e104 e104"><textual class="po-textual">From a configuration management point of view, all of the resource versions above
+                are equal; no single version is more important than another. There are no workflow
+                statuses (</textual><quote class="po-inline e105 e105"><textual class="po-textual">editing</textual></quote><textual class="po-textual">, </textual><quote class="po-inline e106 e106"><textual class="po-textual">reviewing</textual></quote><textual class="po-textual">, </textual><quote class="po-inline e107 e107"><textual class="po-textual">approved</textual></quote><textual class="po-textual">,
+                etc) for the participating resources. </textual><emphasis class="po-inline e108 e108"><textual class="po-textual">Nothing</textual></emphasis><textual class="po-textual"> indicates what
+                version, if any, is approved. In other words, is updating from version 12 to version
+                18 OK in the first place? There is no scope, so always wanting the latest warning
+                (or image or some other resource) is a matter of safeguarding against change.</textual></para><para class="po-block e109 e109"><textual class="po-textual">You want version handling so you can recreate the exact version of your
+                modularised document later, but at the same time, you want to be able to easily
+                update links to certain leaf nodes without the hassle of updating every parent link,
+                all the way up to the root. Preferably, you want the system to do the updating for
+                you, automatically, but the </textual><quote class="po-inline e110 e110"><textual class="po-textual">stupid</textual></quote><textual class="po-textual"> version handling that handles
+                every resource separately gets in the way, </textual><emphasis class="po-inline e111 e111"><textual class="po-textual">because</textual></emphasis><textual class="po-textual"> the
+                resources are reused everywhere.</textual></para><para class="po-block e112 e112"><textual class="po-textual">This, basically, is what I call the </textual><quote class="po-inline e113 e113"><textual class="po-textual">use latest</textual></quote><textual class="po-textual"> problem.</textual></para></section></section><section class="po-hcontainer e114 e114" xml:id="section_m1l_434_5n"><title class="po-block e115 e115"><textual class="po-textual">Better Version Management for eXist</textual></title><para class="po-block e116 e116"><textual class="po-textual">To introduce version handling that is a bit more advanced than the versioning module
+            in eXist, I propose the following:</textual></para><para class="po-block e117 e117"><textual class="po-textual">Split the versioning of resources into different areas</textual><footnote class="po-popup e118 e118"><para class="po-block e119 e119"><textual class="po-textual">Collections, in eXist.</textual></para></footnote><textual class="po-textual">, where a </textual><quote class="po-inline e120 e120"><textual class="po-textual">stable</textual></quote><textual class="po-textual"> area will only ever contain approved versions
+            of documents, that is, the resources that make up a modularised document. This area I
+            rather appropriately call </textual><emphasis class="po-inline e121 e121"><textual class="po-textual">Stable</textual></emphasis><textual class="po-textual">. When a stable document is
+            updated, it is first copied, or checked out, into an area intended for editing. I call
+            this area </textual><emphasis class="po-inline e122 e122"><textual class="po-textual">Stage 1</textual></emphasis><textual class="po-textual">.</textual></para><figure class="po-container e123 e123"><title class="po-block e124 e124"><textual class="po-textual">Versioning Split Into Two Areas</textual></title><mediaobject class="po-container e125 e125"><imageobject class="po-container e126 e126"><imagedata class="po-meta e127 e127" fileref="../../../vol13/graphics/Nordstrom01/Nordstrom01-002.png" width="500px"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></imagedata></imageobject></mediaobject></figure><para class="po-block e128 e128"><textual class="po-textual">Versioning, then, is represented using a tree structure with two main areas:</textual></para><itemizedlist class="po-table e129 e129"><listitem class="po-container e130 e130"><para class="po-block e131 e131"><emphasis class="po-inline e132 e132"><textual class="po-textual">Stable</textual></emphasis><textual class="po-textual"> is exactly what it sounds like: stable. It
+                    contains the </textual><quote class="po-inline e133 e133"><textual class="po-textual">major</textual></quote><textual class="po-textual"> versions of resources and
+                        </textual><quote class="po-inline e134 e134"><textual class="po-textual">documents</textual></quote><textual class="po-textual">, that is, groups of resources.</textual></para></listitem><listitem class="po-container e135 e135"><para class="po-block e136 e136"><textual class="po-textual">
+                    </textual><emphasis class="po-inline e137 e137"><textual class="po-textual">Stage 1</textual></emphasis><textual class="po-textual"> is intended for editing. An author can check out an
+                    individual resource from </textual><emphasis class="po-inline e138 e138"><textual class="po-textual">Stable</textual></emphasis><textual class="po-textual"> to </textual><emphasis class="po-inline e139 e139"><textual class="po-textual">Stage
+                        1</textual></emphasis><textual class="po-textual"> to work on the resource. He may also be allowed to check out a
+                    whole document.</textual></para></listitem></itemizedlist><para class="po-block e140 e140"><textual class="po-textual">Both areas are actual collections in the system, version handled using eXist's
+            versioning extension module. In other words, every </textual><emphasis class="po-inline e141 e141"><textual class="po-textual">Save</textual></emphasis><textual class="po-textual"> in
+            respective collection results in a new version of the old one (offsetting each save
+            using a diff against a first, base, version).</textual></para><para class="po-block e142 e142"><textual class="po-textual">Each area, then, is versioned independently from the other. They are designed to be
+            used together, however:</textual></para><itemizedlist class="po-table e143 e143"><listitem class="po-container e144 e144"><para class="po-block e145 e145"><textual class="po-textual">
+                    </textual><emphasis class="po-inline e146 e146"><textual class="po-textual">Stable</textual></emphasis><textual class="po-textual"> implies integer versions: 1, 2, 3, etc.</textual></para></listitem><listitem class="po-container e147 e147"><para class="po-block e148 e148"><textual class="po-textual">
+                    </textual><emphasis class="po-inline e149 e149"><textual class="po-textual">Stage 1</textual></emphasis><textual class="po-textual"> implies decimal versions: 1.1, 1.2, 1.3, etc; 2.1,
+                    2.2, 2.3, etc.</textual></para></listitem></itemizedlist><section class="po-hcontainer e150 e150" xml:id="section_ptj_zk4_5n"><title class="po-block e151 e151"><textual class="po-textual">Save, Check-in and Check-out</textual></title><para class="po-block e152 e152"><textual class="po-textual">Direct </textual><emphasis class="po-inline e153 e153"><textual class="po-textual">Save</textual></emphasis><textual class="po-textual"> operations are only allowed in </textual><emphasis class="po-inline e154 e154"><textual class="po-textual">Stage
+                    1</textual></emphasis><textual class="po-textual">. In other words, they are edited, saved and versioned there, and
+                need to be checked in to </textual><emphasis class="po-inline e155 e155"><textual class="po-textual">Stable</textual></emphasis><textual class="po-textual"> to cause a new
+                    </textual><emphasis class="po-inline e156 e156"><textual class="po-textual">Stable</textual></emphasis><textual class="po-textual">. </textual><emphasis class="po-inline e157 e157"><textual class="po-textual">Stable</textual></emphasis><textual class="po-textual"> resources cannot be
+                edited directly.</textual></para><para class="po-block e158 e158"><textual class="po-textual">
+                </textual><emphasis class="po-inline e159 e159"><textual class="po-textual">Stable</textual></emphasis><textual class="po-textual"> resources can be checked out to </textual><emphasis class="po-inline e160 e160"><textual class="po-textual">Stage
+                    1</textual></emphasis><textual class="po-textual"> to be edited, however, in which case they are locked in
+                    </textual><emphasis class="po-inline e161 e161"><textual class="po-textual">Stable</textual></emphasis><textual class="po-textual"> while awaiting a check-in from </textual><emphasis class="po-inline e162 e162"><textual class="po-textual">Stage
+                    1</textual></emphasis><textual class="po-textual">. A check-in from </textual><emphasis class="po-inline e163 e163"><textual class="po-textual">Stage 1</textual></emphasis><textual class="po-textual"> to
+                    </textual><emphasis class="po-inline e164 e164"><textual class="po-textual">Stable</textual></emphasis><textual class="po-textual"> means that the </textual><emphasis class="po-inline e165 e165"><textual class="po-textual">Stage 1</textual></emphasis><textual class="po-textual"> resource
+                is locked from further edits.</textual></para><note class="po-container e166 e166"><para class="po-block e167 e167"><textual class="po-textual">The locking of files merits a discussion. See </textual><xref class="po-milestone e168 e168" linkend="section_f5d_ykw_l4"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">.</textual></para></note><para class="po-block e169 e169"><textual class="po-textual">Check-out and check-in operations are as follows:</textual></para><itemizedlist class="po-table e170 e170"><listitem class="po-container e171 e171"><para class="po-block e172 e172"><textual class="po-textual">Check-out from </textual><emphasis class="po-inline e173 e173"><textual class="po-textual">Stable</textual></emphasis><textual class="po-textual"> is a copy to </textual><emphasis class="po-inline e174 e174"><textual class="po-textual">Stage
+                            1</textual></emphasis><textual class="po-textual">. The check-out causes a new file version of the resource in
+                            </textual><emphasis class="po-inline e175 e175"><textual class="po-textual">Stage 1</textual></emphasis><textual class="po-textual">.</textual></para></listitem><listitem class="po-container e176 e176"><para class="po-block e177 e177"><textual class="po-textual">Check-in from </textual><emphasis class="po-inline e178 e178"><textual class="po-textual">Stage 1</textual></emphasis><textual class="po-textual"> is a copy to
+                            </textual><emphasis class="po-inline e179 e179"><textual class="po-textual">Stable</textual></emphasis><textual class="po-textual">, locking the resource in </textual><emphasis class="po-inline e180 e180"><textual class="po-textual">Stage
+                            1</textual></emphasis><textual class="po-textual"> and causing a new file version of the resource in
+                            </textual><emphasis class="po-inline e181 e181"><textual class="po-textual">Stable</textual></emphasis><textual class="po-textual">.</textual></para></listitem></itemizedlist></section><section class="po-hcontainer e182 e182" xml:id="section_csw_2m4_5n"><title class="po-block e183 e183"><textual class="po-textual">Version Abstraction</textual></title><para class="po-block e184 e184"><textual class="po-textual">While both areas are version handled using the standard versioning system in the
+                respective collection, they are connected to each other only implicitly. There is
+                therefore a need to create version abstractions for the resources being copied,
+                logically connecting the two areas. A basic URN namespace such as the following
+                should be enough:</textual></para><programlisting class="po-block e185 e185" xml:space="preserve"><textual class="po-textual">urn:x-resource:r1:&lt;doc-number&gt;:&lt;lang&gt;:&lt;stable&gt;:&lt;stage1&gt;</textual></programlisting><para class="po-block e186 e186"><textual class="po-textual">where </textual><code class="po-atom e187 e187"><textual class="po-textual">&lt;stable&gt;</textual></code><textual class="po-textual"> is the </textual><quote class="po-inline e188 e188"><textual class="po-textual">integer version</textual></quote><textual class="po-textual"> in
+                    </textual><emphasis class="po-inline e189 e189"><textual class="po-textual">Stable</textual></emphasis><textual class="po-textual"> and </textual><code class="po-atom e190 e190"><textual class="po-textual">&lt;stage1&gt;</textual></code><textual class="po-textual"> the </textual><quote class="po-inline e191 e191"><textual class="po-textual">decimal
+                    version</textual></quote><textual class="po-textual"> in </textual><emphasis class="po-inline e192 e192"><textual class="po-textual">Stage1</textual></emphasis><textual class="po-textual">
+                </textual><footnote class="po-popup e193 e193"><para class="po-block e194 e194"><textual class="po-textual">Both are integers from </textual><quote class="po-inline e195 e195"><textual class="po-textual">1</textual></quote><textual class="po-textual"> and up.</textual></para></footnote><textual class="po-textual">. </textual><code class="po-atom e196 e196"><textual class="po-textual">&lt;lang&gt;</textual></code><textual class="po-textual"> is a four-position</textual><footnote class="po-popup e197 e197"><para class="po-block e198 e198"><textual class="po-textual">Plus a position for the hyphen.</textual></para></footnote><textual class="po-textual"> language-and-country code for the resources that require one. For
+                example, version 2.1 of a British English document 123456 might be identified like
+                so:</textual></para><programlisting class="po-block e199 e199" xml:space="preserve"><textual class="po-textual">urn:x-resource:r1:123456:en-GB:2:1</textual></programlisting><para class="po-block e200 e200"><textual class="po-textual">The URNs can be kept track of using an XML-based URN/URL map document, like
+                so:</textual></para><programlisting class="po-block e201 e201" xml:space="preserve"><textual class="po-textual">&lt;resources&gt;
+  &lt;resource&gt;
+    &lt;urn&gt;&lt;/urn&gt;
+    &lt;url&gt;&lt;/url&gt;
+  &lt;/resource&gt;
+  ...
+&lt;/resources&gt;</textual></programlisting><para class="po-block e202 e202"><textual class="po-textual">A resource mapping document is useful, as links can be made to resource names (and
+                specific versions) rather than addresses. In a reasonably well-indexed XML database,
+                looking up a URN to find its corresponding URL should be quick, even with many
+                resources and a large map.</textual></para></section><section class="po-hcontainer e203 e203" xml:id="section_rs1_vm4_5n"><title class="po-block e204 e204"><textual class="po-textual">Version Mapping XML</textual></title><para class="po-block e205 e205"><textual class="po-textual">The resource maps need to do more than just map a name to an address, however.
+                Every version, integer or decimal, of every URN needs to not only be mapped to a
+                URL, but also to be given a </textual><emphasis class="po-inline e206 e206"><textual class="po-textual">context</textual></emphasis><textual class="po-textual">, indicating a relation
+                between the two staging areas and, thus, between the different versions of the same
+                resource.</textual></para><para class="po-block e207 e207"><textual class="po-textual">The URN schema implies a structure for each resource version. Something like this</textual><footnote class="po-popup e208 e208"><para class="po-block e209 e209"><textual class="po-textual">Leaving, for the moment, out the </textual><code class="po-atom e210 e210"><textual class="po-textual">lang</textual></code><textual class="po-textual"> attribute and element
+                        content examples.</textual></para></footnote><textual class="po-textual">:</textual></para><programlisting class="po-block e211 e211" xml:space="preserve"><textual class="po-textual">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;resource&gt;
+    
+    &lt;!-- Base URN --&gt;
+    &lt;base&gt;&lt;/base&gt;
+    
+    &lt;!-- Stable version 1 --&gt;
+    &lt;version&gt;
+        &lt;rev&gt;&lt;/rev&gt;
+        &lt;url&gt;&lt;/url&gt;
+        
+        &lt;!-- Stage 1 (decimal versions) --&gt;
+        &lt;version&gt;
+            &lt;rev&gt;&lt;/rev&gt;
+            &lt;url&gt;&lt;/url&gt;
+        &lt;/version&gt;
+        &lt;version&gt;
+            &lt;rev&gt;&lt;/rev&gt;
+            &lt;url&gt;&lt;/url&gt;
+        &lt;/version&gt;
+    &lt;/version&gt;
+    
+    &lt;!-- Stable version 2 --&gt;
+    &lt;version&gt;
+        &lt;rev&gt;&lt;/rev&gt;
+        &lt;url&gt;&lt;/url&gt;
+        
+        &lt;!-- Stage 1 (decimal versions) --&gt;
+        &lt;version&gt;
+            &lt;rev&gt;&lt;/rev&gt;
+            &lt;url&gt;&lt;/url&gt;
+        &lt;/version&gt;
+        &lt;version&gt;
+            &lt;rev&gt;&lt;/rev&gt;
+            &lt;url&gt;&lt;/url&gt;
+        &lt;/version&gt;
+    &lt;/version&gt;
+&lt;/resource&gt;</textual></programlisting><para class="po-block e212 e212"><textual class="po-textual">I've included two </textual><emphasis class="po-inline e213 e213"><textual class="po-textual">Stable</textual></emphasis><textual class="po-textual"> versions, each of them inside a
+                    </textual><code class="po-atom e214 e214"><textual class="po-textual">version</textual></code><textual class="po-textual"> tag, and two </textual><emphasis class="po-inline e215 e215"><textual class="po-textual">Stage 1</textual></emphasis><textual class="po-textual"> or decimal
+                versions for each </textual><emphasis class="po-inline e216 e216"><textual class="po-textual">Stable</textual></emphasis><textual class="po-textual"> version. This is a nice, recursive
+                    </textual><code class="po-atom e217 e217"><textual class="po-textual">version</textual></code><textual class="po-textual"> structure (and yes, there is a reason for it; read
+                on).</textual></para><para class="po-block e218 e218"><textual class="po-textual">Each </textual><code class="po-atom e219 e219"><textual class="po-textual">rev</textual></code><textual class="po-textual"> identifies an actual stored version (integer or decimal) of
+                a resource, with the resource's URL in </textual><code class="po-atom e220 e220"><textual class="po-textual">url</textual></code><textual class="po-textual">. On
+                    </textual><emphasis class="po-inline e221 e221"><textual class="po-textual">Stable</textual></emphasis><textual class="po-textual"> level, there's only a single </textual><code class="po-atom e222 e222"><textual class="po-textual">rev</textual></code><textual class="po-textual"> inside
+                    </textual><code class="po-atom e223 e223"><textual class="po-textual">version</textual></code><textual class="po-textual">, but it may contain an unlimited number of decimal
+                versions.</textual></para><para class="po-block e224 e224"><textual class="po-textual">A save operation in </textual><emphasis class="po-inline e225 e225"><textual class="po-textual">Stage 1</textual></emphasis><textual class="po-textual"> causes a new version of the
+                resource to be stored in that area. A new decimal-level </textual><code class="po-atom e226 e226"><textual class="po-textual">version</textual></code><textual class="po-textual">
+                structure is added to the mapping document, with a new </textual><code class="po-atom e227 e227"><textual class="po-textual">rev</textual></code><textual class="po-textual"> (counted up
+                a notch) and a URL to the decimal-level resource file.</textual></para><para class="po-block e228 e228"><textual class="po-textual">When a </textual><emphasis class="po-inline e229 e229"><textual class="po-textual">Stage 1</textual></emphasis><textual class="po-textual">, or decimal-level, resource is checked in, the
+                resource is copied into the </textual><emphasis class="po-inline e230 e230"><textual class="po-textual">Stable</textual></emphasis><textual class="po-textual"> area, causing a new (eXist)
+                version of the resource to be stored in that area. A new integer-level
+                    </textual><code class="po-atom e231 e231"><textual class="po-textual">version</textual></code><textual class="po-textual"> is added to the mapping document, with a new
+                    </textual><code class="po-atom e232 e232"><textual class="po-textual">rev</textual></code><textual class="po-textual"> (counted up a notch) and a URL to the integer-level resource
+                file.</textual></para><para class="po-block e233 e233"><textual class="po-textual">Using the mapping document and a simple XPath, any version of the base URN can
+                easily be retrieved later.</textual></para></section><section class="po-hcontainer e234 e234" xml:id="section_xk1_pp4_5n"><title class="po-block e235 e235"><textual class="po-textual">Translations</textual></title><para class="po-block e236 e236"><textual class="po-textual">Resources, of course, are translated to other languages all the time, so a
+                versioning system needs to be able to keep track of the translations, clearly
+                identifying which translation is based on which original, etc.  </textual></para><section class="po-hcontainer e237 e237" xml:id="section_mvh_pp4_5n"><title class="po-block e238 e238"><textual class="po-textual">Translations As Renditions</textual></title><para class="po-block e239 e239"><textual class="po-textual">A document management system will frequently require writing the actual
+                    content in one language (the </textual><quote class="po-inline e240 e240"><textual class="po-textual">master language</textual></quote><textual class="po-textual">) only and then
+                    translating that content into whatever target languages that are needed. This is
+                    mostly a design decision, based partly on the authors' preferences and location,
+                    but also around the notion that a single language will be used to drive the
+                    contents (and versions) forwards, thus minimising problems arising from allowing
+                    different languages to </textual><quote class="po-inline e241 e241"><textual class="po-textual">take turns</textual></quote><textual class="po-textual"> in developing the content</textual><footnote class="po-popup e242 e242"><para class="po-block e243 e243"><textual class="po-textual">This is a common occurrence in traditional, desktop-based authoring.
+                            Without systems support, a few translations and new versions of the
+                            documentation are enough for the writers to lose track of which version
+                            that contains the latest information.</textual></para></footnote><textual class="po-textual">.</textual></para><para class="po-block e244 e244"><textual class="po-textual">Such a system will regard the master-language document as the original bearer
+                    of content and the translations simply as </textual><emphasis class="po-inline e245 e245"><textual class="po-textual">renditions</textual></emphasis><textual class="po-textual"> of
+                    that original. A typical workflow might be as follows:</textual></para><orderedlist class="po-table e246 e246"><listitem class="po-container e247 e247"><para class="po-block e248 e248"><textual class="po-textual">Update the master-language document through a couple of versions, then
+                            lock an approved version.</textual></para></listitem><listitem class="po-container e249 e249"><para class="po-block e250 e250"><textual class="po-textual">Translate the approved version to any required target languages. These
+                            translations are seen as renditions of that particular master-language
+                            version.</textual></para></listitem><listitem class="po-container e251 e251"><para class="po-block e252 e252"><textual class="po-textual">Update the master-language document again, based on the approved and
+                            translated version from step 1, going through the required number of
+                            versions until done. Lock the approved version.</textual></para></listitem><listitem class="po-container e253 e253"><para class="po-block e254 e254"><textual class="po-textual">Retranslate the new approved version to any required target
+                            languages.</textual></para><note class="po-container e255 e255"><para class="po-block e256 e256"><textual class="po-textual">Typically, there is no way to know what differences there are
+                                between this new approved version and the old one. In modularised
+                                documents, however, some modules may not need updates and will have
+                                their versions and any translations unchanged.</textual></para></note></listitem></orderedlist><para class="po-block e257 e257"><textual class="po-textual">This works well in some contexts but there are some rather well-defined
+                    problems:</textual></para><itemizedlist class="po-table e258 e258"><listitem class="po-container e259 e259"><para class="po-block e260 e260"><textual class="po-textual">In a large, decentralised organisation, it might be difficult to
+                            always author in a single master language. Market-specific requirements
+                            frequently drive documentation forwards, and often in a market where the
+                            available writers would much prefer their own language.</textual></para></listitem><listitem class="po-container e261 e261"><para class="po-block e262 e262"><textual class="po-textual">When translating to certain languages, an intermediate language is
+                            often desired to keep costs to a minimum due to the availability of
+                            translators. It is, for example, much easier to find a good translator
+                            working from English to Simplified Chinese than from Swedish to
+                            Simplified Chinese.</textual></para></listitem></itemizedlist><para class="po-block e263 e263"><textual class="po-textual">Which brings us back to the URN schema representing a resource:</textual></para><programlisting class="po-block e264 e264" xml:space="preserve"><textual class="po-textual">urn:x-resource:r1:&lt;doc-number&gt;:&lt;lang&gt;:&lt;stable&gt;:&lt;stage1&gt;</textual></programlisting><para class="po-block e265 e265"><textual class="po-textual">I use a similar URN schema to identify originals and their translations in a
+                    system that requires the authors to write using a predefined master language and
+                    then translating an approved version to any required target languages. So if
+                        </textual><code class="po-atom e266 e266"><textual class="po-textual">urn:x-resource:123456:en-GB:18</textual></code><textual class="po-textual"> is the original, all of these
+                    are renditions of that original:</textual></para><itemizedlist class="po-table e267 e267"><listitem class="po-container e268 e268"><para class="po-block e269 e269"><textual class="po-textual">
+                            </textual><code class="po-atom e270 e270"><textual class="po-textual">urn:x-resource:123456:sv-SE:18</textual></code><textual class="po-textual">
+                        </textual></para></listitem><listitem class="po-container e271 e271"><para class="po-block e272 e272"><textual class="po-textual">
+                            </textual><code class="po-atom e273 e273"><textual class="po-textual">urn:x-resource:123456:es-ES:18</textual></code><textual class="po-textual">
+                        </textual></para></listitem><listitem class="po-container e274 e274"><para class="po-block e275 e275"><textual class="po-textual">
+                            </textual><code class="po-atom e276 e276"><textual class="po-textual">urn:x-resource:123456:pl-PL:18</textual></code><textual class="po-textual">
+                        </textual></para></listitem><listitem class="po-container e277 e277"><para class="po-block e278 e278"><textual class="po-textual">
+                            </textual><code class="po-atom e279 e279"><textual class="po-textual">urn:x-resource:123456:fi-FI:18</textual></code><textual class="po-textual">
+                        </textual></para></listitem><listitem class="po-container e280 e280"><para class="po-block e281 e281"><textual class="po-textual">
+                            </textual><code class="po-atom e282 e282"><textual class="po-textual">urn:x-resource:123456:en-US:18</textual></code><textual class="po-textual">
+                        </textual></para></listitem></itemizedlist><para class="po-block e283 e283"><textual class="po-textual">Etc. But here's the kicker: there's nothing here to identify one as the master
+                    and the others as translations, other than my introductory sentence. We
+                    shouldn't have to define a master language, not if the versioning system can
+                    keep track of a series of URNs, so rather than actually defining one, it should
+                    be better to define a semantic resource:</textual></para><para class="po-block e284 e284"><textual class="po-textual">
+                    </textual><code class="po-atom e285 e285"><textual class="po-textual">urn:x-resource:123456</textual></code><textual class="po-textual">
+                </textual></para><para class="po-block e286 e286"><textual class="po-textual">Then add a language to render the </textual><quote class="po-inline e287 e287"><textual class="po-textual">base content</textual></quote><textual class="po-textual"> with:</textual></para><para class="po-block e288 e288"><textual class="po-textual">
+                    </textual><code class="po-atom e289 e289"><textual class="po-textual">urn:x-resource:123456:en-GB</textual></code><textual class="po-textual">
+                </textual></para><para class="po-block e290 e290"><textual class="po-textual">And versioning to identify changes over time:</textual></para><para class="po-block e291 e291"><textual class="po-textual">
+                    </textual><code class="po-atom e292 e292"><textual class="po-textual">urn:x-resource:123456:en-GB:18</textual></code><textual class="po-textual">
+                </textual></para><para class="po-block e293 e293"><textual class="po-textual">If we accept that the underlying semantic resource can be updated using any
+                    rendering language, then this one is a perfectly acceptable updated version to
+                    version 18:</textual></para><para class="po-block e294 e294"><textual class="po-textual">
+                    </textual><code class="po-atom e295 e295"><textual class="po-textual">urn:x-resource:123456:fi-FI:19</textual></code><textual class="po-textual">
+                </textual></para><para class="po-block e296 e296"><textual class="po-textual">It happens to be rendered in Finnish, but </textual><quote class="po-inline e297 e297"><textual class="po-textual">19</textual></quote><textual class="po-textual"> is the next
+                    version of the semantic resource according to the URN schema, above.</textual></para></section><section class="po-hcontainer e298 e298" xml:id="section_vqb_yp4_5n"><title class="po-block e299 e299"><textual class="po-textual">Version Mapping With Translations</textual></title><para class="po-block e300 e300"><textual class="po-textual">Keeping the basics of the (semantic) resource and the URN schema representing
+                    it in mind, here's a mapping document updated with language handling:</textual></para><programlisting class="po-block e301 e301" xml:space="preserve"><textual class="po-textual">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;resource&gt;
+    
+    &lt;!-- Base URN --&gt;
+    &lt;base&gt;&lt;/base&gt;
+    
+    &lt;!-- Stable version 1 --&gt;
+    &lt;version&gt;
+        &lt;rev&gt;&lt;/rev&gt;
+        &lt;url lang="en-GB"&gt;&lt;/url&gt;
+        
+        &lt;!-- 1st decimal version --&gt;
+        &lt;version&gt;
+            &lt;rev&gt;&lt;/rev&gt;
+            &lt;url&gt;&lt;/url&gt;
+        &lt;/version&gt;
+        
+        &lt;!-- 2d decimal version --&gt;
+        &lt;version&gt;
+            &lt;rev&gt;&lt;/rev&gt;
+            &lt;url lang="en-GB"&gt;&lt;/url&gt;
+            &lt;url lang="sv-SE"&gt;&lt;/url&gt;
+            &lt;url lang="fi-FI"&gt;&lt;/url&gt;
+        &lt;/version&gt;
+    &lt;/version&gt;
+    
+    &lt;!-- Stable version 2 --&gt;
+    &lt;version&gt;
+        &lt;rev&gt;&lt;/rev&gt;
+        &lt;url lang="en-GB"&gt;&lt;/url&gt;
+        &lt;url lang="sv-SE"&gt;&lt;/url&gt;
+        &lt;url lang="fi-FI"&gt;&lt;/url&gt;
+        
+        &lt;!-- Stage 1 (decimal versions) --&gt;
+        &lt;version&gt;
+            ...
+        &lt;/version&gt;
+    &lt;/version&gt;
+&lt;/resource&gt;</textual></programlisting><para class="po-block e302 e302"><textual class="po-textual">Let's walk through this. The first </textual><emphasis class="po-inline e303 e303"><textual class="po-textual">Stable</textual></emphasis><textual class="po-textual"> version happens
+                    to be authored in English (UK):</textual></para><programlisting class="po-block e304 e304" xml:space="preserve"><textual class="po-textual">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;resource&gt;
+    
+    &lt;!-- Base URN --&gt;
+    &lt;base&gt;&lt;/base&gt;
+    
+    &lt;!-- Stable version 1 --&gt;
+    &lt;version&gt;
+        &lt;rev&gt;&lt;/rev&gt;
+        &lt;url lang="en-GB"&gt;&lt;/url&gt;
+        
+        &lt;!-- 1st decimal version --&gt;
+        ...
+    &lt;/version&gt;
+    ...
+&lt;/resource&gt;
+</textual></programlisting><para class="po-block e305 e305"><textual class="po-textual">Then follow two decimal versions. Translations are made based on the second
+                    saved iteration because the original language version is considered to be
+                    ready:</textual></para><programlisting class="po-block e306 e306" xml:space="preserve"><textual class="po-textual">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;resource&gt;
+    
+    ...
+    
+    &lt;!-- Stable version 1 --&gt;
+    &lt;version&gt;
+        ...
+        
+        &lt;!-- 1st decimal version --&gt;
+        &lt;version&gt;
+            ...
+        &lt;/version&gt;
+        
+        &lt;!-- 2d decimal version --&gt;
+        &lt;version&gt;
+            &lt;rev&gt;&lt;/rev&gt;
+            &lt;url lang="en-GB"&gt;&lt;/url&gt;
+            &lt;url lang="sv-SE"&gt;&lt;/url&gt;
+            &lt;url lang="fi-FI"&gt;&lt;/url&gt;
+        &lt;/version&gt;
+    &lt;/version&gt;
+    
+    &lt;!-- Stable version 2 --&gt;
+    ...
+&lt;/resource&gt;
+</textual></programlisting><para class="po-block e307 e307"><textual class="po-textual">The translations (and original) are then checked in (copied to
+                        </textual><emphasis class="po-inline e308 e308"><textual class="po-textual">Stable</textual></emphasis><textual class="po-textual">) to form a new stable version:</textual></para><programlisting class="po-block e309 e309" xml:space="preserve"><textual class="po-textual">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;resource&gt;
+    
+    ...
+    
+    &lt;!-- Stable version 1 --&gt;
+    &lt;version&gt;
+        ...
+        
+        &lt;!-- 2d decimal version --&gt;
+        &lt;version&gt;
+            &lt;rev&gt;&lt;/rev&gt;
+            &lt;url lang="en-GB"&gt;&lt;/url&gt;
+            &lt;url lang="sv-SE"&gt;&lt;/url&gt;
+            &lt;url lang="fi-FI"&gt;&lt;/url&gt;
+        &lt;/version&gt;
+    &lt;/version&gt;
+    
+    &lt;!-- Stable version 2 --&gt;
+    &lt;version&gt;
+        &lt;rev&gt;&lt;/rev&gt;
+        &lt;url lang="en-GB"&gt;&lt;/url&gt;
+        &lt;url lang="sv-SE"&gt;&lt;/url&gt;
+        &lt;url lang="fi-FI"&gt;&lt;/url&gt;
+        
+        ...
+    &lt;/version&gt;
+&lt;/resource&gt;</textual></programlisting><para class="po-block e310 e310"><textual class="po-textual">The concept of the semantic resource means that while translations (or rather,
+                    renditions) are bound to specific versions, all that is required to identify
+                    them uniquely is to add the URLs to the actual physical translated files;
+                    everything else remains the same.</textual></para><note class="po-container e311 e311"><para class="po-block e312 e312"><textual class="po-textual">There's nothing above to suggest that the original (as in </textual><quote class="po-inline e313 e313"><textual class="po-textual">first
+                            written</textual></quote><textual class="po-textual">) language is always carried over from one stable version
+                        to the next; a first decimal version based on a stable version might entail
+                        translating the original-language document to a new language that is then
+                        used to update the contents with.</textual></para></note></section></section></section><section class="po-hcontainer e314 e314" xml:id="section_srk_mr4_5n"><title class="po-block e315 e315"><textual class="po-textual">Multiple Level Versioning</textual></title><para class="po-block e316 e316"><textual class="po-textual">While the versioning system outlined in </textual><xref class="po-milestone e317 e317" linkend="section_m1l_434_5n"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual"> is, in my
+            mind, better than the basic versioning offered, there are problems:</textual></para><itemizedlist class="po-table e318 e318"><listitem class="po-container e319 e319"><para class="po-block e320 e320"><textual class="po-textual">It does not solve the </textual><quote class="po-inline e321 e321"><textual class="po-textual">use latest</textual></quote><textual class="po-textual"> problem, outlined in </textual><xref class="po-milestone e322 e322" linkend="section_ss5_jbh_5n"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">.
+                    In all fairness, it doesn't attempt to; it simply provides a better abstraction
+                    for versioning.</textual></para></listitem><listitem class="po-container e323 e323"><para class="po-block e324 e324"><textual class="po-textual">There will still be a lot of versions in </textual><emphasis class="po-inline e325 e325"><textual class="po-textual">Stage 1</textual></emphasis><textual class="po-textual">. This
+                    happens because basically, every new version is a save when working on a
+                    resource in that area.</textual></para></listitem><listitem class="po-container e326 e326"><para class="po-block e327 e327"><textual class="po-textual">Also, it is noteworthy that while too many versions are still being saved,
+                    overall, too few of them can easily be used to identify
+                        </textual><emphasis class="po-inline e328 e328"><textual class="po-textual">significant</textual></emphasis><textual class="po-textual"> versions</textual><footnote class="po-popup e329 e329"><para class="po-block e330 e330"><textual class="po-textual">The problem is that every new version in </textual><emphasis class="po-inline e331 e331"><textual class="po-textual">Stage 1</textual></emphasis><textual class="po-textual">
+                            is basically the same; they are all the result of a save.</textual></para></footnote><textual class="po-textual"> of the works in progress.</textual></para></listitem></itemizedlist><para class="po-block e332 e332"><textual class="po-textual">So what can be done to identify all significant versions in a resource's version
+            history? </textual></para><para class="po-block e333 e333"><textual class="po-textual">One solution is to add markup to the version mapping XML to identify significant
+            saves. This requires (author) access to the version map, so that suitable markup can be
+            added to some saves but not others, but also additions to the save operation itself. It
+            means supporting a special case of save.</textual></para><para class="po-block e334 e334"><textual class="po-textual">This, of course, is the general case of adding workflow handling to the markup. The
+            problem with workflow markup, apart from the access needed to the versioning markup and
+            the additions to the save operation, is that not every check-in comprises a change in a
+            workflow. Most, in fact, are simply versions that an author considers to be of interest
+            for some reason.</textual></para><para class="po-block e335 e335"><textual class="po-textual">Another is to check in the resource more often, but that would defeat one of the
+            purposes of the </textual><emphasis class="po-inline e336 e336"><textual class="po-textual">Stable</textual></emphasis><textual class="po-textual"> area, namely to identify stable versions
+            only.</textual></para><para class="po-block e337 e337"><textual class="po-textual">But there is a simpler, third option.</textual></para><section class="po-hcontainer e338 e338" xml:id="section_lvy_pr4_5n"><title class="po-block e339 e339"><textual class="po-textual">Adding a Second Stage</textual></title><para class="po-block e340 e340"><textual class="po-textual">In my mind, it's far easier, and more logical, and better suited for the
+                versioning logic as described by the URN schema and the version map markup, to add a
+                second (or third, if you consider </textual><emphasis class="po-inline e341 e341"><textual class="po-textual">Stable</textual></emphasis><textual class="po-textual"> to be one) stage, like
+                so:</textual></para><figure class="po-container e342 e342"><title class="po-block e343 e343"><textual class="po-textual">Versioning Split Into Three Areas</textual></title><mediaobject class="po-container e344 e344"><imageobject class="po-container e345 e345"><imagedata class="po-meta e346 e346" fileref="../../../vol13/graphics/Nordstrom01/Nordstrom01-003.png" width="500px"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></imagedata></imageobject></mediaobject></figure><para class="po-block e347 e347"><textual class="po-textual">So, what's the use of a third area?</textual></para><itemizedlist class="po-table e348 e348"><listitem class="po-container e349 e349"><para class="po-block e350 e350"><textual class="po-textual">The </textual><emphasis class="po-inline e351 e351"><textual class="po-textual">Stable</textual></emphasis><textual class="po-textual"> branch is still just that, stable.</textual></para></listitem><listitem class="po-container e352 e352"><para class="po-block e353 e353"><textual class="po-textual"> Now, however, </textual><emphasis class="po-inline e354 e354"><textual class="po-textual">Stage 1</textual></emphasis><textual class="po-textual"> is the </textual><quote class="po-inline e355 e355"><textual class="po-textual">project checkout
+                            level</textual></quote><textual class="po-textual">, used for checking out projects, groups of documents, from
+                        the stable branch, but the participating resources cannot be directly edited
+                        there. </textual><emphasis class="po-inline e356 e356"><textual class="po-textual">Stage 1</textual></emphasis><textual class="po-textual"> is used to store
+                            </textual><quote class="po-inline e357 e357"><textual class="po-textual">significant</textual></quote><textual class="po-textual"> versions, but also to enable updating links
+                        in a controlled fashion. More on this last bit later.</textual></para></listitem><listitem class="po-container e358 e358"><para class="po-block e359 e359"><textual class="po-textual">An author can check out an individual resource from </textual><emphasis class="po-inline e360 e360"><textual class="po-textual">Stage
+                            1</textual></emphasis><textual class="po-textual"> to </textual><emphasis class="po-inline e361 e361"><textual class="po-textual">Stage 2</textual></emphasis><textual class="po-textual"> to edit the
+                        resource.</textual></para></listitem></itemizedlist><para class="po-block e362 e362"><textual class="po-textual">All three areas are still actual collections (and subcollections) in the system,
+                still versioned using eXist's versioning module. In other words, every
+                    </textual><emphasis class="po-inline e363 e363"><textual class="po-textual">Save</textual></emphasis><textual class="po-textual"> results in a new version.</textual></para><para class="po-block e364 e364"><textual class="po-textual">Each area still implies an integer-based versioning system:</textual></para><itemizedlist class="po-table e365 e365"><listitem class="po-container e366 e366"><para class="po-block e367 e367"><textual class="po-textual">
+                        </textual><emphasis class="po-inline e368 e368"><textual class="po-textual">Stable</textual></emphasis><textual class="po-textual"> implies integer versions: 1, 2, 3, etc.</textual></para></listitem><listitem class="po-container e369 e369"><para class="po-block e370 e370"><textual class="po-textual">
+                        </textual><emphasis class="po-inline e371 e371"><textual class="po-textual">Stage 1</textual></emphasis><textual class="po-textual"> implies decimal versions: 1.1, 1.2, 1.3, etc;
+                        2.1, 2.2, 2.3, etc.</textual></para></listitem><listitem class="po-container e372 e372"><para class="po-block e373 e373"><textual class="po-textual">
+                        </textual><emphasis class="po-inline e374 e374"><textual class="po-textual">Stage 2</textual></emphasis><textual class="po-textual"> implies centecimal versions: 1.1.1, 1.1.2,
+                        1.1.3, etc; 2.1.1, 2.1.2, 2.1.3, etc.</textual></para></listitem></itemizedlist></section><section class="po-hcontainer e375 e375" xml:id="section_esr_qr4_5n"><title class="po-block e376 e376"><textual class="po-textual">Save, Check-in and Check-out Revised</textual></title><para class="po-block e377 e377"><textual class="po-textual">The basic idea is largely unchanged, but an added stage offers better
+                control.</textual></para><para class="po-block e378 e378"><textual class="po-textual">Direct </textual><emphasis class="po-inline e379 e379"><textual class="po-textual">Save</textual></emphasis><textual class="po-textual"> operations are now only allowed in
+                    </textual><emphasis class="po-inline e380 e380"><textual class="po-textual">Stage 2</textual></emphasis><textual class="po-textual">, that is, resources must be checked out from
+                    </textual><emphasis class="po-inline e381 e381"><textual class="po-textual">Stage 1</textual></emphasis><textual class="po-textual"> to </textual><emphasis class="po-inline e382 e382"><textual class="po-textual">Stage 2</textual></emphasis><textual class="po-textual"> to be edited, and
+                any edits are saved and versioned there. When sufficiently edited (that is, when a
+                    </textual><quote class="po-inline e383 e383"><textual class="po-textual">significant</textual></quote><textual class="po-textual"> version is at hand, it can be checked in to
+                    </textual><emphasis class="po-inline e384 e384"><textual class="po-textual">Stage 1</textual></emphasis><textual class="po-textual"> to cause a new </textual><emphasis class="po-inline e385 e385"><textual class="po-textual">Stage 1</textual></emphasis><textual class="po-textual"> version
+                of the resource. </textual><emphasis class="po-inline e386 e386"><textual class="po-textual">Stage 1</textual></emphasis><textual class="po-textual"> resources cannot be edited directly
+                but mark those </textual><quote class="po-inline e387 e387"><textual class="po-textual">significant</textual></quote><textual class="po-textual"> versions that are not (yet?)
+                stable.</textual></para><para class="po-block e388 e388"><textual class="po-textual">Sufficiently </textual><quote class="po-inline e389 e389"><textual class="po-textual">significant</textual></quote><textual class="po-textual">
+                </textual><footnote class="po-popup e390 e390"><para class="po-block e391 e391"><textual class="po-textual">Finished and approved, that is.</textual></para></footnote><textual class="po-textual">
+                </textual><emphasis class="po-inline e392 e392"><textual class="po-textual">Stage 1</textual></emphasis><textual class="po-textual"> resources can then be checked in from </textual><emphasis class="po-inline e393 e393"><textual class="po-textual">Stage
+                    1</textual></emphasis><textual class="po-textual"> to </textual><emphasis class="po-inline e394 e394"><textual class="po-textual">Stable</textual></emphasis><textual class="po-textual">, causing a new
+                    </textual><emphasis class="po-inline e395 e395"><textual class="po-textual">Stable</textual></emphasis><textual class="po-textual"> version to be added.</textual></para><para class="po-block e396 e396"><textual class="po-textual">Check-out operations, then, are as follows:</textual></para><itemizedlist class="po-table e397 e397"><listitem class="po-container e398 e398"><para class="po-block e399 e399"><textual class="po-textual">A check-out from </textual><emphasis class="po-inline e400 e400"><textual class="po-textual">Stable</textual></emphasis><textual class="po-textual"> is a copy to </textual><emphasis class="po-inline e401 e401"><textual class="po-textual">Stage
+                            1</textual></emphasis><textual class="po-textual">. A
+                        direct </textual><emphasis class="po-inline e402 e402"><textual class="po-textual">Save</textual></emphasis><textual class="po-textual"> is not allowed. The check-out causes a new
+                        file version of the resource in </textual><emphasis class="po-inline e403 e403"><textual class="po-textual">Stage 1</textual></emphasis><textual class="po-textual">.</textual></para></listitem><listitem class="po-container e404 e404"><para class="po-block e405 e405"><textual class="po-textual">A check-out from </textual><emphasis class="po-inline e406 e406"><textual class="po-textual">Stage 1</textual></emphasis><textual class="po-textual"> is a copy to </textual><emphasis class="po-inline e407 e407"><textual class="po-textual">Stage
+                            2</textual></emphasis><textual class="po-textual">.
+                        A direct </textual><emphasis class="po-inline e408 e408"><textual class="po-textual">Save</textual></emphasis><textual class="po-textual"> is not allowed.</textual></para></listitem><listitem class="po-container e409 e409"><para class="po-block e410 e410"><textual class="po-textual">There is no check-out from </textual><emphasis class="po-inline e411 e411"><textual class="po-textual">Stage 2</textual></emphasis><textual class="po-textual">, as it would mean
+                        a third stage. A direct </textual><emphasis class="po-inline e412 e412"><textual class="po-textual">Save</textual></emphasis><textual class="po-textual"> is allowed and will result
+                        in a new file version in </textual><emphasis class="po-inline e413 e413"><textual class="po-textual">Stage 2</textual></emphasis><textual class="po-textual">.</textual></para></listitem></itemizedlist><para class="po-block e414 e414"><textual class="po-textual">Check-in operations are as follows:</textual></para><itemizedlist class="po-table e415 e415"><listitem class="po-container e416 e416"><para class="po-block e417 e417"><textual class="po-textual">A check-in from </textual><emphasis class="po-inline e418 e418"><textual class="po-textual">Stage 2</textual></emphasis><textual class="po-textual"> is a copy to </textual><emphasis class="po-inline e419 e419"><textual class="po-textual">Stage
+                            1</textual></emphasis><textual class="po-textual">, locking the resource in </textual><emphasis class="po-inline e420 e420"><textual class="po-textual">Stage 2</textual></emphasis><textual class="po-textual"> and
+                        causing a new file version of the resource in </textual><emphasis class="po-inline e421 e421"><textual class="po-textual">Stage 1</textual></emphasis><textual class="po-textual">.
+                        </textual><textual class="po-textual">
+                    </textual></para></listitem><listitem class="po-container e422 e422"><para class="po-block e423 e423"><textual class="po-textual">A check-in from </textual><emphasis class="po-inline e424 e424"><textual class="po-textual">Stage 1</textual></emphasis><textual class="po-textual"> is a copy to
+                            </textual><emphasis class="po-inline e425 e425"><textual class="po-textual">Stable</textual></emphasis><textual class="po-textual">, locking the resource in </textual><emphasis class="po-inline e426 e426"><textual class="po-textual">Stage
+                            1</textual></emphasis><textual class="po-textual"> and causing a new file version of the resource in
+                            </textual><emphasis class="po-inline e427 e427"><textual class="po-textual">Stable</textual></emphasis><textual class="po-textual">.
+                        </textual><textual class="po-textual">
+                    </textual></para></listitem></itemizedlist><note class="po-container e428 e428"><para class="po-block e429 e429"><textual class="po-textual">It might be prudent to make the check-out/in operations permission-based,
+                    requiring special permissions to check in a new </textual><emphasis class="po-inline e430 e430"><textual class="po-textual">Stable</textual></emphasis><textual class="po-textual">
+                    version, for example, while allowing a writer to check out from (and in to)
+                        </textual><emphasis class="po-inline e431 e431"><textual class="po-textual">Stage 1</textual></emphasis><textual class="po-textual">.</textual></para></note><para class="po-block e432 e432"><textual class="po-textual">The following exemplifies a document that is updated from
+                    </textual><emphasis class="po-inline e433 e433"><textual class="po-textual">Stable</textual></emphasis><textual class="po-textual"> version 1 to 2. The numbers inside the circles
+                represent an ordered list of check-out and check-in operations.</textual></para><figure class="po-container e434 e434"><title class="po-block e435 e435"><textual class="po-textual">Updating from Stable Version 1 to Stable Version 2</textual></title><mediaobject class="po-container e436 e436"><imageobject class="po-container e437 e437"><imagedata class="po-meta e438 e438" fileref="../../../vol13/graphics/Nordstrom01/Nordstrom01-004.png" width="500px"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></imagedata></imageobject></mediaobject></figure><para class="po-block e439 e439"><textual class="po-textual">While only the </textual><emphasis class="po-inline e440 e440"><textual class="po-textual">Stable</textual></emphasis><textual class="po-textual"> versions might need to be
+                    </textual><quote class="po-inline e441 e441"><textual class="po-textual">published</textual></quote><textual class="po-textual">, the </textual><emphasis class="po-inline e442 e442"><textual class="po-textual">Stage 1</textual></emphasis><textual class="po-textual"> could be seen as
+                significant, perhaps for traceability, and as such be saved. As we can see, the
+                number of these versions is comparatively small. </textual><emphasis class="po-inline e443 e443"><textual class="po-textual">Stage 2</textual></emphasis><textual class="po-textual">, on
+                the other hand, is simply the document as a work in progress, and while there may be
+                a significant number of new versions produced in that area, none of them is seen as
+                significant.</textual></para></section><section class="po-hcontainer e444 e444" xml:id="id-abstraction-addition"><title class="po-block e445 e445"><textual class="po-textual">Adding to the Abstraction</textual></title><para class="po-block e446 e446"><textual class="po-textual">The URN schema identifying the resources (see </textual><xref class="po-milestone e447 e447" linkend="section_csw_2m4_5n"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">) can
+                easily be expanded, of course:</textual></para><programlisting class="po-block e448 e448" xml:space="preserve"><textual class="po-textual">urn:x-resource:r1:&lt;doc-number&gt;:&lt;lang&gt;:&lt;stable&gt;:&lt;stage1&gt;:&lt;stage2&gt;</textual></programlisting></section><section class="po-hcontainer e449 e449" xml:id="section_gcv_rr4_5n"><title class="po-block e450 e450"><textual class="po-textual">Version Map Additions</textual></title><para class="po-block e451 e451"><textual class="po-textual">The version map markup was already recursive, so adding a second stage is
+                uncomplicated:</textual></para><programlisting class="po-block e452 e452" xml:space="preserve"><textual class="po-textual">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;resource&gt;
+    
+    &lt;!-- Base URN --&gt;
+    &lt;base&gt;&lt;/base&gt;
+    
+    &lt;!-- Stable version 1 --&gt;
+    &lt;version&gt;
+        &lt;rev&gt;&lt;/rev&gt;
+        &lt;url lang="en-GB"&gt;&lt;/url&gt;
+        
+        &lt;!-- 1st Stage 1 (decimal) version --&gt;
+        &lt;version&gt;
+            &lt;rev&gt;&lt;/rev&gt;
+            &lt;url&gt;&lt;/url&gt;
+            
+            &lt;!-- Stage 2 (centecimal) versions --&gt;
+            &lt;version&gt;
+                &lt;rev&gt;&lt;/rev&gt;
+                &lt;url&gt;&lt;/url&gt;
+            &lt;/version&gt;
+            &lt;version&gt;
+                &lt;rev&gt;&lt;/rev&gt;
+                &lt;url&gt;&lt;/url&gt;
+            &lt;/version&gt;
+            
+            &lt;!-- Translations added --&gt;
+            &lt;version&gt;
+                &lt;rev&gt;&lt;/rev&gt;
+                &lt;url lang="en-GB"&gt;&lt;/url&gt;
+                &lt;url lang="sv-SE"&gt;&lt;/url&gt;
+                &lt;url lang="fi-FI"&gt;&lt;/url&gt;
+            &lt;/version&gt;
+        &lt;/version&gt;
+        
+        &lt;!-- 2d Stage 1 (decimal) version --&gt;
+        &lt;!-- Translations checked in from last Stage 2 --&gt;
+        &lt;version&gt;
+            &lt;rev&gt;&lt;/rev&gt;
+            &lt;url lang="en-GB"&gt;&lt;/url&gt;
+            &lt;url lang="sv-SE"&gt;&lt;/url&gt;
+            &lt;url lang="fi-FI"&gt;&lt;/url&gt;
+        &lt;/version&gt;
+    &lt;/version&gt;
+    
+    &lt;!-- Stable version 2 --&gt;
+    &lt;version&gt;
+        &lt;rev&gt;&lt;/rev&gt;
+        &lt;url lang="en-GB"&gt;&lt;/url&gt;
+        &lt;url lang="sv-SE"&gt;&lt;/url&gt;
+        &lt;url lang="fi-FI"&gt;&lt;/url&gt;
+        
+        &lt;!-- Stage 1 (decimal versions) --&gt;
+        &lt;version&gt;
+            &lt;rev&gt;&lt;/rev&gt;
+            &lt;url&gt;&lt;/url&gt;
+            
+            &lt;!-- Stage 2 (centecimal) versions --&gt;
+            &lt;version&gt;
+                &lt;rev&gt;&lt;/rev&gt;
+                &lt;url&gt;&lt;/url&gt;
+            &lt;/version&gt;
+            &lt;version&gt;
+                &lt;rev&gt;&lt;/rev&gt;
+                &lt;url&gt;&lt;/url&gt;
+            &lt;/version&gt;
+        &lt;/version&gt;
+        &lt;version&gt;
+            &lt;rev&gt;&lt;/rev&gt;
+            &lt;url&gt;&lt;/url&gt;
+            
+            &lt;!-- Stage 2 (centecimal) versions --&gt;
+            &lt;version&gt;
+                &lt;rev&gt;&lt;/rev&gt;
+                &lt;url&gt;&lt;/url&gt;
+            &lt;/version&gt;
+            &lt;version&gt;
+                &lt;rev&gt;&lt;/rev&gt;
+                &lt;url&gt;&lt;/url&gt;
+            &lt;/version&gt;
+        &lt;/version&gt;
+    &lt;/version&gt;
+&lt;/resource&gt;</textual></programlisting><para class="po-block e453 e453"><textual class="po-textual">The differences here consist mostly of an added recursive </textual><code class="po-atom e454 e454"><textual class="po-textual">version</textual></code><textual class="po-textual">,
+                listing centecimal versions for each decimal version. Notable is how translations
+                are added to the last centecimal iteration following the first decimal version and
+                then checked in to </textual><emphasis class="po-inline e455 e455"><textual class="po-textual">Stage 1</textual></emphasis><textual class="po-textual">, causing a new decimal
+                version:</textual></para><programlisting class="po-block e456 e456" xml:space="preserve"><textual class="po-textual">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;resource&gt;
+    
+    &lt;!-- Base URN --&gt;
+    &lt;base&gt;&lt;/base&gt;
+    
+    &lt;!-- Stable version 1 --&gt;
+    &lt;version&gt;
+        &lt;rev&gt;&lt;/rev&gt;
+        &lt;url lang="en-GB"&gt;&lt;/url&gt;
+        
+        &lt;!-- 1st Stage 1 (decimal) version --&gt;
+        &lt;version&gt;
+            &lt;rev&gt;&lt;/rev&gt;
+            &lt;url&gt;&lt;/url&gt;
+            
+            &lt;!-- Stage 2 (centecimal) versions --&gt;
+            &lt;version&gt;
+                &lt;rev&gt;&lt;/rev&gt;
+                &lt;url&gt;&lt;/url&gt;
+            &lt;/version&gt;
+            &lt;version&gt;
+                &lt;rev&gt;&lt;/rev&gt;
+                &lt;url&gt;&lt;/url&gt;
+            &lt;/version&gt;
+            
+            &lt;!-- Translations added --&gt;
+            &lt;version&gt;
+                &lt;rev&gt;&lt;/rev&gt;
+                &lt;url lang="en-GB"&gt;&lt;/url&gt;
+                &lt;url lang="sv-SE"&gt;&lt;/url&gt;
+                &lt;url lang="fi-FI"&gt;&lt;/url&gt;
+            &lt;/version&gt;
+        &lt;/version&gt;
+        
+        &lt;!-- 2d Stage 1 (decimal) version --&gt;
+        &lt;!-- Translations checked in from last Stage 2 --&gt;
+        &lt;version&gt;
+            &lt;rev&gt;&lt;/rev&gt;
+            &lt;url lang="en-GB"&gt;&lt;/url&gt;
+            &lt;url lang="sv-SE"&gt;&lt;/url&gt;
+            &lt;url lang="fi-FI"&gt;&lt;/url&gt;
+        &lt;/version&gt;
+    &lt;/version&gt;
+    
+    ...
+&lt;/resource&gt;</textual></programlisting><para class="po-block e457 e457"><textual class="po-textual">This new decimal version is then immediately checked in to
+                    </textual><emphasis class="po-inline e458 e458"><textual class="po-textual">Stable</textual></emphasis><textual class="po-textual">, causing a new stable, integer version.</textual></para></section><section class="po-hcontainer e459 e459"><title class="po-block e460 e460"><textual class="po-textual">Metadata</textual></title><para class="po-block e461 e461"><textual class="po-textual">While adding markup to identify significant check-ins (see the beginning of this
+                chapter, at </textual><xref class="po-milestone e462 e462" linkend="section_srk_mr4_5n"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">) is, in my humble opinion, not a good idea,
+                markup to handle metadata for </textual><emphasis class="po-inline e463 e463"><textual class="po-textual">every</textual></emphasis><textual class="po-textual"> check-in probably is, as it
+                will help locate a specific version later. The versioning module provided by eXist
+                will add a timestamp and the user for a save, but other metadata, such as a comment
+                field or a list of relevant keywords, need to be added.</textual></para><para class="po-block e464 e464"><textual class="po-textual">The version map hints at several useful locations for the metadata:</textual></para><itemizedlist class="po-table e465 e465"><listitem class="po-container e466 e466"><para class="po-block e467 e467"><textual class="po-textual">For a resource, regardless of version.</textual></para></listitem><listitem class="po-container e468 e468"><para class="po-block e469 e469"><textual class="po-textual">For a whole version, be it integer, decimal or centecimal.</textual></para></listitem><listitem class="po-container e470 e470"><para class="po-block e471 e471"><textual class="po-textual">For specific content, as identified by the mapped URL.</textual></para></listitem></itemizedlist><para class="po-block e472 e472"><textual class="po-textual">Markup-wise, one solution might be something like this:</textual></para><figure class="po-container e473 e473"><title class="po-block e474 e474"><textual class="po-textual">Metadata</textual></title><mediaobject class="po-container e475 e475"><imageobject class="po-container e476 e476"><imagedata class="po-meta e477 e477" fileref="../../../vol13/graphics/Nordstrom01/Nordstrom01-005.png" width="500px"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></imagedata></imageobject></mediaobject></figure><para class="po-block e478 e478"><textual class="po-textual">The structure and contents of the </textual><code class="po-atom e479 e479"><textual class="po-textual">metadata</textual></code><textual class="po-textual"> element are beyond the
+                scope of this paper, as they concern themselves with metadata for each specific
+                version rather than the progression of versions as described here; they simply
+                provide human-readable metadata</textual><footnote class="po-popup e480 e480"><para class="po-block e481 e481"><textual class="po-textual">For example, a free-text comment.</textual></para></footnote><textual class="po-textual"> for a specific version (as identified by the node).</textual></para></section><section class="po-hcontainer e482 e482" xml:id="section_xwr_sr4_5n"><title class="po-block e483 e483"><textual class="po-textual">Scope and Additional Stages</textual></title><para class="po-block e484 e484"><textual class="po-textual">Adding a second stage allows us to keep track of significant checked-in versions
+                beyond the </textual><emphasis class="po-inline e485 e485"><textual class="po-textual">Stable</textual></emphasis><textual class="po-textual"> branch. Additional stages might be considered
+                to add further semantics to versioning.</textual></para><para class="po-block e486 e486"><textual class="po-textual">For example, if the versioning was used to handle the documentation of a large
+                software project (everything from Microsoft Office to the Linux kernel springs to
+                mind), the </textual><emphasis class="po-inline e487 e487"><textual class="po-textual">Stable</textual></emphasis><textual class="po-textual"> branch could list major releases in the
+                project's lifecycle, </textual><emphasis class="po-inline e488 e488"><textual class="po-textual">Stage 1</textual></emphasis><textual class="po-textual"> mark updates within those releases
+                and </textual><emphasis class="po-inline e489 e489"><textual class="po-textual">Stage 2</textual></emphasis><textual class="po-textual"> any hotfixes, all of which should be considered to
+                identify significant versions aimed at an end user. A </textual><emphasis class="po-inline e490 e490"><textual class="po-textual">Stage 3</textual></emphasis><textual class="po-textual">
+                and perhaps a </textual><emphasis class="po-inline e491 e491"><textual class="po-textual">Stage 4</textual></emphasis><textual class="po-textual"> might be needed to handle the versioning
+                required for content production, where most versions would never reach the end user
+                and only help ease a content author's life.</textual></para><note class="po-container e492 e492"><para class="po-block e493 e493"><textual class="po-textual">The additional stages should, of course, be added to the URN schema.</textual></para></note><para class="po-block e494 e494"><textual class="po-textual">Stages, then, are ultimately about scoping and define situations where the
+                checked-in versions apply.</textual></para><section class="po-hcontainer e495 e495" xml:id="id-projects"><title class="po-block e496 e496"><textual class="po-textual">Projects</textual></title><para class="po-block e497 e497"><textual class="po-textual">In addition to adding staging levels, the resources frequently need to be
+                    grouped when version handled. For example, if checking out a resource, it is
+                    often a good idea to check out the document or documents using them.
+                    Furthermore, check-outs as discussed here would benefit from defining
+                        </textual><emphasis class="po-inline e498 e498"><textual class="po-textual">projects</textual></emphasis><textual class="po-textual">, that is, groups of resources that are related
+                    for some other reason (resources commonly reused; documents belonging to the
+                    same product; all system administration guides; etc).</textual></para><para class="po-block e499 e499"><textual class="po-textual">As a resource is frequently reused by several documents, a useful (and easy)
+                    way of identifying such resources in the version map is something like
+                    this:</textual></para><programlisting class="po-block e500 e500" xml:space="preserve"><textual class="po-textual">&lt;map&gt;
+    &lt;resources&gt;
+        &lt;resource&gt;
+           ...
+        &lt;/resource&gt;
+        ...
+    &lt;/resources&gt;
+    
+    &lt;projects&gt;
+        &lt;project&gt;
+            &lt;urn&gt;&lt;/urn&gt;
+            &lt;urn&gt;&lt;/urn&gt;
+            &lt;urn&gt;&lt;/urn&gt;
+        &lt;/project&gt;
+        &lt;project&gt;
+            &lt;urn&gt;&lt;/urn&gt;
+            &lt;urn&gt;&lt;/urn&gt;
+        &lt;/project&gt;
+    &lt;/projects&gt;
+&lt;/map&gt;</textual></programlisting><para class="po-block e501 e501"><textual class="po-textual">A </textual><code class="po-atom e502 e502"><textual class="po-textual">project</textual></code><textual class="po-textual"> is an arbitrary group listing resources and project
+                    metadata, useful when handling the resources together. Obvious features here
+                    include check-out and check-in operations for the project, but I can think of
+                    several other uses, most of which are beyond the scope of this paper.</textual></para><note class="po-container e503 e503"><para class="po-block e504 e504"><textual class="po-textual">There are several ways of listing the URNs included in the project,
+                        depending on their use. If the project's aim is to handle every decimal
+                        version and language of a resource, a wildcard-based shorthand might be
+                        preferable (say, </textual><code class="po-atom e505 e505"><textual class="po-textual">urn:x-resources:123456:*:1:*</textual></code><textual class="po-textual">).</textual></para></note><para class="po-block e506 e506"><textual class="po-textual">Projects should, of course, be version handled too, as they will almost
+                    certainly change over time. For example, one might handle them as any other
+                    resource in the version map and always store </textual><code class="po-atom e507 e507"><textual class="po-textual">project</textual></code><textual class="po-textual"> documents in
+                    separate files (which requires a way to easily identify them when
+                    authoring).</textual></para></section><section class="po-hcontainer e508 e508" xml:id="id-use-latest-revisited"><title class="po-block e509 e509"><textual class="po-textual">Use Latest Revisited</textual></title><para class="po-block e510 e510"><textual class="po-textual">The use latest problem</textual><footnote class="po-popup e511 e511"><para class="po-block e512 e512"><textual class="po-textual">Where the latest (approved) version of a leaf node in a document link
+                            tree is always preferred and should therefore always be linked to, but
+                            where the module doing the linking may have been updated elsewhere, with
+                            incompatible changes, and therefore not be possible to update with a new
+                            link for the document at hand.</textual></para></footnote><textual class="po-textual"> is largely a scoping issue and happens because modules are reused
+                    everywhere, without defining rules for when and where reuse is allowed</textual><footnote class="po-popup e513 e513"><para class="po-block e514 e514"><textual class="po-textual">As mentioned earlier, one (non-) solution is to update the link anyway
+                            and create a new (stable) version. This will pass on the problem to
+                            someone else and eventually come back to bite you, but nevertheless, you
+                            might be tempted to refine it by using merge software and such.
+                            Basically, however, it would always result in a situation where a new
+                            version could not be assumed to be a </textual><emphasis class="po-inline e515 e515"><textual class="po-textual">development</textual></emphasis><textual class="po-textual"> of
+                            the last one, but rather an incompatible change.</textual></para></footnote><textual class="po-textual">.</textual></para><para class="po-block e516 e516"><textual class="po-textual">Better is to add one or more stages and clearly define a scope where using
+                    (and perhaps automatically updating links to) the latest approved versions is
+                    allowed. For example, if </textual><emphasis class="po-inline e517 e517"><textual class="po-textual">Stage 1</textual></emphasis><textual class="po-textual"> handles the releases of a
+                    product and its documentation within a major release, it might be reasonable to
+                    allow at least some of the reused modules to be automatically updated to their
+                    latest versions within that major version.</textual></para><para class="po-block e518 e518"><textual class="po-textual">Let's say, for example, that Module A in version 3.1 (</textual><emphasis class="po-inline e519 e519"><textual class="po-textual">Stage
+                        1</textual></emphasis><textual class="po-textual">) needs a link to a warning inside a warnings document authored
+                    by the legal team. The warnings document is also in </textual><emphasis class="po-inline e520 e520"><textual class="po-textual">Stage 1</textual></emphasis><textual class="po-textual">
+                    and has version 1.19. Module A is checked out to </textual><emphasis class="po-inline e521 e521"><textual class="po-textual">Stage 2</textual></emphasis><textual class="po-textual">
+                    and a link to the warning is added to it, including a fragment ID pinpointing
+                    the warning, like so:</textual></para><programlisting class="po-block e522 e522" xml:space="preserve"><textual class="po-textual">&lt;link xlink:href="URN:1:19#id-warning"/&gt;</textual></programlisting><para class="po-block e523 e523"><textual class="po-textual">First of all, it is easy to define a business rule that updates the link to
+                    the latest available </textual><emphasis class="po-inline e524 e524"><textual class="po-textual">Stage 1</textual></emphasis><textual class="po-textual"> (decimal) version when Module
+                    A is published, triggered by the fact that the version linked to is a decimal
+                    version. It would be easy to look up the latest version in the version map and
+                    use that during preprocessing. If such a generic business rule feels a bit too
+                    risky, adding markup that further scopes the link is equally easy if somewhat
+                    crude:</textual></para><programlisting class="po-block e525 e525" xml:space="preserve"><textual class="po-textual">&lt;link xlink:href="URN:1:19#id-warning" use-latest="yes"/&gt;</textual></programlisting><para class="po-block e526 e526"><textual class="po-textual">The logic here is </textual><quote class="po-inline e527 e527"><textual class="po-textual">use latest decimal version</textual></quote><textual class="po-textual">. An editor feature
+                    that checks the available versions of the warnings document, including new
+                        </textual><emphasis class="po-inline e528 e528"><textual class="po-textual">Stable</textual></emphasis><textual class="po-textual"> versions, and alerts the author if newer ones
+                    are available than the one used in Module A should be useful and relatively
+                    uncomplicated to implement.</textual></para><para class="po-block e529 e529"><textual class="po-textual">More refined, but perhaps a bit complex to handle without a style guide and a
+                    good user interface, might be to use the version level as the
+                        </textual><code class="po-atom e530 e530"><textual class="po-textual">use-latest</textual></code><textual class="po-textual"> value</textual><footnote class="po-popup e531 e531"><para class="po-block e532 e532"><textual class="po-textual">I've considered renaming the </textual><emphasis class="po-inline e533 e533"><textual class="po-textual">Stable</textual></emphasis><textual class="po-textual"> level
+                                </textual><emphasis class="po-inline e534 e534"><textual class="po-textual">Stage 0</textual></emphasis><textual class="po-textual">, for this reason and others.</textual></para></footnote><textual class="po-textual">.</textual></para><programlisting class="po-block e535 e535" xml:space="preserve"><textual class="po-textual">&lt;link xlink:href="URN:1:19#id-warning" use-latest="1"/&gt;</textual></programlisting><para class="po-block e536 e536"><textual class="po-textual">This would include every update to the target checked in to </textual><emphasis class="po-inline e537 e537"><textual class="po-textual">Stage
+                        1</textual></emphasis><textual class="po-textual"> in the scope. An additional dimension of reuse might be to
+                    limit the scope to specific project or projects only.</textual></para></section></section></section><section class="po-hcontainer e538 e538"><title class="po-block e539 e539"><textual class="po-textual">Linking</textual></title><para class="po-block e540 e540"><textual class="po-textual">This paper is about versioning rather than linking, but since the former will only be
+            truly useful if there is at least some of the latter, I wish to make a few points
+            regarding linking.</textual></para><section class="po-hcontainer e541 e541" xml:id="id-urns-in-links"><title class="po-block e542 e542"><textual class="po-textual">Using URNs in Links</textual></title><para class="po-block e543 e543"><textual class="po-textual">My preferences for URNs stem from my day-to-day work but any other abstraction
+                would probably do, as long as there is a way to separate the version component(s)</textual><footnote class="po-popup e544 e544"><para class="po-block e545 e545"><textual class="po-textual">And the language/country components.</textual></para></footnote><textual class="po-textual"> from the name. Using a name is important, however, assuming that the
+                name is persistent and unique where used. Addresses change because resources are
+                frequently moved around. Indeed, here, using an address would be very difficult in
+                itself.</textual></para><para class="po-block e546 e546"><textual class="po-textual">Be as it may, there is little point to the multilevel versioning abstraction if it
+                is only ever used for checking in and out monolithic XML documents that never
+                include a multilevel version link to anything else. In </textual><xref class="po-milestone e547 e547" linkend="id-use-latest-revisited"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">,
+                I do just that, though: the </textual><code class="po-atom e548 e548"><textual class="po-textual">link</textual></code><textual class="po-textual"> element uses a name-based
+                    </textual><code class="po-atom e549 e549"><textual class="po-textual">xlink:href</textual></code><textual class="po-textual"> rather than an address-based one.</textual></para><para class="po-block e550 e550"><textual class="po-textual">Using a URN in a link should be a simple matter of referencing resources in the
+                version map, using the base URN and as many levels of versions as needed (and
+                allowed by the business rules and their implementation). For example, an
+                implementation might use all version levels available when creating the link
+                (resulting in a pointer such as </textual><code class="po-atom e551 e551"><textual class="po-textual">URN:en-GB:2:19:4:3#some-id</textual></code><textual class="po-textual">) but then
+                update that link when publishing to the latest version in scope, based on the
+                business rules in effect.</textual></para></section><section class="po-hcontainer e552 e552"><title class="po-block e553 e553"><textual class="po-textual">The Case for XLink and Linkbases</textual></title><para class="po-block e554 e554"><textual class="po-textual">Until now, I've made few assumptions about the link mechanisms themselves. The
+                    </textual><code class="po-atom e555 e555"><textual class="po-textual">link</textual></code><textual class="po-textual"> tag above, for example, is an inline reference using XLink
+                mostly because I rather prefer XLink and use Simple XLinks all the time, but I think
+                the example would be equally valid using, say, XInclude. </textual></para><para class="po-block e556 e556"><textual class="po-textual">I do think, however, that XLink(</textual><xref class="po-milestone e557 e557" linkend="id-xlink-spec"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">) might prove to be very powerful, especially if the
+                links were placed out of line, in a linkbase. There are several points to be made
+                here:</textual></para><itemizedlist class="po-table e558 e558"><listitem class="po-container e559 e559"><para class="po-block e560 e560"><textual class="po-textual">Out-of-line links, of course, would not require updating the resource
+                        itself, only the linkbase arc, which would certainly change the specifics of
+                        a </textual><quote class="po-inline e561 e561"><textual class="po-textual">use latest</textual></quote><textual class="po-textual"> implementation and conceivably result in
+                        easier-to-maintain business rules.</textual></para></listitem><listitem class="po-container e562 e562"><para class="po-block e563 e563"><textual class="po-textual">Extended XLink does also suggest a standardised way for much, if not most,
+                        of the version map markup. The URNs listed in a project, for example, would
+                        probably benefit from being handled as XLink locator-type elements.</textual></para></listitem></itemizedlist><para class="po-block e564 e564"><textual class="po-textual">It would be sort of cool to add the linkbase to the version map directly:</textual></para><figure class="po-container e565 e565"><title class="po-block e566 e566"><textual class="po-textual">Linkbase Added</textual></title><mediaobject class="po-container e567 e567"><imageobject class="po-container e568 e568"><imagedata class="po-meta e569 e569" fileref="../../../vol13/graphics/Nordstrom01/Nordstrom01-006.png" width="500px"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></imagedata></imageobject></mediaobject></figure><para class="po-block e570 e570"><textual class="po-textual">The </textual><quote class="po-inline e571 e571"><textual class="po-textual">Links</textual></quote><textual class="po-textual"> branch above list the XLink arcs. </textual></para><para class="po-block e572 e572"><textual class="po-textual">There is, to my inner markup geek, something very appealing about this kind of
+                all-purpose markup. I get all excited, thinking about how easy it would be to
+                create, edit and publish XML with a few XPaths pointing to things across the version
+                map XML, but the more practically-minded me questions the feasibility and, above
+                all, necessity of including everything in the same, big file when it does not matter
+                all that much in a well-indexed XML database where you actually put the markup you
+                need to look up later.</textual></para><para class="po-block e573 e573"><textual class="po-textual">All of which neatly brings me to the last big topic in this paper.</textual></para></section></section><section class="po-hcontainer e574 e574"><title class="po-block e575 e575"><textual class="po-textual">Implementation Notes</textual></title><para class="po-block e576 e576"><textual class="po-textual">Now, I know that there is nothing quite so practical as a good theory, but I would
+            still like to include a few implementation notes in my limited capacity as a
+            non-programmer. I do believe that most if not everything of what's suggested in this
+            paper can be implemented using XML technologies only, without having to learn Java, even
+            though I'll readily admit that Java would help</textual><footnote class="po-popup e577 e577"><para class="po-block e578 e578"><textual class="po-textual">Java would probably be especially helpful when constructing suitable
+                    versioning triggers in eXist.</textual></para></footnote><textual class="po-textual">.</textual></para><section class="po-hcontainer e579 e579"><title class="po-block e580 e580"><textual class="po-textual">URN Generation and Parsing</textual></title><para class="po-block e581 e581"><textual class="po-textual">The URN schema (see </textual><xref class="po-milestone e582 e582" linkend="section_csw_2m4_5n"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual"> and </textual><xref class="po-milestone e583 e583" linkend="id-abstraction-addition"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">)
+                requires a unique base URN that should be generated and handled by the system. At
+                its simplest, the base URN is little more than a sequential number, bumped up a
+                notch for every new resource, but allowing for different types of base URNs to
+                identify different types of resources might be useful.</textual></para><para class="po-block e584 e584"><textual class="po-textual">There is also a need to parse the URN, for example, when locating base URNs,
+                handling wildcards, updating links, etc.</textual></para></section><section class="po-hcontainer e585 e585"><title class="po-block e586 e586"><textual class="po-textual">Check-in, Check-out and Updating the Version Map</textual></title><para class="po-block e587 e587"><textual class="po-textual">Check-in and check-out are both copy operations from one location to another. In
+                eXist, they are handled using XQuery functions for copying resources and, if
+                permissions are used, eXist Security Manager functions for checking the appropriate
+                permissions and possibly the group of the resource. eXist also provides UNIX-style
+                functions for changing permissions, group, etc, for the file that is copied to
+                protect it from unwanted changes</textual><footnote class="po-popup e588 e588"><para class="po-block e589 e589"><textual class="po-textual">For example, checked-out files might simply be have their group changed to
+                        a checked-out group.</textual></para></footnote><textual class="po-textual">.</textual></para><para class="po-block e590 e590"><textual class="po-textual">Updating the map is a matter of adding to the resource's versions list. A
+                check-out means adding a new version to the next stage further down (from
+                    </textual><emphasis class="po-inline e591 e591"><textual class="po-textual">Stage 1</textual></emphasis><textual class="po-textual"> to </textual><emphasis class="po-inline e592 e592"><textual class="po-textual">Stage 2</textual></emphasis><textual class="po-textual">, for example) and
+                starting up the next level revisions in the </textual><code class="po-atom e593 e593"><textual class="po-textual">rev</textual></code><textual class="po-textual"> tag. A check-in does
+                pretty much the same thing but in the other direction, and needs to check the
+                existing revisions on that level before adding a new one.</textual></para><para class="po-block e594 e594"><textual class="po-textual">For example, let's say that this resource in </textual><emphasis class="po-inline e595 e595"><textual class="po-textual">Stage 1</textual></emphasis><textual class="po-textual">,
+                revision 2, is checked out:</textual></para><programlisting class="po-block e596 e596" xml:space="preserve"><textual class="po-textual">&lt;version&gt;
+    &lt;rev&gt;2&lt;/rev&gt;
+    &lt;url&gt;xmldb:exist:///...&lt;/url&gt;
+&lt;/version&gt;</textual></programlisting><para class="po-block e597 e597"><textual class="po-textual">A new </textual><code class="po-atom e598 e598"><textual class="po-textual">version</textual></code><textual class="po-textual"> is added, like so:</textual></para><programlisting class="po-block e599 e599" xml:space="preserve"><textual class="po-textual">&lt;version&gt;
+    &lt;rev&gt;2&lt;/rev&gt;
+    &lt;url&gt;xmldb:exist:///...&lt;/url&gt;
+    
+    &lt;!-- Stage 2 (centecimal) versions --&gt;
+    &lt;version&gt;
+        &lt;rev&gt;1&lt;/rev&gt;
+        &lt;url&gt;xmldb:exist:///...&lt;/url&gt;
+    &lt;/version&gt;
+&lt;/version&gt;</textual></programlisting><para class="po-block e600 e600"><textual class="po-textual">Even though this example discusses stages 1 and 2, there's actually nothing apart
+                from the comment that places them there. The operation here is the same,
+                regardless.</textual></para><para class="po-block e601 e601"><textual class="po-textual">Checking in is slightly more complicated, but only slightly. Here, the
+                    </textual><emphasis class="po-inline e602 e602"><textual class="po-textual">Stage 1</textual></emphasis><textual class="po-textual"> revision 2 will be checked in:</textual></para><programlisting class="po-block e603 e603" xml:space="preserve"><textual class="po-textual">&lt;resource&gt;
+    
+    &lt;!-- Base URN --&gt;
+    &lt;base&gt;123456&lt;/base&gt;
+    
+    &lt;!-- Stable version 1 --&gt;
+    &lt;version&gt;
+        &lt;rev&gt;1&lt;/rev&gt;
+        &lt;url&gt;xmldb:exist:///...&lt;/url&gt;
+        
+        &lt;!-- 1st Stage 1 (decimal) versions --&gt;
+        &lt;version&gt;
+            &lt;rev&gt;1&lt;/rev&gt;
+            &lt;url&gt;xmldb:exist:///...&lt;/url&gt;
+            
+            &lt;!-- Stage 2 (centecimal) versions --&gt;
+            ...
+        &lt;/version&gt;
+        
+        &lt;!-- 2d Stage 1 (decimal) version --&gt;
+        &lt;version&gt;
+            &lt;rev&gt;2&lt;/rev&gt;
+            &lt;url&gt;xmldb:exist:///...&lt;/url&gt;
+        &lt;/version&gt;
+    &lt;/version&gt;
+&lt;/resource&gt;</textual></programlisting><para class="po-block e604 e604"><textual class="po-textual">A new version, revision 2, is added:</textual></para><programlisting class="po-block e605 e605" xml:space="preserve"><textual class="po-textual">&lt;resource&gt;
+    
+    &lt;!-- Base URN --&gt;
+    &lt;base&gt;123456&lt;/base&gt;
+    
+    &lt;!-- Stable version 1 --&gt;
+    &lt;version&gt;
+        &lt;rev&gt;1&lt;/rev&gt;
+        &lt;url&gt;xmldb:exist:///...&lt;/url&gt;
+        
+        &lt;!-- 1st Stage 1 (decimal) versions --&gt;
+        &lt;version&gt;
+            &lt;rev&gt;1&lt;/rev&gt;
+            &lt;url&gt;xmldb:exist:///...&lt;/url&gt;
+            
+            &lt;!-- Stage 2 (centecimal) versions --&gt;
+            ...
+        &lt;/version&gt;
+        
+        &lt;!-- 2d Stage 1 (decimal) version --&gt;
+        &lt;version&gt;
+            &lt;rev&gt;2&lt;/rev&gt;
+            &lt;url&gt;xmldb:exist:///...&lt;/url&gt;
+        &lt;/version&gt;
+    &lt;/version&gt;
+    
+    &lt;!-- Stable version 2 --&gt;
+    &lt;version&gt;
+        &lt;rev&gt;2&lt;/rev&gt;
+        &lt;url&gt;xmldb:exist:///...&lt;/url&gt;
+    &lt;/version&gt;
+&lt;/resource&gt;</textual></programlisting><para class="po-block e606 e606"><textual class="po-textual">Both check-out and check-in should be able to use the same basic function for
+                adding a new </textual><code class="po-atom e607 e607"><textual class="po-textual">version</textual></code><textual class="po-textual">, as long as there is something to check which
+                operation has been selected so that the new </textual><code class="po-atom e608 e608"><textual class="po-textual">version</textual></code><textual class="po-textual"> and the appropriate
+                    </textual><code class="po-atom e609 e609"><textual class="po-textual">rev</textual></code><textual class="po-textual"> can be added either up or down in the structure.</textual></para><note class="po-container e610 e610"><para class="po-block e611 e611"><textual class="po-textual">If there is no further level down from </textual><emphasis class="po-inline e612 e612"><textual class="po-textual">Stage 2</textual></emphasis><textual class="po-textual">, in this
+                    example, there should be a little something to disable the check-out function on
+                    that level in the editor.</textual></para></note></section><section class="po-hcontainer e613 e613" xml:id="section_f5d_ykw_l4"><title class="po-block e614 e614"><textual class="po-textual">Locking</textual></title><para class="po-block e615 e615"><textual class="po-textual">The versioning in this paper suggests that resources that are checked in or out
+                from a stage are to be locked in that stage. While this paper does not attempt to
+                solve every problem created by locking, there are a number of points to be
+                made:</textual></para><itemizedlist class="po-table e616 e616"><listitem class="po-container e617 e617"><para class="po-block e618 e618"><textual class="po-textual">A </textual><emphasis class="po-inline e619 e619"><textual class="po-textual">lock</textual></emphasis><textual class="po-textual">, here, primarily signifies that the locked
+                        resource is being handled in another stage, not that it is checked out
+                        exclusively by a writer (who then leaves the company and causes problems for
+                        those remaining behind, etc).</textual></para></listitem><listitem class="po-container e620 e620"><para class="po-block e621 e621"><textual class="po-textual">Allowing a document in the editing stage to be edited by two or more
+                        writers simultaneously causes various merging problems, all of which are
+                        manageable, but the important question is (and please remember that we are
+                        discussing content rather than code): </textual><emphasis class="po-inline e622 e622"><textual class="po-textual">why are they editing the
+                            same content in the first place?</textual></emphasis><textual class="po-textual"> This, to me, hints at an
+                        organisational problem.</textual></para></listitem><listitem class="po-container e623 e623"><para class="po-block e624 e624"><emphasis class="po-inline e625 e625"><textual class="po-textual">Not locking</textual></emphasis><textual class="po-textual"> a resource that is being handled in
+                        another stage is entirely feasible, of course. Easiest would be to implement
+                        an </textual><quote class="po-inline e626 e626"><textual class="po-textual">optimistic check-out</textual></quote><textual class="po-textual">, never locking anything but having
+                        the system notify the writer if the resource was already being edited by
+                        someone, encouraging communication and collaboration.</textual></para><para class="po-block e627 e627"><textual class="po-textual">The author's experience, drawn primarily from developing document content
+                        rather than code, is that alone, this approach works best within the same
+                        time zone, preferably the same building, but is made easier by adding
+                        merging tools and means to easily modularising content that is becoming too
+                        large to handle.</textual></para></listitem></itemizedlist></section><section class="po-hcontainer e628 e628"><title class="po-block e629 e629"><textual class="po-textual">Business Rules and Linking</textual></title><para class="po-block e630 e630"><textual class="po-textual">As mentioned in </textual><xref class="po-milestone e631 e631" linkend="id-urns-in-links"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">, while the link implementation might use an exact
+                URN version in the pointer, business rules used when publishing might be used to
+                update that link to the latest version within scope. That scope might include
+                defining a versioning level, but also further limit the </textual><quote class="po-inline e632 e632"><textual class="po-textual">use latest</textual></quote><textual class="po-textual">
+                function to URNs listed in projects (see </textual><xref class="po-milestone e633 e633" linkend="id-projects"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">). Let's say
+                that we created this link:</textual></para><programlisting class="po-block e634 e634" xml:space="preserve"><textual class="po-textual">&lt;link xlink:href="urn:x-resources:r1:123456:en-GB:2:2:4" use-latest="1"/&gt;</textual></programlisting><para class="po-block e635 e635"><textual class="po-textual">At the time the link was created, the very latest available version was
+                    </textual><quote class="po-inline e636 e636"><textual class="po-textual">2.2.4</textual></quote><textual class="po-textual">. However, later, when the document with the link is
+                published, the target resource has gone through a number of revisions and the
+                version tree now looks like this (leaving out the URLs):</textual></para><programlisting class="po-block e637 e637" xml:space="preserve"><textual class="po-textual">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;map xmlns="http://www.sgmlguru.org/ns/versions"&gt;
+    &lt;resources&gt;
+        &lt;resource&gt;
+            
+            &lt;!-- Base URN --&gt;
+            &lt;base&gt;123456&lt;/base&gt;
+            
+            &lt;!-- Stable version 1 --&gt;
+            &lt;version&gt;
+                &lt;rev&gt;1&lt;/rev&gt;
+                &lt;url lang="en-GB"&gt;&lt;/url&gt;
+                
+                &lt;!-- 1st Stage 1 (decimal) version --&gt;
+                &lt;version&gt;
+                    ...
+                &lt;/version&gt;
+                
+                &lt;!-- 2d Stage 1 (decimal) version --&gt;
+                &lt;version&gt;
+                    ...
+                &lt;/version&gt;
+            &lt;/version&gt;
+            
+            &lt;!-- Stable version 2 --&gt;
+            &lt;version&gt;
+                &lt;rev&gt;2&lt;/rev&gt;
+                &lt;url lang="en-GB"&gt;&lt;/url&gt;
+                
+                &lt;!-- Stage 1 (decimal versions) --&gt;
+                &lt;version&gt;
+                    &lt;rev&gt;1&lt;/rev&gt;
+                    &lt;url&gt;&lt;/url&gt;
+                    
+                    &lt;!-- Stage 2 (centecimal) versions --&gt;
+                    ...
+                &lt;/version&gt;
+                &lt;version&gt;
+                    &lt;rev&gt;2&lt;/rev&gt;
+                    &lt;url&gt;&lt;/url&gt;
+                    
+                    &lt;!-- Stage 2 (centecimal) versions --&gt;
+                    &lt;version&gt;
+                        &lt;rev&gt;1&lt;/rev&gt;
+                        &lt;url&gt;&lt;/url&gt;
+                    &lt;/version&gt;
+                    &lt;version&gt;
+                        &lt;rev&gt;2&lt;/rev&gt;
+                        &lt;url&gt;&lt;/url&gt;
+                    &lt;/version&gt;
+                    &lt;version&gt;
+                        &lt;rev&gt;3&lt;/rev&gt;
+                        &lt;url&gt;&lt;/url&gt;
+                    &lt;/version&gt;
+
+                    &lt;!-- Target at the time of link creation --&gt;
+                    &lt;version&gt;
+                        &lt;rev&gt;4&lt;/rev&gt;
+                        &lt;url&gt;&lt;/url&gt;
+                    &lt;/version&gt;
+
+                    &lt;version&gt;
+                        &lt;rev&gt;5&lt;/rev&gt;
+                        &lt;url&gt;&lt;/url&gt;
+                    &lt;/version&gt;
+                &lt;/version&gt;
+                
+                &lt;!-- New decimal version --&gt;
+                &lt;version&gt;
+                    &lt;rev&gt;3&lt;/rev&gt;
+                    &lt;url&gt;&lt;/url&gt;
+                    &lt;version&gt;
+                        &lt;rev&gt;1&lt;/rev&gt;
+                        &lt;url&gt;&lt;/url&gt;
+                    &lt;/version&gt;
+                    &lt;version&gt;
+                        &lt;rev&gt;2&lt;/rev&gt;
+                        &lt;url&gt;&lt;/url&gt;
+                    &lt;/version&gt;
+                    &lt;version&gt;
+                        &lt;rev&gt;3&lt;/rev&gt;
+                        &lt;url&gt;&lt;/url&gt;
+                    &lt;/version&gt;
+                &lt;/version&gt;
+                &lt;!-- New decimal version --&gt;
+                &lt;version&gt;
+                    &lt;rev&gt;4&lt;/rev&gt;
+                    &lt;url&gt;&lt;/url&gt;
+                &lt;/version&gt;
+            &lt;/version&gt;
+
+            &lt;!-- New stable version --&gt;
+            &lt;version&gt;
+                &lt;rev&gt;3&lt;/rev&gt;
+                &lt;url&gt;&lt;/url&gt;
+                &lt;!-- New decimal version from v3 --&gt;
+                &lt;version&gt;
+                    &lt;rev&gt;1&lt;/rev&gt;
+                    &lt;url&gt;&lt;/url&gt;
+                &lt;/version&gt;
+            &lt;/version&gt;
+        &lt;/resource&gt;
+        ...
+    &lt;/resources&gt;
+&lt;/map&gt;</textual></programlisting><para class="po-block e638 e638"><textual class="po-textual">We can see that two new </textual><emphasis class="po-inline e639 e639"><textual class="po-textual">Stage 1</textual></emphasis><textual class="po-textual">, decimal, versions have been
+                added to </textual><emphasis class="po-inline e640 e640"><textual class="po-textual">Stable</textual></emphasis><textual class="po-textual"> version 2., but also, there is now a
+                    </textual><emphasis class="po-inline e641 e641"><textual class="po-textual">Stable</textual></emphasis><textual class="po-textual"> version 3, based on version 2.4. Since version 2.4
+                is the latest </textual><emphasis class="po-inline e642 e642"><textual class="po-textual">Stage 1</textual></emphasis><textual class="po-textual"> version at the time of publishing and
+                it's the level defined by </textual><code class="po-atom e643 e643"><textual class="po-textual">use-latest="1"</textual></code><textual class="po-textual"> in the link, it is the one
+                used as a target. Version 3.1 is outside the defined scope.</textual></para><para class="po-block e644 e644"><textual class="po-textual">We could, of course, add a project structure to the version map and further limit
+                the scope. The business rules would state that the link update was only updated if
+                both source and target were part of the same project. Let's say the projects look
+                like this:</textual></para><programlisting class="po-block e645 e645" xml:space="preserve"><textual class="po-textual">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;map xmlns="http://www.sgmlguru.org/ns/versions"&gt;
+    &lt;resources&gt;
+        ...
+    &lt;/resources&gt;
+    
+    &lt;projects&gt;
+        &lt;project&gt;
+            &lt;urn&gt;123456&lt;/urn&gt;
+            &lt;urn&gt;111111&lt;/urn&gt;
+            &lt;urn&gt;222222&lt;/urn&gt;
+        &lt;/project&gt;
+        &lt;project&gt;
+            &lt;urn&gt;333333&lt;/urn&gt;
+            &lt;urn&gt;111111&lt;/urn&gt;
+        &lt;/project&gt;
+    &lt;/projects&gt;
+&lt;/map&gt;</textual></programlisting><para class="po-block e646 e646"><textual class="po-textual">If the link source document was URN </textual><code class="po-atom e647 e647"><textual class="po-textual">111111</textual></code><textual class="po-textual"> and the target URN
+                    </textual><code class="po-atom e648 e648"><textual class="po-textual">222222</textual></code><textual class="po-textual">, the </textual><quote class="po-inline e649 e649"><textual class="po-textual">use latest</textual></quote><textual class="po-textual"> update when publishing would
+                be allowed. If the target was </textual><code class="po-atom e650 e650"><textual class="po-textual">333333</textual></code><textual class="po-textual">, however, it wouldn't.</textual></para><para class="po-block e651 e651"><textual class="po-textual">Implementation-wise, both scoping techniques should be easy to handle in XSLT
+                stylesheets used by publishing pipelines.</textual></para></section><section class="po-hcontainer e652 e652"><title class="po-block e653 e653"><textual class="po-textual">Permissions</textual></title><para class="po-block e654 e654"><textual class="po-textual">When implementing the more advanced versioning described in </textual><xref class="po-milestone e655 e655" linkend="section_srk_mr4_5n"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">, I
+                think it is a good idea to consider requiring different permissions for check-out
+                and check-in, depending on the versioning level. For example, it might be a good
+                idea to limit check-outs from </textual><emphasis class="po-inline e656 e656"><textual class="po-textual">Stable</textual></emphasis><textual class="po-textual"> and </textual><emphasis class="po-inline e657 e657"><textual class="po-textual">Stage
+                    1</textual></emphasis><textual class="po-textual"> to a project management role to further control scoping and reuse,
+                especially when handling larger documentation projects, while allowing authors and
+                project managers alike to check out resources to stages 2 and below.</textual></para></section><section class="po-hcontainer e658 e658"><title class="po-block e659 e659"><textual class="po-textual">Handling eXist Versions</textual></title><para class="po-block e660 e660"><textual class="po-textual">eXist stores versioning information in </textual><code class="po-atom e661 e661"><textual class="po-textual">/db/system/versions/db/...</textual></code><textual class="po-textual">,
+                mirroring the database's collection structure and including diffed resource versions
+                in the mirrored collections. The diffed XML files use names that include the eXist
+                revision numbers:</textual></para><figure class="po-container e662 e662" xml:id="id-versioning-in-exist"><title class="po-block e663 e663"><textual class="po-textual">Versions in eXist</textual></title><mediaobject class="po-container e664 e664"><imageobject class="po-container e665 e665"><imagedata class="po-meta e666 e666" fileref="../../../vol13/graphics/Nordstrom01/Nordstrom01-007.png" width="500px"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></imagedata></imageobject></mediaobject></figure><para class="po-block e667 e667"><textual class="po-textual">The eXist version-specific metadata is always included, first in the XML diff file
+                (for example, </textual><emphasis class="po-inline e668 e668"><textual class="po-textual">ml-versioning-2.xml.4854</textual></emphasis><textual class="po-textual">), which makes it easy to
+                retrieve when needed:</textual></para><programlisting class="po-block e669 e669" xml:space="preserve"><textual class="po-textual">&lt;v:version xmlns:v="http://exist-db.org/versioning"&gt;
+    &lt;v:properties&gt;
+        &lt;v:document&gt;ml-versioning-2.xml&lt;/v:document&gt;
+        &lt;v:user&gt;admin&lt;/v:user&gt;
+        &lt;v:date&gt;2014-04-17T09:29:14.085+02:00&lt;/v:date&gt;
+        &lt;v:revision&gt;4854&lt;/v:revision&gt;
+    &lt;/v:properties&gt;
+    ...
+&lt;/v:version&gt;</textual></programlisting><para class="po-block e670 e670"><textual class="po-textual">Binary files are also tracked, but accessing them seems to be more difficult as
+                the diffing mechanism (obviously) does not work.</textual></para><para class="po-block e671 e671"><textual class="po-textual">eXist revisions </textual><textual class="po-textual">are recorded in the
+                    </textual><code class="po-atom e672 e672"><textual class="po-textual">v:revision</textual></code><textual class="po-textual"> element (see above). A specific version can be retrieved
+                using the </textual><code class="po-atom e673 e673"><textual class="po-textual">v:doc($doc,$rev)</textual></code><textual class="po-textual"> XQuery function, so
+                </textual><textual class="po-textual">the
+                    </textual><code class="po-atom e674 e674"><textual class="po-textual">url</textual></code><textual class="po-textual"> element in the version mapping markup will need both the base
+                URL to the resource and the revision of the version to be retrieved:</textual></para><programlisting class="po-block e675 e675" xml:space="preserve"><textual class="po-textual">&lt;url&gt;
+    &lt;base&gt;xmldb:exist:///db/work/whitepapers/balisage/2014/multilevel-versioning/ml-versioning-2.xml&lt;/base&gt;
+    &lt;rev&gt;4854&lt;/rev&gt;
+&lt;/url&gt;</textual></programlisting><para class="po-block e676 e676"><textual class="po-textual">Identifying eXist version 4854 of </textual><emphasis class="po-inline e677 e677"><textual class="po-textual">ml-versioning-2.xml</textual></emphasis><textual class="po-textual">.</textual></para><note class="po-container e678 e678"><para class="po-block e679 e679"><textual class="po-textual">The </textual><code class="po-atom e680 e680"><textual class="po-textual">base</textual></code><textual class="po-textual"> URL, above, denotes the </textual><emphasis class="po-inline e681 e681"><textual class="po-textual">latest</textual></emphasis><textual class="po-textual">
+                    version of the document rather than eXist's </textual><quote class="po-inline e682 e682"><textual class="po-textual">base</textual></quote><textual class="po-textual"> version, which
+                    is the first version stored and on which the later versions are based.</textual></para></note><para class="po-block e683 e683"><textual class="po-textual">A version update must be triggered in eXist whenever copying the file from one
+                area to another - both check-in and check-out are copy operations. eXist provides
+                versioning triggers for copy events so capturing the new eXist revision number is a
+                matter of inserting the </textual><code class="po-atom e684 e684"><textual class="po-textual">v:history</textual></code><textual class="po-textual"> function after the copy:</textual></para><programlisting class="po-block e685 e685" xml:space="preserve"><textual class="po-textual">v:history(doc("/db/path/to/xml"))//v:revision[last()]</textual></programlisting><para class="po-block e686 e686"><textual class="po-textual"> This returns a </textual><code class="po-atom e687 e687"><textual class="po-textual">v:revision</textual></code><textual class="po-textual"> element, with the eXist revision given in
+                    </textual><code class="po-atom e688 e688"><textual class="po-textual">@rev</textual></code><textual class="po-textual">:</textual></para><programlisting class="po-block e689 e689" xml:space="preserve"><textual class="po-textual">&lt;v:revision xmlns:v="http://exist-db.org/versioning" rev="5029"&gt;
+    &lt;v:date&gt;2014-04-18T18:11:19.211+02:00&lt;/v:date&gt;
+    &lt;v:user&gt;admin&lt;/v:user&gt;
+&lt;/v:revision&gt;</textual></programlisting><para class="po-block e690 e690"><textual class="po-textual">It is then a simple matter to bump up the URN </textual><code class="po-atom e691 e691"><textual class="po-textual">rev</textual></code><textual class="po-textual"> and add the
+                    </textual><quote class="po-inline e692 e692"><textual class="po-textual">URL</textual></quote><textual class="po-textual"> to the new </textual><code class="po-atom e693 e693"><textual class="po-textual">version</textual></code><textual class="po-textual"> in the version map.</textual></para></section><section class="po-hcontainer e694 e694"><title class="po-block e695 e695"><textual class="po-textual">The eXist User Interface</textual></title><para class="po-block e696 e696"><textual class="po-textual">At its simplest, the user interface needed in eXist is just what's needed to
+                display the version map in a browser, easily produced with an XSLT stylesheet and
+                some CSS, plus something to trigger the page with. </textual></para><para class="po-block e697 e697"><textual class="po-textual">The map will probably grow to be quite large, so including a filtering mechanism
+                is necessary to show only selected parts of the map (i.e., parts of or the complete
+                version history of a specified resource). Functionality to show various metadata for
+                specified versions, provide links to physical resources, include map icons to
+                indicate the language(s) used, and so on, are other examples of useful
+                additions.</textual></para><para class="po-block e698 e698"><textual class="po-textual">eXist provides several XForms implementations</textual><footnote class="po-popup e699 e699"><para class="po-block e700 e700"><textual class="po-textual">XSLTForms and Better Forms are both configured and ready for use, and
+                        Orbeon is easy to add.</textual></para></footnote><textual class="po-textual">, as well as a powerful XQuery (3.0) implementation, to help add
+                these.</textual></para></section><section class="po-hcontainer e701 e701"><title class="po-block e702 e702"><textual class="po-textual">The Editor</textual></title><para class="po-block e703 e703"><textual class="po-textual">Here's where I'm currently really out of my depth, as adding check-out and
+                check-in functions to an editor will involve programming. Nevertheless, editor GUI
+                considerations apart, the versioning additions should consist mainly of calling the
+                XQuery doing the copying, including a flag indicating what operation is used, and
+                making the editor aware of what versioning level the resource is at and disabling
+                the check-out operation, if there are no further levels to copy to.</textual></para><para class="po-block e704 e704"><textual class="po-textual">There should also be a permissions check that disables both operations if the
+                author lacks the necessary permissions to run the operation(s).</textual></para><para class="po-block e705 e705"><textual class="po-textual">Also, the editor needs linking functionality using the multilevel versioning
+                abstraction (URNs rather than addresses in links). This entails opening the target
+                so that the user can identify the target (including a node inside the target
+                document); easiest should be to map the target's URN and URL locally rather than
+                accessing the version map XML from the database.</textual></para><para class="po-block e706 e706"><textual class="po-textual">Rather than opening the targets one by one, it might be a good idea to retrieve a
+                URN/URL map for the whole project, if using the project concept (see </textual><xref class="po-milestone e707 e707" linkend="id-projects"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">).</textual></para></section></section><section class="po-hcontainer e708 e708"><title class="po-block e709 e709"><textual class="po-textual">Afterword</textual></title><para class="po-block e710 e710"><textual class="po-textual">The versioning system suggested here came to be partly because I really want a more
+            advanced version handling for eXist, but mostly because the more primitive
+                </textual><quote class="po-inline e711 e711"><textual class="po-textual">straight</textual></quote><textual class="po-textual"> versioning system that introduces this paper was prominently
+            figured in my paper from last year's Balisage (</textual><xref class="po-milestone e712 e712" linkend="id-semantic-profiling"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">) and
+            Eliot Kimber promptly dismissed the problems with updating the document link tree as the
+            results of bad configuration management. He was right, too, and I hope this is better.
+            Thank you, Eliot.</textual></para><section class="po-hcontainer e713 e713" xml:id="section_ihn_tfx_l4"><title class="po-block e714 e714"><textual class="po-textual">A Few Notes</textual></title><section class="po-hcontainer e715 e715" xml:id="section_kqs_xf4_n4"><title class="po-block e716 e716"><textual class="po-textual">Disclaimer</textual></title><para class="po-block e717 e717"><textual class="po-textual">I am in no way claiming originality in terms of a versioning scheme that
+                    includes multilevel numbering (</textual><quote class="po-inline e718 e718"><textual class="po-textual">1.1.1</textual></quote><textual class="po-textual">, </textual><quote class="po-inline e719 e719"><textual class="po-textual">1.1.2</textual></quote><textual class="po-textual">, etc)
+                    or the idea of different (and arbitrary) levels of versions defining version
+                    significance and version structure. A number of software systems already use
+                    such versioning schemes (for example, see </textual><xref class="po-milestone e720 e720" linkend="id-windchill-multilevel"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">).</textual></para><para class="po-block e721 e721"><textual class="po-textual">Somewhat original (having not been able to find anything similar) is my
+                    implementation, in the context of an XML database and using an XML-based version
+                    mapping format defining an arbitrary level of versions. In particular, my goal
+                    here was to define a way to add a versioning layer to an existing,
+                        </textual><quote class="po-inline e722 e722"><textual class="po-textual">straight</textual></quote><textual class="po-textual">, versioning system, one that differentiates between
+                    significant versions and simple </textual><quote class="po-inline e723 e723"><textual class="po-textual">saves</textual></quote><textual class="po-textual"> by providing multiple
+                    levels of check-outs and check-ins while leaving the definition of the
+                    significance of each level to the end user.</textual></para></section><section class="po-hcontainer e724 e724" xml:id="section_gjw_vkx_l4"><title class="po-block e725 e725"><textual class="po-textual">git and Other VCSs</textual></title><para class="po-block e726 e726"><textual class="po-textual">The version mapping document is, of course, by no means unique as a concept.
+                    As a reviewer pointed out, part of it is equivalent with the </textual><emphasis class="po-inline e727 e727"><textual class="po-textual">git
+                        index</textual></emphasis><textual class="po-textual"> file (see </textual><xref class="po-milestone e728 e728" linkend="id-git-index-format"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">). After all, a lot if it is simply about
+                    mapping the names of resources and their versions to URIs. It is XML because XML
+                    is easy to handle in eXist, however, and there is a recursive hierarchy because
+                    such hierarchies (in my mind) neatly represent the relations between any number
+                    of versioning levels, which is not the case with a git index</textual><footnote class="po-popup e729 e729"><para class="po-block e730 e730"><textual class="po-textual">The git index file is used when staging resources to be committed,
+                            creating a single tree object to be stored in the database.</textual></para></footnote><textual class="po-textual">. </textual></para><para class="po-block e731 e731"><textual class="po-textual">The point is that it should be straight-forward in eXist to implement the
+                    versioning represented by the XML. I'm sure it is possible to implement
+                    multilevel versioning in eXist based on git or some other VCS</textual><footnote class="po-popup e732 e732"><para class="po-block e733 e733"><textual class="po-textual">There is, for example, a Subversion module for eXist.</textual></para></footnote><textual class="po-textual">, with whatever advantages that they might bring to the table, but
+                    the point with this one is to do it in XML with a minimum of non-XML involvement</textual><footnote class="po-popup e734 e734"><para class="po-block e735 e735"><textual class="po-textual">The reasons for which are that a) I am a poor programmer, and b) eXist
+                            is an XML database and well suited for that approach.</textual></para></footnote><textual class="po-textual">.</textual></para><para class="po-block e736 e736"><textual class="po-textual">I also realise that git (and other) VCSs have variants of the use latest
+                    problem, as pointed out by that same reviewer. While the problem here is
+                    similar, it is </textual><emphasis class="po-inline e737 e737"><textual class="po-textual">not the same</textual></emphasis><textual class="po-textual">. As a technical writer with
+                    some insight into developing code, I am struck by some subtle differences: </textual></para><para class="po-block e738 e738"><textual class="po-textual">First of all, in theory at least, it should be possible to avoid using an
+                    incompatible later version of a piece of code by writing automated tests. This
+                    is not possible in the use latest problem as described here. An incompatible
+                    change is only possible to detect by an author who can manually spot the
+                    differences, provided that s/he has sufficient knowledge in the subject of both
+                    the old version [of whatever that is being described] and any forks that
+                    happened along the way.</textual></para><para class="po-block e739 e739"><textual class="po-textual">The scoping as provided by the stages, then, are simply an agreed-upon, but
+                    untestable, convention.</textual></para><para class="po-block e740 e740"><textual class="po-textual">Second, while there are similarities between versioned code and versioned
+                    content, a major difference is that the documents as described here effectively
+                    need to include links addressing arbitrary versions of other resources in the
+                    VCS. As far as I understand git, a check-in in git represents a snapshot where
+                    any such links will point to a current file in that snapshot, not an historic
+                    one. </textual></para></section><section class="po-hcontainer e741 e741" xml:id="section_osh_zkx_l4"><title class="po-block e742 e742"><textual class="po-textual">Notations for Related Content</textual></title><para class="po-block e743 e743"><textual class="po-textual">Regarding the notion of translations as renderings of an original, a reviewer
+                    kindly linked to the </textual><emphasis class="po-inline e744 e744"><textual class="po-textual">Akoma Ntoso</textual></emphasis><textual class="po-textual"> XML vocabulary for legal
+                    documents, specifically its URI namespace conventions for handling related
+                    content (see </textual><xref class="po-milestone e745 e745" linkend="id-akomantoso"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">).</textual></para><para class="po-block e746 e746"><textual class="po-textual">Using URN abstractions (see </textual><xref class="po-milestone e747 e747" linkend="section_csw_2m4_5n"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual"> and </textual><xref class="po-milestone e748 e748" linkend="id-abstraction-addition"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">) provides me with a useful way to describe the relationships I had in mind,
+                    namely versions of original-language resources and their translations, and how
+                    they relate to each other. Akoma Ntoso provides a fascinating and complex
+                    alternative, going well beyond my relatively uncomplicated naming conventions. I
+                    mention them here for comparison, but do not intend to implement them as naming
+                    conventions.</textual></para><para class="po-block e749 e749"><textual class="po-textual">There are, of course, many other naming conventions in use for XML document
+                    management. Worth mentioning is the S1000D standard's Data Module Code, used to
+                    identify reusable content in an S1000D system. It is of particular interest
+                    because it provides a physical location of the component being described, in
+                    addition to mere document handling formalia.</textual></para><para class="po-block e750 e750"><textual class="po-textual">My point here is that both of these conventions, as well as many others, are
+                    feasible, but none, including my simple URN scheme, is necessarily more right
+                    than the other. The idea here is to provide a suitable identifier that includes
+                    a version and localisation information, used when uniquely identifying
+                    resources.</textual></para></section><section class="po-hcontainer e751 e751" xml:id="section_qt2_zqx_l4"><title class="po-block e752 e752"><textual class="po-textual">Terminology</textual></title><para class="po-block e753 e753"><textual class="po-textual">The terms </textual><quote class="po-inline e754 e754"><textual class="po-textual">stage</textual></quote><textual class="po-textual"> and </textual><quote class="po-inline e755 e755"><textual class="po-textual">staging</textual></quote><textual class="po-textual"> are, perhaps,
+                    unfortunate, as they are in no way unique to what I propose in this paper. Git,
+                    for example, uses the term </textual><quote class="po-inline e756 e756"><textual class="po-textual">staging area</textual></quote><textual class="po-textual">, which may cause some
+                    confusion (for more, see </textual><xref class="po-milestone e757 e757" linkend="id-git-staging"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual"> and </textual><xref class="po-milestone e758 e758" linkend="id-git-index"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">).</textual></para><para class="po-block e759 e759"><textual class="po-textual">The git staging area, however, is an indexing area for a commit to which you
+                    can add the files you wish to commit in any way you want to, before they are
+                    committed, while </textual><emphasis class="po-inline e760 e760"><textual class="po-textual">every</textual></emphasis><textual class="po-textual"> stage discussed here, regardless of
+                    level, is intended to be a </textual><emphasis class="po-inline e761 e761"><textual class="po-textual">recorded next step</textual></emphasis><textual class="po-textual"> after a
+                    commit. The point here is to enable any number of levels of usable versions;
+                    git's staging area should not be regarded as a </textual><quote class="po-inline e762 e762"><textual class="po-textual">recorded level</textual></quote><textual class="po-textual">
+                    other than in terms of determining versioned content.</textual></para></section></section><section class="po-hcontainer e763 e763" xml:id="section_lk2_sfx_l4"><title class="po-block e764 e764"><textual class="po-textual">Future Work</textual></title><para class="po-block e765 e765"><textual class="po-textual">There are several things I want to do with all this:</textual></para><itemizedlist class="po-table e766 e766"><listitem class="po-container e767 e767"><para class="po-block e768 e768"><textual class="po-textual">Doing a basic eXist implementation of the version handling itself is
+                        rather obvious, of course. I don't know if it is a case of chronic naïvety
+                        or something else, but I think it really shouldn't be all that hard to do in
+                        XQuery and an XSLT stylesheet or two. I'm not entirely sure of the parts
+                        that involve addressing eXist versions, but I remain hopeful.</textual></para></listitem><listitem class="po-container e769 e769"><para class="po-block e770 e770"><textual class="po-textual">Handling the first save and subsequent first check-in. A new document
+                        should start in the </textual><quote class="po-inline e771 e771"><textual class="po-textual">save</textual></quote><textual class="po-textual"> stage and be checked in to the next
+                        stage and finally the first stable stage</textual><footnote class="po-popup e772 e772"><para class="po-block e773 e773"><textual class="po-textual">If that version is </textual><quote class="po-inline e774 e774"><textual class="po-textual">0</textual></quote><textual class="po-textual"> or </textual><quote class="po-inline e775 e775"><textual class="po-textual">1</textual></quote><textual class="po-textual">is probably
+                                a matter of agreed-upon conventions.</textual></para></footnote><textual class="po-textual">.</textual></para></listitem><listitem class="po-container e776 e776"><para class="po-block e777 e777"><textual class="po-textual">I want to test Extended XLink for the version map and project markup,
+                        because I think it would be a good fit. </textual></para></listitem><listitem class="po-container e778 e778"><para class="po-block e779 e779"><textual class="po-textual">Also, I think doing a basic Extended XLink implementation for linking
+                        inside eXist would be both interesting and fun, as well as make it easier to
+                        use standard markup languages such as DocBook or DITA in such an
+                        implementation, without changing either of them but helping implement the
+                        version handling that is the topic of this paper.</textual></para></listitem></itemizedlist></section></section><bibliography class="po-hcontainer e780 e780"><title class="po-block e781 e781"><textual class="po-textual">Bibliography</textual></title><bibliomixed class="po-block e782 e782" xml:id="id-existdb-versioning"><textual class="po-textual">"eXist Versioning Extensions". Part of the eXist
+            DB documentation. </textual><link class="po-inline e783 e783" xlink:actuate="onRequest" xlink:href="http://www.exist-db.org/exist/apps/doc/versioning.xml" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://www.exist-db.org/exist/apps/doc/versioning.xml</textual></link><textual class="po-textual">
+        </textual></bibliomixed><bibliomixed class="po-block e784 e784" xml:id="id-db-triggers"><textual class="po-textual">"Configuring Database Triggers". Part of the eXist DB
+                documentation. </textual><link class="po-inline e785 e785" xlink:actuate="onRequest" xlink:href="http://exist-db.org/exist/apps/doc/triggers.xml" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://exist-db.org/exist/apps/doc/triggers.xml</textual></link><textual class="po-textual">
+        </textual></bibliomixed><bibliomixed class="po-block e786 e786" xml:id="id-xlink-spec"><quote class="po-inline e787 e787"><textual class="po-textual">XML Linking Language (XLink) Version 1.1</textual></quote><textual class="po-textual">,
+            editors Steve DeRose, Eve Maler, David Orchard and Norman Walsh. </textual><link class="po-inline e788 e788" xlink:actuate="onRequest" xlink:href="http://www.w3.org/TR/xlink11/" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://www.w3.org/TR/xlink11/</textual></link><textual class="po-textual">
+        </textual></bibliomixed><bibliomixed class="po-block e789 e789" xml:id="id-semantic-profiling"><textual class="po-textual">Nordström, Ari. </textual><quote class="po-inline e790 e790"><textual class="po-textual">Semantic Profiling Using
+                Indirection</textual></quote><textual class="po-textual">. Presented at Balisage: The Markup Conference 2013, Montréal,
+            Canada, August 6 - 9, 2013. In Proceedings of Balisage: The Markup Conference 2013.
+            Balisage Series on Markup Technologies, vol. 10 (2013).
+            doi:</textual><biblioid class="po-atom e791 doi e791"><textual class="po-textual">10.4242/BalisageVol10.Nordstrom01</textual></biblioid><textual class="po-textual">. </textual><link class="po-inline e792 e792" xlink:actuate="onRequest" xlink:href="http://www.balisage.net/Proceedings/vol10/html/Nordstrom01/BalisageVol10-Nordstrom01.html" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://www.balisage.net/Proceedings/vol10/html/Nordstrom01/BalisageVol10-Nordstrom01.html</textual></link><textual class="po-textual">
+        </textual></bibliomixed><bibliomixed class="po-block e793 e793" xml:id="id-git-index-format"><quote class="po-inline e794 e794"><textual class="po-textual">The Git Index</textual></quote><textual class="po-textual">. </textual><link class="po-inline e795 e795" xlink:actuate="onRequest" xlink:href="http://schacon.github.io/gitbook/7_the_git_index.html" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://schacon.github.io/gitbook/7_the_git_index.html</textual></link></bibliomixed><bibliomixed class="po-block e796 e796" xml:id="id-windchill-multilevel"><quote class="po-inline e797 e797"><textual class="po-textual">PTC Windchill Multi-Level Versioning
+                Labels</textual></quote><textual class="po-textual">. </textual><link class="po-inline e798 e798" xlink:actuate="onRequest" xlink:href="https://firstrobotics.ptc.com/Windchill-WHC/index.jspx?id=ViewVersionConvertUtilAbout&amp;action=show" xlink:show="new" xlink:type="simple"><textual class="po-textual">https://firstrobotics.ptc.com/Windchill-WHC/index.jspx?id=ViewVersionConvertUtilAbout&amp;action=show</textual></link></bibliomixed><bibliomixed class="po-block e799 e799" xml:id="id-git-staging"><quote class="po-inline e800 e800"><textual class="po-textual">The Staging Area</textual></quote><textual class="po-textual"> (a </textual><quote class="po-inline e801 e801"><textual class="po-textual">git
+                ready</textual></quote><textual class="po-textual"> blog post on January 9 2009. </textual><link class="po-inline e802 e802" xlink:actuate="onRequest" xlink:href="http://gitready.com/beginner/2009/01/18/the-staging-area.html" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://gitready.com/beginner/2009/01/18/the-staging-area.html</textual></link></bibliomixed><bibliomixed class="po-block e803 e803" xml:id="id-git-index"><quote class="po-inline e804 e804"><textual class="po-textual">What’s The Deal With The Git Index?</textual></quote><textual class="po-textual"> </textual><link class="po-inline e805 e805" xlink:actuate="onRequest" xlink:href="http://www.gitguys.com/topics/whats-the-deal-with-the-git-index/" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://www.gitguys.com/topics/whats-the-deal-with-the-git-index/</textual></link></bibliomixed><bibliomixed class="po-block e806 e806" xml:id="id-akomantoso"><quote class="po-inline e807 e807"><textual class="po-textual">The Akoma Ntoso Naming Convention</textual></quote><textual class="po-textual">. </textual><link class="po-inline e808 e808" xlink:actuate="onRequest" xlink:href="http://www.akomantoso.org/release-notes/akoma-ntoso-3.0-schema/naming-conventions-1" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://www.akomantoso.org/release-notes/akoma-ntoso-3.0-schema/naming-conventions-1</textual></link></bibliomixed></bibliography></article></classedDocument>

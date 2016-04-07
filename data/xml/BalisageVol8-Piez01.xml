@@ -1,0 +1,560 @@
+<?xml version="1.0" encoding="UTF-8"?><article xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink" version="5.0-subset Balisage-1.3"><title>Luminescent: parsing LMNL by XSLT upconversion</title><info><confgroup><conftitle>Balisage: The Markup Conference 2012</conftitle><confdates>August 7 - 10, 2012</confdates></confgroup><abstract><para>Among attempts to deal with the overlap problem, LMNL (Layered Markup and Annotation
+        Language) has attracted its share of attention but has also never grown much past its
+        origins as a thought experiment. LMNL’s conceptual model differs from XML’s, and by design
+        its notation also differs from XML’s. Nonetheless, a pipeline of XSLT transformations can
+        parse LMNL input and construct an XML representation of LMNL, with the resulting benefit
+        that further XML tools can be used to analyze and process documents originating from the
+        alien notation. The key is to regard the task as an upconversion: structural induction
+        performed over plain text. </para></abstract><author><personname><firstname>Wendell</firstname><surname>Piez</surname></personname><personblurb><para>Wendell Piez has been attending Balisage and its antecedent conferences since the
+          early days of XML; among his contributions has been, with Jeni Tennison, the original LMNL
+          proposal (2002).</para></personblurb><affiliation><orgname>Mulberry Technologies, Inc.</orgname></affiliation><email>wapiez@mulberrytech.com</email></author><legalnotice><para>Copyright © 2012 by the author. Used with permission.</para></legalnotice></info><para><emphasis role="bold">Luminescent</emphasis> is a prototype parser and compiler for LMNL
+    syntax, converting LMNL documents into <emphasis role="bold">xLMNL</emphasis>, an XML-based
+    representation of the LMNL model suitable for further processing. It consists of a series of
+    XSLT 2.0 stylesheets, currently running in a web server (using Cocoon) or in batch mode (using
+    an XProc pipeline). A second XProc pipeline can apply Schematron validation to the intermediate
+    formats generated in Luminescent to detect and locate syntax errors in the input
+    document.</para><section><title>LMNL: the Layered Markup and Annotation Language</title><para>LMNL (Layered Markup and Annotation Language) is an approach to markup first proposed by
+      Jeni Tennison and myself in 2002 [<xref linkend="tennison2002"/>]. It emulates XML in some
+      respects, but also differs from it in several fundamental ways, suggesting some very different
+      approaches to modeling text-based information using markup, with some very different
+      applications. For this reason, even if an alternative processing stack could never be built on
+      LMNL (which presumably it could, given enough time, effort and resources), and even if LMNL is
+      never regarded as a replacement for XML (which it was never intended to be), it turns out to
+      be fertile laboratory for solutions to modeling problems - including XML-based solutions for
+      XML platforms.</para><para>XML is defined [<xref linkend="xmlrec"/>] as a syntax, but implies a model, which was
+      described by the (non-normative) <emphasis role="ital">XML Information Set</emphasis> [<xref linkend="xmlinfoset"/>], expressed in any number of code libraries and APIs (both official
+      and unofficial), and finally standardized (at least in one variant) in the <emphasis role="ital">XPath 2.0/XQuery Data Model</emphasis> (XDM) [<xref linkend="xdm"/>] . LMNL
+      inverts this, being defined first as an abstract model, whose syntax is proposed incidentally,
+      as a form of representation (and as such, one among many conceivable). Nevertheless, the idea
+      is the same: a formal model stabilizes a set of capabilities for tools performing useful
+      operations over text-based information sets, and provides a basis for interoperability, while
+      a syntax provides a serialization format and an interface for developers and users. Like XML,
+      LMNL is conceived in order to support <emphasis role="ital">markup</emphasis>, a means of
+      assigning labels and attributing properties and relationships to data points or fields in
+      text, by means of text; and like XML, LMNL expects to provide a basis for <emphasis role="ital">descriptive</emphasis> and <emphasis role="ital">declarative</emphasis> markup
+      applications (although, again like XML, not only those), which support document and data
+      processing within layered systems that can thus benefit from separation of concerns (between
+      authoring, editorial, data management, and production tasks, for example), and that are not
+      locked into single applications. Again like XML, LMNL does this by leaving it to applications
+      to define their own sets of names, labels or keywords, to which they can assign whatever
+      semantics they see fit. In this respect, LMNL syntax (like XML) is a meta-language while LMNL
+      itself (like the XDM) is a meta-model: a model (with a design and hence a particular set of
+      affordances in application) that we use to make models, of documents, families of documents,
+      and assorted information sets of whatever description.</para><para>This much is similar; the differences from XML are (primarily) in the design of the model
+      itself, and (secondarily) in the syntax proposed to represent it. The syntax is designed to
+      look as little like XML as possible, for two reasons: first, so that LMNL syntax may be
+      embedded directly into XML syntax, or the reverse; and secondly, to reduce cognitive overload
+      when thinking about LMNL and XML together, or when thinking about LMNL with the burden of
+      expectations formed by XML. (At the level of the model, we have similarly tried to avoid using
+      XML terminology for LMNL concepts except where the connections are strong.) In the interests
+      of brevity, rather than explicate the model fully and offer rationales for it here, I offer a
+      simple summary description of the model, and of LMNL syntax, together.<note><para>Readers may wish to review some of the historical LMNL specifications, which can now
+          be found at <xref linkend="lmnl-markup"/>.</para></note></para><section><title>Ranges</title><para>Where XML has elements, LMNL has <emphasis role="bold">ranges</emphasis>. Unlike XML
+        elements, ranges in LMNL have no necessary relation with one another: they are neither
+        parents, nor children of each other, nor in any hierarchy at all. Ranges may be named (names
+        in LMNL are qualified by namespaces in much the way they are in XML), or anonymous. The
+        assumption is that they will ordinarily have generic names indicating their type, like XML
+        elements. Ranges are properties of an <emphasis role="bold">owner limen</emphasis> (using
+        the Latin word for <quote>doorstep</quote> to designate this important data object type),
+        which belongs either to the document as a whole or an annotation, and which has a <emphasis role="bold">value</emphasis> comprising a single string (a sequence of contiguous
+        characters). The value of the range will be a substring of the value of the limen, while its
+        position will be the character offset within its limen where its starts.</para><para>In order to avoid confusion with XML, LMNL syntax uses a different set of delimiters to
+        identify starts and ends of ranges. This example shows a chunk of LMNL syntax with two types
+        of ranges, <emphasis role="bold">s</emphasis> and <emphasis role="bold">l</emphasis>, marked
+        over the stream of text. <emphasis role="bold">s</emphasis> ranges do not overlap with other
+          <emphasis role="bold">s</emphasis> ranges, and <emphasis role="bold">l</emphasis> never
+        overlaps with <emphasis role="bold">l</emphasis>, but the two types overlap each
+        other:<programlisting xml:space="preserve">[s}[l}He manages to keep the upper hand{l]
+[l}On his own farm.{s] [s}He's boss.{s] [s}But as to hens:{l]
+[l}We fence our flowers in and the hens range.{l]{s]</programlisting></para><para>In the way that XML has a concise empty-element syntax, empty ranges may also be marked
+        with single tags, as in <code>[br]</code>. Empty ranges have no value (or their value is an
+        empty string), although they do have a position within their owner layer.</para><para>It is sometimes convenient (although LMNL syntax does not require it) to designate a
+        single range covering the entire
+        document:<programlisting xml:space="preserve">[excerpt}
+[s}[l}He manages to keep the upper hand{l]
+[l}On his own farm.{s] [s}He's boss.{s] [s}But as to hens:{l]
+[l}We fence our flowers in and the hens range.{l]{s]
+{excerpt]</programlisting></para></section><section><title>Arbitrary overlap</title><para>LMNL supports arbitrary overlap, which is to say overlapping ranges of the same type.
+        This is important for certain potential applications such as annotation frameworks and range
+        indexing, where ranges of text need to be identified that may overlap, while still being of
+        the same type.</para><para>In LMNL syntax, this example shows two ranges named <emphasis role="bold">r</emphasis>,
+        overlapping each
+        other:<programlisting xml:space="preserve">[r=r1}A case [r=r2}of{r=r1] arbitrary overlap{r=r2]</programlisting>While
+        the range identifier (given after the <code>=</code>) is optional, when it is not given, a
+        close tag is presumed to match the most recent open tag with the same combination of name
+        and identifier; thus to express overlap of this kind (rather than one <emphasis role="bold">r</emphasis> range simply being enclosed in the other), the identifier is necessary on
+        the tags marking at least one of the ranges involved. But the identifier is not formally
+        part of the name.</para></section><section><title>Annotations</title><para>While XML elements may have attributes, LMNL ranges may have <emphasis role="bold">annotations</emphasis>. Unlike XML attributes, there is no restriction against assigning
+        more than one annotation with the same name to a given range; likewise, the order of
+        annotations on a range is supported in the model.</para><para>In the syntax, annotations are represented by using tagging inside
+        tagging:<programlisting xml:space="preserve">[excerpt [source}The Housekeeper{source] [author}Robert Frost{author]}
+[s}[l [n}144{n]}He manages to keep the upper hand{l]
+[l [n}145{n]}On his own farm.{s] [s}He's boss.{s] [s}But as to hens:{l]
+[l [n}146{n]}We fence our flowers in and the hens range.{l]{s]
+{excerpt]</programlisting>In
+        order to reduce tagging overhead, when annotations contain only simple string values, their
+        close tags may be presented in abbreviated notation (resembling anonymous end
+        tags):<programlisting xml:space="preserve">...[l [n}145{]}On his own farm.{s [id}s1{]]...</programlisting>In
+        addition (as this example also shows), the syntax permits placing annotations on end tags,
+        not only on start tags.</para><para>Finally, while attributes in XML assign properties to elements as name-value pairs, LMNL
+        annotations may be structured. In the LMNL model, annotations are isomorphic to LMNL
+        documents: like a document, an annotation has a limen with content and optionally ranges
+        over that content. Likewise, like ranges (including ranges over annotation content),
+        annotations may be annotated.</para><para>Given this flexibility it is sometimes convenient for annotations, like ranges, to be
+        empty, having no content but only annotations, which it groups, orders and names.</para><para>So this is legal syntax and represents a coherent LMNL document
+        object:<programlisting xml:space="preserve">[excerpt
+  [source [date}1915{][title}The Housekeeper{]]
+  [author
+    [name}Robert Frost{]
+    [dates}1874-1963{]] }
+[s}[l [n}144{n]}He manages to keep the upper hand{l]
+[l [n}145{n]}On his own farm.{s] [s}He's boss.{s] [s}But as to hens:{l]
+[l [n}146{n]}We fence our flowers in and the hens range.{l]{s]
+{excerpt]</programlisting></para><para>In this example, the <code>excerpt</code> range carries two empty annotations,
+          <code>source</code> and <code>author</code>, each of which has annotations of its
+        own.</para><para>This is an especially powerful feature of LMNL, not only because it provides a very
+        useful capability in modeling (as it presents annotations in a directed graph structure
+        – as if XML attributes could have their own attributes), but also because of its
+        implications for the way documentary information is organized and linked. For example, a
+        LMNL system might well support attaching a document dynamically as an annotation to a range
+        in another document.</para></section><section><title>Atoms</title><para>At its base, a LMNL document is defined as a sequence of <emphasis role="bold">atoms</emphasis>: the most common type of atom will ordinarily be a <quote>character
+          atom</quote>, represented by a single Unicode character in the syntax. Yet while every
+        character in Unicode maps to a corresponding atom, atoms in LMNL are also capable of
+        representing other information of whatever kind an application may find it useful to
+        represent in this way.</para><para>An atom has string length of 1. Consequently, and unlike empty ranges, atoms not only
+        have location, but they <quote>occupy space</quote>, are included in the value of ranges in
+        which they participate, and can be marked up. Atoms are identified with their own notation,
+          <code>{{ }}</code>, in the syntax.<footnote><para>This raises the question whether characters can be represented with atom syntax,
+            whether they can be annotated, and so forth.</para><para>The character <quote>A</quote> may indeed be represented as <code>{{#x41}}</code>
+            (using a shorthand reference) or <code>{{lmnl:char [codepoint}41{]}}</code> using a
+            reserved name for the atom with an annotation to identify it. But add another annotation
+            to the latter form and it will not map back again. (It would be an <quote>annotated
+              character</quote>, and as such could not be represented in a Unicode serialization by
+            itself.)</para></footnote> In this example, an atom named <emphasis role="bold">logo</emphasis> is marked
+        up with a range named <emphasis role="bold">link</emphasis>:<programlisting xml:space="preserve">[link [href}lmnl-markup.org{]}{{logo [src}lmnl-markup.org/hat.png{]}}{link]</programlisting></para></section></section><section><title>xLMNL: an XML-based representation of the LMNL data model</title><para>One way LMNL builds on the conceptual foundation of XML is by differentiating between
+      operations on the syntax, which imply parsing, and operations on optimized representations of
+      documents held in memory: <quote>the model</quote>. This differentiation gives us leverage in
+      development, since we have the opportunity to identify either syntax or model as the
+      appropriate place for design and implementation, whether that be of the tag set itself
+      (considered as a set of labels and constraints over their use), user interfaces,
+      transformations or anything else.</para><para>Paradoxically, while the LMNL model is designed in deliberate contrast to XML, it is
+      nevertheless useful to specify an XML-based representation of it, for several reasons. First,
+      it exposes instances conveniently by giving us the opportunity to serialize LMNL documents in
+      XML syntax. Second, it makes it possible to use XML-based tools (such as XSLT, schema
+      technologies, XQuery, XML servers, CMS and database technology) to query and manipulate LMNL
+      – an advantage for those of us who are well-practiced in these technologies for data
+      processing, but not in Java or Python. And thirdly, it clarifies some of the resemblances and
+      differences between LMNL and other approaches (especially XML-based approaches) to the problem
+      set.</para><para>Since 2002, I have experimented with adapting XML to LMNL in several different ways. Not
+      only can XML elements be construed as LMNL ranges and XML attributes as LMNL annotations (this
+      is the essence of the CLIX and ECLIX approaches, cf <xref linkend="piez2004"/>); also,
+      XML-based notations for representing overlap, such as milestone-based notations or segmented
+      and aligned XML elements, can be mapped into LMNL. This provides a framework, at least, for
+      thinking systematically about how to implement and maintain processes to manage these awkward
+      and difficult forms of XML.</para><para>Yet the real power of the LMNL model as such cannot be exploited without a more direct
+      representation. <emphasis role="bold">xLMNL</emphasis> is an XML-based representation of the
+      model itself: that is to say, it leaves behind the concept of a document as an information set
+      represented in embedded markup (literal tags applied directly to literal text), and simply
+      uses XML as a kind of <quote>poor man's (hierarchical) database</quote>. This gives us many of
+      the advantages of an XML platform described above, while making downstream applications more
+      tractable, inasmuch as they can work directly with LMNL as conceptualized, rather than at a
+      remove. At the price of being somewhat heavyweight and memory intensive, xLMNL is thus a
+      useful interim format for testing ideas and demonstrating concepts.</para><para>Again, the most concise way of presenting this design is by way of an example: the xLMNL
+      equivalent of the document given above is presented in <xref linkend="xlmnl-example"/>.<note><para>Note however that the notation itself is not at all concise! In fact there are many
+          redundancies built into xLMNL, as compared to a bare LMNL range model, in order to
+          streamline downstream processes. For example, text layer content is broken up into spans
+          which are indexed to the ranges in which they participate. While a LMNL processor might
+          wish to calculate this on the fly, when working on a static document it makes sense to
+          index them only once, so this is done in xLMNL. It should go without saying that this does
+          not preclude a more lightweight standoff-based XML representation of LMNL.</para><para>xLMNL has undergone several iterations since I first starting modeling LMNL directly
+          with XML in 2004 [<xref linkend="piez2004"/>, and see also <xref linkend="piez2010"/>]</para></note></para><para>Developers who work on the overlap problem in XML will recognize this as a standoff
+      representation of ranges. As such, it might be generated and maintained in any number of ways
+      – even (if rather onerously) by hand.</para><para>Nevertheless, no claim should be inferred that I suppose xLMNL to be at all an optimal
+      approach to working with LMNL on an XML platform. The best argument for doing this is that
+      fairly dramatic demonstrations of the interest of overlapping markup are not all that hard to
+      come by if one only has a means by which to create them, and xLMNL is a step along the
+      way.</para><para>A schema for xLMNL, using Relax NG (compact syntax)
+      appears in <xref linkend="xlmnl-schema"/>.</para></section><section><title>Compiling LMNL syntax into xLMNL via XSLT upconversion</title><para>In its current form, the complete Luminescent pipeline has thirteen steps, each of which
+      is implemented in an XSLT 2.0 transformation. These can be chained together using any
+      available means; I have used both XProc and Cocoon (which is convenient for hooking
+      Luminescent together with further transformations processing xLMNL into various targets).
+      Several of the steps could be combined for greater efficiency; the reason to have so many
+      presently is to maximize transparency for development and debugging.</para><para>The steps proceed as follows:<orderedlist><listitem><para>Comments are extracted using a regular expression matching on open and close comment
+            delimiters (<code>[!--</code> and <code>--]</code>). This has to be done first so that
+            markup inside comments will not be processed in subsequent steps. The result is a single
+            element (representing the root of the tag tree) containing a sequence of strings and
+            elements representing comments.</para></listitem><listitem><para>Tokenization: all open and close tag delimiters, <code>[</code>, <code>{</code>,
+              <code>]</code> and <code>}</code> in document content (i.e., not inside comments) are
+            matched and wrapped as XML <emphasis role="bold">t</emphasis> elements (for <emphasis role="bold">token</emphasis>). The result is a sequence of strings interspersed with
+            comments and these elements, representing tag delimiters.</para></listitem><listitem><para>The token (<emphasis role="bold">t</emphasis>) elements are marked with line and
+            character offsets, to be carried forward for purposes of any error reporting that has to
+            be performed later.</para></listitem><listitem><para>A sibling recursion is applied to infer tagging from the tokens. A <emphasis role="bold">tag</emphasis> element is initiated with each open delimiter
+              (<code>[</code> or <code>{</code>); each close delimiter (<code>]</code> or
+              <code>}</code>) ends the <emphasis role="bold">tag</emphasis> element most recently
+            started. The result is a rudimentary tag tree of the document. Delimiters and comments
+            are retained.</para></listitem><listitem><para>Types are assigned to the tags, which are mapped to <emphasis role="bold">start</emphasis>, <emphasis role="bold">end</emphasis>, <emphasis role="bold">empty</emphasis> and <emphasis role="bold">atom</emphasis> elements. This works by
+            inferring each type of tag from its open and close delimiters: <code>[r}</code> for
+            start, <code>{r]</code> for end, <code>[e]</code> for empty, and <code>{{a}}</code> for
+            atom. The extra level of delimiters required for atoms is respected; tags with
+              <quote>outer shells</quote> but no <quote>inner shells</quote> (that is, that fail to
+            respect the double-brace syntax of atoms, as in <code>{{atom}}</code>) are marked as
+            errors.</para><para>Simultaneously, tag names (generic identifiers) are extracted from their values. Any
+            tags that have range identifiers with the generic identifier keeps its range identifier
+            as part of its GI. (So a tag <code>[range=r1}</code> is represented as <code>&lt;range
+              gi="range=r1"/&gt;</code>.)</para></listitem><listitem><para>Start tags are marked with unique identifiers (distinct from any range identifiers
+            already given).</para></listitem><listitem><para>By means of another sibling recursion, end tags are marked with the identifier of
+            the most recent start tag with the same GI.</para><para>Since range identifiers are still, at this stage, considered part of the GI, the
+            sibling recursion in this process matches end tags to start tags correctly.</para></listitem><listitem><para>Matching start and end-tag pairs appearing inside tags are promoted into
+            annotations.</para><para>This is the trickiest step, for two reasons. First, abbreviated syntax permitted for
+            simple annotations means that anonymous end tags (<code>{]</code>) may be matched with
+            named start tags. Secondly, annotations may contain markup, and so not just any tag
+            directly inside a tag is actually an annotation delimiter (it could mark up a range over
+            content inside the annotation). This process must work, again, via sibling recursion
+            (the third one performed in the pipeline). Where tagging is not correct, <emphasis role="bold">error</emphasis> elements may be generated.</para></listitem><listitem><para>Character offsets are marked on <emphasis role="bold">start</emphasis>, <emphasis role="bold">end</emphasis>, <emphasis role="bold">empty</emphasis> and <emphasis role="bold">atom</emphasis> tag elements, and text spans are wrapped (with <emphasis role="bold">span</emphasis> elements) and marked with character offsets within their
+            owner layer (or <emphasis role="bold">limen</emphasis> in LMNL terminology: the
+            annotation or document within which they appear). The offsets are determined from the
+            lengths of string content (text nodes in the XML), with any atoms appearing being given
+            length 1, while comments and range markers have length 0.</para></listitem><listitem><para>Proper generic identifiers (range names) are derived from combinations of ranges
+            with their identifiers. (The identifiers are saved as <emphasis role="bold">label</emphasis> attributes in case they may be wanted.)</para></listitem><listitem><para>Unique identifiers are assigned to ranges; range <emphasis role="bold">start</emphasis> and <emphasis role="bold">end</emphasis> tags have the same
+            identifier, while <emphasis role="bold">empty</emphasis> range tags have their own.
+            Similarly, annotations are marked with unique identifiers, as is the document as a
+            whole.</para></listitem><listitem><para>Layer identifiers are assigned to spans, corresponding to the limen (annotation or
+            document) in which the span appears. Strictly speaking these identifiers are redundant,
+            since the same information is given by the xLMNL document structure; but they are useful
+            for optimizing subsequent (downstream) processes or (potentially) for processing or
+            aggregating LMNL documents described in multiple xLMNL instances.</para><para>The result of this step is a comprehensive <quote>tag tree</quote> of the marked up
+            LMNL syntax instance.</para><para>(A later project goal will be to codify this format for interchange; it maps to the
+            earlier CLIX format. This may also prove to be more robust than xLMNL for maintenance of
+            LMNL data sets in XML, since ranges are still represented by tags within the text stream
+            rather than standoff markup.)</para></listitem><listitem><para>The tag tree is converted into xLMNL by reading range elements from start/end tag
+            pairs, or from empty range markers as the case may be. Ranges are marked with the start
+            and end offsets, read from their tags. Spans are marked with pointers to the ranges in
+            which they participate. (A fourth sibling recursion accomplishes this. Again, the
+            information here is redundant but useful.)</para></listitem></orderedlist></para><section><title>Checking LMNL syntax for well-formedness</title><para>Rather than stop processing, the pipeline currently emits <emphasis role="bold">error</emphasis> elements when it encounters problems, with codes identifying the issue.
+        This appears to work well.</para><para>In addition, more precise diagnostics are performed by applying Schematron validation to
+        particular steps in the pipeline. (This is implemented with a second XProc pipeline
+        specification that imports the main one, applies Schematron schemas to the results of two of
+        Luminescent's intermediate formats, aggregates their results together and formats them.) For
+        example, using Schematron it is easy to check whether all start tags have matching end tags
+        or vice-versa, or that range or annotation names follow their rules. Because the
+        intermediate formats carry forward information on the location of tagging in the original
+        LMNL syntax instance, Schematron can report the locations of tagging found to be
+        problematic.</para><para>This is especially important since LMNL syntax becomes hard to read as the markup
+        becomes more complex.<footnote><para>This is a problem for which embedded markup, of course, has no built-in solution (as
+            Desmond Schmidt has pointed out, <xref linkend="schmidt2010"/>) other than using only
+            tag sets that do not permit complexity – a high price to pay (a baby for less bath
+            water), and not the idea at all. Of course, the syntax is not ultimately the point of
+            the LMNL model (which might be supported in all kinds of different interfaces) but only
+            a means to an end.</para></footnote> For example, here is a malformed
+        instance:<programlisting xml:space="preserve">[excerpt [source}The Housekeeper{source] [author}Robert Frost{author]]}
+[s}[l [n}144{n]}He manages to keep the upper hand{l]
+[l [n}145{n]}On his own farm.{s] [s}He's boss.{s] [s}But as to hens:{l]
+[l [n}146{n]}We fence our flowers in and the hens range.{l]{s]
+{excerpt]</programlisting>(The
+        error occurs at the end of the first line, where an extra <code>]</code> appears before the
+          <code>}</code> ending the start tag.)</para><para>Schematron reports
+        this:<programlisting xml:space="preserve">Error UNEXPECTED-TAGGING reported for } at 1:71,
+  C:\Projects\LMNL\Luminescent\lmnl\frost-quote.lmnl
+No start tag matches end tag {excerpt] at 5:1,
+  C:\Projects\LMNL\Luminescent\lmnl\frost-quote.lmnl</programlisting>The
+        processor has taken the mistaken <code>]</code>, as it must, as the end of the tag; and
+        since it therefore makes an empty range marker, the end tag that is supposed to match it is
+        found to have no start tag.</para><para>The two errors are detected differently. The first error is reported for any tag
+        delimiter that can't be matched with a corresponding delimiter of the opposite kind (start
+        or end). The second is reported for the failure to follow the constraint that all start tags
+        must have end tags and vice versa.</para><para>The line numbers and offsets reported (1:71 and 5:1) correctly locate the problems;
+        character 71 of line 1 is the location of the orphaned tag close delimiter <code>}</code>
+        (which would have closed a start tag had the <code>]</code> character not intervened), while
+        line 5 character 1 is where the orphaned end tag is located.</para></section></section><section><title>Working with the model: prototype LMNL applications</title><para>Currently I have several processes running with xLMNL as source. Some of these are tuned
+      to particular tag sets, while others are generic. A selection is offered in place of
+      presentation slides for this paper (the zipped package contains a mix of HTML, XML and SVG and
+      can be reviewed starting from <code>index.html</code> using any current web browser).<itemizedlist><listitem><para>A generic diagnostic stylesheet can report which range types overlap with which
+            other range types. (This is most useful to know for process customization.)</para></listitem><listitem><para>XML can be extracted from xLMNL dynamically, using a parameterized listing of range
+            types to be reflected as a hierarchy of XML elements. Ranges of these types are promoted
+            into XML elements; their annotations become, when they have simple values, XML
+            attributes. Ranges not among these types, and annotations that are not cast to
+            attributes, become XML elements representing range delimiters (tags) or annotation
+            structures. Spans of text are kept with pointers to the ranges in which they
+            participate, when these have not been cast to ancestor elements.</para><para>This process can be run independently, but its functionality is also available
+            dynamically as a function call in XSLT, operating on any xLMNL document or annotation
+            (or a subset of spans from within a document or annotation, perhaps those associated
+            with a given range) and casting it into XML.</para><para>This is also a generic process, although the particular ranges to be converted into
+            XML elements is passed in at run time.</para></listitem><listitem><para>SVG graphs and HTML renditions can be generated to display and depict LMNL
+            documents. These transformations, to be sure, are not always trivial; but their
+            difficulties are greatly mitigated by the XML extraction process just mentioned, used to
+            cast LMNL into intermediate XML formats (hierarchical <quote>views</quote> of the
+            LMNL).</para><para>These are not generic processes, since of course particular displays are optimized
+            for particular tagging semantics, but some of them do rely on imported functionalities
+            implemented generically (such as the logic that generates SVG <quote>bubble
+              graphs</quote>), so it can be shared.</para></listitem></itemizedlist></para><para>Links to demonstrations are provided in <xref linkend="demonstrations"/>.</para></section><section><title>Reflections</title><para>I can make no pretense as to the efficiency or scalability of this approach. So far, it
+      has only worked well enough for my purposes: to demonstrate its feasibility in principle, and
+      to test the specifications. While it has performed adequately well on documents up to several
+      hundred Kb in size, and experience suggests that processing bottlenecks for Luminescent are
+      actually more likely coming out of xLMNL rather than into it, I have no data to confirm my
+      intuitions here. There does appear to be a rich and interesting set of problems at
+      hand.</para><para>Nevertheless, if nothing else, this exercise has suggested some very interesting things
+      about markup technologies beyond XML. One of the keys appears to be the separation of the
+      parsing of the syntax from the construction of the model; so the parse tree is a tree only of
+      the tags, from which the document model is derived by a different process. (The parse itself
+      works like a parse of S-expressions, in which open and close delimiters are recursively parsed
+      into tags.<footnote><para>In fact the initial insight that led to the development of this pipeline was that if
+          one were to perform simple string substitutions as follows, the result would be S-expression-like:<itemizedlist><listitem><para><code>[</code> and <code>{</code> (open tag delimiters) become <code>([</code>
+                and <code>({</code></para></listitem><listitem><para><code>]</code> and <code>}</code> become <code>])</code> and
+                <code>})</code></para></listitem></itemizedlist>Performing this substition on this
+          text:<programlisting xml:space="preserve">[poem [by}Apollinaire{]}Et [red}l'unique [gold}cordeau{red]
+  des [green}trompettes{gold] marines{green]{poem]</programlisting>we
+          get:<programlisting xml:space="preserve">([poem ([by})Apollinaire({])})Et ([red})l'unique ([gold})cordeau({red])
+  des ([green})trompettes({gold]) marines({green])({poem])</programlisting>Here,
+          each parenthetical expression represents a tag.</para></footnote>) In this view of things, machine-automated text processing can support a very
+      different form of document description than that provided by the operational semantics of XML,
+      which in order to build a document model from the markup in a single pass, must limit itself
+      to a syntax in which not just tags but the element structure itself can be described by a
+      context-free grammar.<footnote><para>Thus the XML Recommendation has a well-formedness constraint
+            (<link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/REC-xml/#GIMatch</link> in <xref linkend="xmlrec"/>) on an
+          XML document that is not, in itself, a definition of syntax, but only a restriction on the
+          way it may be used: end tags must have the same name as the most recent unclosed start tag
+          (the <quote>GI matching constraint</quote>). (The reason this is not a definition of
+          syntax is because syntactically, an end tag is an end tag irrespective of whether it
+          matches the most recent start tag; so this rule is not for the integrity of the syntax
+            <emphasis role="ital">qua</emphasis> syntax, but rather in order that a second tree may
+          be built out of the syntax parse tree.) In connection with the production for <emphasis role="bold">element</emphasis> (<link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/REC-xml/#NT-element</link>),
+          this is how XML is able to bridge from well-formedness to its set of validity constraints
+          – something still undefined for LMNL. To be sure, formally speaking validation is
+          optional in XML, and systems that validate XML not in the sense of the Recommendation
+          (which entails a DTD) but using other models for validation have been implemented several
+          times (and in several different ways) since the Recommendation was published in
+          1998.</para><para>While the GI matching constraint is suspended for LMNL, the question remains how a
+          validation technology can be developed for a range model rather than a graph, such as this
+          constraint enables. But XML and LMNL itself also demonstrate that processing can occur
+          with only implicit validation in the application of a markup language.</para></footnote> Thus its document models are limited to trees and to graphs projected over that
+      tree [<xref linkend="bos2005"/>]. While not, formally, more expressive than XML markup (since
+      graphs projected over a tree can express the same relations as LMNL markup, as indeed they do
+      in xLMNL or other XML-based representations of LMNL), LMNL markup is practically so; it can
+      get <quote>closer to the text</quote> than XML does, inasmuch as in order to fit within its
+      own rules, XML's representation of a document (or at any rate, of a document in which
+      overlapping structures or features, or structured annotations, are represented) is always
+      getting in its own way.</para><para>Related to this is another aspect of this work: this parsing or compiling process does not
+      assume a single depth-first traversal of structures implicit in the syntax, and so does not
+      perform a single pass over the data. Instead, it considers that the entire text is available
+      to the parser at once, and works by applying several distinct heuristic operations in
+      sequence: first tags are inferred from delimiting tokens; then different types of tags (open,
+      close, empty or atom) are recognized; then open/close pairs are matched, etc. Whether this
+      technique is very novel or interesting, or how it relates to (or evades, or complicates)
+      classic problems in text processing, I am not highly qualified to say. Yet it might be
+      interesting for the sole reason that it serves as a proof of concept for generalized plain
+      text processing in XSLT.</para><para>What I as a markup user find most remarkable, however, is what happens once a tool chain
+      like this is in place. XML practitioners, I think, or at least those of us who work with
+      structurally complex texts, are familiar with a conflict between the wish to describe our
+      information accurately, capably and gracefully, and the need to force everything into a single
+      hierarchy of elements – for reasons having nothing to do with the purposes of the
+      markup, but only because the processing infrastructure insists on it, behind the scenes,
+      before work has even begun. This conflict is apparent every time we work with (or must
+      develop) a schema that has to make design compromises in order to address a requirement to
+      represent things that overlap, introducing one or more of the well-worn but cumbersome
+      workarounds for doing so. Sometimes we are faced with truly vexing problems in tagging, and
+      even in the best case, having to use workarounds generates a certain amount of mental
+      background noise. When working with LMNL markup, all this clamor is silenced. Even in small
+      demonstrations, I am finding it liberating to be able to mark exactly what I wish to describe,
+      with concern only for its clearest denotation in tags and its fidelity to what I want to
+      represent in the text. If this is possible at all (and it evidently is), XML's early
+      commitment to a single tree representation of something as complex as a text (meaning that
+      word in the sense that literary scholars do, with everything it entails) appears to be a
+      premature optimization – in other words, not always an optimization at all. When tags in
+      plain text can be used to represent whatever structures in and features of text we care to
+      discover, irrespective of whether they fit easily into a single tree-shaped model, then the
+      potentials of markup are magnified immensely. We have only just started to explore the
+      possibilities.</para></section><appendix xml:id="xlmnl-example"><title>xLMNL example</title><section><title>LMNL syntax:</title><programlisting xml:space="preserve">[excerpt}
+[s}[l [n}144{n]}He manages to keep the upper hand{l]
+[l [n}145{n]}On his own farm.{s] [s}He's boss.{s] [s}But as to hens:{l]
+[l [n}146{n]}We fence our flowers in and the hens range.{l]{s]
+{excerpt   
+  [source [date}1915{][title}The Housekeeper{]]
+  [author
+    [name}Robert Frost{]
+    [dates}1874-1963{]] ]</programlisting></section><section><title>Compiled into xLMNL</title><para>White space is added for legibility, and LF characters in the data indicated with
+          <code>&amp;#xA;</code>.</para><programlisting xml:space="preserve">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;x:document xmlns:x="http://lmnl-markup.org/ns/xLMNL" ID="N.d1e1"
+  base-uri="file:/c:/Projects/LMNL/Luminescent/lmnl/frost-example.lmnl"&gt;
+  &lt;x:content&gt;
+    &lt;x:span start="0" end="1" layer="N.d1e1" ranges="R.d1e2"&gt;&amp;#xA;&lt;/x:span&gt;
+    &lt;x:span start="1" end="34" layer="N.d1e1" ranges="R.d1e2 R.d1e5 R.d1e6"&gt;He manages to keep the upper hand&lt;/x:span&gt;
+    &lt;x:span start="34" end="35" layer="N.d1e1" ranges="R.d1e2 R.d1e5"&gt;&amp;#xA;&lt;/x:span&gt;
+    &lt;x:span start="35" end="51" layer="N.d1e1" ranges="R.d1e2 R.d1e5 R.d1e15"&gt;On his own farm.&lt;/x:span&gt;
+    &lt;x:span start="51" end="52" layer="N.d1e1" ranges="R.d1e2 R.d1e15"&gt; &lt;/x:span&gt;
+    &lt;x:span start="52" end="62" layer="N.d1e1" ranges="R.d1e2 R.d1e15 R.d1e25"&gt;He's boss.&lt;/x:span&gt;
+    &lt;x:span start="62" end="63" layer="N.d1e1" ranges="R.d1e2 R.d1e15"&gt; &lt;/x:span&gt;
+    &lt;x:span start="63" end="78" layer="N.d1e1" ranges="R.d1e2 R.d1e15 R.d1e31"&gt;But as to hens:&lt;/x:span&gt;
+    &lt;x:span start="78" end="79" layer="N.d1e1" ranges="R.d1e2 R.d1e31"&gt;&amp;#xA;&lt;/x:span&gt;
+    &lt;x:span start="79" end="122" layer="N.d1e1" ranges="R.d1e2 R.d1e31 R.d1e37"&gt;We fence our flowers in and the hens range.&lt;/x:span&gt;
+    &lt;x:span start="122" end="123" layer="N.d1e1" ranges="R.d1e2"&gt; &lt;/x:span&gt;
+  &lt;/x:content&gt;
+  &lt;x:range start="0" end="123" ID="R.d1e2" sl="1" so="1" name="excerpt" el="9" eo="25"&gt;
+    &lt;x:annotation ID="N.d1e49" sl="6" so="3" el="6" eo="47" name="source"&gt;
+      &lt;x:annotation ID="N.d1e50" sl="6" so="11" el="6" eo="22" name="date"&gt;
+        &lt;x:content&gt;
+          &lt;x:span start="0" end="4" layer="N.d1e50"&gt;1915&lt;/x:span&gt;
+        &lt;/x:content&gt;
+      &lt;/x:annotation&gt;
+      &lt;x:annotation ID="N.d1e53" sl="6" so="23" el="6" eo="46" name="title"&gt;
+        &lt;x:content&gt;
+          &lt;x:span start="0" end="15" layer="N.d1e53"&gt;The Housekeeper&lt;/x:span&gt;
+        &lt;/x:content&gt;
+      &lt;/x:annotation&gt;
+      &lt;x:content/&gt;
+    &lt;/x:annotation&gt;
+    &lt;x:annotation ID="N.d1e56" sl="7" so="3" el="9" eo="23" name="author"&gt;
+      &lt;x:annotation ID="N.d1e57" sl="8" so="5" el="8" eo="24" name="name"&gt;
+        &lt;x:content&gt;
+          &lt;x:span start="0" end="12" layer="N.d1e57"&gt;Robert Frost&lt;/x:span&gt;
+        &lt;/x:content&gt;
+      &lt;/x:annotation&gt;
+      &lt;x:annotation ID="N.d1e60" sl="9" so="5" el="9" eo="22" name="dates"&gt;
+        &lt;x:content&gt;
+          &lt;x:span start="0" end="9" layer="N.d1e60"&gt;1874-1963&lt;/x:span&gt;
+        &lt;/x:content&gt;
+      &lt;/x:annotation&gt;
+      &lt;x:content/&gt;
+    &lt;/x:annotation&gt;
+  &lt;/x:range&gt;
+  &lt;x:range start="1" end="51" ID="R.d1e5" sl="2" so="1" name="s" el="3" eo="32"/&gt;
+  &lt;x:range start="1" end="34" ID="R.d1e6" sl="2" so="4" name="l" el="2" eo="52"&gt;
+    &lt;x:annotation ID="N.d1e7" sl="2" so="7" el="2" eo="15" name="n"&gt;
+      &lt;x:content&gt;
+        &lt;x:span start="0" end="3" layer="N.d1e7"&gt;144&lt;/x:span&gt;
+      &lt;/x:content&gt;
+    &lt;/x:annotation&gt;
+  &lt;/x:range&gt;
+  &lt;x:range start="35" end="78" ID="R.d1e15" sl="3" so="1" name="l" el="3" eo="71"&gt;
+    &lt;x:annotation ID="N.d1e16" sl="3" so="4" el="3" eo="12" name="n"&gt;
+      &lt;x:content&gt;
+        &lt;x:span start="0" end="3" layer="N.d1e16"&gt;145&lt;/x:span&gt;
+      &lt;/x:content&gt;
+    &lt;/x:annotation&gt;
+  &lt;/x:range&gt;
+  &lt;x:range start="52" end="62" ID="R.d1e25" sl="3" so="34" name="s" el="3" eo="49"/&gt;
+  &lt;x:range start="63" end="122" ID="R.d1e31" sl="3" so="51" name="s" el="4" eo="62"/&gt;
+  &lt;x:range start="79" end="122" ID="R.d1e37" sl="4" so="1" name="l" el="4" eo="59"&gt;
+    &lt;x:annotation ID="N.d1e38" sl="4" so="4" el="4" eo="12" name="n"&gt;
+      &lt;x:content&gt;
+        &lt;x:span start="0" end="3" layer="N.d1e38"&gt;146&lt;/x:span&gt;
+      &lt;/x:content&gt;
+    &lt;/x:annotation&gt;
+  &lt;/x:range&gt;
+&lt;/x:document&gt;</programlisting></section></appendix><appendix xml:id="xlmnl-schema"><title>RNC schema for xLMNL</title><programlisting xml:space="preserve">namespace x = "http://lmnl-markup.org/ns/xLMNL"
+
+start =
+  element x:document {
+    document-model }
+
+document-model =
+    attribute base-uri { xsd:anyURI }?,
+    attribute ID { xsd:ID },
+    attribute name { xsd:QName }?,
+    debug-support?,
+    (annotation | comment)*,
+    ( content,
+      range*,
+      (annotation | comment)*)?
+    
+annotation =
+  element x:annotation {
+    document-model }
+
+content =
+  element x:content {
+    element x:span {
+      attribute layer { xsd:IDREF },
+      attribute ranges { xsd:IDREFS }?,
+      attribute start { xsd:integer },
+      attribute end { xsd:integer },
+      (text
+       | element x:atom {
+           attribute name { xsd:NCName },
+           debug-support?,
+           annotation*
+         }
+       | comment )+
+    }*
+  }
+range =
+  element x:range {
+    attribute ID { xsd:ID },
+    attribute name { xsd:NCName }?,
+    attribute start { xsd:integer },
+    attribute end { xsd:integer },
+    debug-support?,
+    (annotation | comment)*
+  }
+
+comment =
+  element x:comment { 
+    debug-support?,
+    text }
+    
+    
+debug-support =
+    attribute sl { xsd:integer },
+    attribute so { xsd:integer },
+    attribute el { xsd:integer },
+    attribute eo { xsd:integer }</programlisting><para>A full specification for xLMNL would include constraints not captured by this RNG, such as
+      that offsets (<emphasis role="bold">start</emphasis> and <emphasis role="bold">end</emphasis>
+      attributes) must be whole numbers (positive integers or 0); values of <emphasis role="bold">end</emphasis> must be greater than or equal to values of <emphasis role="bold">start</emphasis> on the same <emphasis role="bold">range</emphasis>; the difference between
+      the <emphasis role="bold">start</emphasis> and <emphasis role="bold">end</emphasis> of a
+        <emphasis role="bold">span</emphasis> (its length) must be equal to its string length plus
+      the count of its <emphasis role="bold">atom</emphasis> children; referential integrity must be
+      maintained between spans, ranges and layers (limina), and so forth.</para></appendix><appendix xml:id="demonstrations"><title>Demonstrations and source code</title><para>A demonstration showsing results of the Luminescent pipeline accompany this paper, in the
+        <link xlink:href="http://www.balisage.net/Proceedings/vol8/author-pkg/Piez01/BalisageVol8-Piez01.html" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Slides and Materials</link>
+      linked in the Proceedings. Unzip the package and open <code>index.html</code>, which will
+      describe the examples and present links for examining them.</para><para>Many browsers will now attempt and may do a reasonable job rendering the SVG examples. But
+      best results will be obtained from a fully conformant SVG viewer implementation with panning
+      and zooming to arbitrary levels of scale. (Most browsers will not zoom in as far as you may
+      want to go.) Apache Squiggle (distributed with Batik) is recommended.</para><para>Source code for Luminescent is available on github, at
+        <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">https://github.com/wendellpiez/Luminescent</link>.</para></appendix><bibliography><title>Bibliography</title><bibliomixed xml:id="bos2005" xreflabel="Bos 2005">Bos, Bert. <quote>The XML data model</quote>.
+      2005. See <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/XML/Datamodel.html</link></bibliomixed><bibliomixed xml:id="cayless2010" xreflabel="Cayless and Soroka 2010">Cayless, Hugh A., and Adam
+      Soroka. <quote>On Implementing <code>string-range()</code> for TEI</quote>. Presented at
+      Balisage: The Markup Conference 2010 (Montréal, Canada, August 3 - 6, 2010). In <emphasis role="ital">Proceedings of Balisage: The Markup Conference 2010</emphasis>. Balisage Series
+      on Markup Technologies, vol. 5 (2010). doi:<biblioid class="doi">10.4242/BalisageVol5.Cayless01</biblioid>. </bibliomixed><bibliomixed xml:id="derose2004" xreflabel="DeRose 2004">DeRose, Steven. <quote>Markup Overlap:
+        A Review and a Horse</quote>. Presented at Extreme Markup Languages 2004 (Montréal,
+      Canada).</bibliomixed><bibliomixed xml:id="durusau-jitts" xreflabel="Durusau and O'Donnell n.d.">Durusau, Patrick, and
+      Matthew Brook O'Donnell. <quote>JITTs (Just-in-time Trees)</quote>.
+      http://www.durusau.net/publications/NY_xml_sig.pdf.</bibliomixed><bibliomixed xreflabel="lmnl-markup.org" xml:id="lmnl-markup">LMNL-markup.org. See
+      <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.lmnl-markup.org</link>.</bibliomixed><bibliomixed xml:id="piez2004" xreflabel="Piez 2004">Piez, Wendell. <quote>Half-steps toward
+        LMNL</quote>. Presented at Extreme Markup Languages 2004 (Montréal, Canada). See
+        <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.piez.org/wendell/papers/LMNL-halfsteps.pdf</link>.</bibliomixed><bibliomixed xml:id="piez2010" xreflabel="Piez 2010">Piez, Wendell. <quote>Towards Hermeneutic
+        Markup: An architetural outline</quote>. Presented at Digital Humanities 2010 (London,
+      England). See <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.piez.org/wendell/papers/dh2010/index.html</link>.</bibliomixed><bibliomixed xml:id="portier2009" xreflabel="Portier and Calabretto 2009">Portier, Pierre-Édouard, and Sylvie Calabretto. “Methodology for the construction
+      of multi-structured documents.” Presented at Balisage: The Markup Conference 2009 (Montréal,
+      Canada, August 11 - 14, 2009). In <emphasis role="ital">Proceedings of Balisage: The Markup
+        Conference 2009</emphasis>. Balisage Series on Markup Technologies, vol. 3 (2009).
+        doi:<biblioid class="doi">10.4242/BalisageVol3.Portier01</biblioid>.</bibliomixed><bibliomixed xml:id="portier2010" xreflabel="Portier and Calabretto 2010">Portier, Pierre-Édouard, and Sylvie Calabretto. “Multi-structured documents and the
+      emergence of annotations vocabularies.” Presented at Balisage: The Markup Conference 2010,
+      Montréal, Canada, August 3 - 6, 2010. In <emphasis role="ital">Proceedings of Balisage: The
+        Markup Conference 2010</emphasis>. Balisage Series on Markup Technologies, vol. 5 (2010).
+        doi:<biblioid class="doi">10.4242/BalisageVol5.Portier01</biblioid>. </bibliomixed><bibliomixed xml:id="pondorf2010" xreflabel="Pondorf and Witt 2010"> Pondorf, Denis, and Andreas
+      Witt. <quote>Freestyle Markup Language: Specification of an intuitive, powerful,
+        polyhierarchical new extensible markup language</quote>. Presented at Balisage: The Markup
+      Conference 2010 (Montréal, Canada, August 3 - 6, 2010). In <emphasis role="ital">Proceedings
+        of Balisage: The Markup Conference 2010</emphasis>. Balisage Series on Markup Technologies,
+      vol. 5 (2010). doi:<biblioid class="doi">10.4242/BalisageVol5.Pondorf01</biblioid>. </bibliomixed><bibliomixed xml:id="schmidt2010" xreflabel="Schmidt 2010">Schmidt, Desmond. <quote>The
+        inadequacy of embedded markup for cultural heritage texts.</quote> In <emphasis role="ital">Literary and Linguistic Computing</emphasis> (2010) 25 (3): 337-356. doi: <biblioid class="doi">10.1093/llc/fqq007</biblioid>.</bibliomixed><bibliomixed xml:id="cmsmcq1999" xreflabel="Sperberg-McQueen and Huitfeldt 1999">Sperberg-McQueen, Michael, and Claus Huitfeldt: "Concurrent Document Hierarchies in MECS and
+      SGML". In <emphasis role="ital">Literary and Linguistic Computing</emphasis> (1999) 14, pp
+      29-42. </bibliomixed><bibliomixed xml:id="stegmann2009" xreflabel="Stegmann and Witt 2009">Stegmann, Jens, and
+      Andreas Witt. <quote>TEI Feature Structures as a Representation Format for Multiple Annotation
+        and Generic XML Documents</quote>. Presented at Balisage: The Markup Conference 2009,
+      Montréal, Canada, August 11 - 14, 2009. In <emphasis role="ital">Proceedings of Balisage: The
+        Markup Conference 2009</emphasis>. Balisage Series on Markup Technologies, vol. 3 (2009).
+        doi:<biblioid class="doi">10.4242/BalisageVol3.Stegmann01</biblioid>. </bibliomixed><bibliomixed xml:id="stuehrenberg2009" xreflabel="Stührenberg and Jettka 2009">Stührenberg,
+      Maik, and Daniel Jettka. <quote>A toolkit for multi-dimensional markup: The development of SGF
+        to XStandoff</quote>. Presented at Balisage: The Markup Conference 2009 (Montréal, Canada,
+      August 11 - 14, 2009). In <emphasis role="ital">Proceedings of Balisage: The Markup Conference
+        2009</emphasis>. Balisage Series on Markup Technologies, vol. 3 (2009). doi:<biblioid class="doi">10.4242/BalisageVol3.Stuhrenberg01</biblioid>. </bibliomixed><bibliomixed xml:id="tennison2002" xreflabel="Tennison and Piez 2002">Tennison, Jeni, and
+      Wendell Piez. <quote>The Layered Markup and Annotation Language (LMNL)</quote>. Presented at
+      Extreme Markup Languages 2002 (Montréal, Canada).</bibliomixed><bibliomixed xml:id="xdm" xreflabel="XDM">Berglund, Anders, Mary Fernández, Ashok Malhotra,
+      Jonathan Marsh, Marton Nagy, and Norman Walsh, eds. <emphasis role="ital">XQuery 1.0 and XPath
+        2.0 Data Model (XDM) (Second Edition)</emphasis> W3C Recommendation 14 December 2010.
+        <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/xpath-datamodel/</link>.</bibliomixed><bibliomixed xreflabel="XML Infoset" xml:id="xmlinfoset">Cowan, John, and Richard Tobin, eds.
+        <emphasis role="ital">XML Information Set (Second Edition)</emphasis>. W3C Recommendation 4
+      February 2004. <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/xml-infoset/</link>.</bibliomixed><bibliomixed xml:id="xmlrec" xreflabel="XML Recommendation">Tim Bray, Tim, Jean Paoli, C. M.
+      Sperberg-McQueen, Eve Maler, and François Yergeau, eds. <emphasis role="ital"> Extensible
+        Markup Language (XML) 1.0 (Fifth Edition)</emphasis> W3C Recommendation 26 November 2008.
+        <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/REC-xml/</link>.</bibliomixed></bibliography></article>

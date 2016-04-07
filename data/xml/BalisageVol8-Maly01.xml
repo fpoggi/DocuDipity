@@ -1,0 +1,812 @@
+<?xml version="1.0" encoding="UTF-8"?><article xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink" version="5.0-subset Balisage-1.3"><title>Utilizing new capabilities of XML languages to verify integrity constraints</title><info><confgroup><conftitle>Balisage: The Markup Conference 2012</conftitle><confdates>August 7 - 10, 2012</confdates></confgroup><abstract><para>In this work, we show how integrity constraints expressed using Object Constraint
+        Language (OCL) can be verified using XML technologies - Schematron, XPath/XQuery and XSLT -
+        and using Model Driven Architecture (MDA) principles. Some constructs typical for OCL
+        constraints are different from the methods used in XPath/XQuery expressions. That is why for
+        translating some OCL expressions, the standard XML toolset must be extended. We introduce
+        such extension for the 2.0 versions of the languages, but with the new features and
+        constructs proposed in drafts for XSLT 3.0, XPath 3.0 and XQuery 3.0, the transition from
+        OCL is much more seamless and transparent. Higher-order functions, maps, error-recovery
+        instructions etc. provide us with necessary power to translate a general OCL expression and
+        we discuss in detail their potential. </para></abstract><author><personname><firstname>Jakub</firstname><surname>Malý</surname></personname><personblurb><para>Jakub Malý is a Ph.D. student at Charles University in Prague, Czech Republic. 
+          His research areas involve conceptual modeling of XML data, integrity constraints, evolution and adaptation 
+          of XML applications.</para></personblurb><affiliation><orgname>XML and Web Engineering Research Group, Faculty of Mathematics and Physics, Charles
+          University, Prague, Czech Republic</orgname></affiliation><email>maly@ksi.mff.cuni.cz</email></author><author><personname><firstname>Martin</firstname><surname>Nečaský</surname></personname><personblurb><para>Martin Nečaský is an assistant professor at Charles University in Prague, Czech Republic. 
+          His research areas involve XML data design, integration, evolution and linked open data. </para></personblurb><affiliation><orgname>XML and Web Engineering Research Group, Faculty of Mathematics and Physics, Charles
+          University, Prague, Czech Republic</orgname></affiliation><email>necasky@ksi.mff.cuni.cz</email></author><legalnotice><para>Copyright © 2012 by the authors. Used with permission.</para></legalnotice><keywordset role="author"><keyword>Schematron</keyword><keyword>Integrity Constraint</keyword><keyword>OCL</keyword><keyword>UML</keyword><keyword>Validation</keyword></keywordset></info><section><title>Introduction</title><para>Unified Modeling Language (UML) has proved to be a powerful language for modeling software
+      systems. Modeling is an important activity in the software development process. It is a good
+      way of how to abstract from technical details of a software system and concentrate on
+      structural, semantic and functional aspects of the system.
+      In connection with UML, a methodology called Model-Driven Architecture (MDA) has been
+      established. It proposes to start modeling a system at an abstract <emphasis role="ital">platform-independent level</emphasis> stripped from technical details and then specify the
+      model with more technical details at a <emphasis role="ital">platform-specific
+        level</emphasis>. From this level, actual executable code can be then generated (ideally)
+      automatically. In practice, the step from the platform-specific model (PSM) to executable code
+      requires usually some level of the designer's interaction, but nonetheless, the presence of
+      the layered model is a significant improvement both during initial formation of the
+      implementation and it's management in the future. </para><para>In our previous work (<xref linkend="necasky12a"/>, <xref linkend="necasky12b"/>), we have
+      shown how beneficial it can be to interconnect the world of UML and MDA with the world of
+      designing XML schemas. Our premise was the fact that complex software systems are often
+      modeled with UML diagrams at the platform-independent level. In particular, a UML class
+      diagram is suitable for modeling a conceptual schema of the application domain. Such schema is
+      called <emphasis role="ital">schema in a platform-independent model</emphasis> or simply
+        <emphasis role="ital">PIM schema</emphasis> in MDA terminology. The term model means a
+      modeling language (the language of UML class diagrams in our case). Our method allows to
+      exploit the existing PIM schema to design XML schemas in the system. Each XML schema is
+      modeled as so called <emphasis role="ital">schema in a platform-specific model</emphasis> or
+      simply <emphasis role="ital">PSM schema</emphasis>. A PSM schema is, again, a UML class
+      diagram. It represents a part of the PIM schema and shapes it to the form of the aimed XML
+      schema. From the PSM schema, the XML schema expressed in a selected language (we currently
+      support XML Schema) can be derived automatically. We have implemented the method in our CASE
+      tool <emphasis role="ital"><xref linkend="exolutio"/></emphasis>. </para><para>One advantage of such approach is that an XML schema designer takes an existing PIM schema
+      and derives from it a PSM schema of the aimed XML schema. This is much easier then writing the
+      XML schema manually even when the designer uses an XML schema visualization tool. Another
+      advantage of using a PIM schema is that it prevents from inconsitencies between the XML schema
+      and the conceptual schema. </para><para>Several UML/XML schema mapping approaches were proposed so far (<xref linkend="pagano09"/>, <xref linkend="bauman09"/>), the advantage of our approach is hidden in the fact that a
+      software system usually does not presume only one XML schema, but a whole family of XML
+      schemas each representing a selected part of the application domain (e.g. in the domain of
+        <emphasis>of e-commerce</emphasis>, the system might contain following XML schemas:
+        <emphasis role="ital">purchase order</emphasis>, <emphasis role="ital">product
+        catalogue</emphasis> or <emphasis role="ital">customer detail</emphasis>). Moreover, several
+      different XML schemas may overlap and share some part of the reality but may represent it
+      differently (e.g., the concept of <emphasis role="ital">Customer</emphasis> in <emphasis>of
+        e-commerce</emphasis> is shared by different XML schemas which represent it with different
+      XML structures). Using our approach, the reality is modeled only once in the PIM schema and
+      its different representations in different XML schemas are derived from the PIM schema as PSM
+      schemas. When the designer examines a particular PSM schema, he can always track any used
+      concept back to the common model and thanks to this fact never looses the "big picture". The
+      management of a family of schemas is thus more efficient and error-proof. Moreover, our
+      approach makes the XML schemas better readable - anyone can look up what real-world concepts
+      modeled in the conceptual schema are represented with a selected part of a particular XML
+      schema and, vice versa, how a selected real-world concept is represented in which XML schemas. </para><para>In this work, we extend our previous work towards modeling complex integrity constraints
+      (ICs). ICs are a substantial part of every software system, equally important as a conceptual
+      schema. However, most of them cannot be expressed with UML class diagrams and, therefore,
+      Object Constraint Language (OCL, see <xref linkend="ocl"/>) was introduced for this purpose.
+      OCL is a formal language which can be used to declare ICs over a UML model. The ICs are in a
+      form of logical expressions and can check constraints such as "employee, who is a division
+      manager, must have a collage degree" or "the store manager can get a bonus only when the
+      profits have grow at least 10% compared to last year" (the following section contains more
+      examples of integrity constraints and how they are expressed fromally in OCL) . Usaing OCL has
+      two main benefits in comparison to the natural language: <orderedlist><listitem><para>unlike natural language, the formal expression is exact and unambiguous,</para></listitem><listitem><para>an expression in a formal modeling language can be used to generate code that
+            verifies the validity of the IC in actual data or running program.</para></listitem></orderedlist></para><para>The authors of Dresden OCL toolkit (see <xref linkend="dresden"/>) have demonstrated how
+      OCL ICs can be checked at runtime in Java (by translating OCL into Java code and adding
+      triggers that verify the constraints when objects are changed) and also in relational
+      databases (by translation of OCL expression into SQL statements, which allow to select records
+      violating the IC). </para><para>When a system uses XML (e.g. for message exchange in communication or storing data), the
+      ICs should be checked in the XML data and using XML technologies. In this work, we show how
+      OCL ICs can be checked at runtime in XML documents using Schematron. The result of our
+      research can be again profitably used by XML schema designers in cases when a PIM schema
+      complemented with OCL ICs. Together with modeling the XML schemas as PSM schemas derived from
+      the PIM schema, the designers can also easily convert OCL ICs from the PIM schema to the PSM
+      schemas.  </para><para>Having OCL ICs expressed at the platform-independent level the question is how they can be
+      translated to the platform-specific level and from here to the XML schema level. The
+      conversion to the platform-specific level is not covered in this paper. Just let us note that
+      we have already implemented several methods for this conversion in our tool eXolutio but we do
+      not describe them in this paper. Instead, we focus on the actual conversion of OCL ICs
+      expressed at the platform-specific level to their suitable XML conterpart, which are
+      Schematron schemas. <xref linkend="fig-levels"/> shows an overall architecture of the system. </para><figure xml:id="fig-levels"><title>eXolutio - architecture overview</title><mediaobject><imageobject><imagedata fileref="../../../vol8/graphics/Maly01/Maly01-001.png"/></imageobject></mediaobject></figure><para>Schematron is a rule-based XML schema language based on XPath expressions. It is often
+      used as a complement of grammar based schema languages (such as XML Schema, Relax NG or DTD),
+      which define a proper vocabulary and validate the structure of the XML document, to check data
+      and co-occurrence constraints - it serves a similar purpose, as does OCL in UML. Because the
+      approach used in OCL to build expressions is rather different than the space of expression
+      provided by XPath, it is necessary to extend XPath to provide comparable expressive power. We
+      implemented the required extensions in our XSLT functions library called <emphasis role="ital">OclX</emphasis>. Since Schematron validation is usually implemented as several steps of
+      XSLT processing, our extension will not require modification of the existing Schematron
+      validation tools, except referencing OclX library. We will examine different approaches, how
+      the required functions can be implemented, and show how several of the new constructs (such as
+        <emphasis role="ital">higher-order functions</emphasis>, <emphasis role="ital">maps</emphasis>, or <emphasis role="ital">error-recovery instructions</emphasis>) proposed
+      in the 3.0 drafts of XPath, XQuery and XSLT can serve our goal. </para><section><title>Outline</title><para>The rest of this work is organized as follows: <xref linkend="sec-constraints"/> gives
+        brief introduction to OCL and shows examples demonstrating its expressive power. <xref linkend="sec-iterator"/> lists possibilities of translating iterator expressions, <xref linkend="sec-tuples"/> elaborates on tuples, <xref linkend="sec-collections"/> on other
+        types of collections than sequences. In <xref linkend="sec-errors"/>, we describe, how
+        semantics of OCL error handling can be achieved. <xref linkend="sec-implementation"/>
+        describes the implementation of OclX in our tool and the use of XProc for validation. In
+          <xref linkend="sec-sugar"/>, we outline possibilities of rewriting certain classes of
+        expressions. In <xref linkend="sec-conclusion"/>, we conclude.</para></section></section><section xml:id="sec-constraints"><title>OCL Constraints</title><para>In this section, we will show on several examples the usage of OCL constraints. </para><para><xref linkend="fig-pim"/> shows a sample platform-independent schema of a chess leagues
+      information system. <footnote><para>Examples for this paper are based on <link xlink:href="http://www.stargroup.uwaterloo.ca/~ltahvild/courses/ECE493-T5/tutorials/Tutorial-Feb16-OCL.pdf" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Mazeiar Salehie's OCL Tutorial.</link>
+        </para></footnote>. </para><figure xml:id="fig-pim"><title>A sample platform-indpendent schema</title><mediaobject><imageobject><imagedata fileref="../../../vol8/graphics/Maly01/Maly01-002.png"/></imageobject></mediaobject></figure><para>
+      <xref linkend="fig-pim-ocl"/> shows some constraints defined for the PIM schema. We will not
+      elaborate the syntax of OCL in detail in this paper. Briefly: OCL script consists of
+      declaration of blocks of integrity constraints, each block starts with the selection of
+      context class and contains one or more invariants for this class. The invariants are logical
+      expression refereing to the concepts defined in the PIM schema. Standard OCL does not allow to
+      specify an error message describing the violated constraint. However, this is a valued feature
+      of Schematron which we did not want to lose. That is why we extended OCL to allow an optional
+      message after each invariant definition. The message can contain subexpression, as is shown in
+      IC PIM1. </para><figure xml:id="fig-pim-ocl"><title>PIM ICs for chess leagues</title><programlisting xml:space="preserve">context Tournament
+/* PIM1 */
+inv: <emphasis role="bold">start &lt;= end</emphasis>
+message: <emphasis role="ital">'Dates inconsistent {start} is grater than {end} in {name}'</emphasis>
+/* which is an abbreviation for: */ 
+inv: <emphasis role="bold">self.start &lt;= self.end</emphasis>
+/* PIM2 */
+inv: <emphasis role="bold">matches-&gt;forAll(m:Match | m.start &gt;= start and m.end &lt;= end)</emphasis>
+message: <emphasis role="ital">'All matches in a tournament occur within the tournament’s time frame'</emphasis>
+/* PIM2 in the previus is in fact an abbreviation for: */
+inv: <emphasis role="bold">self.matches-&gt;forAll(m:Match | m.start &gt;= self.start and m.end &lt;= self.end)</emphasis>
+/* PIM3 */
+inv: <emphasis role="bold">matches-&gt;forAll(m | m.players-&gt;forAll(mp | mp.tournaments-&gt;includes(self)))</emphasis>
+message: <emphasis role="ital">'A match can only involve players who are accepted in the tournament'</emphasis>
+/* PIM4 */
+inv: <emphasis role="bold">matches-&gt;exists(m:Match | m.start.equals(start))</emphasis>
+message: <emphasis role="ital">'Each tournament conducts at least one match on the first day'</emphasis></programlisting></figure><para> From this schema, two platform-specific schemas (<xref linkend="fig-psm1"/>, <xref linkend="fig-psm2"/>) were created, each using the classes from <xref linkend="fig-pim"/>,
+      but each for a different type of XML documents used in the system. XSDs obtained from the PSM
+      schemas are shown alongside the figures. </para><figure xml:id="fig-psm1"><title>A sample platform-specific schema modeling a type of XML documents for Matches and Players involved in a Tournament</title><informaltable frame="void" rules="none"><tr><td>
+            <mediaobject><imageobject><imagedata fileref="../../../vol8/graphics/Maly01/Maly01-003.png" format="png"/></imageobject><!--<imageobject>
+                <imagedata fileref="psm-tournaments-schedule.png" format="png"/>
+              </imageobject>--></mediaobject>
+          </td><td>
+            <programlisting xml:space="preserve">&lt;xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"&gt;
+  &lt;xs:element name="tournament" type="Tournament" /&gt;
+  &lt;xs:complexType name="Tournament"&gt;
+    &lt;xs:sequence&gt;
+      &lt;xs:element name="name" type="xs:string" /&gt;
+      &lt;xs:element name="start" type="xs:dateTime" /&gt;
+      &lt;xs:element name="end" type="xs:dateTime" /&gt;
+      &lt;xs:element name="matches" type="Matches" /&gt;
+      &lt;xs:element name="participatingPlayers" type="Players" /&gt;
+    &lt;/xs:sequence&gt;
+  &lt;/xs:complexType&gt;
+  &lt;xs:complexType name="Matches"&gt;
+    &lt;xs:sequence&gt;
+      &lt;xs:element name="day" type="Day" maxOccurs="unbounded" /&gt;
+    &lt;/xs:sequence&gt;
+  &lt;/xs:complexType&gt;
+  &lt;xs:complexType name="Players"&gt;
+    &lt;xs:sequence&gt;
+      &lt;xs:element name="player" type="Player" maxOccurs="unbounded" /&gt;
+    &lt;/xs:sequence&gt;
+  &lt;/xs:complexType&gt;
+  &lt;xs:complexType name="Player"&gt;
+    &lt;xs:sequence&gt;
+      &lt;xs:element name="name" type="xs:string" /&gt;
+      &lt;xs:element name="email" type="xs:string" /&gt;
+    &lt;/xs:sequence&gt;
+  &lt;/xs:complexType&gt;
+  ...
+&lt;/xs:schema&gt;</programlisting>
+          </td></tr></informaltable></figure><figure xml:id="fig-psm2"><title>A sample platform-specific schema modeling a type of XML documents for Tournament Qualification</title><informaltable frame="void" rules="none"><tr><td>
+            <mediaobject><imageobject><imagedata fileref="../../../vol8/graphics/Maly01/Maly01-004.png" format="png"/></imageobject></mediaobject>
+          </td><td>
+            <programlisting xml:space="preserve">&lt;xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"&gt;
+  &lt;xs:element name="tournaments" type="Tournaments" /&gt;
+  &lt;xs:complexType name="Tournaments"&gt;
+    &lt;xs:sequence&gt;
+      &lt;xs:element name="tournament" type="Tournament" 
+        minOccurs="0" maxOccurs="unbounded" /&gt;
+    &lt;/xs:sequence&gt;
+  &lt;/xs:complexType&gt;
+  &lt;xs:complexType name="Tournament"&gt;
+    &lt;xs:sequence&gt;
+      &lt;xs:element name="name" type="xs:string" /&gt;
+      ...
+      &lt;xs:element name="qualification" type="Qualification" /&gt;
+    &lt;/xs:sequence&gt;
+  &lt;/xs:complexType&gt;
+  &lt;xs:complexType name="Qualification"&gt;    
+    &lt;xs:attributeGroup ref="OpenTournament-att-opt" /&gt;
+    &lt;xs:attributeGroup ref="League-att-opt" /&gt;
+  &lt;/xs:complexType&gt;
+  &lt;xs:attributeGroup name="OpenTournament-att-opt"&gt;
+    &lt;xs:attribute name="open" type="xs:boolean" use="optional" /&gt;
+  &lt;/xs:attributeGroup&gt;
+  &lt;xs:attributeGroup name="League-att-opt"&gt;
+    &lt;xs:attribute name="leagueName" type="xs:string" use="optional" /&gt;
+  &lt;/xs:attributeGroup&gt;
+&lt;/xs:schema&gt;</programlisting>
+          </td></tr></informaltable></figure><para><xref linkend="fig-psm-ocl"/> shows, how the constraints from <xref linkend="fig-pim-ocl"/> can be applied in the PSM schemas, where they are relevant. For the purposes of using OCL
+      at the PSM layer, we added additional ways of navigation (to those defined in the standard) -
+        <emphasis role="ital">parent</emphasis> and <emphasis role="ital">child_N</emphasis>,
+        <emphasis role="ital">choice_N</emphasis>, <emphasis role="ital">set_N</emphasis>,
+        <emphasis role="ital">seq_N</emphasis> (navigate to the n-th child, choice set or sequence
+      in the content model of a class). </para><para>It is also possible to add additional constraints, which do not have a counterpart PIM
+      constraint, for each PSM schema (e.g. constraint PSM5). In this paper, we will not show, how
+      the relevant constraints are chosen for each PSM schema, but we will focus on how they can be
+      verified in XML documents. (MARTIN: Tady ale zhruba rozved, jake jsou vyhody toho, ze to je na
+      PIMu. Tj. odpovedi na otazku, proc si to nemuzu rovnou vyjadrit na PSM urovni?) </para><figure xml:id="fig-psm-ocl"><title>PSM ICs for chess leagues</title><programlisting xml:space="preserve">/*** Match schedule schema constraints ***/
+context Tournament
+/* PSM1 */
+inv: <emphasis role="bold">start &lt;= end</emphasis>
+/* which is an abbreviation for: */ 
+inv: <emphasis role="bold">self.start &lt;= self.end</emphasis>
+message: <emphasis role="ital">'Dates inconsistent, {start} is greater than {end} in {name}'</emphasis>
+/* PSM2 */
+inv: <emphasis role="bold">matches.day.match-&gt;forAll(m:Match | m.start.after(start) and m.end.before(end))</emphasis>
+/* abbreviation for: */
+inv: <emphasis role="bold">self.matches.day-&gt;collect(d:Day | d.match)-&gt;
+        forAll(m:Match | m.start.after(self.start) and m.end.before(self.end))</emphasis>
+message: <emphasis role="ital">'All matches in a tournament occur within the tournament\'s time frame'</emphasis>
+context Match
+/* PSM3: */
+inv: <emphasis role="bold">matchPlayers.player-&gt;forAll(p | p.parent.parent.parent.parent.parent.
+        participatingPlayers.player-&gt;exists(px | px.name = p.name))</emphasis>
+message: <emphasis role="ital">'A match can only involve players who are accepted in the tournament'</emphasis>
+context Tournament
+/* PSM4 */
+inv: <emphasis role="bold">matches.day.match-&gt;exists(m:Match | m.start.trunc() = start.trunc())</emphasis>
+message: <emphasis role="ital">'Each tournament conducts at least one match on the first day of the tournament'</emphasis>
+/*** Tournaments schedule schema constraints ***/
+context Tournament
+/* PSM5 */
+inv: <emphasis role="bold">qualification.choice_1.child_1.open = true or
+        qualification.choice_1.child_2.leagueName &lt;&gt; null</emphasis>
+message: <emphasis role="ital">'Tournament must be either open tournament or belong to a league'</emphasis></programlisting></figure><para>From the nature of the excerpt <xref linkend="fig-psm-ocl"/>, it can be seen that
+        <emphasis role="ital">contexts</emphasis> and <emphasis role="ital">invariants</emphasis> in
+      OCL play the same role as rules' <emphasis role="ital">contexts</emphasis> and <emphasis role="ital">asserts</emphasis> in Schematron. The core of the transition from OCL to
+      Schematron thus lies in translating OCL expressions into XPath tests, preserving the
+      semantics. Some expressions (e.g. literals, if-then-else, variables, arithmetic, string and
+      boolean operations, some collection operations) may be mapped directly to a corresponding
+      XPath expression or function. </para><para>For some operations, a corresponding function does not exists or has a different semantics
+      (e.g. OCL <code>indexOf</code> behaves just like XPath <code>index-of</code> when the searched
+      item occurs at most once in the searched sequence, but XPath version returns indexes of all
+      occurrences, when there are more). For these cases, we created a set of functions in OclX
+      library preserving the semantics. </para><para>Feature-call expressions are a fundamental part of OCL - starting at a variable, they
+      allow traversing the UML model along associations and accessing attributes. These are mapped
+      to path expressions of XPath, which traverse the XML document. E.g. expressions
+        <code>self.start</code> or <code>self.matches.day</code> can be expressed as
+        <code>$self/start</code> and <code>$self/matches/day</code> respectively. </para><para>In the following sections, we will be dealing with those OCL constructs that cannot be
+      expressed trivially - iterator expressions, tuples and nested sequences. We will also analyse
+      the differences in error recovery in both languages. </para></section><section xml:id="sec-iterator"><title>Iterator expressions</title><para>In the examples above, a construct distinctive for OCL is used several times. It is the
+      so-called iterator expression. An iterator expression is a certain kind of a function. It is always
+      called on a collection object. It does not have ordinary parameters, instead each usage
+      declares the iterator variable(s) it will use and a <emphasis role="ital">body
+        expression</emphasis>. OCL standard library contains several predefined iterator
+      expressions, the fundamental being <code>iterate</code>. Its most general form is: </para><programlisting xml:space="preserve"> iterate(i; acc = {acc-init} | {body}) </programlisting><para> The semantics of the expression is as follows: <orderedlist><listitem><para>Expression <code>acc-init</code> is evaluated (in the actual context, i.e. it may
+            reference any variables valid in the calling expression). The result is assigned to
+            variable <code>acc</code>, which, from now on, functions as an accumulator.</para></listitem><listitem><para>For each member of the source collection (for which iterate is called), the member
+            is assigned to variable <code>i</code>. Variables <code>i</code> and <code>acc</code>
+            (containing the value of accumulator from the previous iteration) are added to the
+            context. </para></listitem><listitem><para>Expression <code>body</code> is evaluated (the context now contains the variables
+              <code>i</code> and <code>acc</code>. The result is assigned to variable
+              <code>acc</code> and will be used in the next iteration.</para></listitem><listitem><para>After the last iteration, the value in the accumulator is returned as a result.
+          </para></listitem></orderedlist></para><para>There are several facts regarding iterator expressions: <orderedlist><listitem><para>There are two fundamental iterator operations - <code>closure</code> and
+              <code>iterate</code>. From these two, <code>iterate</code> is not very often used
+            directly by the designers working with OCL. More often, another, more specific, iterator
+            expression is used. The importance of iterate lies in the fact that all other iterator
+            (with the exception of <code>closure</code>) expressions (and a majority of collection
+            operations) can be defined in terms of the fundamental operation <code>iterate</code>.
+            E.g. operation <code>exists(it|{body})</code> is defined as <code>iterate(it; acc=false|
+              {acc or {body}})</code>. </para></listitem><listitem><para>Iterator expressions <code>forAll</code> and <code>exists</code> (serving as
+            quantifiers) together with <code>not</code> and <code>implies</code> make OCL
+            expressions at least as powerful as first order logic . Operation <code>closure</code>
+            increases the expressive power with the possibility to compute transitive closures.
+            Operation <code>iterate</code> allows to compute primitively recursive functions (for
+            more on the expressive power, see <xref linkend="Mandel99"/>.</para></listitem><listitem><para>Multiple iteration variables, such as in <code>c-&gt;forAll(v1,v2|v1 &lt;&gt; v2)</code>,
+            are allowed for some expressions, but that is just a syntactic shortcut for nested calls
+            (i.e. <code>c-&gt;forAll(v1|c-&gt;forall(v2|v1&lt;&gt;v2))</code>). </para></listitem><listitem><para>Collection operations define additional variables to <code>self</code>, which is
+              <emphasis role="ital">global</emphasis> in the scope of the invariant, and these
+            variables (iterators and accumulator) are <emphasis role="ital">local</emphasis> (they
+            are valid in the subexpression only).</para></listitem></orderedlist></para><para>When we want to translate OCL ICs for XML, property 1 guarantees that showing how to
+      express <code>iterate</code> and <code>closure</code> proves that other iterator expressions
+      can be expressed as well, because they can be defined using these two (although the actual
+      implementation would be often more efficient when implemented directly). Property 3 relieves
+      us of the necessity of considering expressions with multiple iterators. Property 4 requires
+      the translation to abide the rules for context and scope of variables. Every expression can
+      refer to the global variable <code>self</code> and possibly other global variables declared
+      explicitly by the user. Iterator expressions define local variables. </para><para>There is no construct similar to iterator expression in XPath, which is used by
+      Schematron. In some special cases, <code>iterate</code> can be translated to XPath
+        <code>for</code> expression, but not in general - whereas <code>iterate</code> can in each
+      iteration refer to the result of the previous iterations (through <code>acc</code> variable),
+      in XPath <code>for</code>, computations of every iteration are strictly separated. Thus, XPath
+      must be extended to fully support iterator expressions and in this section, we will show
+      several approaches, how it can be achieved. Since "iterate" is a name of a construct in OCL, a
+      name of its implementation in our library OclX and also a name of an XSLT instruction, we will
+      distinguish them by using <code>iterate</code> for the OCL construct,
+        <code>oclX:iterate</code> for its implementation in OclX and by refering to the XSLT
+      instruction as to <code>xsl:iterate</code>. </para><section><title>Iterators via generated functions</title><para>The principle of using accumulators in recursive calls is a routine practice in XSLT.
+        The expression from the integrity constraint PSM4 from <xref linkend="fig-psm-ocl"/> can be
+        rewritten into an XPath expression and an accompanying XSLT function as follows: </para><figure xml:id="xslt-exists-gen"><title>Usage of <code>exists</code> translated to an XSLT function</title><programlisting xml:space="preserve">&lt;xsl:value-of select="oclX:iterate(matches/day/match, false(), 1, 
+      count(matches/day/match), current())" /&gt;
+      
+&lt;xsl:function name="oclX:iterate"&gt;
+  &lt;xsl:param name="collection" as="item()*" /&gt;
+  &lt;xsl:param name="acc" as="xs:boolean" /&gt;	
+  &lt;xsl:param name="iteration" as="xs:integer" /&gt;
+  &lt;xsl:param name="total-iterations" as="xs:integer"/&gt;
+  &lt;xsl:param name="self" as="item()" /&gt;
+
+  &lt;xsl:choose&gt;
+    &lt;xsl:when test="$iteration &amp;lt;= $total-iterations"&gt;
+      &lt;xsl:variable name="m" select="$collection[$iteration]" /&gt;
+      &lt;xsl:variable name="newAcc" as="xs:boolean"&gt;
+        &lt;xsl:sequence select="$acc or ($m/start eq $self/start)" /&gt;
+      &lt;/xsl:variable&gt;
+      &lt;xsl:value-of select="oclX:iterate($collection, $newAcc, 
+                            $iteration + 1, $total-iterations, $self)" /&gt;
+    &lt;/xsl:when&gt;
+    &lt;xsl:otherwise&gt;
+      &lt;xsl:value-of select="$accumulator" /&gt;
+    &lt;/xsl:otherwise&gt;
+  &lt;/xsl:choose&gt;
+&lt;/xsl:function&gt;</programlisting></figure><para>The context of the expression (valid variables) is passed as parameters
+          (<code>accumulator</code>, <code>self</code> and <code>iteration</code>). The value of
+        accumulator is computed using the combination of the two expressions: expression from the
+        definition of <code>exists</code> function (<code>acc or (body)</code>) and from the actual
+        call of the function (<code>m.start = self.start</code>), which is substituted for
+          <code>body</code>. </para><para>In this way, it is possible to translate every iterator expression (<code>closure</code>
+        function can be expressed similarly). The negative side is that for each usage (call) of an
+        iterator expression, a separate function has to be generated and each Schematron schema must
+        be equipped with a specific set of functions that handle iterator expressions. The generated
+        functions for the same iterator expression (e.g. <code>exists</code>) would differ very
+        little (in the case of exists, only in the second argument of <code>or</code> computing the
+        value of <code>newAcc</code>). Our aim is to create a set of universal functions directly
+        corresponding to general iterator expresions, but for that, we will need some features
+        beyond the 2.0 versions of XPath and XSLT. </para></section><section><title>Iterators via dynamic evaluation</title><para>Function in <xref linkend="xslt-exists-gen"/> can be looked upon as a template. As we
+        have pointed out in the previous paragraph, the generated functions for all iterator
+        expressions (except <code>closure</code>) would differ very little - only in the line
+        computing the next value of the accumulator. Moreover, the functions generated for different
+        calls of the same predefined iterator (e.g. all calls of <code>exists</code>) would differ
+        even less - only in the <code>body</code> (<code>$m/start eq $self/start</code> in the
+        example). Thus, the whole generated function can be looked upon as a sort of template. If
+        only it were possible to create such "templated function", we would be able to use the same
+        template for all calls, parameterized by <code>body</code> .</para><para>One way to achieve this is by using dynamic evaluation. Each iterator expression can
+        then be mapped to a call of the same function, for which <code>body</code> is passed as a
+        string. The value of <code>body</code> is then computed dynamically. <xref linkend="xslt-iterate-dynamic"/> shows an implementation of <code>iterate</code> using
+        dynamic evaluation.</para><figure xml:id="xslt-iterate-dynamic"><title>Generic <code>oclX:iterate</code> function implemented using dynamic
+          evaluation</title><programlisting xml:space="preserve">&lt;xsl:function name="oclX:iterate" as="item()*"&gt;
+  &lt;xsl:param name="collection" as="item()*"/&gt;
+  &lt;xsl:param name="iterationVar" as="xs:string"/&gt;
+  &lt;xsl:param name="acc-init" as="xs:string"/&gt;
+  &lt;xsl:param name="body" as="xs:string" /&gt;
+  &lt;xsl:param name="self" as="xs:item()"/&gt;    
+
+  &lt;xsl:variable name="accumulatorInitialValue" as="item()*"&gt;
+    <emphasis role="bold">&lt;xsl:sequence select="dyn:evaluate($acc-init)"/&gt;</emphasis>
+  &lt;/xsl:variable&gt;
+
+  &lt;xsl:sequence select="oclXin:iterate-rec($collection, $iterationVar, $accumulatorVar, 
+     $accumulatorInitialValue, $body, 1, count($collection))"
+  /&gt;
+&lt;/xsl:function&gt;
+
+&lt;xsl:function name="oclXin:iterate-rec" as="item()*"&gt;
+  &lt;xsl:param name="collection" as="item()*"/&gt;
+  &lt;xsl:param name="iterationVar" as="xs:string"/&gt;
+  &lt;xsl:param name="accumulatorVar" as="xs:string"/&gt;
+  &lt;xsl:param name="acc" as="item()*"/&gt;
+  &lt;xsl:param name="body" as="xs:string"/&gt;
+  &lt;xsl:param name="iteration" as="xs:integer"/&gt;
+  &lt;xsl:param name="totalIterations" as="xs:integer"/&gt;
+  &lt;xsl:param name="self" as="xs:item()"/&gt;     
+
+  &lt;xsl:choose&gt;
+    &lt;xsl:when test="$iteration = $totalIterations + 1"&gt;
+      &lt;!-- return accumulated value --&gt;
+      &lt;xsl:sequence select="$acc"/&gt;
+    &lt;/xsl:when&gt;
+    &lt;xsl:otherwise&gt;
+      &lt;-- iterator value for this iteration --&gt;
+      &lt;xsl:variable name="m" as select="$collection[$iteration]" /&gt;
+      &lt;xsl:variable name="newAcc" as="item()*"&gt;
+        <emphasis role="bold">&lt;xsl:sequence select="dyn:evaluate($body)"/&gt;</emphasis>
+      &lt;/xsl:variable&gt;
+      &lt;!-- call recursively --&gt;
+      &lt;xsl:sequence
+        select="oclXin:iterate-rec($collection, $iterationVar, $accumulatorVar, 
+                  $newAcc, $body, $iteration + 1, $totalIterations, $self)" /&gt;
+    &lt;/xsl:otherwise&gt;
+  &lt;/xsl:choose&gt;
+&lt;/xsl:function&gt;</programlisting></figure><para>Dynamic evaluation is a feature not present in standardized XSLT 2.0, but exists both in
+        the form of cross-processor portable external libraries (such as <xref linkend="exslt"/>) or
+        vendor-specific extensions (e.g. in <xref linkend="saxon"/>). Unfortunately, the semantics
+        of dynamic evaluation is not consistent in these cases, e.g. EXSLT allows to use free
+        variables in the evaluated expression (e.g. <code>self</code>, <code>m</code> and
+          <code>acc</code> in the example) and they are bound to values defined in the context where
+        the function is called. On the other hand, in Saxon, all free variables are bound to the
+        parameters passed to the call of <code>evaluate</code> (as a consequence to this design
+        decision, the names of the free variables are coerced to be <code>p1</code>, <code>p2</code>
+        etc. and there is a limit on the maximal amount of free variables allowed).</para><para>W3C answered the call for dynamic evaluation in the draft of XSLT 3.0 and introduced a
+        new instruction - <code>xsl:evaluate</code>. The semantics is closer to the one used by
+        Saxon, values of free variables are assigned using <code>xsl:with-param</code> instructions
+        (the names of the parameters are in this case up to the user to decide). As it turns out,
+        there is no perfect solution with dynamic evaluation, because there are these obstacles: <orderedlist><listitem><para>There is no upper limit on the amount of both free and bound variables the user
+              can use in an OCL expression. </para></listitem><listitem><para>The names of the variables are also selected by the user. </para></listitem></orderedlist></para><para>The first one renders Saxon, with its limit on the number of free variables, not general
+        enough. All three approaches also share the same problem - the names of free variables are
+        either coerced (Saxon) or they are defined statically (EXSLT, <code>xsl:evaluate</code>). If
+          <code>xsl:evaluate</code> allowed dynamic naming of the parameters, the following call
+        would be usable (the excerpt replaces the definition of <code>newAcc</code> in the template
+        from <xref linkend="xslt-iterate-dynamic"/>: <programlisting xml:space="preserve">&lt;xsl:evaluate xpath="$body"&gt;
+  &lt;xsl:with-param name="<emphasis role="bold">{accumulatorVar}</emphasis>" select="$acc" /&gt;
+  &lt;xsl:with-param name="<emphasis role="bold">{iterationVar}</emphasis>" select="$collection[$iteration]" /&gt;
+  &lt;xsl:with-param name="self" select="$self" /&gt;
+&lt;/xsl:evaluate&gt;</programlisting></para><para>Yet, even this solution works only when there are only three allowed free variables in
+          <code>body</code> expression - accumulator, iterator, and self. </para><para><xref linkend="xslt-exists-dynamic"/> shows, how <code>exists</code> iterator expression
+        can be implemented (as function <code>oclX:exists</code>) according to its specification in
+        the terms of <code>iterate</code> (implemented as function <code>oclX:iterate</code>, <xref linkend="xslt-iterate-dynamic"/>).  The <code>body</code> expression is combined with the
+        expression defining exists iterator expression (<code>acc or (body)</code>) using simple
+        string manipulation. </para><figure xml:id="xslt-exists-dynamic"><title>Generic <code>exists</code> function implemented via call of
+          <code>iterate</code></title><programlisting xml:space="preserve">&lt;xsl:function name="oclX:exists" as="xs:boolean"&gt;
+  &lt;xsl:param name="collection" as="item()*"/&gt;
+  &lt;xsl:param name="iterationVar" as="xs:string"/&gt;
+  &lt;xsl:param name="body" as="xs:string" /&gt;
+  &lt;xsl:param name="self" /&gt; 
+  
+  &lt;xsl:sequence select="oclX:iterate($collection, $iterationVar, 'acc', 
+    'false()', concat('$acc or (', $body ,')'), $self)"  &gt;&lt;/xsl:sequence&gt;
+&lt;/xsl:function&gt;</programlisting></figure><para>To conclude this discourse, we implemented a version of OclX library which uses dynamic
+        evaluation. We used the extension function provided by Saxon. We solved the second problem
+        by passing the values of all free variables in one value (a sequence of values) and
+        replacing the references of free variables by expression indexing the sequence before the
+        expression is evaluated. This solution works with XSLT 2.0 (+ Saxon extension). Passing more
+        values in one sequence is a problem of itself, because empty values and values, which are
+        sequences themselves, have to be encoded (more about this in section <xref linkend="sec-tuples"/>, the approach used there can also be applied for the encoding
+        problem here). However, XSLT 3.0 offers another approach to tackle iterator expressions and
+        free variables satisfactorily and elegantly, and those are higher-order functions.</para></section><section><title>Higher-order functions</title><para>The drafts of XPath 3.0 and XQuery 3.0 define a new kind of item in the common data
+        model - function item. Funciton item is an item, that can be <emphasis role="ital">called</emphasis>. This makes functions in XPath and XQuery first-class citizens that can
+        be results of expressions and passed as arguments to function calls, making XPath/XQuery
+        full-fledged functional languages (technique for using higher-order functions also in XSLT
+        2.0 was shown in <xref linkend="novatchev06"/>, but that is far from native). A prototype
+        implementation of HOF is available in <xref linkend="saxon"/> since version 9.3.</para><para>The OCL iterator expressions can be viewed as functions, which expect another function
+        as their parameter - i.e. higher-order functions<footnote><para>Yet OCL does not have the full power of functional languages, since it does not
+            allow functions to be results of expressions.</para></footnote>. In <code>iterate</code> expression, <code>body</code> can be looked upon as a
+        parameter, which expects a function. <xref linkend="xslt-iterate-hof"/> shows how
+          <code>iterate</code> is implemented in OclX. We also used the new instruction -
+          <code>xsl:iterate</code> - which is also proposed in the XSLT 3.0 draft and has a very
+        similar semantics to its OCL namesake. </para><figure xml:id="xslt-iterate-hof"><title>Implementation of <code>iterate</code> as a higher-order function
+            <code>oclX:iterate</code></title><programlisting xml:space="preserve">&lt;xsl:function name="oclX:iterate" as="item()*"&gt;        
+  &lt;xsl:param name="collection" as="item()*"/&gt;
+  &lt;xsl:param name="accInit" as="item()*"/&gt;
+  &lt;xsl:param name="body" as="<emphasis role="bold">function(item(), item()*) as item()*</emphasis>"/&gt;
+         
+  &lt;xsl:iterate select="1 to count($collection)"&gt;      
+    &lt;xsl:param name="acc" select="$accInit" as="item()*" /&gt;
+    &lt;xsl:next-iteration&gt;
+      &lt;xsl:with-param name="acc" select="<emphasis role="bold">$body($collection[current()], $acc)</emphasis>" /&gt;
+    &lt;/xsl:next-iteration&gt;      
+    &lt;xsl:on-completion&gt;
+      &lt;xsl:sequence select="$acc" /&gt;
+    &lt;/xsl:on-completion&gt;
+  &lt;/xsl:iterate&gt;    
+&lt;/xsl:function&gt;</programlisting></figure><para>The function's <code>body</code> parameter expects a function with two bound variables,
+        the first one representing the accumulator, the second one the member of the iterated
+        collection for this iteration. Also, the definition of function <code>oclX:exists</code> in
+          <xref linkend="xslt-exists-hof"/> shows that this definition is general enough to be used
+        to define other functions in its terms. The implementation of <code>closure</code> is
+        similar to that of <code>iterate</code>, only it uses recursion. </para><figure xml:id="xslt-exists-hof"><title>Implementation of <code>exists</code> as a higher-order function
+            <code>oclX:exists</code> calling <code>oclX:iterate</code></title><programlisting xml:space="preserve">&lt;xsl:function name="oclX:exists" as="xs:boolean"&gt;    
+  &lt;xsl:param name="collection" as="item()*"/&gt;
+  &lt;xsl:param name="body" as="<emphasis role="bold">function(item()) as xs:boolean</emphasis>"/&gt;    
+  
+  &lt;xsl:sequence select="<emphasis role="bold">oclX:iterate($collection, false(), 
+      function($it, $acc) { $acc or ($body($it)) })</emphasis>" /&gt;   
+&lt;/xsl:function&gt;</programlisting></figure><para>Now let us compare the higher-order function approach to the dynamic evaluation
+        approach. As in OCL, there is no limit on the number of free variables in XPath function
+        items, so the mapping is seamless in this respect. Furthermore, the semantics of free
+        variables in a higher-order function is that their values are obtained from the context at the
+        place of the call - the same semantics OCL uses for free variables. </para><para>As an icing on the cake, we can utilize the reflection function
+          <code>function-arity</code> (supported for function items) to allow iterator expressions
+        with more than one iterators directly (not via replacing them by nested calls). <xref linkend="xslt-existsN-hof"/> shows a multiple-iterator version of <code>exists</code>
+        (which is one of the few iterator expressions, which allows multiple iterators by OCL
+        specification). We use two helper functions: <code>getIndices</code> (which returns the n-th
+        number in a system with a given <code>base</code> in the form of a zero-filled sequence) and
+          <code>functionItemCall</code>, which assigns the values to the iterators and calls the
+        higher-order function. However, we are forced to fix the maximum amount of iterators
+        allowed, because a call of function item requires a fixed amount of parameters (of course,
+        we could prolong the last <code>if</code> as we like). </para><figure xml:id="xslt-existsN-hof"><title>Implementation of <code>existsN</code> - multiple iterators</title><programlisting xml:space="preserve">&lt;xsl:function name="oclX:existsN" as="xs:boolean"&gt;    
+  &lt;xsl:param name="collection" as="item()*"/&gt;
+  &lt;xsl:param name="body" as="function(*)"/&gt;
+  &lt;xsl:variable name="iteratorCount" select="function-arity($body)" as="xs:integer" /&gt;
+  
+  &lt;xsl:iterate select="1 to xs:integer(math:pow(count($collection), $iteratorCount))"&gt;  
+    &lt;xsl:param name="satisfied" as="xs:boolean" select="true()" /&gt;  
+    &lt;xsl:variable name="indices" select="
+      oclXin:getIndices(. - 1, count($collection), $iteratorCount, ())"/&gt;
+    &lt;xsl:variable name="forThis" select="oclXin:functionItemCall(
+      $body, $iteratorCount, $indices, $collection)" as="xs:boolean" /&gt;  
+    &lt;xsl:choose&gt;
+      &lt;xsl:when test="$forThis eq true()"&gt;
+        &lt;xsl:break&gt;
+          &lt;xsl:sequence select="true()"/&gt;
+        &lt;/xsl:break&gt;
+      &lt;/xsl:when&gt;
+      &lt;xsl:otherwise&gt;
+        &lt;xsl:next-iteration&gt;
+          &lt;xsl:with-param name="satisfied" select="$satisfied or $forThis" /&gt;  
+        &lt;/xsl:next-iteration&gt;    
+      &lt;/xsl:otherwise&gt;  
+    &lt;/xsl:choose&gt;  
+    &lt;xsl:on-completion&gt;
+      &lt;xsl:sequence select="$satisfied" /&gt;
+    &lt;/xsl:on-completion&gt;
+  &lt;/xsl:iterate&gt;
+&lt;/xsl:function&gt;  
+
+&lt;xsl:function name="oclXin:getIndices" as="xs:integer*"&gt;
+  &lt;xsl:param name="scalar" as="xs:integer" /&gt; 
+  &lt;xsl:param name="base" as="xs:integer" /&gt;
+  &lt;xsl:param name="length" as="xs:integer" /&gt;
+  &lt;xsl:param name="result" as="xs:integer*" /&gt;
+  &lt;xsl:choose&gt;      
+    &lt;xsl:when test="$scalar eq 0"&gt;
+      &lt;xsl:sequence select="
+        (for $i in 1 to ($length - count($result)) return 0), $result" /&gt;
+    &lt;/xsl:when&gt;
+    &lt;xsl:otherwise&gt;
+      &lt;xsl:variable name="mod" select="$scalar mod $base"/&gt;
+      &lt;xsl:sequence select="            
+        oclXin:getIndices(xs:integer($scalar div $base), $base, $length, 
+                          (($mod), $result))" /&gt;
+    &lt;/xsl:otherwise&gt;
+  &lt;/xsl:choose&gt;
+&lt;/xsl:function&gt;
+
+&lt;xsl:function name="oclXin:functionItemCall"&gt;
+  &lt;xsl:param name="function" as="function(*)" /&gt;
+  &lt;xsl:param name="arity" as="xs:integer" /&gt;
+  &lt;xsl:param name="indices" as="xs:integer*" /&gt;
+  &lt;xsl:param name="a" as="item()*" /&gt;
+  
+  &lt;xsl:sequence select="if ($arity eq 1) then $function($a[$indices[1] + 1])
+    else if ($arity eq 2) then $function($a[$indices[1] + 1], $a[$indices[2] + 1])
+    else if ($arity eq 3) then $function($a[$indices[1] + 1], $a[$indices[2] + 1], 
+                                         $a[$indices[3] + 1])
+    else error(QName('http://eXolutio.com/oclX/functional/error', 'oclXer:E001'), 
+                     'A maximum of three different iterators are allowed. ')" /&gt;      
+&lt;/xsl:function&gt;</programlisting></figure></section><section><title>Local variables</title><para>The issue of local variables is closely related to iterator expressions, because they
+        are one of the two ways how local variables can be defined. Apart from iterator expressions
+        (which define local variables implicitly), OCL also contains <code>let</code> expression,
+        which defines a variable valid in the scope of the expression. The semantics of local
+        variables is similar to that of XPath - the value is assigned in the moment of declaration
+        and does not change from that place on. </para><para>In XPath 2.0, the same effect can be achieved using <code>for</code>, but only when the
+        value of the local variable is not a collection (<code>for</code> would only perform one
+        cycle). In other cases, we must descend to inlining the value (since it is immutable).
+        Alternatively, when the variable is defined in the scope of the invariant (making it global
+        variable for the whole invariant), it can be translated into XSLT variable definition. </para><para>XPath 3.0 again makes the translation easier, because it allows <code>let/return</code>
+        expressions, with semantics eqivalent to OCL <code>let</code>. </para></section></section><section xml:id="sec-tuples"><title>Tuples as maps</title><para>In this section we propose how to deal with tuples (anonymous types) from OCL.</para><para>OCL allows the designer to combine values in expressions into tuples. Tuples can be
+      considered an anonymous type, which has a finite number of named parts. An example of a tuple
+      may be <code>Tuple { firstName = 'Jakub', lastName = 'Malý', age = 26 }</code>. The values of
+      the parts may be of arbitrary type, including collections and other tuples. The names of parts
+        (<code>firstName</code>, <code>lastName</code>, <code>age</code> in the example) must be
+      unique and are used to access the parts of the tuple in the expressions, similarly to
+      attributes of classes, i.e. it is possible to write <code>employees-&gt;collect( e | Tuple { name
+        = e.name, salary = e.salary })-&gt;select( t | t.salary &gt; 2000)</code>, the result of this
+      expression would be a collection of tuples. </para><para>There is a noteworthy property coming with the possibility to create tuples: together with
+      tuples, OCL was equipped with the operation <code>product</code>, defined as follows: </para><programlisting xml:space="preserve">
+      product(c1:Collection(T1), c2:Collection(T2)) = 
+        self-&gt;iterate(e1; acc = Set{} |
+                c2-&gt;iterate (e2; acc2 = acc | acc2-&gt;including(
+                      Tuple{first = e1, second = e2}) 
+            ) 
+        )</programlisting><para>The result of <code>product</code> is a collection of type <code>Collection(Tuple(first:
+        T1, second: T2))</code>, which contains all possible pairs where the first compound comes
+      from collection <code>c1</code> and the second collection <code>c2</code>. This operation thus
+      finalizes the suite of equivalents of the constructs required for a language to be
+      relationally complete (see <xref linkend="Codd72"/>):<itemizedlist><listitem><para><emphasis role="ital">Select</emphasis> - can be expressed using <code>select</code>
+            iterator expression,</para></listitem><listitem><para><emphasis role="ital">Project</emphasis> - can be expressed using
+              <code>collect</code> iterator expression that creates a tuple with the projected
+            attributes (see the <code>employees</code> example above, which, in fact, performs
+            projection to attributes <code>name</code> and <code>salary</code>) ,</para></listitem><listitem><para><emphasis role="ital">Union</emphasis> - OCL has union operation as well,</para></listitem><listitem><para><emphasis role="ital">Set difference</emphasis> - OCL has operation '<code>-</code>'
+            working on sets,</para></listitem><listitem><para><emphasis role="ital">Cartesian product</emphasis> - can be expressed using
+              <code>product</code>,</para></listitem><listitem><para><emphasis role="ital">(Rename)</emphasis> - can be expressed using
+              <code>collect</code> in the same manner as <emphasis role="ital">project</emphasis>
+            operation. </para></listitem></itemizedlist></para><para>Thus, not only tuples can be used to write more concise expressions, but, together with
+      the operation product, they increase the expressive power of the language to relational
+      completeness. </para><para>As far as XPath 2.0 is concerned, there exists no construct that could be naturally used
+      to represent tuples, they can only be partially simulated. One possibility is to use
+      sequences, where each item in the sequence corresponds to one part of the tuple, i.e.
+        <code>Tuple { firstName = 'Jakub', lastName = 'Malý', age = 26 }</code> would be represented
+      as a sequence <code>('Jakub', 'Malý', 26)</code>. </para><para>But this solution is not completely satisfactory from the following reasons: <orderedlist><listitem><para>We loose "safety" and clarity in the expression, because we have to write
+              <code>$t[1]</code> to represent the OCL expression <code>t.firstName</code>.</para></listitem><listitem><para>When some part is missing (which is in OCL indicated by <code>null</code> value), we
+            have to use some placeholder value to keep the length of the sequence constant (e.g.
+              <code>('null', 'null', 26)</code>).</para></listitem><listitem><para>A part of a tuple in OCL can be of any type, including other tuples and collections.
+            Here, this approach fails utterly, because all sequences are flattened in XPath. This
+            also makes implementing <code>product</code> operation impossible, because it should
+            return a collection of tuples, i.e. a collection of sequences. </para></listitem></orderedlist></para><para>Instead of representing tuples using sequences, an alternative would be to represent them
+      using temporary documents, for example: </para><programlisting xml:space="preserve">      &lt;Tuple&gt;
+        &lt;firstName&gt;Jakub&lt;/firstName&gt;
+        &lt;lastName&gt;Malý&lt;/lastName&gt;
+        &lt;age&gt;26&lt;/age&gt;
+      &lt;/Tuple&gt;</programlisting><para>This approach would overcome the first issue (<code>t.firstName</code> would be
+      represented as <code>$t/firstName</code>), the second issue (an empty element could represent
+      a missing part) and also the third issue (nesting is no problem here and collections could be
+      encoded into trees as well). However, it brings two problems of its own: <orderedlist><listitem><para>The value which is about to become a part of a tuple, is copied to a temporary XML
+            document. This would not hurt so much with atomic values, but would be a significant
+            overhead, when the value was a node or a sequence of nodes in the input document (whole
+            subtree would be copied in this case).</para></listitem><listitem><para>When a node is copied into the temporary document, its position in the document is
+            lost, it would not be possible to navigate outside its subtree (e.g. using
+              <code>parent</code> axis) and operations relying on node identity (such as the
+              <code>is</code> operator) would give unexpected results when applied on nodes from the
+            input tree and from the temporary tree. </para></listitem></orderedlist></para><para>To conclude, restrictions inherent in XPath 2.0 data model prevent from satisfactory
+      representation of tuples with semantics corresponding to OCL.</para><para>However, the possibility of extending the XPath/XQuery model with another item type - map
+      - is being discussed and a prototype implementation is now available in <xref linkend="saxon"/> (an alternative is to use XQuery implementation of maps using function items instead of map
+      items, for details see <xref linkend="snelson11"/>). The map type requires atomic values for
+      keys and allow items of any type as values. These properties of map type make it a great
+      candidate for representing tuples, thus, we decided to create a version of OclX which supports
+      tuples represented as maps. Strings containing the name of a tuple part can be used as keys
+      (and the names of parts must be distinct in an OCL tuple as well). The tuple from the example
+      would be represented as <code>map{'firstName' := 'Jakub', 'lastName' := 'Malý', 'age' :=
+        26}</code>, expression <code>t.firstName</code> would be represented as
+        <code>$t('firstName')</code>. A value in a map can also be another map or sequence, which is
+      consistent with semantics of OCL tuples. Operation <code>product</code> can be defined either
+      by translating the definition from specification (using two nested <code>iterates</code>) or
+      via a much more succinct expression:</para><programlisting xml:space="preserve">   for $e1 in $collection1 return for $e2 in $collection2 
+        return map{'first' := $e1, 'second' := $e2}</programlisting></section><section xml:id="sec-collections"><title>Different kinds of collections, nested collections</title><para>OCL defines an abstract type Collection and 4 different types of collections - Set,
+      OrderedSet, Bag (in other languages sometimes called multiset) and Sequence. A member of any
+      collection can be an arbitrary value, including another collection. </para><para>We treat all collections as sequences in OclX, yet it would be possible to represent the
+      other kinds of collections using maps (or sequences as well). </para><para>Nested collections are a foreign concept to XPath data model. The disadvantages of
+      encoding collections into temporary documents were discussed in section <xref linkend="sec-tuples"/>.</para><para>With the introduction of maps, there is a, rather ugly, way of encoding nested sequences -
+      thanks to the possibility of using maps as values <emphasis role="ital">and</emphasis> members
+      of sequences. A nested sequence ((1,2),(3),()) could be encoded to <code>map{'s' := (map{'s'
+        := (1,2)}, map{'s' := (3)}, map{'s' := ()})}</code>, the expression returning number two
+      would be written as <code>(map{'s' := (map{'s' := (1,2)}, map{'s' := (3)}, map{'s' :=
+        ()})})('s')[1]('s')[2]</code>. Using this approach also requires the functions which
+      concatenate sequences not to use XPath operator <code>,</code>, because it flattens the
+      resulting sequence.</para><para>The double indexing (first to get the value from the map, second for getting the desired
+      member of the sequence) can seem confusing, but it can be in fact hidden behind a library
+      function <code>at(i)</code> (which OCL uses instead of the operator <code>[i]</code> to get an
+      i-th member of a sequence). The wordy and a bit unclear way of creating a nested sequence
+      appears in those expression that create nested sequences using literals. This, however, could
+      be eliminated by using preprocessing of the schemas before evaluating the expressions (adding
+      another step to Schematron pipeline). </para></section><section xml:id="sec-errors"><title>Error recovery</title><para>OCL as a language has a direct approach to "run-time" errors or exceptions. Errors in
+      computation cause the result of the expression to be <code>invalid</code> - a sole instance of
+      type OclInvalid. It conforms to all other types and any further computation with
+        <code>invalid</code> results in <code>invalid</code> - except for operation
+        <code>oclIsInvalid</code><footnote><para>To be accurate, another operation - <code>oclIsUndefined</code> - behaves equally to
+            <code>oclIsInvalid</code> when the argument is <code>invalid</code>, but it also returns
+          true, when the result of the computation is <code>null</code>. </para></footnote>, which returns <code>true</code>, when the computations results in
+        <code>invalid</code> and <code>false</code> otherwise. This operation thus provides the
+      only, very coarse-grained error checking (there are no error codes or exception types)
+      available in OCL. Unlike OCL computation, XPath/XSLT 2.0 processor halts when it encounters a
+      dynamic error and there is no equivalent of <code>oclIsInvalid</code>. It is also not possible
+      to instruct it to jump to the validation of the next IC when a validation of an IC fails. </para><para>XSLT 3.0, however, introduces new instructions - <code>xsl:try</code> and
+        <code>xsl:catch</code> - which provide means of recovery from dynamic errors. With these
+      instructions, it is possible to implement oclIsInvalid as listed in <xref linkend="xslt-invalid"/>. We, again, utilize higher-order functions capabilities - the
+      expression is evaluated in a function call wrapped in try/catch. OCL expression
+        <code>oclIsInvalid(1 / 0)</code> can be translated to <code>oclX:oclIsInvalid(function() { 1
+        / 0 })</code>. Optionally, our validation pipeline (fully introduced in <xref linkend="sec-implementation"/>) allows to safe-guard the evaluation of each expression using
+      try/catch, so that the validation of another constraint may continue if a runtime error occurs
+      and it is not contained by <code>oclIsInvalid</code>. </para><figure xml:id="xslt-invalid"><title>Implementation of <code>oclIsInvalid</code> using
+          <code>xsl:try</code>/<code>xsl:catch</code></title><programlisting xml:space="preserve">&lt;xsl:function name="oclX:oclIsInvalid" as="xs:boolean"&gt;
+  &lt;xsl:param name="func" as="function() as item()*" /&gt;
+  
+  &lt;!-- evaluate func and forget the result, return false --&gt; 
+  &lt;xsl:try select="let $result := $func() return false()"&gt;
+    &lt;xsl:catch&gt;
+      &lt;xsl:if test="$debug"&gt;
+        &lt;xsl:message select="'Runtime error making the result ''invalid''. '"/&gt;
+        &lt;xsl:message select="'  - code: ' || $err:code"/&gt;
+        &lt;xsl:message select="'  - description: ' || $err:description"/&gt;
+        &lt;xsl:message select="'  - value: ' || $err:value"/&gt;
+      &lt;/xsl:if&gt;
+      &lt;!-- if function call fails, return true --&gt;
+      &lt;xsl:sequence select="true()" /&gt;
+    &lt;/xsl:catch&gt;
+  &lt;/xsl:try&gt;    
+&lt;/xsl:function&gt;</programlisting></figure></section><section xml:id="sec-implementation"><title>Implementation</title><para>We implemented the work presented in this paper into our XML schema modeling tool
+        <xref linkend="exolutio"/>, the workflow is depicted in <xref linkend="fig-pipeline"/>. The
+      tool incorporates a UML and OCL editor for both PIM and PSM schemas and implements algorithm
+      for suggesting/translation of relevant constraints from PIM to PSM (steps 1-3, not covered in
+      this paper) and translation from OCL (4) to Schematron schemas. The user may choose between
+      schema-aware and non-schema-aware (which add data conversion for extracting typed values from
+      the XML document) schema and between implementation of iterator expressions using dynamic
+      evaluation or higher-order functions. The generated schema can be then used to validate an XML
+      document. XProc pipeline is then used to perform the validation. It first executes the
+      transformation steps from standard Schematron pipeline (5.), adds includes for OclX library
+      (6.) and then validates the document (7.) with the resulting XSLT. The pipeline expects the
+      schema (5.) and validated document (8.) on its input ports and writes validation result - a
+      SVRL document - to its output port (9). </para><figure xml:id="fig-pipeline"><title>Schematron and OclX pipeline</title><mediaobject><imageobject><imagedata fileref="../../../vol8/graphics/Maly01/Maly01-005.png" width="600" format="png"/></imageobject></mediaobject></figure><para>The tool itself (incl. examples), OclX library and the XProc pipeline are all available
+      for free download on the tools website. Finally, <xref linkend="fig-schematron"/> depicts the
+      translation of integrity constraints from the examples in <xref linkend="fig-psm-ocl"/>
+      (schema-aware, iterators via higher-order functions). The error messages defined in OCL
+      translated into schematron error messages and their subexpressions into <code>value-of</code>
+      instructions (see translation of PSM1). </para><figure xml:id="fig-schematron"><title>Generated Schematron schemas</title><programlisting xml:space="preserve">&lt;!-- Match schedule schema --&gt;
+&lt;sch:schema xmlns:sch="http://purl.oclc.org/dsdl/schematron"&gt;
+ &lt;sch:pattern&gt;
+  &lt;sch:rule context="/tournament"&gt;
+    &lt;!-- PSM1 --&gt;   
+   &lt;sch:assert test="start le end"&gt;
+     Dates inconsistent, &lt;sch:value-of select="$self/start" /&gt; 
+     is greater than &lt;sch:value-of select="$self/end" /&gt; 
+     in &lt;sch:value-of select="$self/name" /&gt;
+   &lt;/sch:assert&gt;
+   &lt;!-- PSM2 --&gt;   
+   &lt;sch:assert test="oclX:forAll(oclX:collect($self/matches/day, function($d) { $d/match }), 
+     function($m) { $m/start ge $self/start and $m/end le $self/end })"&gt;
+     All matches in a tournament occur within the tournament's time frame
+   &lt;/sch:assert&gt; 
+   &lt;!-- PSM4 --&gt;
+   &lt;sch:assert test="oclX:exists(
+     oclX:collect(matches/day, function($d) { $d/match }), 
+     function($m) { oclDate:trunc($m/start) eq oclDate:trunc($self/start) })"&gt;
+     Each tournament conducts at least one match on the first day of the tournament
+   &lt;/sch:assert&gt;
+  &lt;/sch:rule&gt;
+  &lt;!-- PSM3 --&gt;
+  &lt;sch:rule context="/tournament/matches/day/match"&gt;
+   &lt;sch:assert test="oclX:forAll($self/matchPlayers/player, 
+     function($p) { oclX:exists($p/../../../../../participatingPlayers/player, 
+       function($px) { $px/name eq $p/name }) })"&gt;
+     A match can only involve players who are accepted in the tournament
+   &lt;/sch:assert&gt;
+  &lt;/sch:rule&gt;
+ &lt;/sch:pattern&gt;
+&lt;/sch:schema&gt;
+
+&lt;!-- Tournaments schedule schema --&gt;
+&lt;sch:schema xmlns:sch="http://purl.oclc.org/dsdl/schematron"&gt;
+ &lt;sch:pattern&gt;
+  &lt;!-- PSM5: either open tournament or belongs to some league --&gt;
+  &lt;sch:assert test="qualification/@open eq true() or exists(qualification/@leagueName)"&gt;
+    Tournament must be either open tournament or belong to a league
+  &lt;/sch:assert&gt;
+ &lt;/sch:pattern&gt;
+&lt;/sch:schema&gt;</programlisting></figure></section><section xml:id="sec-sugar"><title>Expression rewriting and syntactic sugar</title><para>In many cases, iterator expressions and functions, can be expressed using a native XPath
+      construct, e.g. <code>forAll</code> can be expressed as <code>every/satisfies</code>, select
+      by application of a filter etc. The current version of the algorithm does not provide any of
+      such rewritings, but in the following work, we plan to examine the possibilities of such
+      rewritings and offer them to the user, where applicable. </para><para>OCL expressions have a useful property that they can be read from left to right thanks
+      to the arrow notation <code>'-&gt;'</code> for collections and dot
+        <code>'.'</code> for calling operations . When translated to XPath, the
+      readability decreases (the object before the arrow/dot corresponds to the first parameter of
+      the function. Also, the notation of higher-order functions in XPath is not so transparent. If
+      desirable, it would be possible to preserve OCL notation even for Schematron schemas (and
+      change it to usual XPath notation in another preprocessing step). </para><para>A valued feature of Schematron is the possibility to specify human-friendly error messages
+      for violated integrity constraints. However, OCL does not provide such functionality in the
+      current version of the standard (2.3.1). Since custom error messages were strongly advocated
+      (e.g. in <xref linkend="malaika09"/>), we extended recognized OCL grammar to allow
+      specification of error messages. </para></section><section xml:id="sec-conclusion"><title>Conclusion</title><para>In this paper, we inquired into the possibility of using OCL for modeling integrity
+      constraints over XML data. We have discussed several ways of how non-trivial OCL expressions
+      can be expressed using XPath with our proposed extension in a form of a XSLT function library
+      OclX. The library itself contains a useful set of functions, which can be used on their own
+      and provide a handy toolset with considerable expressive power. However, the main contribution
+      is the possibility to check OCL integrity constraints in XML data. Our approach allows using
+      the integrity constraints defined in the UML model also for XML, which supports consistency of
+      the system as a whole (the constraints do not have to be rewritten by hand and managed
+      manually after each change). It helps to bridge the gap between the platform-independent
+      conceptual model and its applicability at runtime.</para><para>Since translated OclX constraints are, in structure, very simlar to OCL constraints, they
+      will be easy to comprehend even for a modeller less familiar with XML technologies. </para><para>In the future, we want to thoroughly examine the possibilities of rewriting the
+      expressions in order to use native XPath constructs to express iterator expressions where
+      possible and allow the user to choose from several ways of expressing a certain constraint. As
+      another part the future work, we plan to extend our approach for schema evolution and document
+      adaptation (see <xref linkend="maly11"/>) by utilizing OCL integrity constraints. </para></section><section><title>Acknowledgement</title><para>This work was supported by GAČR grant no. P202/10/0573.</para></section><bibliography><title>Bibliography</title><bibliomixed xml:id="ocl" xreflabel="OCL specification">OCL Specification, version 2.3.1.
+      Object Management Group (OMG). January 2012. <link xlink:href="http://www.omg.org/spec/OCL/2.3.1/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.omg.org/spec/OCL/2.3.1/</link>
+    </bibliomixed><bibliomixed xml:id="dresden" xreflabel="Dresden OCL">Software Technology Group at Technische Universität Dresden. 
+      Dresden OCL - OCL support for your modeling language 
+      <link xlink:href="http://www.dresden-ocl.org/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.dresden-ocl.org/</link>
+    </bibliomixed><bibliomixed xml:id="pagano09" xreflabel="Pagano 2009">Pagano, Dennis, and Anne
+      Brüggemann-Klein. Engineering Document Applications — From UML Models to XML Schemas.
+      In <emphasis role="ital">Proceedings of Balisage: The Markup Conference 2009</emphasis>. Balisage Series on
+      Markup Technologies, vol. 3 (2009).  
+      <link xlink:href="http://www.balisage.net/Proceedings/vol3/html/Bruggemann-Klein01/BalisageVol3-Bruggemann-Klein01.html" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest"> http://www.balisage.net/Proceedings/vol3/html/Bruggemann-Klein01/BalisageVol3-Bruggemann-Klein01.html</link> doi:<biblioid class="doi">10.4242/BalisageVol3.Bruggemann-Klein01</biblioid>.
+    </bibliomixed><bibliomixed xml:id="bauman09" xreflabel="Bauman 2009">Bauman, Bruce Todd. “Prying Apart
+      Semantics and Implementation: Generating XML Schemata directly from ontologically sound
+      conceptual models.” 
+      In <emphasis role="ital">In Proceedings of Balisage: The Markup Conference
+        2009</emphasis>. Balisage Series on Markup Technologies, vol. 3 (2009).
+      <link xlink:href="http://www.balisage.net/Proceedings/vol3/html/Bauman01/BalisageVol3-Bauman01.html" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.balisage.net/Proceedings/vol3/html/Bauman01/BalisageVol3-Bauman01.html</link>. doi:<biblioid class="doi">10.4242/BalisageVol3.Bauman01</biblioid>. 
+    </bibliomixed><bibliomixed xml:id="necasky12a" xreflabel="Nečaský 2012A">Martin Nečaský, Jakub Klímek, Jakub
+      Malý, Irena Mlýnková, Evolution and change management of XML-based systems, <emphasis role="ital">Journal
+        of Systems and Software</emphasis>, vol 85. 2012, ISSN 0164-1212,
+      doi:<biblioid class="doi">10.1016/j.jss.2011.09.038</biblioid>. 
+      <link xlink:href="http://www.sciencedirect.com/science/article/pii/S0164121211002524" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.sciencedirect.com/science/article/pii/S0164121211002524</link>      
+    </bibliomixed><bibliomixed xml:id="necasky12b" xreflabel="Nečaský 2012B">Martin Nečaský, Irena Mlýnková, Jakub Klímek, Jakub
+      Malý, When conceptual model meets grammar: A dual approach to XML data modeling, <emphasis role="ital">Data 
+        &amp; Knowledge Engineering</emphasis>, vol 72. 2012, ISSN 0169-023X,
+      doi:<biblioid class="doi">10.1016/j.datak.2011.09.002</biblioid>. 
+      <link xlink:href="http://www.sciencedirect.com/science/article/pii/S0169023X1100125X" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.sciencedirect.com/science/article/pii/S0169023X1100125X</link>      
+    </bibliomixed><bibliomixed xml:id="Mandel99" xreflabel="Mandel 1999">L. Mandel, M. Cengarle. On the
+      Expressive Power of OCL. In <emphasis role="ital">FM'99 Formal Methods</emphasis>, volume 1708 of LNCS.
+      Springer Berlin / Heidelberg, 1999.
+      <link xlink:href="http://dl.acm.org/citation.cfm?id=730476" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://dl.acm.org/citation.cfm?id=730476</link>
+    </bibliomixed><bibliomixed xml:id="saxon" xreflabel="Saxon">Saxonica. Saxon - the XSLT processor. 
+      <link xlink:href="http://saxonica.com/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://saxonica.com/</link>
+    </bibliomixed><bibliomixed xml:id="exslt" xreflabel="EXSLT">C. Stewart, C. Bayes, J. Fuller, U. Ogbuji, D. Pawson, J. Tennison.
+      EXSLT - community initiative to provide extensions to XSLT.
+      <link xlink:href="http://www.exslt.org/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.exslt.org/</link>
+    </bibliomixed><bibliomixed xml:id="novatchev06" xreflabel="Novatchev 2006">Dimitre Novatchev. Higher-Order Functional Programming with XSLT 2.0 and FXSL. In 
+      <emphasis role="ital">Extreme Markup Languages 2006</emphasis>, Montréal, Québeck. 
+      <link xlink:href="http://conferences.idealliance.org/extreme/html/2006/Novatchev01/EML2006Novatchev01.html" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">
+        http://conferences.idealliance.org/extreme/html/2006/Novatchev01/EML2006Novatchev01.html
+      </link>
+    </bibliomixed><bibliomixed xml:id="snelson11" xreflabel="Snelson 2011">J. Snelson. An implementation of a red/black tree built using XQuery 3.0 
+      higher order functions, and an associative map library built on top of it. 
+      <link xlink:href="https://github.com/jpcs/rbtree.xq" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">https://github.com/jpcs/rbtree.xq</link>
+    </bibliomixed><bibliomixed xml:id="maly11" xreflabel="Maly 2011">J. Malý, I. Mlýnková, M. Nečaský. XML Data Transformations as Schema Evolves. 
+      <emphasis role="ital">Proceedings of ADBIS 2011: Advances in databases and infromation systems</emphasis>.
+      September 2011. Lecture Notes in Computer Science. Springer. 
+      <link xlink:href="http://dl.acm.org/citation.cfm?id=2041783" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://dl.acm.org/citation.cfm?id=2041783</link>
+    </bibliomixed><bibliomixed xml:id="exolutio" xreflabel="eXolutio">eXolutio - a Tool for Conceptual Modeling of XML.
+      <link xlink:href="http://exolutio.com/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://eXolutio.com</link>
+    </bibliomixed><bibliomixed xml:id="malaika09" xreflabel="Malaika 2009">S. Malaika, Ch. Pichler. Enforce basic document structure with XML
+      constraint checking. IBM. 
+      <link xlink:href="http://www.ibm.com/developerworks/library/x-consthealth/index.html" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.ibm.com/developerworks/library/x-consthealth/index.html</link>
+    </bibliomixed><bibliomixed xml:id="Codd72" xreflabel="Codd 1972">E. F. Codd. Relational Completeness of Data Base Sublanguages. In: <emphasis role="ital">Database Systems</emphasis>, Prentice Hall and IBM Research Report RJ 987, San
+      Jose, California, 1972. </bibliomixed></bibliography></article>

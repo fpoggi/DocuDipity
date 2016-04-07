@@ -1,0 +1,476 @@
+<?xml version="1.0" encoding="UTF-8"?><article xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink" version="5.0-subset Balisage-1.3"><title>An extensible API for documents with multiple annotation layers</title><info><confgroup><conftitle>Balisage: The Markup Conference 2013</conftitle><confdates>August 6 - 9, 2013</confdates></confgroup><abstract><para>Both XML namespaces and standoff annotation are promising approaches to tackle possibly
+        overlapping multiple annotation layers in XML instances. The creation and processing of
+        standoff instances can be cumbersome – especially when the underlying textual primary data
+        is allowed to be modified after the annotation has been added. In this paper we present a
+        powerful API that is capable of dealing with these tasks by providing an extension mechanism
+        that allows for the easy creation of modules corresponding to a certain namespace (and
+        therefore markup language). We use XStandoff as a working example since it is a standoff
+        format that highly depends on XML namespaces for different annotation layers.</para></abstract><author><personname><firstname>Nils</firstname><surname>Diewald</surname></personname><personblurb><para>Nils Diewald received a B.A. in German philology and Text Technology and an M.A. in
+          Linguistics (with a focus on Computational Linguistics) from Bielefeld University.
+          Currently he is employed as a research assistant in the KorAP project at the IDS Mannheim
+	  (Institute for the German Language) and is a Ph.D. candidate in Computer Science.
+	  His Doctorate Studies focus on communication in social networks,
+	  originating from his work as a research assistant in the
+          Linguistic Networks project of the BMBF (Federal Ministry of Education and Research).
+          Before that, he was a research and graduate assistant in the Sekimo project, part of the
+          DFG Research Group on Text-Technological Modelling of Information.</para></personblurb><affiliation><orgname>Universität Bielefeld</orgname></affiliation><affiliation><orgname>Institut für Deutsche Sprache (IDS) Mannheim</orgname></affiliation><email>nils.diewald@uni-bielefeld.de</email></author><author><personname><firstname>Maik</firstname><surname>Stührenberg</surname></personname><personblurb><para>Maik Stührenberg received his Ph.D. in Computational Linguistics and Text Technology
+          from Bielefeld University in 2012. After graduating in 2001 he worked in different
+          text-technological projects at Gießen University, Bielefeld University and the Institut
+          für Deutsche Sprache (IDS, Institute for the German Language) in Mannheim. He is currently
+          employed as research assistant at Bielefeld University.</para><para>His main research interests include specifications for structuring multiple annotated
+          data, schema languages, and query processing.</para></personblurb><affiliation><orgname>Universität Bielefeld</orgname></affiliation><email>maik.stuehrenberg@uni-bielefeld.de</email></author><legalnotice><para>Copyright © 2013 by the authors. Used with permission.</para></legalnotice></info><section xml:id="sec_intro"><title>Multiple annotated documents</title><para>Markup languages are often defined for structuring the information of a specific text
+      type, such as web pages (HTML), technical articles or books (DocBook), or a set of information
+      items, such as vector graphics (SVG) or protocol information (SOAP). Therefore, their
+      structure is (in limits) determined by a document grammar that allows for specific elements
+      and attributes. In addition, the different XML-based document grammar formalisms allow to a
+      certain degree the combination of elements (and attributes) from different markup languages –
+      usually by means of XML namespaces (<xref linkend="Bray2009"/>). In practice, one host
+      language can include islands of foreign markup (guest languages). There are different examples
+      for the combination of host and guest markup languages (apart from the already mentioned
+      SOAP). A certain XHTML driver (<xref linkend="Ishikawa2002"/>) allows for the combination of
+      XHTML (as a host language), MathML and SVG (as guest languages), and the Atom Syndication
+      Format (<xref linkend="Nottingham2005"/>) can be used in conjunction with a wide range of
+      extensions (e.g. for Threading, see <xref linkend="Snell2006"/>, or Activity Streams, see
+        <xref linkend="Atkins2011"/>) while it is also meant to be embedded in parts in the RSS
+      format (<xref linkend="Winer2009"/>).</para><para>Although XML namespaces support the combination of elements derived from different
+      markup languages, they do not change XML's formal model that prohibits overlapping markup.
+      However, standoff markup (instead of inline annotation) may be used to circumvent this
+      problem. The meta markup language XStandoff (<xref linkend="Stuehrenberg2009"/>) embeds
+      (slightly transformed) islands of guest languages (with respective XML namespaces) in
+      combination with a standardized standoff approach as key feature for the storage of multiple
+      (and possibly overlapping) hierarchies.</para><para>Typical problems when dealing with multiple and/or standoff annotations are related to the
+      production and processing of instances. Although usually each markup language involved is
+      defined by a document grammar on its own, it can often be cumbersome to validate an instance
+      combining elements from a large variety of document grammars (although XStandoff is capable of
+      validating these instances, adapted XML schema files have to be present for each guest
+      language). This behaviour can be controlled by means of the document grammar formalism. For
+      example, XML Schema allows different values of its <code>processContents</code> attribute
+      which may occur on the <code>any</code> element. The value <code>lax</code> provided in <xref linkend="lst.xsf.lax"/> (taken from XStandoff's <code>layer</code> element) <citation linkend="Fallside2004"><quote>instructs an XML processor to validate the element content on
+          a can-do basis: It will validate elements and attributes for which it can obtain schema
+          information, but it will not signal errors for those it cannot obtain any schema
+          information</quote>, Section 5.5, Any Element, Any Attribute</citation>.</para><figure xml:id="lst.xsf.lax"><title>Controlling validation of foreign namespace elements</title><programlisting xml:space="preserve">&lt;xs:element name="layer"&gt;
+  &lt;xs:complexType&gt;
+    &lt;xs:sequence&gt;
+      &lt;!-- [...] --&gt;
+      &lt;xs:any namespace="##other" minOccurs="0" maxOccurs="unbounded" processContents="lax"/&gt;
+    &lt;/xs:sequence&gt;
+  &lt;/xs:complexType&gt;
+&lt;/xs:element&gt;</programlisting></figure><para>In addition, the <code>namespace</code> attribute may be used to control the allowed
+      namespaces. While XSD 1.0 allows the values <code>##any</code>, <code>##other</code> or a list
+      of namespaces only (including the preserved values <code>##targetNamespace</code> and
+        <code>##local</code>, see <xref linkend="Thompson2004"/>), RELAX NG supports the exclusion
+      of namespaces (by using the <code>except</code> pattern in combination with
+        <code>nsName</code>). XSD 1.1 (<xref linkend="Gao2012"/>) introduced the
+        <code>notNamespace</code> and <code>notQName</code> attributes.</para><para>The production of multiple annotated documents is typically the result of the combination
+      of formerly stand-alone documents (or their parts), such as the inclusion of externally
+      created SVG graphics in an XHTML host document, or the outcome of a mostly automated process
+      (see <xref linkend="Stuehrenberg2009"/> for a discussion on the production of XStandoff
+      instances). What is still lacking is an API (Application Programming Interface)
+      that is flexible enough to support the production
+      and processing of multiple annotated instances, even if annotations are referring to the same
+      primary data by means of standoff annotation. We will demonstrate such an API in the reminder
+      of this article.</para></section><section xml:id="sec_loy"><title>Creating an extensible API</title><para><emphasis>XML::Loy</emphasis> (<xref linkend="Diewald2011"/>) is a Perl library, that
+      provides a simple programming interface for the creation of XML documents with multiple
+      namespaces. It is based on <emphasis>Mojo::DOM</emphasis>, an HTML/XML DOM parser that is part
+      of the <emphasis>Mojolicious</emphasis> framework (<xref linkend="Riedel2008"/>).
+        <emphasis>Mojo::DOM</emphasis> povides CSS selector based methods for DOM traversal (<xref linkend="vanKesteren2013"/>), similar to Javascript's <code>querySelector()</code> and
+        <code>querySelectorAll()</code> methods.</para><para>The basic methods for the manipulation of the XML Document Object Model provided by
+        <emphasis>XML::Loy</emphasis> are <code>add()</code> and <code>set()</code>. By applying
+      these methods new nodes can be introduced as children to every node in the document. While
+        <code>add()</code> always appends additional nodes to the document, <code>set()</code> only
+      appends nodes in case no child of the given type exists. Both methods are invoked by a chosen
+      node in the document tree (acting as the parent node of the newly introduced node). They
+      accept the element name as a string parameter, followed by an optional hash reference
+      containing attributes and a string containing optional textual content of the element. A final
+      string can be used to put a comment in front of the element.</para><figure xml:id="lst.loy"><title>Using <emphasis>XML::Loy</emphasis> to create a document</title><programlisting xml:space="preserve">use XML::Loy;
+
+my $doc = XML::Loy-&gt;new('document');
+$doc-&gt;set(title =&gt; 'My Title');
+$doc-&gt;set(title =&gt; 'My New Title');
+$doc-&gt;add(paragraph =&gt; { id =&gt; 'p-1' } =&gt; 'First Paragraph');
+$doc-&gt;add(paragraph =&gt; { id =&gt; 'p-2' } =&gt; 'Second Paragraph');
+
+print $doc-&gt;to_pretty_xml;</programlisting></figure><para>In the example presented in <xref linkend="lst.loy"/> a new <emphasis>XML::Loy</emphasis>
+      document instance is created with a root element <code>document</code>. Applying the
+        <code>set()</code> method, a new <code>title</code> element is introduced as a child of the
+      root element. The second call of <code>set()</code> overwrites the content of the
+        <code>title</code> element. By using the <code>add()</code> method we insert multiple
+        <code>paragraph</code> elements without overwriting existing ones. These elements are
+      defined with both an <code>id</code> attribute and textual content.
+      By applying the <code>to_pretty_xml()</code> method, the result can be printed as XML.</para><programlisting xml:space="preserve">&lt;?xml version="1.0" encoding="UTF-8" standalone="yes"?&gt;
+&lt;document&gt;
+  &lt;title&gt;My New Title&lt;/title&gt;
+  &lt;paragraph id="p-1"&gt;First Paragraph&lt;/paragraph&gt;
+  &lt;paragraph id="p-2"&gt;Second Paragraph&lt;/paragraph&gt;
+&lt;/document&gt;</programlisting><para>The strength of this simple approach for document manipulation is the ability to pass
+      these methods to new extension modules that can represent APIs for specific XML namespaces, as
+      both host and guest languages. The example given in <xref linkend="lst.xml.loy.morpheme"/> is
+      meant to illustrate these capabilities by creating a simple <emphasis>XML::Loy</emphasis> extension
+      for morpheme annotations.</para><figure xml:id="lst.xml.loy.morpheme"><title>Creating <emphasis>XML::Loy</emphasis> extensions</title><programlisting xml:space="preserve">package XML::Loy::Example::Morphemes;
+use XML::Loy with =&gt; (
+  namespace =&gt; 'http://www.xstandoff.net/morphemes',
+  prefix =&gt; 'morph'
+);
+
+# Add morphemes root
+sub morphemes {
+  my $self = shift;
+  return $self-&gt;add(morphemes =&gt; @_);
+};
+
+# Add morphemes
+sub morpheme {
+  my $self = shift;
+  return unless $self-&gt;type =~ /^(?:morph:)?morphemes$/;
+  return $self-&gt;add(morpheme =&gt; @_);
+};</programlisting></figure><para>The class inherits all XML creation methods from <emphasis>XML::Loy</emphasis> and thus
+      all XML traversal methods from <emphasis>Mojo::DOM</emphasis>. When defining the base class,
+      an optional namespace <code>http://www.xstandoff.net/morphemes</code> is bound to the
+        <code>morph</code> prefix, which means, all invocations of <code>set()</code> and
+        <code>add()</code> from this class will be bound to the <code>morph</code> namespace. The
+      newly created <code>morphemes()</code> method appends a <code>morphemes</code> element bound
+      to the given namespace as a child of the invoking node.</para><para>To implement simple grammar rules to the API the methods can check the invoking context, for
+      example by constraining the introduction of <code>morpheme</code> elements to
+        <code>morphemes</code> parent nodes only (see the regular expression check
+        <code>/^(?:morph:)?morphemes$/</code>).</para><para>This newly created API for the <code>http://www.xstandoff.net/morphemes</code> namespace
+      can now be used to create new document instances (see <xref linkend="lst.xml.loy.example"/>
+      and the output shown in <xref linkend="lst.xml.loy.example.instance"/>).</para><figure xml:id="lst.xml.loy.example"><title>Creating a document by using <emphasis>XML::Loy::Example::Morphemes</emphasis></title><programlisting xml:space="preserve">use XML::Loy::Example::Morphemes;
+
+my $doc = XML::Loy::Example::Morphemes-&gt;new('document');
+
+my $m = $doc-&gt;morphemes;
+
+$m-&gt;morpheme('The');
+$m-&gt;morpheme('sun');
+$m-&gt;morpheme('shine');
+$m-&gt;morpheme('s');
+$m-&gt;morpheme('bright');
+$m-&gt;morpheme('er');
+
+print $doc-&gt;to_pretty_xml;</programlisting></figure><figure xml:id="lst.xml.loy.example.instance"><title>The output instance created with
+        <emphasis>XML::Loy::Example::Morphemes</emphasis></title><programlisting xml:space="preserve">&lt;?xml version="1.0" encoding="UTF-8" standalone="yes"?&gt;
+&lt;document xmlns="http://www.xstandoff.net/morphemes"&gt;
+  &lt;morphemes&gt;
+    &lt;morpheme&gt;The&lt;/morpheme&gt;
+    &lt;morpheme&gt;sun&lt;/morpheme&gt;
+    &lt;morpheme&gt;shine&lt;/morpheme&gt;
+    &lt;morpheme&gt;s&lt;/morpheme&gt;
+    &lt;morpheme&gt;bright&lt;/morpheme&gt;
+    &lt;morpheme&gt;er&lt;/morpheme&gt;
+  &lt;/morphemes&gt;
+&lt;/document&gt;</programlisting></figure><para>By using the generic methods <code>add()</code> and <code>set()</code> provided by
+        <emphasis>XML::Loy</emphasis>, the class can easily be used for extending an existing
+        <emphasis>XML::Loy</emphasis> based class (i.e. as a guest language inside another host
+      language). In the example shown in <xref linkend="lst.xml.loy.ext2"/> a simplified HTML
+      instance is read and instantiated. Elements from the
+        <code>http://www.xstandoff.net/morphemes</code> namespace are appended using the API
+      described above (the output is shown in <xref linkend="lst.xml.loy.ext2.in"/>).</para><figure xml:id="lst.xml.loy.ext2"><title>Using extensions with <emphasis>XML::Loy</emphasis></title><programlisting xml:space="preserve">use XML::Loy;
+
+my $doc = XML::Loy-&gt;new(&lt;&lt;'XML');
+&lt;?xml version="1.0" encoding="UTF-8" standalone="yes"?&gt;
+&lt;html&gt;
+  &lt;head&gt;&lt;title&gt;The sun&lt;/title&gt;&lt;/head&gt;
+  &lt;body /&gt;
+&lt;/html&gt;
+XML
+
+$doc-&gt;extension(-Example::Morphemes);
+my $p = $doc-&gt;at('body')-&gt;add('p' =&gt; 'The sun shines');
+my $m = $p-&gt;morphemes;
+$m-&gt;morpheme('bright');
+$m-&gt;morpheme('er');
+
+print $doc-&gt;to_pretty_xml;</programlisting></figure><figure xml:id="lst.xml.loy.ext2.in"><title>The output instance created with <emphasis>XML::Loy</emphasis> and the
+        <emphasis>XML::Loy::Example::Morphemes</emphasis> extension</title><programlisting xml:space="preserve">&lt;?xml version="1.0" encoding="UTF-8" standalone="yes"?&gt;
+&lt;html xmlns:morph="http://www.xstandoff.net/morphemes"&gt;
+  &lt;head&gt;
+    &lt;title&gt;The sun&lt;/title&gt;
+  &lt;/head&gt;
+  &lt;body&gt;
+    &lt;p&gt;The sun shines
+      &lt;morph:morphemes&gt;
+        &lt;morph:morpheme&gt;bright&lt;/morph:morpheme&gt;
+        &lt;morph:morpheme&gt;er&lt;/morph:morpheme&gt;
+      &lt;/morph:morphemes&gt;
+    &lt;/p&gt;
+  &lt;/body&gt;
+&lt;/html&gt;</programlisting></figure><para>By extending the <emphasis>XML::Loy</emphasis> base object with the newly created class using
+      the <code>extension()</code><footnote><para>The leading minus symbol is a shortcut for the <code>XML::Loy</code> module namespace,
+          meaning, that the qualified name is
+            <emphasis>XML::Loy::Example::Morphemes</emphasis>. More than one extension can be passed
+          at once.</para></footnote> method, all method calls from the extension class are available for namespace aware
+      traversal and manipulation. In general, using such an extensible API provides at least some
+      functionality usually made available by document grammars (the nesting of elements for
+      example) and adds methods to create and manipulate the respective class of instances.</para></section><section xml:id="sec_xsf"><title>XStandoff as an example application</title><para>XStandoff's predecessor SGF (Sekimo Generic Format) was developed in 2008 (see <xref linkend="Stuehrenberg2008"/>) as a meta format for storing and analyzing multiple annotated
+      instances as part of a linguistic corpus. In 2009 the format was generalized and enhanced.
+      Since then, XStandoff combines standoff notation with the formal model of General
+      Ordered-Descendant Directed Acyclic Graphs (GODDAG, introduced in <xref linkend="Sperberg-McQueen2004"/>; see <xref linkend="Sperberg-McQueen2008a"/> for a more
+      recent discussion). The format as such is capable of representing multiple hierarchies and
+      specifically challenging structures such as overlaps, discontinuous elements and virtual
+      elements. The basic structure of an XStandoff instance consists of the root element
+        <code>corpusData</code> underneath which the child elements <code>meta</code> (optional),
+        <code>resources</code> (optional), <code>primaryData</code> (optional in the proposed
+      release 2.0, see <xref linkend="Stuehrenberg2013"/>), <code>segmentation</code> and
+        <code>annotation</code> are subsumed. <xref linkend="listing_xsf"/> shows an example
+      XStandoff document.<footnote><para>More examples can be found at <link xlink:href="http://www.xstandoff.net/examples" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.xstandoff.net/examples</link>.</para></footnote></para><figure xml:id="listing_xsf"><title>XStandoff instance</title><programlisting xml:space="preserve">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;xsf:corpusData xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+   xsi:schemaLocation="http://www.xstandoff.net/2009/xstandoff/1.1 xsf2_1.1.xsd"
+   xmlns="http://www.xstandoff.net/2009/xstandoff/1.1"
+   xmlns:xsf="http://www.xstandoff.net/2009/xstandoff/1.1" xml:id="c1" xsfVersion="2.0"&gt;
+   &lt;xsf:primaryData start="0" end="24" xml:lang="en" xml:space="preserve" unit="chars"&gt;
+      &lt;textualContent&gt;The sun shines brighter.&lt;/textualContent&gt;
+   &lt;/xsf:primaryData&gt;
+   &lt;xsf:segmentation&gt;
+      &lt;xsf:segment xml:id="seg1" type="char" start="0" end="24"/&gt;
+      &lt;xsf:segment xml:id="seg2" type="char" start="0" end="3"/&gt;
+      &lt;xsf:segment xml:id="seg3" type="char" start="4" end="7"/&gt;
+      &lt;xsf:segment xml:id="seg4" type="char" start="8" end="14"/&gt;
+      &lt;xsf:segment xml:id="seg5" type="char" start="8" end="13"/&gt;
+      &lt;xsf:segment xml:id="seg6" type="char" start="13" end="14"/&gt;
+      &lt;xsf:segment xml:id="seg7" type="char" start="15" end="21"/&gt;
+      &lt;xsf:segment xml:id="seg8" type="char" start="15" end="20"/&gt;
+      &lt;xsf:segment xml:id="seg9" type="char" start="20" end="23"/&gt;
+      &lt;xsf:segment xml:id="seg10" type="char" start="21" end="23"/&gt;
+   &lt;/xsf:segmentation&gt;
+   &lt;xsf:annotation&gt;
+      &lt;xsf:level xml:id="l_morph"&gt;
+         &lt;xsf:layer xmlns:morph="http://www.xstandoff.net/morphemes"
+            xsi:schemaLocation="http://www.xstandoff.net/morphemes morphemes.xsd"&gt;
+            &lt;morph:morphemes xsf:segment="seg1"&gt;
+               &lt;morph:morpheme xsf:segment="seg2"/&gt;
+               &lt;morph:morpheme xsf:segment="seg3"/&gt;
+               &lt;morph:morpheme xsf:segment="seg5"/&gt;
+               &lt;morph:morpheme xsf:segment="seg6"/&gt;
+               &lt;morph:morpheme xsf:segment="seg7"/&gt;
+               &lt;morph:morpheme xsf:segment="seg10"/&gt;
+            &lt;/morph:morphemes&gt;
+         &lt;/xsf:layer&gt;
+      &lt;/xsf:level&gt;
+      &lt;xsf:level xml:id="l_syll"&gt;
+         &lt;xsf:layer xmlns:syll="http://www.xstandoff.net/syllables"
+            xsi:schemaLocation="http://www.xstandoff.net/syllables syllables.xsd"&gt;
+            &lt;syll:syllables xsf:segment="seg1"&gt;
+               &lt;syll:syllable xsf:segment="seg2"/&gt;
+               &lt;syll:syllable xsf:segment="seg3"/&gt;
+               &lt;syll:syllable xsf:segment="seg4"/&gt;
+               &lt;syll:syllable xsf:segment="seg8"/&gt;
+               &lt;syll:syllable xsf:segment="seg9"/&gt;
+            &lt;/syll:syllables&gt;
+         &lt;/xsf:layer&gt;
+      &lt;/xsf:level&gt;
+   &lt;/xsf:annotation&gt;
+&lt;/xsf:corpusData&gt;
+</programlisting></figure><para>In this example, the sentence <quote>The sun shines brighter.</quote> is annotated with
+      two linguistic levels (and respective layers): morphemes and syllables. We cannot combine both
+      annotation layers in an inline annotation, since there is an overlap between the two syllables
+        <quote>brigh</quote> and <quote>ter</quote> and the two morphemes <quote>bright</quote> and
+        <quote>er</quote> (see <xref linkend="fig.overlap"/> for a visualization of the
+      overlap).</para><figure xml:id="fig.overlap"><title>Graphical representation of overlapping hierarchies</title><mediaobject><imageobject><imagedata fileref="../../../vol10/graphics/Diewald01/Diewald01-001.png" format="png" width="600"/></imageobject></mediaobject></figure><para>Each annotation is encapsulated underneath a <code>layer</code> element (which in turn is
+      a child element of a <code>level</code> element, since it is possible to have more than one
+      serialization, that is, layer, for a conceptual level).<footnote><para>Think of different POS taggers for example.</para></footnote> The <code>xsf:segment</code> attribute is used to link the annotation with the
+      respective part of the primary data. Similar to other standoff approaches, XStandoff uses
+      character positions for defining segments over textual primary data. Changes of the input text
+      result in an out-of-sync situation between primary data and annotation. Processing XStandoff
+      instances requires dealing with at least <emphasis>n+1</emphasis> XML namespaces: one for
+      XStandoff itself and one for each of the <emphasis>n</emphasis> annotation layers.</para><para>Up to now, these instances are created by transforming inline annotations via a set of
+      XSLT 2.0 stylesheets (see <xref linkend="Stuehrenberg2009"/> for a detailed discussion). We
+      will outline an example API for XStandoff based on <emphasis>XML::Loy</emphasis> that makes it
+      easy to deal with the dynamic creation of multi-layered annotations in the following section<footnote><para>The software presented in this section is freely available under the GPL or the
+          Artistic License at <link xlink:href="http://github.com/Akron/XML-Loy-XStandoff" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://github.com/Akron/XML-Loy-XStandoff</link>.</para></footnote>.</para></section><section><title>Creating and processing XStandoff instances using XML::Loy</title><para>As presented in the previous section, XStandoff associates annotations to primary data by
+      defining segment spans<footnote><para>In the following example we will limit our view on segments defined by character
+          positions. See <xref linkend="Stuehrenberg2013"/> for examples for other segmentation
+          methods supported by XStandoff.</para></footnote> to which the annotations are linked to via XML ID/IDREF integrity features. There
+      are multiple ways to cope with standoff annotation: Compared to the XStandoff-Toolkit
+      discussed in <xref linkend="Stuehrenberg2009"/>, our API will provide an additional
+      way to access and manipulate both annotations and primary data directly.</para><figure xml:id="lst.xml.loy.xsf"><title>Creating XStandoff instances with <emphasis>XML::Loy::XStandoff</emphasis></title><programlisting xml:space="preserve">use XML::Loy::XStandoff;
+
+# Create new corpusData
+my $cd = XML::Loy::XStandoff-&gt;new('corpusData');
+
+# Set textual content embedded
+$cd-&gt;textual_content('The sun shines brighter.');
+
+# Create segmentation
+my $seg = $cd-&gt;segmentation;
+
+# Create segments manually
+my $seg1 = $seg-&gt;segment(0,24);
+my $seg2 = $seg-&gt;segment(0, 3);
+my $seg3 = $seg-&gt;segment(4, 7);
+my $seg4 = $seg-&gt;segment(8, 13);
+my $seg5 = $seg-&gt;segment(13, 14);
+my $seg6 = $seg-&gt;segment(15, 21);
+my $seg7 = $seg-&gt;segment(21, 23);
+
+print $cd-&gt;to_pretty_xml;</programlisting></figure><para>In <xref linkend="lst.xml.loy.xsf"/> a new <code>corpusData</code> element is created.
+    Next, a <code>textualContent</code> element is added
+    (below an automatically introduced <code>primaryData</code> element with a unique <code>xml:id</code>).
+    Seven manually defined
+    <code>segment</code> elements are appended for selecting spans over the textual primary data
+      aligned to the words and the sentence as a whole. <xref linkend="lst.xml.loy.xsf.in"/> shows
+    the output.</para><figure xml:id="lst.xml.loy.xsf.in"><title>The XStandoff instance created with <emphasis>XML::Loy::XStandoff</emphasis></title><programlisting xml:space="preserve">&lt;?xml version="1.0" encoding="UTF-8" standalone="yes"?&gt;
+&lt;corpusData xmlns="http://www.xstandoff.net/2009/xstandoff/1.1"
+            xmlns:xsf="http://www.xstandoff.net/2009/xstandoff/1.1"&gt;
+  &lt;primaryData start="0" end="24" xml:id="pd-2531FE9A-..."&gt;
+    &lt;textualContent&gt;The sun shines brighter.&lt;/textualContent&gt;
+  &lt;/primaryData&gt;
+  &lt;segmentation&gt;
+    &lt;segment start="0" end="24" type="char" xml:id="seg-2532C88E-..." /&gt;
+    &lt;segment start="0" end="3" type="char" xml:id="seg-25330ACE-..." /&gt;
+    &lt;segment start="4" end="7" type="char" xml:id="seg-25334E9E-..." /&gt;
+    &lt;segment start="8" end="13" type="char" xml:id="seg-2533949E-..." /&gt;
+    &lt;segment start="13" end="14" type="char" xml:id="seg-2533DFE4-..." /&gt;
+    &lt;segment start="15" end="21" type="char" xml:id="seg-25343052-..." /&gt;
+    &lt;segment start="21" end="23" type="char" xml:id="seg-25348368-..." /&gt;
+  &lt;/segmentation&gt;
+&lt;/corpusData&gt;</programlisting></figure><para>The document creation is simple, as most elements such as <code>corpusData</code>,
+        <code>textualContent</code> and <code>segment</code> have corresponding API methods for
+      finding, appending, updating and removing elements of the document. Segments are appended by
+      defining their scope.</para><para>The manipulation of the primary data is possible by applying the
+        <code>segment_content()</code> method, that associates primary data with segment spans (see
+        <xref linkend="lst.xml.loy.xsf.sc"/>).</para><figure xml:id="lst.xml.loy.xsf.sc"><title>Using the <emphasis>XML::Loy::XStandoff</emphasis> API</title><programlisting xml:space="preserve"># Get segment content
+say $seg-&gt;segment($seg3)-&gt;segment_content;
+# 'sun'
+
+# Replace segment content
+$seg-&gt;segment($seg3)-&gt;segment_content('moon');
+
+# Interactively replace segment content
+$seg-&gt;segment($seg7)-&gt;segment_content(sub {
+  my $t = shift;
+  # Remove a sequence of 'er' from the string
+  $t =~ s/er//;
+  return $t;
+});
+
+# Show updated textual content
+say $cd-&gt;textual_content;
+# The moon shines bright.
+
+# Segment positions are updated automatically
+for ($seg-&gt;segment($seg6)) {
+  say $_-&gt;attrs('start'); # 16
+  say $_-&gt;attrs('end');   # 22
+};</programlisting></figure><para>The textual content virtually delimited by a segment can be retrieved, replaced and
+    manipulated, while all other segments stay intact and update their according start and end
+    position values by calculating the new offsets in case they change.
+    This addresses one of the key problems
+    with standoff annotation: Usually, if one alters the primary data without updating the
+    corresponding segments, association of annotations and corresponding primary data will break.
+    Due to the dynamic access of primary data information provided by this API,
+    work with standoff annotations can
+    be nearly as flexible as with inline annotations, without the limitations these annotation
+    formats have, for example to represent overlapping (see <xref linkend="fig.overlap"/>).</para><para>The morpheme extension created in <xref linkend="sec_loy"/> can be simply adopted
+    to represent an annotation layer with overlapping segment spans with an annotation of
+    syllables (see <xref linkend="lst.xml.loy.xsf.ext"/>).</para><figure xml:id="lst.xml.loy.xsf.ext"><title>Extending <emphasis>XML::Loy::XStandoff</emphasis></title><programlisting xml:space="preserve">use XML::Loy::XStandoff;
+
+# Create new corpusData
+my $cd = XML::Loy::XStandoff-&gt;new('corpusData');
+
+# Load extensions for Morphemes and Syllables
+$cd-&gt;extension(-Example::Morphemes, -Example::Syllables);
+
+# Set textual content embedded
+$cd-&gt;textual_content('The sun shines brighter.');
+
+# Start segmentation
+my $seg = $cd-&gt;segmentation;
+my $all = $seg-&gt;segment(0, 24);
+
+# Create new annotation layer for morphemes
+my $m = $cd-&gt;layer-&gt;morphemes;
+
+# Create and associate all necessary segments for all morphemes
+$m-&gt;seg($all);
+foreach ([0,3], [4,7], [8,13], [13,14], [15,21], [21,23]) {
+  $m-&gt;morpheme-&gt;seg($seg-&gt;segment($_-&gt;[0], $_-&gt;[1]));
+};
+
+# Create new annotation layer for syllables
+my $s = $cd-&gt;layer-&gt;syllables;
+
+# Create and associate all necessary segments for all syllables
+# independently, so overlaps are supported
+$s-&gt;seg($all);
+foreach ([0,3], [4,7], [8,14], [15,20], [20,23]) {
+  $s-&gt;syllable-&gt;seg($seg-&gt;segment($_-&gt;[0], $_-&gt;[1]));
+};
+
+# Change the primary data of the second morpheme 'sun' to 'moon'
+$cd-&gt;find('morpheme')-&gt;[1]-&gt;segment_content('moon');</programlisting></figure><para>The resulting document is similar to listing <xref linkend="listing_xsf"/> but with a modified
+    primary data of <quote>The moon shines brighter.</quote> and updated segment spans.</para><para>Another problem with some standoff formats is the association with decoupled primary data
+      content. In XStandoff the primary data can be included in the XSF instance (as seen in the
+      previous examples) or stored in a separate file and referenced via the
+        <code>primaryDataRef</code> element (in case of larger textual primary data, multimedia-based or
+      multiple primary data files). If this file is on a local storage, the API will take care
+      of updating the external textual content as well. Trying to modify files that are not
+      modifiable (e.g. accessible online only) will result in a
+      warning.</para><para>Since metadata in XStandoff can be either included inline or referenced in the same way, the handling of
+      metadata in our API can be treated alike, with a slight difference
+      if the metadata itself is a well-formed XML document. The example given in <xref linkend="lst.meta.dc"/> assumes a simple metadata document in RDF with a Dublin Core
+      namespace at the location <code>files/meta.xml</code> in the local file system (shown in <xref linkend="lst.meta.dc.file"/>).</para><figure xml:id="lst.meta.dc.file"><title>RDF metadata instance</title><programlisting xml:space="preserve">&lt;?xml version="1.0"?&gt;
+&lt;rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+         xmlns:dc="http://purl.org/dc/elements/1.1/"&gt;  
+  &lt;rdf:Description&gt;
+    &lt;dc:creator&gt;Nils Diewald&lt;/dc:creator&gt;
+    &lt;dc:creator&gt;Maik Stührenberg&lt;/dc:creator&gt;
+    &lt;dc:title&gt;An extensible API for documents with multiple annotation layers&lt;/dc:title&gt;
+    &lt;dc:language&gt;EN&lt;/dc:language&gt;
+  &lt;/rdf:Description&gt;
+&lt;/rdf:RDF&gt;</programlisting></figure><figure xml:id="lst.meta.dc"><title>Accessing external metadata</title><programlisting xml:space="preserve"># Define the metadata as an external file
+$cd-&gt;meta(uri =&gt; 'files/meta.xml');
+
+# Retrieve the metadata, resulting in a new XML::Loy object
+my $meta = $cd-&gt;meta(as =&gt; [-Loy, -DublinCore]);
+
+# The extension is available in the newly defined object
+print $meta-&gt;at('Description')-&gt;dc('title');
+# 'An extensible API for documents with multiple annotation layers'</programlisting></figure><para>The API enables the reference to the external document and supports the access by defining
+    a new <emphasis>XML::Loy</emphasis> object with an extension for dealing with Dublin Core data.<footnote><para>This extension is not described in this article.</para></footnote> As a result, the Dublin Core annotated <code>title</code> element can be accessed
+    directly, although the data is not embedded in the document.</para></section><section><title>Conclusion and future work</title><para>We have demonstrated the <emphasis>XML::Loy</emphasis> API that can be used as a framework
+      for development of extensible modules for given namespaces (and therefore markup
+      languages). Modules created as extensions can then be used in a simple but yet powerful way to
+      create and process multiple annotated instances, even with standoff markup and referenced
+      documents for primary and metadata information.</para><para>The current implementation of <emphasis>XML::Loy</emphasis> is written in pure Perl, with
+      the focus on demonstrating the flexibility and extensibility of our approach, rather than
+      creating a performance optimized system. Since the whole API (including the extension modules
+      and examples described in this paper) is available under a free license at <link xlink:href="http://github.com/Akron/XML-Loy-XStandoff" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://github.com/Akron/XML-Loy-XStandoff</link> further possible steps could include
+      performance optimizations and the creation of an extension repository for popular standardized
+      markup languages (such as OLAC, DocBook and TEI).</para></section><section><title>Acknowledgements</title><para>We would like to thank the anonymous reviewers of this paper for their helpful comments
+      and ideas.</para></section><bibliography><title>References</title><bibliomixed xml:id="Atkins2011" xreflabel="Atkins et al., 2011">Martin Atkins, Will Norris,
+      Chris Messina, Monica Wilkinson, and Rob Dolin (2011). Atom Activity Streams 1.0. <link xlink:href="http://activitystrea.ms/specs/atom/1.0/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://activitystrea.ms/specs/atom/1.0/</link></bibliomixed><bibliomixed xml:id="Bray2009" xreflabel="Bray et al., 2009">Tim Bray, Dave Hollander, Andrew
+      Layman, Richard Tobin, and Henry S. Thompson (2009). Namespaces in XML 1.0 (Third Edition).
+      W3C Recommendation, World Wide Web Consortium (W3C). <link xlink:href="http://www.w3.org/TR/2009/REC-xml-names-20091208/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/2009/REC-xml-names-20091208/</link></bibliomixed><bibliomixed xml:id="Diewald2011" xreflabel="Diewald, 2011">Nils Diewald (2011). XML::Loy –
+      Extensible XML Reader and Writer. <link xlink:href="http://search.cpan.org/dist/XML-Loy/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://search.cpan.org/dist/XML-Loy/</link></bibliomixed><bibliomixed xml:id="Fallside2004" xreflabel="Fallside and Walsmley, 2004">David C. Fallside
+      and Priscilla Walmsley (2004). XML Schema Part 0: Primer Second Edition. W3C Recommendation,
+      World Wide Web Consortium (W3C). <link xlink:href="http://www.w3.org/TR/2004/REC-xmlschema-0-20041028/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/2004/REC-xmlschema-0-20041028/</link></bibliomixed><bibliomixed xml:id="Gao2012" xreflabel="Gao et al., 2012">Shudi (Sandy) Gao, C. M.
+      Sperberg-McQueen, and Henry S. Thompson (2012). W3C XML Schema Definition Language (XSD) 1.1
+      Part 1: Structures. W3C Recommendation, World Wide Web Consortium (W3C). <link xlink:href="http://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/</link></bibliomixed><bibliomixed xml:id="Goecke2010" xreflabel="Goecke et al., 2010">Daniela Goecke, Harald Lüngen,
+      Dieter Metzing, Maik Stührenberg, and Andreas Witt (2010). <emphasis role="ital">Different
+        views on markup. Distinguishing Levels and Layers</emphasis>. In: Witt, A. and Metzing, D.
+      (eds.), Linguistic Modeling of Information and Markup Languages. Dordrecht:
+      Springer. doi:<biblioid class="doi">10.1007/978-90-481-3331-4_1</biblioid>.</bibliomixed><bibliomixed xml:id="Ishikawa2002" xreflabel="Ishikawa, 2002">Masayasu Ishikawa (2002). An
+      XHTML+MathML+SVG Profile. W3C Working Draft, World Wide Web Consortium (W3C). <link xlink:href="http://www.w3.org/TR/XHTMLplusMathMLplusSVG/xhtml-math-svg.html" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/XHTMLplusMathMLplusSVG/xhtml-math-svg.html</link></bibliomixed><bibliomixed xml:id="vanKesteren2013" xreflabel="van Kesteren and Hunt, 2013">Anne Van Kesteren,
+      and Lachlan Hunt (2013). Selectors API Level 1. W3C Recommendation, World Wide Web Consortium
+      (W3C). <link xlink:href="http://www.w3.org/TR/2013/REC-selectors-api-20130221/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/2013/REC-selectors-api-20130221/</link></bibliomixed><bibliomixed xml:id="Nottingham2005" xreflabel="Nottingham and Sayre, 2005">Mark Nottingham, and
+      Robert Sayre (2005). The Atom Syndication Format. The Internet Society. <link xlink:href="http://tools.ietf.org/html/rfc4287" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://tools.ietf.org/html/rfc4287</link></bibliomixed><bibliomixed xml:id="Riedel2008" xreflabel="Riedel, 2008">Sebastian Riedel (2008). Mojolicious.
+      Real-time web framework. <link xlink:href="http://search.cpan.org/dist/Mojolicious/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://search.cpan.org/dist/Mojolicious/</link></bibliomixed><bibliomixed xml:id="Snell2006" xreflabel="Snell, 2006">James M. Snell (2006). Atom Threading
+      Extensions. The Internet Society. <link xlink:href="http://www.ietf.org/rfc/rfc4685.txt" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.ietf.org/rfc/rfc4685.txt</link></bibliomixed><bibliomixed xml:id="Sperberg-McQueen2004" xreflabel="Sperberg-McQueen and Huitfeldt, 2004">C.
+      M. Sperberg-McQueen and Claus Huitfeldt (2004). <emphasis role="ital">GODDAG: A Data
+        Structure for Overlapping Hierarchies</emphasis>. In: King, P. and Munson, E. V. (eds.),
+      Proceedings of the 5th International Workshop on the Principles of Digital Document Processing
+      (PODDP 2000), volume 2023 of Lecture Notes in Computer Science, Springer</bibliomixed><bibliomixed xml:id="Sperberg-McQueen2008a" xreflabel="Sperberg-McQueen and Huitfeldt, 2008">C.
+      M. Sperberg-McQueen and Claus Huitfeldt (2008). GODDAG. Presented at the Goddag workshop,
+      Amsterdam, 1-5 December 2008</bibliomixed><bibliomixed xml:id="Stuehrenberg2008" xreflabel="Stührenberg and Goecke, 2008">Maik
+      Stührenberg and Daniela Goecke (2008). SGF – An integrated model for multiple
+      annotations and its application in a linguistic domain. Presented at Balisage: The Markup
+      Conference 2008, Montréal, Canada, August 12 - 15, 2008. In: Proceedings of Balisage: The
+      Markup Conference 2008. Balisage Series on Markup Technologies, vol. 1. doi:<biblioid class="doi">10.4242/BalisageVol1.Stuehrenberg01</biblioid></bibliomixed><bibliomixed xml:id="Stuehrenberg2009" xreflabel="Stührenberg and Jettka, 2009">Maik
+      Stührenberg and Daniel Jettka (2009). A toolkit for multi-dimensional markup: The development
+      of SGF to XStandoff. In Proceedings of Balisage: The Markup Conference 2009. Balisage Series
+      on Markup Technologies, vol. 3. doi:<biblioid class="doi">10.4242/BalisageVol3.Stuhrenberg01</biblioid>.</bibliomixed><bibliomixed xml:id="Stuehrenberg2013" xreflabel="Stührenberg, 2013">Maik Stührenberg. A What,
+      when, where? Spatial and temporal annotations with XStandoff. In Proceedings of Balisage: The
+      Markup Conference 2013. doi:<biblioid class="doi">10.4242/BalisageVol10.Stuhrenberg01</biblioid>.</bibliomixed><bibliomixed xml:id="Thompson2004" xreflabel="Thompson et al., 2004">Henry S. Thompson, David
+      Beech, Murray Maloney, and Noah Mendelsohn (2004). XML Schema Part 1: Structures Second
+      Edition. W3C Recommendation, World Wide Web Consortium (W3C). <link xlink:href="http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/</link></bibliomixed><bibliomixed xml:id="Winer2009" xreflabel="Winer, 2009">Dave Winer (2009). RSS 2.0
+        Specification. <link xlink:href="http://www.rssboard.org/rss-specification" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.rssboard.org/rss-specification</link></bibliomixed></bibliography></article>

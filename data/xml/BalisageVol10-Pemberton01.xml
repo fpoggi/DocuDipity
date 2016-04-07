@@ -1,0 +1,540 @@
+<?xml version="1.0" encoding="UTF-8"?><article xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink" version="5.0-subset Balisage-1.3"><title>Invisible XML</title><info><confgroup><conftitle>Balisage: The Markup Conference 2013</conftitle><confdates>August 6 - 9, 2013</confdates></confgroup><abstract><para>What if you could see everything as XML? XML has many
+strengths for data exchange, strengths both inherent in the nature
+of XML markup and strengths that derive from the ubiquity of tools
+that can process XML. For authoring, however, other forms are
+preferred: no one writes CSS or Javascript in XML. It does not
+follow, however, that there is no value in representing such
+information in XML. <emphasis>Invisible XML</emphasis> is a method
+for treating non-XML documents as if they were XML, enabling
+authors to write in a format they prefer while providing XML for
+processes that are more effective with XML content. There is really
+no reason why XML cannot be more ubiquitous than it is.</para></abstract><author><personname><firstname>Steven</firstname><surname>Pemberton</surname></personname><personblurb><para/></personblurb><affiliation><jobtitle>Researcher</jobtitle><orgname>CWI, Amsterdam</orgname></affiliation><email>steven.pemberton@cwi.nl</email></author><legalnotice><para>Copyright © Steven Pemberton 2013, all rights reserved.</para></legalnotice></info><section xml:id="XML_and_Authorin"><title>XML and
+Authoring</title><para>XML is a popular format. It is widely and successfully used
+for document and data storage, exchange and presentation. A major
+advantage of using XML is the toolchain and pipeline available for
+generic XML processing. You can easily use new formats within the
+generic framework.</para><para>However, for authoring purposes XML is seldom preferred over
+a notation more directly suited to the purpose. Few would prefer to
+write their CSS rules as</para><programlisting xml:space="preserve">
+&lt;rule&gt;&lt;simple-selector name="body"/&gt;&lt;block&gt;&lt;property name="color" value="blue"/&gt;&lt;/block&gt;&lt;/rule&gt;
+</programlisting><para>to the more direct</para><programlisting xml:space="preserve">
+body {color: blue}
+</programlisting><para>and even less would prefer to write</para><programlisting xml:space="preserve">
+&lt;statement&gt;&lt;if&gt;&lt;condition&gt;&lt;comparison name="&amp;lt;"&gt;&lt;var name="max"&gt;&lt;var name="a"&gt;&lt;/comparison&gt;&lt;/condition&gt;&lt;then&gt;&lt;statement&gt;&lt;assign&gt;&lt;var name="max"/&gt;&lt;expression&gt;&lt;var name="a"/&gt;&lt;/expression&gt;&lt;/assign&gt;&lt;/statement&gt;&lt;/then&gt;&lt;/if&gt;&lt;/statement&gt;
+</programlisting><para>to the much more direct</para><programlisting xml:space="preserve">
+if (max&lt;a) then max=a;
+</programlisting><para>And, of course it should be noted that even RELAX NG has both
+an XML syntax and a 'compact' syntax <xref linkend="RelaxNG"/> <xref linkend="RelaxNGCOMPACT"/>.</para><para>In fact if we are to be brutally honest, even XML formats
+take short cuts for authoring ease. Take for instance an
+<code>&lt;a&gt;</code> element in XHTML:</para><programlisting xml:space="preserve">
+&lt;a href="http://www.w3.org/TR/1999/xhtml"&gt;XHTML&lt;/a&gt;
+</programlisting><para>This does not surface the <emphasis>real</emphasis> structure
+of the underlying data. If we were to be completely faithful to the
+principle of making all relevant structure explicit, we should
+really write something along the lines of</para><programlisting xml:space="preserve">
+&lt;a&gt;&lt;href&gt;&lt;method type="href"/&gt;&lt;domain name="org"/&gt;&lt;site name="w3"/&gt;&lt;sub name="www"/&gt;&lt;path&gt;&lt;root&gt;&lt;sub name="TR"&gt;&lt;sub name="1999"&gt;&lt;sub name="xhtml"&lt;/sub&gt;&lt;/sub&gt;&lt;/sub&gt;&lt;/root&gt;&lt;/path&gt;&lt;/href&gt;&lt;text&gt;XHTML&lt;/text&gt;&lt;/a&gt;
+</programlisting><para>You might argue about the details here, but this example is
+only to show that there are parts of XML documents that could be
+further structured, but that we choose not to, possibly for
+authoring ease, possibly for fear of being laughed out of
+town.</para><para>The reasons for this are obvious: despite the disadvantages
+of not being able to use the generic toolchain any more, or only to
+a lesser degree, the increased readability of the source, and its
+closer relation to the problem domain makes authoring so much
+easier.</para></section><section xml:id="Parsing_and_Parse_tree"><title>Parsing and Parse
+trees</title><para>Part of the advantage of XML is that there is a single parser
+needed to be able to deal with any kind of document. This can be
+contrasted with for instance the situation for HTML, where you need
+a parser for the HTML, with separate parsers for CSS and Javascript
+at least, (and URLs), creating extra complexity and
+brittleness.</para><para>But looked at through a suitable pair of glasses, what is XML
+apart from a description of a parse tree for some format (with some
+special treatment for text nodes)? And frankly, what is so
+difficult about general-purpose parsing? It is a widely understood
+and easily solved problem. Is it not possible to combine the best
+of both worlds, and have authorable formats, that can still use the
+XML tool chain? Couldn't XML become the underlying format for
+<emphasis>everything?</emphasis></para></section><section xml:id="The_Approac"><title>The Approach</title><para>The approach presented here is to add one more step to the
+XML processing chain, an initial one. This step takes any textual
+document, and a (reference to) a suitable syntax description,
+parses the document using the syntax description, and produces as
+output a parse tree that can be treated as an XML document with no
+further parsing necessary (or alternatively, the document can be
+serialised out to XML).</para><para>In other words, the input document might be</para><programlisting xml:space="preserve">
+body {color: blue}
+</programlisting><para>but the result of the parse will be the same as if an XML
+parser had been presented with the XML document</para><programlisting xml:space="preserve">
+&lt;css&gt;
+   &lt;rule&gt;&lt;simple-selector name="body"/&gt;
+      &lt;block&gt;&lt;property name="color" value="blue"/&gt;&lt;/block&gt;
+   &lt;/rule&gt;
+&lt;/css&gt;
+</programlisting><para>We call this method <emphasis>Invisible XML</emphasis>, since
+the document is treated as XML, but it is not visibly an XML
+document.</para></section><section xml:id="Syntax_Descriptio"><title>Syntax
+Description</title><para>The requirement is to find a suitable way to describe the
+syntax of the input document so that the resultant parse-tree is of
+the form suitable for use in our XML chain. If we were to use BNF
+<xref linkend="BNF"/>, arguably the most well-known syntax-description format, it
+might look like this (in what follows "..." is used for parts of
+the definition that have been elided and will be defined
+later):</para><programlisting xml:space="preserve">
+&lt;css&gt; ::= &lt;rules&gt;
+&lt;rules&gt; ::= &lt;rule&gt; | &lt;rules&gt; &lt;rule&gt;
+&lt;rule&gt; ::= &lt;selector&gt; &lt;block&gt;
+&lt;block&gt; ::= "{" &lt;properties&gt; "}"
+&lt;properties&gt; ::= &lt;property&gt; | &lt;property&gt; ";" &lt;properties&gt;
+&lt;property&gt; ::= &lt;name&gt; ":" &lt;value&gt; | &lt;empty&gt;
+&lt;selector&gt; ::= &lt;name&gt;
+</programlisting><para>etc, etc. But it is quickly apparent that this has some
+shortcomings. Firstly a surface problem that since we are using
+this for XML, we could quickly go crazy with the use of angle
+brackets for two different purposes. Although there is a certain
+charm to defining the <code>&lt;css&gt;</code> element with a
+syntax rule whose name is <code>&lt;css&gt;</code>, let us
+rather use a different format. Therefore we shall use a variant of
+VWG format  <xref linkend="VWG"/>. This looks like:</para><programlisting xml:space="preserve">
+css: rules.
+rules: rule; rules, rule.
+rule: selector, block.
+block: "{", properties, "}".
+properties:  property; property, ";", properties.
+property:  name, ":", value; empty.
+selector: name.
+name: ...
+value: ...
+empty: .
+</programlisting><para>(We shall restrict ourselves to a simplified CSS grammar for
+the sake of this article).</para><para>Note that ";" signifies alternatives, and as is normal in
+syntax definitions, if one alternative is empty (or reduces to
+empty), the rule is optional.</para><para>If we parse the snippet of CSS above with this, and then
+represent the resulting parse tree in an XML style (so that each
+nonterminal is represented as an XML element), a second problem
+becomes apparent:</para><programlisting xml:space="preserve">
+&lt;css&gt;
+   &lt;rules&gt;
+      &lt;rule&gt;
+         &lt;selector&gt;body&lt;/selector&gt;
+         &lt;block&gt;
+            &lt;properties&gt;
+               &lt;property&gt;
+                  &lt;name&gt;color&lt;/name&gt;
+                  &lt;value&gt;blue&lt;/value&gt;
+               &lt;/property&gt;
+            &lt;/properties&gt;
+         &lt;/block&gt;
+      &lt;/rule&gt;
+   &lt;/rules&gt;
+&lt;/css&gt;
+</programlisting><para>namely that there are certain elements in the tree
+(<code>rules</code>, <code>properties</code>) that we
+really aren't interested in. (You'll notice that some terminal
+symbols such as the brackets, colons and semicolons don't appear in
+the parse tree. This will be discussed later).</para><para>The problem becomes even more apparent with a CSS snippet
+like</para><programlisting xml:space="preserve">
+body {color: blue; font-weight: bold}
+</programlisting><para>since the content of the <code>&lt;block&gt;</code>
+element then becomes even more unwieldly:</para><programlisting xml:space="preserve">
+&lt;properties&gt;
+   &lt;property&gt;
+      &lt;name&gt;color&lt;/name&gt;
+      &lt;value&gt;blue&lt;/value&gt;
+   &lt;/property&gt;
+   &lt;properties&gt;
+      &lt;property&gt;
+         &lt;name&gt;font-weight&lt;/name&gt;
+         &lt;value&gt;bold&lt;/value&gt;
+      &lt;/property&gt;
+   &lt;/properties&gt;
+&lt;/properties&gt;
+</programlisting><para>where we would prefer to see the much more direct</para><programlisting xml:space="preserve">
+&lt;property&gt;
+   &lt;name&gt;color&lt;/name&gt;
+   &lt;value&gt;blue&lt;/value&gt;
+&lt;/property&gt;
+&lt;property&gt;
+   &lt;name&gt;font-weight&lt;/name&gt;
+   &lt;value&gt;bold&lt;/value&gt;
+&lt;/property&gt;
+</programlisting><para>The problem arises in this case because the syntax
+description method relies on recursion to deal with repetition. To
+that end, we shall introduce a specific notation for repetition.
+Zero or more repetitions:</para><programlisting xml:space="preserve">
+(rule)*
+</programlisting><para>and one or more repetitions:</para><programlisting xml:space="preserve">
+(rule)+
+</programlisting><para>In fact we shall extend these two postfix operators to also
+act as infix operators, to handle a commonly occurring case:</para><programlisting xml:space="preserve">
+(property)*";"
+(property)+";"
+</programlisting><para>which respectively mean "zero or more, separated by
+semicolon" and "one or more, separated by semicolon" (there is no
+reason to restrict the separator to a terminal as here; it may also
+be a nonterminal).</para><para>Now we can specify our syntax as:</para><programlisting xml:space="preserve">
+css: (rule)*.
+rule: selector, block.
+block: "{", (property)*";", "}".
+property:  name, ":", value; .
+name: ...
+value: ...
+</programlisting><para>and the parsetree will now look like this:</para><programlisting xml:space="preserve">
+&lt;css&gt;
+   &lt;rule&gt;
+      &lt;selector&gt;body&lt;/selector&gt;
+      &lt;block&gt;
+         &lt;property&gt;
+            &lt;name&gt;color&lt;/name&gt;
+            &lt;value&gt;blue&lt;/value&gt;
+         &lt;/property&gt;
+         &lt;property&gt;
+            &lt;name&gt;font-weight&lt;/name&gt;
+            &lt;value&gt;bold&lt;/value&gt;
+         &lt;/property&gt;
+      &lt;/block&gt;
+   &lt;/rule&gt;
+&lt;/css&gt;
+</programlisting><para>However, there is another reason why we might not want a
+syntax rule name to appear in the parse tree, and that is when we
+use a syntax rule as a <emphasis>refinement</emphasis>, that is to
+say, when the syntax rule doesn't represent anything of semantic
+importance, but has been defined so that we can use it in several
+places without having to repeat it. For instance, suppose we wanted
+to define a series of properties in a separate rule:</para><programlisting xml:space="preserve">
+properties: (property)*";".
+</programlisting><para>and use it:</para><programlisting xml:space="preserve">
+block: "{", properties, "}".
+</programlisting><para>but not want <code>&lt;properties&gt;</code> to appear
+in the final parse tree. What we define is that the use of any rule
+name preceded by a minus sign is only being used for refinement. So
+that would give us:</para><programlisting xml:space="preserve">
+properties: (property)*";".
+block: "{", -properties, "}".
+</programlisting><para>and this would result in the same parse-tree as above. Note
+that this still allows a rule to be used in other places and appear
+in the parse tree if needed.</para><para>Also note that for simplicity we have ignored treating spaces
+in the syntax description, but that is also an example of something
+you would not want to have in the parse tree:</para><programlisting xml:space="preserve">
+colon: -spaces, ":", -spaces.
+spaces: " "*.
+</programlisting><para>Similarly, we can use it to make empty alternatives more
+explicit:</para><programlisting xml:space="preserve">
+property:  name, ":", value; -empty.
+</programlisting><programlisting xml:space="preserve">
+empty: .
+</programlisting></section><section xml:id="Terminal"><title>Terminals</title><para>As alluded to above, in general, terminal symbols do not
+appear in the parse-tree, since most of them are only there to
+delimit structural elements in the source file. If you want them to
+show up, you can add an explicit rule for them:</para><programlisting xml:space="preserve">
+colon: ":".
+</programlisting><para>which will cause them to show up in the tree like
+this:</para><programlisting xml:space="preserve">
+ &lt;property&gt;
+     &lt;name&gt;color&lt;/name&gt;
+     &lt;colon/&gt;
+     &lt;value&gt;blue&lt;/value&gt;
+ &lt;/property&gt;
+</programlisting><para>However, there are places where terminals have semantic
+meaning, and you <emphasis>do</emphasis> want them to appear in the
+parse-tree, for instance in our example the names and values of the
+properties. To achieve this we mark terminals that are to be copied
+to the parse tree specially:</para><programlisting xml:space="preserve">
+name: (+"a"; +"b"; ...etc...; +"9"; +"-")+.
+</programlisting><para>In other words, normally terminals are discarded, but if they
+are preceded with a + they are copied to the parse-tree.</para></section><section xml:id="Extension"><title>Extensions</title><para>Strictly speaking, this would be enough to allow you to parse
+a document, and output it as an equivalent XML document. However,
+there are possible extensions that give you a little more control
+over the result. The most obvious is allowing the specification of
+attributes. This is simply done by marking the use of rules with at
+signs:</para><programlisting xml:space="preserve">
+css: (rule)*.
+rule: selector, block.
+block: "{", (property)*";", "}".
+property:  @name, ":", value.
+</programlisting><para>A rule used like this may clearly not contain any structural
+elements (though it may contain terminals and refinements), since
+attributes are not structured, but this is an easy condition to
+check for. The parsetree will now look like this:</para><programlisting xml:space="preserve">
+&lt;css&gt;
+   &lt;rule&gt;
+      &lt;selector&gt;body&lt;/selector&gt;
+      &lt;block&gt;
+         &lt;property name="color"&gt;
+            &lt;value&gt;blue&lt;/value&gt;
+         &lt;/property&gt;
+         &lt;property name="font-weight"&gt;
+            &lt;value&gt;bold&lt;/value&gt;
+         &lt;/property&gt;
+      &lt;/block&gt;
+   &lt;/rule&gt;
+&lt;/css&gt;
+</programlisting><para>If we changed the rule for <code>property</code> to
+look like this:</para><programlisting xml:space="preserve">
+property:  @name, ":", @value.
+</programlisting><para>then the resultant parse-tree would look like</para><programlisting xml:space="preserve">
+&lt;css&gt;
+   &lt;rule&gt;
+      &lt;selector&gt;body&lt;/selector&gt;
+      &lt;block&gt;
+         &lt;property name="color" value="blue"/&gt;
+         &lt;property name="font-weight" value="bold"/&gt;
+      &lt;/block&gt;
+   &lt;/rule&gt;
+&lt;/css&gt;
+</programlisting><para>Note that by marking the <emphasis>use</emphasis> of a syntax
+rule in this way, and not the definition, it allows the syntax rule
+to be used for structural elements
+(<code>&lt;name&gt;color&lt;/name&gt;</code>) as well as for
+attributes (<code>name="color"</code>).</para></section><section xml:id="Parsing_Algorithm"><title>Parsing
+Algorithms</title><para>Although it would be possible to require the syntax to be
+restricted to some class of language, such as LL(1) or LR(1) <xref linkend="LL1"/>
+in order to make the parser faster, in practice it is easier for
+the author of the syntax if we make no such restriction, since it
+would require the author to understand the principles, and it would
+require the system to check that the syntax adhered to the
+requirement. In practise a parsing algorithm such as Earley's
+<xref linkend="Earley"/> is fast enough, and will treat all context-free languages.
+The only remaining problem is if the syntax author describes an
+ambiguous language. To that end we just define that the parser
+outputs one of the parses, and leave it at that. For instance, if
+expression were defined as:</para><programlisting xml:space="preserve">
+expr: i; expr, plus, expr.
+i: "i".
+plus: "+".
+</programlisting><para>then a string such as</para><programlisting xml:space="preserve">
+i+i+i
+</programlisting><para>could be parsed as both</para><programlisting xml:space="preserve">
+&lt;expr&gt;&lt;i/&gt;&lt;/expr&gt;
+&lt;plus/&gt;
+&lt;expr&gt;
+   &lt;expr&gt;&lt;i/&gt;&lt;/expr&gt;
+   &lt;plus/&gt;
+   &lt;expr&gt;&lt;i/&gt;&lt;/expr&gt;
+&lt;/expr&gt;
+</programlisting><para>and as</para><programlisting xml:space="preserve">
+&lt;expr&gt;
+   &lt;expr&gt;&lt;i/&gt;&lt;/expr&gt;
+   &lt;plus/&gt;
+   &lt;expr&gt;&lt;i/&gt;&lt;/expr&gt;
+&lt;/expr&gt;
+&lt;plus/&gt;
+&lt;expr&gt;&lt;i/&gt;&lt;/expr&gt;
+</programlisting></section><section xml:id="Deliver"><title>Delivery</title><para>To deliver a source document to be parsed by our system, we
+can use a media type <xref linkend="MediaType"/> that supplies a reference to the
+required syntax description. For instance:</para><programlisting xml:space="preserve">
+application/xml-invisible; syntax=http://example.com/syntax/css
+</programlisting><para>Clearly a system can cache well-known syntax
+descriptions.</para></section><section xml:id="Using_Invisible_XML_to_define_itsel"><title>Using
+Invisible XML to define itself</title><para>It should go without saying that the syntax descriptions
+themselves are in Invisible XML (though in their case the syntax
+description <emphasis>must</emphasis> be cached to prevent an
+infinite loop of processing.)</para><para>The definition might look like this:</para><programlisting xml:space="preserve">
+ixml: (rule)+.
+rule: @name, -colon, -definition, -stop.
+definition: (alternative)*-semicolon.
+alternative: (-term)*-comma.
+term: -symbol; -repetition.
+repetition: one-or-more; zero-or-more.
+one-or-more: -open, -definition, -close, -plus, separator.
+zero-or-more: -open, -definition, -close, -star, separator.
+separator: -symbol; -empty.
+empty: .
+symbol: -terminal; nonterminal; refinement.
+terminal: explicit-terminal; implicit-terminal.
+explicit-terminal: -plus, @string.
+implicit-terminal: @string.
+nonterminal: @name.
+refinement: -minus, @name.
+attribute: -at, @name.
+
+string: -openquote, (-character)*, -closequote.
+name: (-letter)+.
+letter: +"a"; +"b"; ...
+character: ...
+
+colon: -S, ":", -S.
+stop: -S, ".", -S.
+semicolon: -S, ";", -S.
+comma:  -S, ",", -S.
+plus:  -S, "+", -S.
+minus:  -S, "-", -S.
+star:  -S, "*", -S.
+open:  -S, "(", -S.
+close:  -S, ")", -S.
+at:  -S, "@", -S.
+openquote: -S, """".
+closequote: """", -S.
+S: " "*.
+</programlisting><para>This would then parse to the XML form:</para><programlisting xml:space="preserve">
+&lt;ixml&gt;
+   &lt;rule name="ixml"&gt;
+      &lt;alternative&gt;
+         &lt;one-or-more&gt;
+             &lt;alternative&gt;
+                &lt;nonterminal name="rule"/&gt;
+             &lt;/alternative&gt;&lt;separator/&gt;
+         &lt;/one-or-more&gt;
+      &lt;/alternative&gt;
+   &lt;/rule&gt;
+   &lt;rule name="rule"&gt;
+      &lt;alternative&gt;
+         &lt;attribute name="name"/&gt;
+         &lt;refinement name="definition"/&gt;
+      &lt;/alternative
+   &lt;/rule&gt;
+   &lt;rule name="definition"&gt;
+      &lt;alternative&gt;
+         &lt;zero-or-more&gt;
+            &lt;alternative&gt;
+               &lt;nonterminal name="alternative"/&gt;
+            &lt;/alternative&gt;
+            &lt;separator&gt;&lt;refinement name="semicolon"/&gt;&lt;/separator&gt;
+         &lt;/zero-or-more&gt;
+      &lt;/alternative
+   &lt;/rule&gt;
+   ... etc ...
+   &lt;rule name="separator"&gt;
+      &lt;alternative&gt;&lt;refinement name="symbol"/&gt;&lt;/alternative&gt;
+      &lt;alternative&gt;&lt;refinement name="empty"/&gt;&lt;/alternative&gt;
+   &lt;/rule&gt;
+   ... etc ...
+&lt;/ixml&gt;
+</programlisting><para>Thanks to Earley's parsing algorithm, we can remove the
+<code>&lt;alternative&gt;</code> elements when there is only
+one <code>alternative</code> in a <code>rule</code>, by
+redefining <code>definition</code>:</para><programlisting xml:space="preserve">
+definition: -alternative; alternative, -semicolon, (alternative)+-semicolon.
+</programlisting><para>Note how we have used the "-" character to prevent it being
+copied in the first case (when there is only one). You wouldn't be
+able to use such a rule as this if there were a requirement on the
+syntax to be LL(1) or LR(1), since the two parts of the rule start
+with the same symbols.</para><para>Similarly, we can get rid of empty
+<code>&lt;separators/&gt;</code> thusly:</para><programlisting xml:space="preserve">
+one-or-more: -open, -definition, -close, -plus; -open, -definition, -close, -plus, separator.
+zero-or-more: -open, -definition, -close, -star; -open, -definition, -close, -star, separator.
+separator: -symbol.
+</programlisting><para>We can move the value of the separator into an attribute
+with:</para><programlisting xml:space="preserve">
+separator: @explicit; @implicit; @nonterminal; @refinement.
+explicit: -plus, -string.
+implicit: -string.
+</programlisting><para>This would then generate:</para><programlisting xml:space="preserve">
+&lt;ixml&gt;
+   &lt;rule name="ixml"&gt;
+      &lt;one-or-more&gt;
+         &lt;nonterminal name="rule"/&gt;
+      &lt;/one-or-more&gt;
+   &lt;/rule&gt;
+   &lt;rule name="rule"&gt;
+      &lt;attribute name="name"/&gt;
+      &lt;refinement name="definition"/&gt;
+   &lt;/rule&gt;
+   &lt;rule name="definition"&gt;
+      &lt;alternative&gt;
+         &lt;refinement name="alternative"/&gt;
+      &lt;/alternative&gt;
+      &lt;alternative&gt;
+         &lt;nonterminal name="alternative"/&gt;
+         &lt;one-or-more&gt;
+            &lt;nonterminal name="alternative"/&gt;
+            &lt;separator refinement="semicolon"/&gt;
+         &lt;/one-or-more&gt;
+      &lt;/alternative&gt;
+   &lt;/rule&gt;
+   ... etc ...
+   &lt;rule name="separator"&gt;
+      &lt;alternative&gt;&lt;refinement name="symbol"/&gt;&lt;/alternative&gt;
+      &lt;alternative&gt;&lt;refinement name="empty"/&gt;&lt;/alternative&gt;
+   &lt;/rule&gt;
+   ... etc ...
+&lt;/ixml&gt;
+</programlisting><para>(An observant reader will have spotted that we have allowed
+attributes to be defined by attributes here -- for instance with
+<code>@refinement</code> -- that is we treat an attribute
+within an attribute definition as if it were a refinement).</para><para>As yet another possibility, we can move the separator into an
+attribute of the <code>one-or-more</code> or
+<code>zero-or-more</code> elements:</para><programlisting xml:space="preserve">
+one-or-more: -open, -definition, -close, -plus; -open, -definition, -close, -plus, -separator.
+zero-or-more: -open, -definition, -close, -star; -open, -definition, -close, -star, -separator.
+separator: @explicit; @implicit; @nonterminal; @refinement.
+explicit: -plus, -string.
+implicit: -string.
+</programlisting></section><section xml:id="Alternative_Representatio"><title>Alternative
+Representation</title><para>Although the syntax description so defined was developed
+iteratively based on the needs of the user, and is sufficient for
+its purpose, it is clear in the above example, that refinements
+occur far more frequently than true semantic rules. An alternative
+worth exploring would be to say that <emphasis>nothing</emphasis>
+is copied to the syntax tree unless specifically marked. Let us use
+the "^" character to mark items that are copied to the tree. The
+result is clearly much more restful on the eyes:</para><programlisting xml:space="preserve">
+ixml: (^rule)+.
+rule: @name, colon, definition, stop.
+definition: alternative; ^alternative, semicolon, (^alternative)+semicolon.
+alternative: (term)*comma.
+term: symbol; repetition.
+repetition: ^one-or-more; ^zero-or-more.
+one-or-more: open, definition, close, plus; open, definition, close, plus, ^separator.
+zero-or-more: open, definition, close, star; open, definition, close, star, ^separator.
+separator: terminal; @nonterminal; @refinement.
+symbol: terminal; ^nonterminal; ^refinement.
+terminal: ^explicit-terminal; ^implicit-terminal.
+explicit-terminal: up, @string.
+implicit-terminal: @string.
+nonterminal: up, @name.
+refinement: @name.
+attribute: at, @name.
+
+string: openquote, (character)*, closequote.
+name: (letter)+.
+letter: ^"a"; ^"b"; ...
+character: ...
+
+colon: S, ":", S.
+stop: S, ".", S.
+semicolon: S, ";", S.
+comma:  S, ",", S.
+plus:  S, "+", S.
+up:  S, "^", S.
+star:  S, "*", S.
+open:  S, "(", S.
+close:  S, ")", S.
+at:  S, "@", S.
+openquote: S, """".
+closequote: """", S.
+S: " "*.
+</programlisting></section><section xml:id="Extra"><title>Extras</title><para>There are obvious extra odds and ends that need adding, such
+as sets of characters, to make terminal specification easier, for
+instance:</para><programlisting xml:space="preserve">
+letter: ^["a"-"z", "A"-"Z", "-"].
+S: [" ", "\t", "\n", ...]*.
+</programlisting><para>but these are just details.</para></section><section xml:id="Restriction_on_the_XML_Produce"><title>Restriction
+on the XML Produced</title><para>It should be noted in passing that in the form presented
+here, <emphasis>Invisible XML</emphasis> only works in one
+direction: you can turn any textual document into an equivalent XML
+document. However, it is not in general possible to turn a textual
+document into a <emphasis>particular</emphasis> XML form without
+more work. For instance, you could turn Wiki markup into an XML
+document, but not into XHTML in particular.</para></section><section xml:id="Roundtrippin"><title>Roundtripping</title><para>Returning the resultant XML document to its original format
+is just a process of presentation, nothing that a suitable bit of
+XSLT couldn't do, or even CSS in some simple cases. In fact it
+should be apparent that from the <emphasis>Invisible XML</emphasis>
+syntax, it would be straightforward to automatically generate the
+required piece of XSLT directly.</para></section><section xml:id="Conclusio"><title>Conclusion</title><para>There is really no reason why XML can't be more ubiquitous
+than it is, and similarly there is no reason why XML documents have
+to be written in an explicit XML format <emphasis>per
+se</emphasis>. Anything that can be parsed can be perceived as XML,
+since parsing is very easy, and parse-trees are really just XML
+documents in different clothing. <emphasis>Invisible XML</emphasis>
+allows a multitude of document formats to be authored in their
+traditional form, but be processed as XML, with the concomitant
+advantages of the XML toolchain.</para></section><bibliography><title>References</title><bibliomixed xml:id="RelaxNG" xreflabel="RELAX NG">James Clark, Makoto MURATA (eds.), 2001, RELAX NG Specification,
+<link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">https://www.oasis-open.org/committees/relax-ng/spec.html</link></bibliomixed><bibliomixed xml:id="RelaxNGCOMPACT" xreflabel="RELAX NG COMPACT">James Clark (ed.). 2002, RELAX NG Compact Syntax,
+<link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">https://www.oasis-open.org/committees/relax-ng/compact-20021121.html</link></bibliomixed><bibliomixed xml:id="BNF" xreflabel="BNF">Backus-Naur Form,
+<link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://en.wikipedia.org/wiki/Backus-Naur_Form</link></bibliomixed><bibliomixed xml:id="VWG" xreflabel="VWG">S. Pemberton, 1982, "Executable Semantic Definition of
+Programming Languages Using Two-level Grammars",
+<link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.cwi.nl/~steven/vw.html</link></bibliomixed><bibliomixed xml:id="LL1" xreflabel="LL1">Alfred Aho and Jeffrey D. Ullman, 1977, "Principles of
+Compiler Design", Addison-Wesley, ISBN 0-201-00022-9.</bibliomixed><bibliomixed xml:id="Earley" xreflabel="Earley">Earley, Jay (1970), "An efficient context-free
+parsing algorithm", Communications of the ACM 13 (2): 94-102,
+doi:<biblioid class="doi">10.1145/362007.362035</biblioid></bibliomixed><bibliomixed xml:id="MediaType" xreflabel="Media type">N. Freed et al., 1996, "Multipurpose Internet
+Mail Extensions, (MIME) Part Two: Media Types",
+<link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.ietf.org/rfc/rfc2046.txt</link></bibliomixed></bibliography></article>

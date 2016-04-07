@@ -1,0 +1,811 @@
+<?xml version="1.0" encoding="UTF-8"?><article xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink" version="5.0-subset Balisage-1.2"><title>Stand-alone Encoding of Document History </title><subtitle>(or One Step Beyond XML Diff)</subtitle><info><confgroup><conftitle>Balisage: The Markup Conference 2010</conftitle><confdates>August 3 - 6, 2010</confdates></confgroup><abstract><para>This paper describes an approach to encapsulate together an XML document and its
+                history (i.e. the various significant states it adopted along its life cycle) into a
+                single standalone XML document. Our proposal introduces an XML data model suited to
+                capture versioning information combined with an operational model to handle such
+                encapsulated data. We describe basic operators involved along the transformation
+                process of the document/history pair, mainly designed around the principle of
+                maintaining coherence properties. </para></abstract><author><personname><firstname>Jean-Yves</firstname><surname>Vion-Dury</surname></personname><personblurb><para> Jean-Yves Vion-Dury holds an CS engineering degree from the "Conservatoire
+                    National des Arts et Métiers, Paris" (1993) and graduated with a PhD in CS from
+                    Université Joseph Fourier, Grenoble in 1999. He has been working at Xerox
+                    Research Centre Europe (in Grenoble, France) since 1995, as a research
+                    scientist; he has also been on a two year sabbatical with Vincent Quint's team
+                    at INRIA in 2002-2004. His research interests relate to various aspect of XML
+                    including models, the impact of standards, validation/transformation languages
+                    and architectures, with theoretical background in programming languages,
+                    compilation, type systems and formal logics. </para><para>Jean-Yves was Program Chair of DocEng (ACM Document Engineering Symposium ) in
+                    2004, is member of its Program Committee since 2003, and member of its Steering
+                    Committee since 2005. </para></personblurb><affiliation><jobtitle>Senior Scientist</jobtitle><orgname>Xerox Research Centre Europe</orgname></affiliation><email>jean-yves.vion-dury@xeroxlabs.com</email></author><legalnotice><para>Copyright © 2010 Xerox.  All rights reserved.</para></legalnotice></info><section><title>Introduction</title><para>XML being recognized today as the lingua franca of computerized information, some key
+            basic functionalities become of universal interest and will predictably gain momentum in
+            the upcoming XML related economy.</para><para>One of these functionalities is the computation of differences between two XML
+            documents, and more generally, the management of the history of a given document. In
+            particular, this functions as a cornerstone of any system aiming at offering long term
+            preservation.</para><para>Today, such functionality is achieved through content management systems or databases.
+            Models and operations are therefore hidden inside a black box, and up to the author's
+            knowledge, no standard mechanism makes this information explicit and accessible to human
+            users neither to external algorithms and processors.</para><para>Our proposal addresses this issue by associating a target document instance together
+            with its history inside a standalone and consistent document, thus gaining strong
+            potential for current or future interoperability.</para><para>The notion of <emphasis role="ital">history</emphasis>, when applied to a document,
+            calls for a deeper understanding of the global context, intents and social processes
+            underpinning the creation, evolution and maintenance of documents (see <xref linkend="pédauque03"/>). Hence, the relevant structure of a meaningful <emphasis role="ital">document history</emphasis> highly depends on the document typology and
+            usages.</para><para>In addition, the criterion that founds any document history is the permanence of some
+            key deep invariants (for a general, ontological, reflection around this line, see <xref linkend="pédauque05"/>). Those invariants define the identity of the document itself
+            and their loss inevitably ends the versioning process and calls for a new creation
+            cycle.</para><para>The method we describe in this paper takes into consideration the key points above,
+            especially through a flexible calculus of difference descriptors, and through offering
+            high level transformation operations that preserve the consistency of both the document
+            instance and its whole history.</para></section><section><title>Overview</title><para>The target document (also called <emphasis role="ital">body</emphasis> hereafter),
+            i.e. any XML document using any namespace, is encapsulated inside a dedicated packaging
+            XML document. The body always consistently relates to a given state of its history (not
+            necessarily the most recent one) thanks to a dedicated attribute that refers to a
+            version label and makes this relation explicit. </para><para> The history itself is encoded as interrelated nodes (XML elements) and has the
+            structure of a directed acyclic graph (DAG); each node of this graph models a versioning
+            point, i.e. a particular significant state that the document reached during its lifetime
+            and for which a version has been recorded. The meaning of any versioning point with
+            respect to the document life cycle is application dependent, as discussed above, and the
+            proposed approach abstracts over application semantics, just considering that a new
+            version is built when some actor in the document life cycle decided it makes sense to do
+            so. Arcs that connect the nodes are decorated with deltas, and these arcs model the
+            transformation that allows changing the document from one versioning point to the other.
+            Thus arcs are oriented. Deltas descriptors are combinations of low level operations on
+            the document tree, mainly based on deletion and insertion of subtrees.</para><para> Thanks to a set of transformations qualitatively described in this paper, it is
+            possible to navigate inside the history of the document and to consistently extract any
+            version of the document captured in the history graph. It is also possible to create new
+            versioning points, new branches or to merge existing branches, all these operations
+            producing novel consistent encapsulations of the target document.</para></section><section><title>Modelling Abstract Differencing Operations</title><section><title>Document model</title><para> The encapsulating XML document can be represented (in an abstract way) as a tree
+                like this: </para><figure xml:id="tree-structure"><title>Abstract tree structure of the document history</title><para>x-version[x-body<subscript>v<subscript>i</subscript></subscript>[d],x-history[…v<subscript>i</subscript>…]]</para></figure><para>where <emphasis role="ital">d</emphasis> represent the target document and
+                    <emphasis role="ital">v<subscript>i</subscript></emphasis> a versioning point.
+                The full syntax of our encapsulation is available through a RelaxNG Schema (see
+                appendix). The examples <xref linkend="Ex1"/>, <xref linkend="Ex2"/>, <xref linkend="Ex3"/> and <xref linkend="Ex4"/> illustrate concretely the way we
+                propose to encode the history graph (DAG) in XML, and the way delta operations are
+                attached to transition arcs.</para></section><section><title>Diff Engine</title><para>We assume that a diff engine is able to operate as a black box function. Its
+                abstract signature could be for instance: </para><figure><title>Abstracting over diff operation</title><informaltable><tr><td>
+                            <emphasis role="bold">diff</emphasis>(config, d, d’) </td><td> → </td><td> Δ </td></tr></informaltable></figure><para>with config being some input information used to configure the processor (e.g.
+                filter to apply, mode commutative/non-commutative,…). The notation Δ represents a
+                set of basic delta operations, formally described hereafter.</para></section><section><title>Abstracting over Delta Operations</title><figure><title>Syntax of delta operations</title><informaltable><tr><td>Δ</td><td>::= </td><td> { } </td><td>no operation</td></tr><tr><td>
+                        </td><td>
+                        </td><td>| { δ<subscript>1</subscript> … δ<subscript>i</subscript> } </td><td>commutative snapshots</td></tr><tr><td>
+                        </td><td>
+                        </td><td>| Δ ; Δ </td><td>sequences</td></tr><tr><td>δ</td><td>::= </td><td> insert (pp, A)</td><td>subtree insertion</td></tr><tr><td>
+                        </td><td>
+                        </td><td>| insert-attr(pp/@nm, A)</td><td>attribute insertion</td></tr><tr><td>
+                        </td><td>
+                        </td><td>| delete(p)</td><td>subtree deletion</td></tr></informaltable></figure><para>The delta operation use paths, noted <emphasis role="ital">p</emphasis>, to
+                designate the tree location where the modification should be applied. Those paths
+                are describe by the following grammar (<emphasis role="ital">i</emphasis> is a
+                positive integer, <emphasis role="ital">nm</emphasis> an attribute name, <emphasis role="ital">pp</emphasis> denotes "pure paths"):</para><figure><title>Syntax of path description</title><informaltable><tr><td>p </td><td>::=</td><td>pp | pp/@nm</td></tr><tr><td>pp </td><td>::=</td><td>i/pp | i</td></tr></informaltable></figure><para>These paths are interpreted as relative to the root of the encapsulated document,
+                and can be easily translated as XPath expressions. For example, 1/2/1 is translated
+                into *[1]/*[2]/*[1], and 1/3/@id into *[1]/*[3]/@id <footnote><para>the XPath translation of <emphasis role="ital">1/2/1</emphasis> could also
+                        be <emphasis role="ital">node()[1]/node()[2]/node()[1]</emphasis> in order
+                        to consider all possible nodes as allowed by the XML document tree
+                    model.</para></footnote>. </para><para>Each delta belonging to a snapshot must comply with a structural constraint that
+                ensures orthogonality (thus making the snapshot indeed commutative). In particular,
+                it is enough to verify that two paths in a snapshot do not designate sibling trees,
+                and one path does not designate a sibling tree of the parent node designated by the
+                other path. We assume that this constraint is part of the well-formedness condition
+                assured for all definitions <footnote xml:id="refined-calculus"><para>Actually the calculus can be refined in such a way that this condition can
+                        be relaxed thanks to a particular rewriting of conflicting deltas. This
+                        suppose a particular semantic interpretation of conflicting
+                    information.</para></footnote>.</para><para>The semantics of delta operations expresses changes that occur on the operand (an
+                XML tree) ; we note this transformation of <emphasis role="ital">d</emphasis> into
+                    <emphasis role="ital">d’</emphasis> by applying <emphasis role="ital">Δ</emphasis> as follows: </para><figure><title>Transformation by Delta application</title><informaltable><tr><td align="center">
+                        </td><td>d › Δ › d’</td></tr></informaltable></figure><para>More precisely, the previous notation is a logical assertion saying that a
+                well-formed document <emphasis role="ital">d</emphasis> is changed into a
+                well-formed document <emphasis role="ital">d’</emphasis> after application of the
+                well-formed <emphasis role="ital">Δ</emphasis> operation.</para><para>Formally, for all subtree <emphasis role="ital">A</emphasis>, path <emphasis role="ital">p</emphasis>, documents <emphasis role="ital">d</emphasis> and
+                    <emphasis role="ital">d’</emphasis>, deltas <emphasis role="ital">Δ<subscript>i</subscript></emphasis> and <emphasis role="ital">δ<subscript>i</subscript></emphasis>, the transformations verify the following
+                abstract properties: </para><figure xml:id="abs-property"><title>Abstract properties of delta transformations</title><informaltable><tr><td>(a-seq) </td><td> d › Δ<subscript>1</subscript>;Δ<subscript>2</subscript> › d’</td><td> ⇔ </td><td> ∃ d’’ , d › Δ<subscript>1</subscript> › d’’ ⋀ d’’›
+                            Δ<subscript>2</subscript> › d’ </td><td>
+                        </td></tr><tr><td>(a-snap) </td><td> d › { δ<subscript>1</subscript> ... δ<subscript>i</subscript>} › d’</td><td> ⇔ </td><td> d › {δ<subscript>π<subscript>1</subscript></subscript>} ; {
+                                    δ<subscript>π<subscript>i</subscript></subscript>} › d’</td><td>for any permutation π defined over the sequence of indexes [1,…,i]</td></tr><tr><td>(a-void) </td><td> d › { } › d’</td><td> ⇔ </td><td> d ≈ d’</td><td>
+                        </td></tr><tr><td>(a-ins) </td><td> d › { <emphasis role="bold">insert</emphasis>(pp,A)} › d’</td><td> ⇒ </td><td>
+                            <emphasis role="bold">get</emphasis>(d',pp)≈A ⋀ <emphasis role="bold">invar</emphasis>(d,d',pp,f)</td><td> with f = ζ(pp)</td></tr><tr><td>(a-ins-@) </td><td> d › { <emphasis role="bold">insert-attr</emphasis>(pp/@nm,A)} › d’</td><td> ⇒ </td><td>
+                            <emphasis role="bold">get</emphasis>(d',pp/@nm) = A ⋀ <emphasis role="bold">invar</emphasis>(d,d',pp/@nm)</td><td>
+                        </td></tr><tr><td>(a-del) </td><td> d › { <emphasis role="bold">delete</emphasis>(pp)} › d’</td><td> ⇒ </td><td>
+                            <emphasis role="bold">get</emphasis>(d',pp)≈<emphasis role="bold">get</emphasis>(d,pp ⊕ f) ⋀ <emphasis role="bold">invar</emphasis>(d,d',pp,-f)</td><td> with f = ζ(pp)</td></tr><tr><td>(a-del-@) </td><td> d › { <emphasis role="bold">delete</emphasis>(pp/@nm)} › d’</td><td> ⇒ </td><td>
+                            <emphasis role="bold">get</emphasis>(d',pp/@nm) = ε</td><td>
+                        </td></tr></informaltable></figure><para>Note that the definition of <emphasis role="bold">insert</emphasis> operator makes
+                use of the function <emphasis role="bold">get</emphasis>, which extracts the subtree
+                rooted at a given location <emphasis role="ital">p</emphasis>, as well as a path
+                addition function ⊕ and a so called fingerprint extraction ζ . The invar operator
+                deals with locality of the transformation (see Invariance Property Fig <xref linkend="invariance-prop"/> and associated explanations). Moreover, ≈ (the
+                equivalence of trees) is defined extensionally using quantification of paths, and is
+                insensitive to attribute order, according to path definition.</para><figure xml:id="definition-tree-equivalence"><title>Tree equivalence</title><informaltable><tr><td>d ≈ d’ </td><td> ⇔ </td><td> ∀ p, <emphasis role="bold">get</emphasis>(d,p) = <emphasis role="bold">get</emphasis>(d’,p)</td></tr></informaltable><para><emphasis role="ital">Path based, extensional equivalence over
+                    trees</emphasis></para></figure><para>The path addition is defined over pure paths (paths designating element nodes
+                only, noted <emphasis role="ital">pp</emphasis>), can deal with operands of various
+                depth and is commutative: </para><para>
+                <figure><title>Path addition</title><informaltable><tr><td>i/pp </td><td> ⊕ </td><td>j/pp’ </td><td>=</td><td> (i + j)/(pp ⊕ pp’)</td></tr><tr><td>i/pp </td><td> ⊕ </td><td> j</td><td>=</td><td> (i + j)/pp</td></tr><tr><td>i </td><td> ⊕ </td><td> j</td><td>=</td><td> (i + j)</td></tr></informaltable></figure>
+            </para><para>Also fingerprints capture some structural information, and more precisely, the
+                depth level of a path:</para><figure><title>Fingerprint computation</title><informaltable><tr><td>ζ(i/pp)</td><td> = </td><td>0/ζ(pp)</td></tr><tr><td>ζ(i)</td><td> = </td><td>1</td></tr></informaltable></figure><para>Thus ζ (1/2/3) = 0/0/1 and 1/2/3 ⊕ ζ(1/2/3) = 1/2/4 and 1/2/3/2 ⊕ ζ(1/2/3) =
+                1/2/4/2</para><para>The property <emphasis role="ital">(a-snap)</emphasis> holds for all permutations
+                over indexes. It simply means that the set of deltas must be commutative with
+                respect to their sequential application. In other words, all basic deltas of a
+                snapshot are pairwise orthogonal.</para><para>The property <emphasis role="ital">(a-del)</emphasis> involves a minus operator
+                over paths. This one is easily defined as inverting all integers found in the path.</para><figure><title>Path inversion</title><informaltable><tr><td>-(i/pp)</td><td> = </td><td>(-i)/-(pp)</td></tr><tr><td>-(i)</td><td> = </td><td>-i</td></tr></informaltable></figure><para>The <emphasis role="bold">invar</emphasis> property used in (a-ins), (a-ins-@) and
+                (a-del) expresses that other parts of the tree are not modified by the operation.
+                This is defined as follows:</para><figure xml:id="invariance-prop"><title>Invariance property</title><informaltable><tr><td><emphasis role="bold">invar</emphasis>(d, d’, pp/@nm)</td><td> ≡ </td><td>∀ nm' [ <emphasis role="bold">get</emphasis>(d, pp/@nm’) = <emphasis role="bold">get</emphasis>(d’, pp/@nm’) ]</td></tr><tr><td><emphasis role="bold">invar</emphasis>(d, d’, pp, f)</td><td> ≡ </td><td>∀ p' [ <para>
+                                <informaltable><tr><td>p' ≪ pp </td><td> ⇒ </td><td><emphasis role="bold">get</emphasis>(d, p’) =<emphasis role="bold"> get</emphasis>(d’,p’)</td></tr><tr><td>⋀</td><td>
+                                        </td><td>
+                                        </td></tr><tr><td> pp ≪ p'</td><td> ⇒</td><td><emphasis role="bold">get</emphasis>(d, p’) = <emphasis role="bold">get</emphasis>(d’,p’ ⊕ f) </td></tr></informaltable>
+                            </para> ] </td></tr></informaltable></figure><para> The relation ≪ is a strict total order over (pure) paths, which is sound with
+                respect to the standard total order over document nodes as defined by the XML
+                document model.</para><figure><title>Strict total order on paths</title><para> for all i, j integers, pp, pp' pure paths, </para><table rules="rows"><tr><th>
+                        </th><th>
+                        </th><th>
+                        </th><th>
+                        </th><th align="center"> i &lt; j </th><th align="center"> i = j </th><th align="center"> i &gt; j </th></tr><tr><td align="right"> i/pp</td><td align="center">≪</td><td align="left"> j/pp'</td><td>
+                        </td><td align="center"> true </td><td align="center"> pp ≪ pp' </td><td align="center"> false </td></tr><tr><td align="right"> i</td><td align="center">≪</td><td align="left"> j/pp'</td><td>
+                        </td><td align="center"> true </td><td align="center"> false </td><td align="center"> false </td></tr><tr><td align="right"> i/pp</td><td align="center">≪</td><td align="left"> j</td><td>
+                        </td><td align="center"> true </td><td align="center"> false </td><td align="center"> false </td></tr><tr><td align="right"> i</td><td align="center">≪</td><td align="left"> j</td><td>
+                        </td><td align="center"> true </td><td align="center"> false </td><td align="center"> false </td></tr></table></figure><para>The intuitive notion of path prefix relation captures the idea of tree embedding</para><figure><title>Path prefix relation</title><informaltable><tr><td>pp<subscript>1</subscript> ≺ pp<subscript>2</subscript></td><td> iff </td><td> ∃ pp | pp<subscript>1</subscript> = pp<subscript>2</subscript>/pp</td></tr></informaltable></figure><para>We now define the notion of path orthogonality as a binary boolean operator that
+                captures the notion that a path is not a subpath of another (or equivalently, a
+                subtree is not included into another subtree)</para><figure><title>Path orthogonality</title><informaltable><tr><td> pp<subscript>1</subscript> ⊥ pp<subscript>2</subscript>
+                        </td><td> iff </td><td> not [ pp<subscript>1</subscript> ≺ pp<subscript>2</subscript> ⋁
+                                pp<subscript>2</subscript> ≺ pp<subscript>1</subscript>] </td></tr></informaltable></figure><section><title>Extension of basic vocabulary</title><para>In order to ease understanding and increase the generality of descriptions, we
+                    propose now to extend the vocabulary through definitions based on the
+                    fundamental operations described above: <emphasis role="bold">move</emphasis>,
+                        <emphasis role="bold">copy</emphasis> and <emphasis role="bold">replace</emphasis>
+                    <footnote><para>These operations are known to be non-trivial to compute by a diff
+                            engine, can be non optimal, and are actually rarely produced for this
+                            reason. However, other sources of delta computation such as smart
+                            versioning oriented editors can produce very useful move and copy delta
+                            operations.</para></footnote>. </para><figure><title>Definition of Additional Operators</title><informaltable><tr><td>pp<subscript>2</subscript> ≪ pp<subscript>1</subscript></td><td> ⇒ </td><td>d › { <emphasis role="bold">move</emphasis>(pp<subscript>1</subscript>,
+                                pp<subscript>2</subscript>) } › d’ </td><td> ⇔ </td><td>d › { <emphasis role="bold">insert
+                                    </emphasis>(pp<subscript>2</subscript>,<emphasis role="bold">get</emphasis>(d, pp<subscript>1</subscript>))};{<emphasis role="bold">delete</emphasis>(pp<subscript>1</subscript> ⊕
+                                    ζ(pp<subscript>2</subscript>)) } › d’</td></tr><tr><td>pp<subscript>1</subscript> ≪ pp<subscript>2</subscript></td><td> ⇒ </td><td>d › { <emphasis role="bold">move</emphasis>(pp<subscript>1</subscript>,
+                                pp<subscript>2</subscript>) } › d’ </td><td> ⇔ </td><td>d › { <emphasis role="bold">insert
+                                    </emphasis>(pp<subscript>2</subscript>,<emphasis role="bold">get</emphasis>(d, pp<subscript>1</subscript>))};{<emphasis role="bold">delete</emphasis>(pp<subscript>1</subscript>) } ›
+                            d’</td></tr><tr><td>pp<subscript>1</subscript> ⊥ pp<subscript>2</subscript></td><td> ⇒ </td><td>d › { <emphasis role="bold">copy</emphasis>(pp<subscript>1</subscript>,
+                                pp<subscript>2</subscript>) } › d’ </td><td> ⇔ </td><td>d › { <emphasis role="bold">insert
+                                    </emphasis>(pp<subscript>2</subscript>,<emphasis role="bold">get</emphasis>(d, pp<subscript>1</subscript>)) } › d’</td></tr><tr><td>
+                            </td><td>
+                            </td><td>d › { <emphasis role="bold">replace</emphasis>(pp,A) } › d’ </td><td> ⇔ </td><td>d › { <emphasis role="bold">insert </emphasis>(pp,A)};{<emphasis role="bold">delete</emphasis>(pp ⊕ ζ(pp)) } › d’</td></tr><tr><td>
+                            </td><td>
+                            </td><td>d › { <emphasis role="bold">replace</emphasis>(pp/@nm,A) } › d’ </td><td> ⇔ </td><td>d › {<emphasis role="bold">delete</emphasis>(pp/@nm) }; { <emphasis role="bold">insert-attr</emphasis>(pp/@nm,A)} › d’</td></tr></informaltable></figure><para>Note that move and copy operations are only defined for orthogonal paths<footnote><para> A theorem establishes that pp<subscript>1</subscript> ⊥
+                                pp<subscript>2</subscript> ⇔ pp<subscript>1</subscript>≪
+                                pp<subscript>2</subscript> ⋁ pp<subscript>2</subscript> ≪
+                                pp<subscript>1</subscript>
+                        </para></footnote>.</para></section><section><title>Inversion of basic operations and snapshots</title><para>Inverting a delta (i.e. computing the changes that will exactly bring the
+                    operand in the previous state) requires knowing the original operand on which
+                    changes will be applied.</para><para>The inversion function is inductively defined as follows:</para><figure><title>Inversion Function ∘</title><informaltable><tr><td>
+                            </td><td>
+                            </td><td align="right">
+                                <emphasis role="bold">∘</emphasis>{ } </td><td> = </td><td> { } </td></tr><tr><td> d › {δ<subscript>1</subscript> ... δ<subscript>i</subscript>} › d’</td><td> ⇒ </td><td align="right">
+                                <emphasis role="bold">∘</emphasis>{δ<subscript>1</subscript> ...
+                                    δ<subscript>i</subscript>} </td><td> = </td><td> {<emphasis role="bold">∘</emphasis>δ<subscript>1</subscript> ...
+                                    <emphasis role="bold">∘</emphasis>δ<subscript>i</subscript>}
+                            </td></tr><tr><td> d › Δ<subscript>1</subscript>;Δ<subscript>2</subscript> › d’</td><td> ⇒ </td><td align="right">
+                                <emphasis role="bold">∘</emphasis>(Δ<subscript>1</subscript>;Δ<subscript>2</subscript>) </td><td> = </td><td>
+                                <emphasis role="bold">∘</emphasis>(Δ<subscript>2</subscript>);<emphasis role="bold">∘</emphasis>(Δ<subscript>1</subscript>) </td></tr><tr><td> d › {<emphasis role="bold">delete</emphasis>(pp)} › d’</td><td> ⇒ </td><td align="right">
+                                <emphasis role="bold">∘</emphasis>(<emphasis role="bold">delete</emphasis>(pp)) </td><td> = </td><td>
+                                <emphasis role="bold">insert</emphasis>(pp,<emphasis role="bold">get</emphasis>(d,pp)) </td></tr><tr><td> d › {<emphasis role="bold">delete</emphasis>(pp/@nm)} › d’</td><td> ⇒ </td><td align="right">
+                                <emphasis role="bold">∘</emphasis>(<emphasis role="bold">delete</emphasis>(pp/@nm)) </td><td> = </td><td>
+                                <emphasis role="bold">insert-attr</emphasis>(pp/@nm,<emphasis role="bold">get</emphasis>(d,pp/@nm)) </td></tr><tr><td> d › {<emphasis role="bold">insert</emphasis>(pp,A)} › d’</td><td> ⇒ </td><td align="right">
+                                <emphasis role="bold">∘</emphasis>(<emphasis role="bold">insert</emphasis>(pp,A)) </td><td> = </td><td>
+                                <emphasis role="bold">delete</emphasis>(pp) </td></tr><tr><td> d › {<emphasis role="bold">insert-attr</emphasis>(pp/@nm,A)} › d’</td><td> ⇒ </td><td align="right">
+                                <emphasis role="bold">∘</emphasis>(<emphasis role="bold">insert-attr</emphasis>(pp/@nm,A)) </td><td> = </td><td>
+                                <emphasis role="bold">delete</emphasis>(pp/@nm) </td></tr></informaltable></figure><para>Delta inversion is characterized by the following soundness property:</para><figure xml:id="proposition-1"><title>Proposition 1</title><informaltable><tr><td>d › Δ › d’ </td><td> ⇒ </td><td> d’ › <emphasis role="bold">∘</emphasis>Δ › d</td></tr></informaltable><para><emphasis role="ital">Inversion of well-formed delta operations over
+                            well-formed documents produces a well-formed reverse tree
+                            transformations</emphasis></para></figure><para>
+                    <emphasis role="ital">Proof</emphasis> : See appendix <xref linkend="proof-proposition-1"/>
+                </para><para>The inversion of deltas is an important functionality which allows navigating
+                    in the history graph. Moreover, it provides a more compact representation of
+                    changes, especially when successive versions represent documents whose content
+                    tends to increase incrementally (corresponds to the construction phase inside a
+                    standard document life-cycle).</para><para>Indeed, in such cases, subgraphs of the form <footnote xml:id="note-2"><para>focus node v<subscript>k</subscript> is by convention identified
+                            through surrounding brackets [.]</para></footnote></para><informaltable><tr><td>v<subscript>i</subscript></td><td>→<superscript>insert(p,A)</superscript></td><td>v<subscript>j</subscript></td><td>→<superscript>insert(p',B)</superscript></td><td>[<emphasis role="bold">v<subscript>k</subscript></emphasis>]</td></tr></informaltable><para>can be rewritten using delta inversion as:</para><informaltable><tr><td>v<subscript>i</subscript></td><td>←<superscript>delete(p)</superscript></td><td>v<subscript>j</subscript></td><td>←<superscript>delete(p')</superscript></td><td>[<emphasis role="bold">v<subscript>k</subscript></emphasis>]</td></tr></informaltable><para>This transformation is beneficial because the subtrees A and B are redundantly
+                    stored: once inside the history and once inside the encapsulated instance
+                    itself. In case the focus is set to a non-terminal versioning point (e.g.
+                        v<subscript>j</subscript> ), we also may have</para><informaltable><tr><td>v<subscript>i</subscript></td><td>←<superscript>delete(p)</superscript></td><td>[<emphasis role="bold">v<subscript>j</subscript></emphasis>]</td><td>→<superscript>insert(p',B)</superscript></td><td>v<subscript>k</subscript></td></tr></informaltable><para>which is still quite meaningful as the subtree B is only stored once inside
+                    the delta transition (indeed, the encapsulated document, consistent with focused
+                    version v<subscript>j</subscript>, does not comprise the B subtree (see examples
+                    3 et 4 below to grasp more concretely the point).</para><para>Note that inverting the operands of a diff operation should also lead to
+                    reversed deltas <footnote xml:id="note-3"><para>Such an abstract property could be hardly met by a "black box" diff
+                            operator, from the implementation point of view. However, we investigate
+                            if a delta normalization procedure could reduce those cases, so that the
+                            abstract property of <xref linkend="strong-soundness"/> would be always
+                            verified. </para></footnote>:</para><figure xml:id="strong-soundness"><title>Strong soundness of delta inversion</title><informaltable><tr><td><emphasis role="bold">diff</emphasis>(c, d, d’)=Δ </td><td> ⇒ </td><td>
+                                <emphasis role="bold">diff</emphasis>(c, d’, d) = <emphasis role="bold">∘</emphasis>(Δ)</td></tr></informaltable></figure><para>A weaker version of this property (see <xref linkend="weak-soundness"/> below)
+                    requires defining an equivalence relation over deltas. This relation is based on
+                    the effect of delta application rather than its syntactic structure.</para><figure xml:id="weak-soundness"><title>Weak soundness of delta inversion</title><informaltable><tr><td><emphasis role="bold">diff</emphasis>(c, d, d’)=Δ </td><td> ⇒ </td><td>
+                                <emphasis role="bold">diff</emphasis>(c, d’, d) ≈ <emphasis role="bold">∘</emphasis>(Δ)</td></tr></informaltable></figure><figure xml:id="delta-equivalence"><title>Equivalence of deltas </title><informaltable><tr valign="middle"><td valign="middle">Δ ≈ Δ' </td><td valign="middle"> ⇔ </td><td valign="middle">
+                                <para>
+                                    <informaltable frame="lhs"><tr><td>∀ d, d', d'' </td><td>
+                                            </td><td>
+                                            </td></tr><tr><td>d › Δ › d' ⋀ d › Δ' › d''</td><td> ⇒ </td><td>d' ≈ d''</td></tr></informaltable>
+                                </para>
+                            </td></tr></informaltable></figure><para>In the general case, it is much more interesting (from the performance point
+                    of view) to compute inversion on deltas rather than to perform a reversed
+                diff.</para></section></section></section><section><title>Fundamental Operations over Encapsulated Documents </title><section><title>Creation of a history from an initial XML document</title><para>This operation has the following abstract signature:</para><figure xml:id="op-encapsulation"><title>Initial Encapsulation</title><informaltable><tr><td><emphasis role="bold">create-history</emphasis>(d) </td><td>→</td><td> x-version[x-body <emphasis role="bold"><subscript>v<subscript>0</subscript></subscript>
+                            </emphasis>[d], x-history[<emphasis role="bold">v<subscript>0</subscript></emphasis>]]</td></tr></informaltable></figure><para>This reflects that the document is encapsulated, and that an initial versioning
+                point <emphasis role="ital">v<subscript>0</subscript></emphasis> is created inside
+                the history. The link that relates the embedded document with the consistent
+                versioning point is inserted in the <emphasis role="ital">x-body</emphasis>
+            subtree.</para></section><section><title>Versioning</title><para>The operation requires two operands: the encapsulated document and another variant
+                of the document which is to be considered as the novel versioning point. What is
+                returned is a novel encapsulated document including a new versioning point, a
+                (consistent) link inside the body part, and a transition from the previous
+                versioning point to the new one. This transition expresses the delta operations
+                abstracted from the diff engine outputs.</para><figure xml:id="op-version-creation"><title>Version Creation</title><informaltable><tr><td><emphasis role="bold">create-version</emphasis>(x-version[x-body<emphasis role="bold">
+                                <subscript>v<subscript>i</subscript></subscript>
+                            </emphasis>[d], x-history[<emphasis role="bold">...
+                                v<subscript>i</subscript></emphasis> ...]], d') </td><td> → </td><td> x-version[ x-body<emphasis role="bold">
+                                <subscript>v<subscript>j</subscript></subscript>
+                            </emphasis>[d], x-history[... v<subscript>i</subscript> →<superscript>
+                            Δ</superscript>
+                            <emphasis role="bold">v<subscript>j</subscript></emphasis> ]]</td></tr><tr><td>
+                        </td><td> with </td><td>
+                            <emphasis role="bold">diff</emphasis>(c,d,d') = Δ</td></tr></informaltable></figure></section><section><title>Extraction</title><para>Unfolds the embedded document. This is useful to work on the target document,
+                update or change it.</para><figure xml:id="op-extraction"><title>Version Extraction</title><informaltable><tr><td><emphasis role="bold">extract</emphasis>( x-version[x-body<emphasis role="bold">
+                                <subscript>v<subscript>i</subscript></subscript>
+                            </emphasis>[d], x-history[...<emphasis role="bold">v<subscript>i</subscript></emphasis>...]] ) </td><td> → </td><td> d </td></tr></informaltable></figure></section><section><title>Focusing</title><para>This operation allows modifying the embedded document <emphasis role="ital">d</emphasis> in order to be compliant to a given version stored in the history.
+                This requires first building the path that connects the current versioning point
+                    <emphasis role="ital">v<subscript>i</subscript></emphasis> to the novel
+                    <emphasis role="ital">v<subscript>j</subscript></emphasis> and second, applying
+                all deltas to obtain the new embedded document <emphasis role="ital">d'</emphasis></para><figure xml:id="op-focusing"><title>Version Focusing</title><informaltable><tr><td><emphasis role="bold">focus</emphasis>(x-version[x-body<emphasis role="bold"><subscript>v<subscript>i</subscript></subscript></emphasis>[d],
+                                x-history[<emphasis role="bold">...v<subscript>i</subscript></emphasis>...]],
+                            v<subscript>j</subscript>) </td><td> → </td><td> x-version[ x-body<emphasis role="bold">
+                                <subscript>v<subscript>j</subscript></subscript>
+                            </emphasis>[d'], x-history[... <emphasis role="bold">v<subscript>j</subscript></emphasis> ...]]</td></tr><tr><td>
+                        </td><td> with </td><td> v<subscript>i</subscript> →<superscript>
+                            Δ<subscript>i</subscript></superscript> ... →<superscript>
+                                Δ<subscript>j</subscript></superscript>v<subscript>j</subscript> and
+                            d › Δ<subscript>i</subscript> ; ... ; Δ<subscript>j</subscript> › d’
+                        </td></tr></informaltable></figure><para>Note that in the connection path, some vertices could have the reversed form
+                    v<subscript>n</subscript> ←<superscript>Δ<subscript>n</subscript></superscript>
+                    v<subscript>m</subscript> requiring the computation of inverse delta (indeed,
+                the connection graph is a DAG admitting branching). Note also that we assume that
+                the algorithm is able to choose a path when several possibilities are present in the
+                graph (it may decide which is the optimal path with respect to performance criteria
+                based on standard algorithm based on simple metrics).</para></section><section><title>Merging branches</title><para>This operation requires two operands: the embedded document and another existing
+                versioning point. An algorithm creates a novel versioning point and two transitions
+                that relate original versioning points to the new one. The idea is to perform a
+                merge with maximal preservation (no deletion operation in the respective deltas).
+                However, conflicts may arise, and can be signaled thanks to a dedicated annotation
+                inside the target document (this annotation is based on foreign namespace which
+                cannot conflict with namespaces used by target document)</para><figure xml:id="op-merging"><title>Version Merging</title><informaltable><tr><td><emphasis role="bold">merge</emphasis>(x-version[x-body<emphasis role="bold"><subscript>v<subscript>i</subscript></subscript></emphasis>[d],
+                                x-history[<emphasis role="bold">...v<subscript>i</subscript></emphasis>...]],
+                            v<subscript>j</subscript>) </td><td> → </td><td> x-version[ x-body<emphasis role="bold"><subscript>v<subscript>k</subscript></subscript></emphasis>[d'],
+                            x-history[... v<subscript>i</subscript>
+                                →<superscript>Δ<subscript>a</subscript></superscript><emphasis role="bold"> v<subscript>k</subscript></emphasis> ,
+                            v<subscript>j</subscript>
+                                →<superscript>Δ<subscript>b</subscript></superscript><emphasis role="bold"> v<subscript>k</subscript></emphasis> ]]</td></tr><tr><td>
+                        </td><td> with </td><td> d<subscript>v<subscript>i</subscript></subscript> ›
+                            Δ<subscript>a</subscript> › d’ and
+                            d<subscript>v<subscript>j</subscript></subscript> ›
+                            Δ<subscript>b</subscript> › d’ </td></tr></informaltable></figure><para>In the above formula, Δ<subscript>a</subscript> represents the concatenation of
+                (possibly reversed) deltas that allows to reach the new (merged) version starting
+                from version v<subscript>i</subscript>, and similarly for Δ<subscript>a</subscript>
+                and v<subscript>j</subscript> .</para></section></section><section><title>Encoding Graphs of Deltas in XML</title><para>Each versioning point is captured using a dedicated element (e.g. <emphasis role="ital">version</emphasis>) associated with an id attribute that uniquely
+            identifies it. Our convention uses a naming scheme of the form <emphasis role="ital">v0…
+                v3</emphasis> for instance. Names for diverging branches use a dot, e.g. <emphasis role="ital">v1.1, v1.2</emphasis>.</para><para>Each version element contains a sequence of <emphasis role="ital">delta</emphasis>
+            elements which capture the transition from this versioning point to another versioning
+            point. This information is conveyed by an attribute (e.g. <emphasis role="ital">fwd</emphasis> for forward links and <emphasis role="ital">bwd</emphasis> for backward
+            links). Moreover, a delta contains a non order-significant sequence of delta operations,
+            which captures the so-called <emphasis role="ital">snapshot</emphasis>. Several delta
+            elements are interpreted as sequences of snapshots (corresponds to the
+            Δ<subscript>1</subscript> ; Δ<subscript>2</subscript> syntactic form, where
+                Δ<subscript>i</subscript>= {…}).</para><para>Each delta operation is described using a dedicated element name according to its
+            semantics (<emphasis role="ital">insert, insert-attr</emphasis> …). The path information
+            may be concisely encoded, e.g. through an “ipath” attribute. Copies of subtrees may be
+            expressed through a “copy” attribute attached to the delta element. When such an
+            attribute is not defined, an extensive definition of the subtree is expected as the
+            content of the operation.</para><para>The example 1 below is a target document we want to track</para><figure xml:id="Ex1"><title>The Original Document</title><programlisting xml:space="preserve">
+        &lt;html xmlns="http://www.w3c.org/1999/xhtml"&gt;
+            &lt;!-- XHTML 1.0 --&gt;
+            &lt;head&gt;
+                &lt;title&gt;New Testament (Matthew, chapter 2)&lt;/title&gt;
+            &lt;/head&gt;
+            &lt;body&gt;
+                &lt;p class="verse" number="1"&gt;
+                Now when Jesus was born in Bethlehem of Judaea in the days of Herod the king,
+                behold, there came wise men from the east to Jerusalem,
+                &lt;/p&gt;
+            &lt;/body&gt;
+        &lt;/html&gt;
+           </programlisting><caption><para>The original (target) document to be encoded using our method</para></caption></figure><para>After applying the create-history operation, the document of figure <xref linkend="Ex2"/> below is created.</para><figure xml:id="Ex2"><title>First encapsulation</title><programlisting xml:space="preserve">
+
+      &lt;x-version id="xhtml-1.0" xmlns="XEROX::XRCE::DS:X-Version"&gt;
+        &lt;x-body version=”v0”&gt;
+            &lt;html xmlns="http://www.w3c.org/1999/xhtml"&gt;
+            &lt;!-- XHTML 1.0 --&gt;
+            &lt;head&gt;
+                &lt;title&gt;New Testament (Matthew, chapter 2)&lt;/title&gt;
+            &lt;/head&gt;
+            &lt;body&gt;
+                &lt;p class="verse" number="1"&gt;
+                Now when Jesus was born in Bethlehem of Judaea in the days of Herod the king,
+                behold, there came wise men from the east to Jerusalem,
+                &lt;/p&gt;                
+            &lt;/body&gt;
+            &lt;/html&gt;
+         &lt;/x-body&gt;
+       &lt;x-history &gt;
+         &lt;version id=”v0”/&gt;
+       &lt;/x-history&gt;
+     &lt;/x-version&gt;
+
+            </programlisting><caption><para>A first version (labeled v0) has been created ; note that the attribute
+                    “version” of element x-body points to the right versioning point inside the
+                    x-history subtree.</para></caption></figure><para>In the following example, we assume three distinct versioning points have been
+            created. </para><figure xml:id="Ex3"><title>A focused history</title><programlisting xml:space="preserve">
+                &lt;x-version id="xhtml-1.0" xmlns="XEROX::XRCE::DS:X-Version"&gt;
+                    &lt;x-body version=”v1”&gt;
+                        &lt;html xmlns="http://www.w3c.org/1999/xhtml"&gt;
+                            &lt;!-- XHTML 1.0 --&gt;
+                            &lt;head&gt;
+                                &lt;title&gt;New Testament (Matthew, chapter 2)&lt;/title&gt;
+                            &lt;/head&gt;
+                            &lt;body&gt;
+                                &lt;p class="verse" number="1"&gt;
+                                Now when Jesus was born in Bethlehem of Judaea in the days of Herod the king,
+                                behold, there came wise men from the east to Jerusalem,
+                                &lt;/p&gt;
+                                &lt;p class="verse" number="2"&gt;
+                                Saying, Where is he that is born King of the Jews? For we have seen his star in 
+                                the east, and are come to worship him.
+                                &lt;/p&gt;
+                            &lt;/body&gt;
+                        &lt;/html&gt;
+                    &lt;/x-body&gt;
+                    &lt;x-history start=”v0” end=”v2”&gt;
+                        &lt;version id=”v0” /&gt;
+                        &lt;version id=”v1”&gt;
+                            &lt;delta bwd=”v0”&gt;
+                                &lt;delete ipath=”1/2/2”/&gt;
+                            &lt;/delta &gt;
+                            &lt;delta fwd=”v2”&gt;
+                                &lt;insert ipath=”1/2/3”&gt;
+                                    &lt;p class="verse" number="3"&gt;
+                                    When Herod the king had heard these things, he was troubled, and all 
+                                    Jerusalem with him.
+                                    &lt;/p&gt;
+                                &lt;/insert &gt;
+                            &lt;/delta &gt;
+                        &lt;/version &gt;
+                        &lt;version id=”v2” /&gt;
+                    &lt;/x-history&gt;
+                &lt;/x-version&gt;
+                
+            </programlisting><para>Three different versioning points have been created. The current version is v1 (cf
+                attribute <emphasis role="ital">version</emphasis> of <emphasis role="ital">x-body</emphasis> element). As the versioning mode is “focused”, we do have
+                backward oriented delta to the previous version, and forward oriented delta to the
+                following version (to the latest one in this example).</para></figure><para>The following example illustrate how the same information can be encoded differently,
+            featuring different properties.</para><figure xml:id="Ex4"><title>The same document (see <xref linkend="Ex3"/>) in "linear mode"</title><programlisting xml:space="preserve">
+
+    &lt;x-version id="xhtml-1.0" xmlns="XEROX::XRCE::DS:X-Version"&gt;
+        &lt;x-body version=”v1”&gt;
+            &lt;html xmlns="http://www.w3c.org/1999/xhtml"&gt;
+            &lt;!-- XHTML 1.0 --&gt;
+            &lt;head&gt;
+                &lt;title&gt;New Testament (Matthew, chapter 2)&lt;/title&gt;
+            &lt;/head&gt;
+            &lt;body&gt;
+                &lt;p class="verse" number="1"&gt;
+                Now when Jesus was born in Bethlehem of Judaea in the days of Herod the king,
+                behold, there came wise men from the east to Jerusalem,
+                &lt;/p&gt;
+                &lt;p class="verse" number="2"&gt;
+                Saying, Where is he that is born King of the Jews? For we have seen his star in 
+                the east, and are come to worship him.
+                &lt;/p&gt;
+            &lt;/body&gt;
+            &lt;/html&gt;
+        &lt;/x-body&gt;
+        &lt;x-history start=”v0” end=”v2”&gt;
+            &lt;version id=”v0” &gt;
+                &lt;delta fwd=”v1”&gt;
+                    &lt;insert ipath=”1/2/2”&gt;
+                    &lt;p class="verse" number="2"&gt;
+                    Saying, Where is he that is born King of the Jews? For we have seen his star in 
+                    the east, and are come to worship him.
+                    &lt;/p&gt;
+                    &lt;/insert &gt;
+                &lt;/delta &gt;
+            &lt;/version &gt;
+            &lt;version id=”v1”&gt;
+                &lt;delta fwd=”v2”&gt;
+                    &lt;insert ipath=”1/2/3”&gt;
+                        &lt;p class="verse" number="3"&gt;
+                        When Herod the king had heard these things, he was troubled, and all 
+                        Jerusalem with him.
+                        &lt;/p&gt;
+                    &lt;/insert &gt;
+                &lt;/delta &gt;
+            &lt;/version &gt;
+            &lt;version id=”v2” /&gt;
+        &lt;/x-history&gt;
+    &lt;/x-version&gt;                
+
+            </programlisting><para>We do have a forward oriented delta from <emphasis role="ital">v0</emphasis> to
+                    <emphasis role="ital">v1</emphasis>, and a forward oriented delta from <emphasis role="ital">v1</emphasis> to <emphasis role="ital">v2</emphasis>. Note that the
+                whole history can be read in compliance with the evolution order, from the beginning
+                up to the end. However, in that case, we have information redundancy as a subtree
+                (verse number 2) is present both in the body and in the history.</para></figure><para>We propose a particular optimisation that could be applied in linear mode: redundant
+            trees are eliminated tanks to an explicit copy instruction using an XPath expression to
+            designate the subtree (thus the XPath selection refers to the focused version).
+            <programlisting xml:space="preserve">
+                &lt;delta fwd="v1"&gt;
+                    &lt;insert ipath=”1/2/2”&gt;
+                        &lt;p class="verse" number="2"&gt;
+                        Saying, Where is he that is born King of the Jews? For we have seen his star 
+                        in the east, and are come to worship him.
+                        &lt;/p&gt;
+                    &lt;/insert &gt;                
+                &lt;/delta&gt;                 
+            </programlisting>
+            In the case of figure <xref linkend="Ex4"/>, the node "insert", child of the forward
+            delta to v1, is suppressed from the history and its parent is changed into the
+            expression below:
+            <programlisting xml:space="preserve">
+                &lt;delta fwd="v1"&gt;
+                    &lt;insert ipath=”1/2/2” copy=”/html[1]/body[1]/p[2]”/&gt;    
+                &lt;/delta&gt;                 
+            </programlisting></para><para>This optimization applies only to versions belonging to <emphasis role="ital">past
+                history</emphasis>, but makes a lot of sense when the evolution of document
+            instances is best captured through using linear mode and comprises many incremental
+            additions.</para></section><section><title>State of the Art</title><para> XML diff operations are basically used to realize two fundamental operations on tree
+            structured documents: comparison and merging. Therefore tree based diff algorithms are
+            central to solve various important problems related to XML document management and
+            editing processes (<xref linkend="Chawathe96"/>), among which: </para><itemizedlist><listitem><para>checking modifications with respect to a reference document, typically, the
+                    last version stored inside a repository or a file system (version management
+                        <xref linkend="Chien00"/>)</para></listitem><listitem><para>synchronizing variants, that is, detection of changes that occurred
+                    concurrently on two copies of a reference document, detecting potential
+                    conflicts (<xref linkend="LaFontaine02"/></para></listitem><listitem><para>merging variants, which is about fusing two variants into a unique document
+                    integrating modifications of both instances (this may imply solving potential
+                    conflicts when the underlying document management system applies a weak control
+                    policy)</para></listitem><listitem><para>recovering anterior state(s) of a document</para></listitem></itemizedlist><para>An abundant literature exists on this topic, including recent and excellent synthetic
+            work on an old topic, linear differencing (<xref linkend="Khanna07"/>). Most work covers
+            :</para><orderedlist><listitem><para>
+                    <emphasis role="ital">Algorithmic complexity of the differencing operation,
+                        either for ordered or unordered tree models.</emphasis>
+                </para><para>The problem was first approached as a particular case of string oriented diff
+                    computation (see <xref linkend="Khanna07"/> for a point on most recent
+                    algorithms in this area), implying computing an adequate linearization of the
+                    XML trees. Zhang and Shasha described a fast algorithm in 1989 for computing
+                    tree edit distance <xref linkend="Zha89"/> improving previous work conducted in
+                    1979. Still the runtime and space complexity was higher than quadratic on
+                    sequential architectures, but could drop to quadratic levels on parallel
+                    architectures. In <xref linkend="Wang03"/> an algorithm for unordered tree was
+                    presented with a polynomial complexity for optimal differences, whereas previous
+                    works established a NP-complete complexity for general cases. A survey (still of
+                    interest 14 years after) and a comparative study on the topic can be found in
+                        <xref linkend="Bille95"/> and <xref linkend="Cobe02"/>. Most recent
+                    algorithms for ordered diff computation are described in <xref linkend="Lind06"/>, <xref linkend="Rönnau08"/>, <xref linkend="Rönnau09"/>.</para></listitem><listitem><para>
+                    <emphasis role="ital">Optimality of editing scripts (also called
+                    deltas)</emphasis>
+                </para><para>The very notion of optimality is somehow controversial, because bound to
+                    execution models one could consider either as over simplistic or too specific.
+                    Of course execution models are needed to justify underlying cost functions
+                    associated with deltas application. However, such an approach intrinsically
+                    restricts the application field or the area of proposed results. In addition,
+                    usages and document types deeply impact the structure of delta and thus the
+                    runtime performance of algorithms. As a consequence, diff algorithms should be
+                    chosen and parameterized on the basis of document type and related
+                activities.</para></listitem><listitem><para>
+                    <emphasis role="ital">Delta models and use of diff operations inside storage
+                        architectures (typically databases).</emphasis>
+                </para><para>In <xref linkend="Martinez02"/>, a versioning graph is proposed based on XLink
+                    designation mechanism. But in this proposal, the graph relates two separate
+                    documents that may exist in independent storage infrastructure. Hence there is
+                    no notion of encapsulation and explicit consistency. In <xref linkend="Arevalo09"/>, an application is proposed that offers online
+                    versioning services for XML documents. However, there is no notion of history
+                    encapsulation, and the history itself cannot be exported or organized into an
+                    explicit form (see <xref linkend="Arevalo09b"/> for an online demo).</para></listitem></orderedlist><para> A recent paper <xref linkend="Rönnau08"/> proposes reversible deltas using a
+            straightforward mechanism as deletion operation conveys explicitly the deleted subtree
+            (this could quickly lead to enormous overhead, especially in the perspective of storing
+            the whole history). The authors focus on algorithmic and speed performance issues of a
+            novel diff algorithm using a bottom-up approach (and also precomputed hash codes on a
+            sliding window of adjacent nodes.)</para><para>Most work conducted on this area focused on related algorithm performance, time and
+            space complexity of the diff operation and also optimality of generated deltas, but
+            little attention has been paid to tools and models to make use of these in efficient
+            ways. From the practical point of view, no work considered the necessity and applicative
+            interest of abstracting over deltas and related operation models.</para><para>Recently, the XQuery Update working group from W3C (see <xref linkend="XQueryUp"/>)
+            published a candidate recommendation proposing to enrich XQuery with mechanisms intended
+            to modify XML documents. This impressive work largely focused on expressive power and
+            consistent integration of the new constructs to the existing language. The patching
+            operations rely on "insert", "delete", "rename" and "replace" , using XPath to designate
+            the locations in the XML tree ; an innovative "transform" operator allows for combining
+            copy with on-the-fly modifications. One major difficulty was to deal with the extra
+            power raised by the selection semantic model of XPath, i.e sequences of nodes. As a
+            consequence, many runtime error may occur depending on the evaluation of selectors and
+            the semantics of the delta operation. Additionally the insert operator of the language
+            is particularly powerful since it can make explicit positional constraints ("first/last
+            position", "before/after A") whereas when implicit, positional constraints are
+            interpreted so that global ordering constraint are optimally satisfied (this remain a
+            bit unclear how far this can be hard). </para><para>The transformation model of XQUpdate relies on a kind of transactional framework,
+            where changes are stored in a list of "pending modifications" only applied after calling
+            a dedicated primitive upd:applyUpdates. This is a pragmatic solution to the problem of
+            path relocation (and variable scope validity!), but is a nightmare regarding static
+            analysis. Therefore it will be much more realistic to use the XQUpdate interpreter as a
+            patch engine (i.e generating XQUpdate code from our descriptions), than considering  an
+            XQUpdate program as a description of differences. </para></section><section><title>Conclusion</title><para>The main contribution of this work is to propose a universal XML data structure and
+            related transformations which allow abstracting from underlying storage systems and from
+            any execution model associated with the computation of XML versioning information. </para><para>This is in favor of long term preservation of XML documents, infrastructure and vendor
+            independence, and open the way to interoperable processing of XML versioning
+            information. </para><para>The method targets generic XML documents, and makes use of a particular namespace to
+            embed any XML document (whatever vocabulary it may use) without any change in its
+            content and tag/attribute set. The history is encoded using a specific vocabulary that
+            captures change operations in a formal and universal way, so that any XML diff enabled
+            processor can generate suitable deltas. Based on the properties of this change
+            description language, we propose a set of high level operators which allows exploiting
+            the historical information in order to navigate inside the history, compute new version
+            in the current branch, create new branches or suppress intermediate versioning points. </para><para>Various information may be attached to the versioning points, such as user meta
+            information, universal date/time of the creation of the versioning point, additional
+            data required to optimize or ameliorate the computation (hash code, digest number,...),
+            which are not central to this contribution but could substantially enhance any of its
+            application.</para><para>The problem with existing diff related approaches is that the description model and
+            the transformation model are identical. In other words, they use the same objects both
+            to describe operationally and declaratively the differences between trees. We outline in
+            our proposal a calculus that formally allows making a distinction between modification
+            descriptors and modification operations. This calculus allows modeling "standard"
+            processing of deltas and allows transforming descriptions in order to gain compactness
+            or efficiency. We are not aware of any equivalent proposal.</para><para>The two transformation structures we described can lead to two broad classes of delta
+            interpretations:</para><orderedlist><listitem><para>Each modification step transforms the tree, so that the paths used inside
+                    subsequent deltas should be defined on the modified tree. This model is used
+                    inside database systems and DOM-like in memory tree processors (especially <xref linkend="XUpdate"/>, <xref linkend="XQueryUp"/>). </para></listitem><listitem><para>All modification steps are defined on the same reference tree, and all
+                    modifications are realized in one global step. Thus the paths always refer to
+                    the same tree operand and consequently, delta sequences are more easily
+                    understood by a human reader, because they do not have to maintain the cognitive
+                    load of mentally propagating tree modifications to paths. From a computational
+                    point of view, this model is well adapted to stream based processing pipes in
+                    which each operation can be performed concurrently (e.g. on a multi core
+                    processor). As this approach doesn't need building a tree in memory, it is
+                    particularly indicated for large and very large document processing. </para></listitem></orderedlist><para>The delta model we propose as foundational for history encoding integrates those two
+            transformation models, in the sense that both can be expressed explicitly. The first one
+            is captured by sequences of singleton snapshots whereas the second may involve snapshots
+            including several deltas.</para><para>We identified 4 key issues when addressing the challenge of encapsulating document
+            history into a stand alone XML instance: mastering the potentially big data volume,
+            usability of the history model (human vs machine), flexibility of the history
+            representation and abstracting over diff operations (i.e. not being dependent of a
+            particular diff algorithm/engine behavior). The method described in this paper addresses
+            these four issues at various levels. We believe our approach therefore constitutes a
+            significant contribution having a realistic applicability level, though the data volume
+            issue would still require large scale experiments.</para></section><section><title>Acknowledgment</title><para>This work is supported by the European project SHAMAN (FP7- ICT-216736, <link xlink:href="http://shaman-ip.eu/shaman/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">
+                http://shaman-ip.eu/shaman/ </link>). The author also would like to thanks
+            Jean-Pierre Chanod for his continuous support and helpful comments</para></section><appendix xml:id="proof-proposition-1"><title>Proof of proposition <xref linkend="proposition-1"/></title><para>Global structure: </para><para>We do a structural induction over Δ. Each sub-case is associated with a corresponding
+            well-formedness hypothesis; we use these together with the definitions of inversion. We
+            show here the case for the Δ<subscript>1</subscript>;Δ<subscript>2</subscript>
+            composition:</para><orderedlist><listitem><para>Goal : <informaltable><tr><td>d › Δ<subscript>1</subscript>;Δ<subscript>2</subscript> › d’ </td><td> ⇒ </td><td> d’ › <emphasis role="bold">∘</emphasis>(
+                                    Δ<subscript>1</subscript>;Δ<subscript>2</subscript> ) › d</td></tr></informaltable></para><para>We introduce the left hand as a new hypothesis H and we get the new goal </para><informaltable><tr><td> d’ › <emphasis role="bold">∘</emphasis>(
+                                Δ<subscript>1</subscript>;Δ<subscript>2</subscript> ) › d</td></tr></informaltable><para>By applying the definition of inversion (thanks to H), we get </para><informaltable><tr><td> d’ › <emphasis role="bold">∘</emphasis>Δ<subscript>2</subscript> ;
+                                <emphasis role="bold">∘</emphasis>Δ<subscript>1</subscript> › d</td></tr></informaltable><para>The we apply the property (a-seq)</para><informaltable><tr><td> ∃ dd , d’ › <emphasis role="bold">∘</emphasis>Δ<subscript>2</subscript>
+                            › dd ⋀ dd › <emphasis role="bold">∘</emphasis>Δ<subscript>1</subscript>
+                            › d</td></tr></informaltable><para>We apply again the (a-seq) property to hypothesis H, and get a
+                    particularisation for intermediate tree d''. Thus we choose d'' as an evidence
+                    for the existence of dd, and get </para><informaltable><tr><td> d’ › <emphasis role="bold">∘</emphasis>Δ<subscript>2</subscript> › d''
+                            ⋀ d'' › <emphasis role="bold">∘</emphasis>Δ<subscript>1</subscript> ›
+                        d</td></tr></informaltable><para>Now we split the goal in two subgoals and apply the induction hypothesis to
+                    both.</para></listitem></orderedlist></appendix><appendix><title>An RelaxNG schema (compact syntax ) capturing our model</title><para>
+            <programlisting xml:space="preserve">
+                
+default namespace xversion = "XRCE::DS::X-Version"
+datatypes xsd = "http://www.w3.org/2001/XMLSchema-datatypes"
+
+start =  x-version
+
+anyElement = element * - xversion:* { anyAttribute*, anyElement*} | text
+anyAttribute = attribute * { text}
+
+x-version = element x-version { 
+    element x-version-body { 
+        attribute ref {V-REF}, 
+        attribute xml:space {"preserve" | "ignore"}?,
+        SUBTREE
+        }+,
+    element x-version-history {
+        attribute first {list {V-REF+}},
+        attribute last {list {V-REF+}},
+        # the version history encodes a DAG (Directed Acyclic Graph)
+        version*
+    }    
+}
+
+    
+version = element version {
+    attribute id { V-REF},
+        
+    # allows zero or more
+    attribute conflicts {xsd:nonNegativeInteger}?, 
+    a-time?,
+    delta*
+    }
+
+a-target=
+    # this attribute defines a "one-step" next version 
+    attribute to {V-REF}  
+
+
+delta = element delta {  a-target,   (rename | insert | append | move | copy | delete | replace)* }
+
+a-here= 
+    # the "here" attribute designates the insertion point (existing stuff is to be shift to right after insertion)
+    attribute here {IPath}
+    
+    
+insert=
+    # "insert" only applies to elements, text, comment and PI
+    element insert {
+    a-here,
+    # the subtree to be inserted is here (but skipped thanks to a NVDL rule)
+    SUBTREE
+    }
+
+append=
+    # "append" applies to everything including attributes
+    # for elements, text, comments, PI, the item is appended at the end of the sequence of children
+    element append {
+    a-here,
+    # the "attribute" attribute is used to specify attribute insertion; it must have the "QName=Value" syntactic structure 
+    ((attribute attribute {A-DEF}?, empty) | SUBTREE)
+    }
+
+copy= element copy {
+    a-what, a-here,
+    attribute append {flag}?
+    }
+    
+move= element move {
+    a-what, a-here,
+    attribute append {flag}?
+    }
+
+delete= element delete { a-what, SUBTREE }
+replace= element replace { a-what, SUBTREE }
+
+rename= 
+    # works for elements, attributes, and PI as well
+    # the "as" attribute is a qualified name (that is, may refer to a given namespace through a declared prefix
+    element rename {  a-what,    attribute as {token}}
+
+
+SUBTREE=anyElement | conflict
+
+conflict=element conflict { item+ }
+item = element item { attribute ref {V-REF}, anyElement }
+
+attribute-conflict =element attribute-conflict { attribute ref {V-REF}, A-DEF}
+tree-conflict = element tree-conflict { attribute ref {V-REF}, A-DEF}
+
+V-REF= xsd:string { pattern="v\d+(\.\d+)*" }
+
+A-DEF=string
+
+
+flag = "yes" | "no"
+
+a-what = attribute what {XPath}
+a-time = attribute time {xsd:dateTime}
+
+XPath = xsd:string
+IPath = xsd:string { pattern="1(/\d+)*(/@([\c-[:]]+:)?[\c-[:]]+)?" }
+                
+            </programlisting>
+        </para></appendix><appendix><title>an ISO Schematron schema <xref linkend="Schematron"/></title><para>
+            <programlisting xml:space="preserve">
+                
+&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;sch:schema xmlns:sch="http://purl.oclc.org/dsdl/schematron" xml:lang="en" queryBinding="xslt2"&gt;
+    &lt;sch:ns uri="XRCE::DS::X-Version" prefix="xv"/&gt;
+    &lt;sch:pattern &gt;
+        &lt;sch:let name="versions" value="/*[1]/*[2]/xv:version"/&gt;
+        &lt;sch:let name="versions-id" value="for $i in $versions/@id return normalize-space($i)"/&gt;
+        &lt;sch:let name="Nversions-id" value="distinct-values($versions-id)"/&gt;
+
+        &lt;sch:let name="history" value="/*[1]/xv:x-version-history[1]"/&gt;
+        &lt;sch:let name="starting-vector" value="tokenize(normalize-space($history/@first),'\s')"/&gt;
+        &lt;sch:let name="ending-vector" value="tokenize(normalize-space($history/@last),'\s')"/&gt;
+        &lt;sch:let name="Nstarting-vector" value="distinct-values($starting-vector)"/&gt;
+        &lt;sch:let name="Nending-vector" value="distinct-values($ending-vector)"/&gt;
+        
+        
+        &lt;sch:rule context="/*[1]/xv:x-version-history[1]"&gt;
+            &lt;sch:assert test="count($versions-id) ge count($Nversions-id)"&gt;Every version element must have an unique id attribute&lt;/sch:assert&gt;
+            
+            &lt;sch:assert test="count($starting-vector) eq count($Nstarting-vector)"&gt;"first" attribute should refer to each relevant version only once&lt;/sch:assert&gt;
+            &lt;sch:assert test="count($ending-vector) eq count($Nending-vector)"&gt;"last" attribute should refer to each relevant version only once&lt;/sch:assert&gt;
+            
+            &lt;sch:assert test="every $i in $Nstarting-vector satisfies index-of($Nversions-id,$i) gt 0 "&gt;
+                the "first" attribute should point to existing version(s) (cf 
+                "&lt;sch:value-of select="string-join($Nstarting-vector,'/')"/&gt;" versus "&lt;sch:value-of select="string-join($Nversions-id,'/')"/&gt;"
+                )
+            &lt;/sch:assert&gt;
+            &lt;sch:assert test="every $i in $Nending-vector satisfies index-of($Nversions-id,$i) gt 0 "&gt;
+                the "last" attribute should point to existing version(s) (cf 
+                "&lt;sch:value-of select="string-join($Nending-vector,'/')"/&gt;" versus "&lt;sch:value-of select="string-join($Nversions-id,'/')"/&gt;"
+                )
+            &lt;/sch:assert&gt;
+        &lt;/sch:rule&gt;
+        &lt;sch:rule context="xv:version"&gt;
+            &lt;sch:report test="count(index-of($versions-id,normalize-space(@id))) gt 1"&gt;
+                The "id" attribute must be unique ("&lt;sch:value-of select="@id"/&gt;")
+            &lt;/sch:report&gt; 
+            &lt;sch:let name="my-id" value="@id"/&gt;
+            &lt;sch:assert test="(count(../xv:version/xv:delta[@to=$my-id]) gt 0) or (index-of($Nstarting-vector,$my-id) gt 0)"&gt;
+                missing back link to anterior version (version "&lt;sch:value-of select="@id"/&gt;")
+            &lt;/sch:assert&gt;
+            &lt;sch:assert test="(count(xv:delta[@to]) gt 0) or (index-of($Nending-vector,$my-id) gt 0)"&gt;
+                missing link to posterior version (version "&lt;sch:value-of select="@id"/&gt;")
+            &lt;/sch:assert&gt;
+        &lt;/sch:rule&gt;
+        &lt;sch:rule context="xv:delta"&gt;
+            &lt;sch:assert test="index-of($Nversions-id,@to) gt 0"&gt;
+                The link to version "&lt;sch:value-of select="@to"/&gt;" is dangling (no corresponding version found in the whole history)
+            &lt;/sch:assert&gt; 
+            &lt;sch:let name="my-dest" value="@to"/&gt;
+            &lt;sch:report test="count(preceding-sibling::xv:delta[@to=$my-dest]) gt 0" &gt;
+                Delta must be unique for one target version ("&lt;sch:value-of select="@to"/&gt;")
+            &lt;/sch:report&gt;
+        &lt;/sch:rule&gt;
+        &lt;sch:rule context="xv:conflict"&gt;
+            &lt;sch:let name="all-item-refs" value="for $i in xv:item/@ref return normalize-space($i)"/&gt;
+            &lt;sch:assert test="count(distinct-values($all-item-refs)) eq count($all-item-refs)"&gt;
+                Conflicting items must be uniquely defined for a given version 
+            &lt;/sch:assert&gt;
+        &lt;/sch:rule&gt;
+        &lt;sch:rule context="xv:item"&gt;
+            &lt;sch:assert test="index-of($Nversions-id,@ref) gt 0"&gt;
+                The reference to version "&lt;sch:value-of select="@ref"/&gt;" is dangling (no corresponding version found in the whole history)
+            &lt;/sch:assert&gt;
+        &lt;/sch:rule&gt;
+    &lt;/sch:pattern&gt;
+&lt;/sch:schema&gt;
+
+            </programlisting>
+        </para></appendix><bibliography><title>References</title><bibliomixed xml:id="Zha89">
+            <emphasis role="ital">Simple Fast Algorithms for the Editing Distance between Trees and
+                Related Problems</emphasis>, Kaizhong Zhang; Dennis Shasha, SIAM J. Comput., 1989 </bibliomixed><bibliomixed xml:id="Bille95">
+            <emphasis role="ital">A survey on tree edit distance and related problems</emphasis>,
+            Philip Bille, Theoretical Computer Science , Volume 337 Issue 1-3 June 2005. </bibliomixed><bibliomixed xml:id="Chawathe96">
+            <emphasis role="ital">Change detection in hierarchically structured
+            information</emphasis>, Sudarshan S. Chawathe; Anand Rajaraman;Hector Garcia-Molina ;
+            Jennifer Widom, SIGMOD '96: Proceedings of the 1996 ACM SIGMOD international conference
+            on Management of data, June 1996, doi: <biblioid class="doi">10.1145/233269.233366
+</biblioid> </bibliomixed><bibliomixed xml:id="Chien00">
+            <emphasis role="ital">A Comparative Study of Version Management Schemes for XML
+                Documents</emphasis>, Shu-Yao Chien ; Vassilis J. Tsotras ; Carlo Zaniolo, 2000 </bibliomixed><bibliomixed xml:id="Cobe02">
+            <emphasis role="ital">A comparative study for XML change detection</emphasis>, Grégory
+            Cobéna; Talel Abdessalem; Yassine Hinnach, Research Report, INRIA Rocquencourt, France,
+            2002 <link xlink:href="http://leo.saclay.inria.fr/publifiles/gemo/GemoReport-221.pdf" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">PDF</link>
+        </bibliomixed><bibliomixed xml:id="LaFontaine02"><emphasis role="ital">Merging XML files: a new approach
+                providing intelligent merge of XML data sets</emphasis>, Robin La Fontaine, 2002</bibliomixed><bibliomixed xml:id="Martinez02">
+            <emphasis role="ital">A method for the dynamic generation of virtual versions of
+                evolving documents</emphasis>, Mercedes Martinez, Jean-Claude Derniame, Pablo de la
+            Fuente, SAC 2002, Madrid, Spain, 2002 </bibliomixed><bibliomixed xml:id="pédauque03">
+            <emphasis role="ital">Document: Form, Sign and Medium, as Reformulated for Electronic
+                Documents</emphasis>, Roger T. Pédauque, collective writing, STIC-CNRS, 12 September
+            2003. <link xlink:href="http://archivesic.ccsd.cnrs.fr/docs/00/06/22/28/PDF/sic_00000594.pdf" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">PDF</link>
+        </bibliomixed><bibliomixed xml:id="Wang03">
+            <emphasis role="ital">X-Diff: A Fast Change Detection Algorithm for
+            XMLDocuments</emphasis>. Yuan Wang , David J. DeWitt , Jin-Yi Cai in Proceedings of the
+            International Conference on Data Engineering (ICDE'03) <link xlink:href="http://pages.cs.wisc.edu/~yuanwang/papers/xdiff.pdf" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">PDF</link>
+        </bibliomixed><bibliomixed xml:id="pédauque05">
+            <emphasis role="ital">Le texte en jeu (Permanence et transformations du
+            document)</emphasis>, Roger T. Pédauque, collective writing, STIC-CNRS, 7 April 2005.
+                <link xlink:href="http://archivesic.ccsd.cnrs.fr/docs/00/06/26/01/PDF/sic_00001401.pdf" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">PDF</link>
+        </bibliomixed><bibliomixed xml:id="Lind06">
+            <emphasis role="ital">Fast and Simple XML Tree Differencing by Sequence
+            Alignment</emphasis>, Tancred Lindholm; Jaakko Kangasharju; Sasu Tarkoma, DocEng '06:
+            Proceedings of the 2006 ACM symposium on Document engineering October 2006, doi: <biblioid class="doi">10.1145/1166160.1166183</biblioid></bibliomixed><bibliomixed xml:id="Khanna07">
+            <emphasis role="ital">A Formal Investigation of diff3</emphasis>, Sanjeev Khanna; Keshav
+            Kunal ; Benjamin C. Pierce, In Arvind and Prasad, editors, Foundations of Software
+            Technology and Theoretical Computer Science (FSTTCS), December 2007 <link xlink:href="http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.106.5604&amp;rep=rep1&amp;type=pdf" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">PDF</link>
+        </bibliomixed><bibliomixed xml:id="Tata07"><emphasis role="ital">Tree automata techniques and
+            applications</emphasis>, Hubert Comon; Max Dauchet; Florent Jacquemard; Denis Lugiez;
+            Sophie Tison; Marc Tommasi , 2007 <link xlink:href="http://tata.gforge.inria.fr/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">PDF</link></bibliomixed><bibliomixed xml:id="Rönnau08"><emphasis role="ital">Merging Changes in XML Documents Using
+                Reliable Context Fingerprints</emphasis>, Sebastian Rönnau; Christian Pauli; Uwe M.
+            Borghoff, ACM Symposium on Document Engineering, September 2008, doi: <biblioid class="doi">10.1145/1410140.1410151</biblioid> </bibliomixed><bibliomixed xml:id="Rönnau09"><emphasis role="ital">Efficient Change Control of XML
+                Documents</emphasis>, Sebastian Rönnau; Christian Pauli; Uwe M. Borghoff, ACM
+            Symposium on Document Engineering, September 2009, doi: <biblioid class="doi">10.1145/1600193.1600197</biblioid> </bibliomixed><bibliomixed xml:id="Arevalo09"><emphasis role="ital">A Web-Based Version Editor for XML
+                Documents</emphasis>, Luis Arévalo Rosado, Antonio Polo Márquez and Miryam Salas
+            Sánchez, ACM Symposium on Document Engineering, September 2009, doi: <biblioid class="doi">10.1145/1600193.1600249</biblioid></bibliomixed><bibliomixed xml:id="Arevalo09b"><emphasis role="ital">A Web-Based Version Editor for XML
+                Documents</emphasis>, online demonstration version:
+                <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://picaro.unex.es:8180/vEditor/</link></bibliomixed><bibliomixed xml:id="XQueryUp">
+            <emphasis role="ital">XQuery Update Facility 1.0</emphasis>, W3C, Specification, June
+            2009 <link xlink:href="" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/xquery-update-10/</link></bibliomixed><bibliomixed xml:id="XUpdate">
+            <link xlink:href="http://xmldb-org.sourceforge.net/xupdate/xupdate-wd.html" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://xmldb-org.sourceforge.net/xupdate/xupdate-wd.html</link> ; <link xlink:href="http://en.wikipedia.org/wiki/XUpdate" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://en.wikipedia.org/wiki/XUpdate</link></bibliomixed><bibliomixed xml:id="Saxonica" xreflabel="Saxonica">
+            <emphasis role="ital">Saxonica, XSLT and XQuery processing</emphasis> Michael Kay, <link xlink:href="http://www.saxonica.com/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.saxonica.com/</link>
+        </bibliomixed><bibliomixed xreflabel="Schematron" xml:id="Schematron">
+            <emphasis role="ital">ISO Schematron, a language for making assertions about patterns
+                found in XML documents</emphasis>, Topologi , <link xlink:href="http://www.schematron.com/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">web
+                site</link>
+        </bibliomixed></bibliography></article>

@@ -1,0 +1,583 @@
+<?xml version="1.0" encoding="UTF-8"?><article xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink" version="5.0-subset Balisage-1.2"><title>Managing XML references through the XRM vocabulary</title><info><confgroup><conftitle>Balisage: The Markup Conference 2009</conftitle><confdates>August 11 - 14, 2009</confdates></confgroup><abstract><para>This paper presents a general purpose method (called <emphasis>XRM</emphasis> for
+                XML References Management) to express knowledge about links common to a family of
+                XML documents (a.k.a. a document type) and to exploit this knowledge in order to
+                operate verifications, transformations or derivations of the corresponding XML
+                instances. </para></abstract><author><personname><firstname>Jean-Yves</firstname><surname>Vion-Dury</surname></personname><personblurb><para>Jean-Yves Vion-Dury holds an CS engineering degree from the “Conservatoire National des Arts et Metiers, France”  (1993) and graduated with a PhD in CS from Universite Joseph Fourier, Grenoble in 1999. He has been working at  Xerox Research Centre Europe (in Grenoble, France) since 1995, as a research scientist; he has also been on a two year sabbatical with Vincent Quint’s team at INRIA in 2002-2004. His research interests relate to various aspect of XML including models, the impact of standards, validation/transformation languages and architectures, with theoretical background in programming languages, compilation, type systems and formal logics.</para><para>Jean-Yves was Program Chair of DocEng (ACM Document Engineering Symposium) in 2004, has been a member of its Program Committee since 2003,  and a member of its Steering Committee since 2005.</para></personblurb><affiliation><jobtitle>Senior Scientist</jobtitle><orgname>Xerox Research Centre Europe</orgname></affiliation><email>jean-yves.vion-dury@xeroxlabs.com</email></author><legalnotice><para>Copyright © 2009 Mulberry Technologies, Inc.  Used with
+                permission.</para></legalnotice></info><section><title>Introduction</title><para> So far no specific method nor well suited technology exist to address XML link
+            management related applications, although those are numerous and may require quite
+            complex processing when using standard XML tools or programming languages. </para><para>We call link or reference any URL, URN, URI, IRI, XLink (see [<xref linkend="URI"/>]
+            and [<xref linkend="XLink"/>]) be it relative or absolute that can be found in a given
+            XML document instance, either under the form of an attribute or as a text node (once
+            parsed, an XML document is composed of element nodes, attribute nodes or text nodes: see
+                [<xref linkend="XML"/>] for a general description of XML standard). </para><para> The method and conceptual models we propose hereby allow concise and efficient XML
+            descriptions of links that can be heavily reused, and enable adequate descriptions of
+            main link-based operations required in XML processing environments, especially link
+            relocation for packaging clusters of documents and associated resources, verification of
+            link properties with respect to security, conformance to a predefined selection of HTTP
+            servers, simplification and normalization of link representation inside a given XML
+            instance, smooth redirection of database requests hidden inside the structure of links,
+            to cite a few among the huge variety of relevant cases. </para><para> The knowledge about links is formalized into a specification language that <orderedlist><listitem><para>describes links location and typology inside a family of XML documents
+                    </para></listitem><listitem><para> tags these link descriptions in such a way that they can be further
+                        designated and reused either individually or collectively. </para></listitem></orderedlist> The operations on XML instances use the link descriptions above in order
+            to <itemizedlist><listitem><para>verify the compliance of links according to the standards describing
+                        properties that these links must satisfy (e.g. lexical and syntactic
+                        structure),</para></listitem><listitem><para>check the conformance to specific or general properties (e.g. URI must be
+                        relative, or must match a given pattern),</para></listitem><listitem><para>generate a list of all links contained in the instance (dependencies),
+                        with related useful meta-information such as the path expression that
+                        uniquely locate them inside the hierarchical structure and the type of link
+                        (URI, IRI, XLink,…)</para></listitem><listitem><para>rewrite some links into other links (reference relocation), depending on
+                        matching patterns, side conditions of source document as well as side
+                        conditions of referenced objects (links targets).</para></listitem></itemizedlist></para></section><section><title>Problem overview</title><para> There are currently two different ways (inside XML standard) for identifying and
+            designating items inside or outside a document. The first one is based on ID/IDREF
+            mechanisms which only apply to intra-document references. The second one, more general,
+            is based on URL (Uniform Resource Locator) that has been historically derived into
+            several variants (e.g. URI, uniform resource identifiers; IRI, internationalized
+            resource identifier; URN Uniform resource name), each having different intended use and
+            slight lexical variations (see [<xref linkend="URI"/>,<xref linkend="IRI"/>]). </para><para> This research work, whose results are described hereby, focused on the second kind of
+            references. According to the related standards, references have a syntactic structure
+            that enables describing the protocol used for accessing resources over networks, the
+            address of the server providing the resource, the path which uniquely designates the
+            object to be accessed, and in some cases the fragment inside the document (i.e. a unique
+            element identifier) and/or parameters. For instance the URL
+                <emphasis>http://ds-1/example/dog.jpeg</emphasis> designates an object located on
+            the “ds-1” server and accessible through the “http” protocol. This object is called
+            “dog.jpeg” and the server is supposed to find it through the path “/example” before
+            delivering it back to the caller that invoked the protocol. </para><para> Although the referential objects are precisely defined through their syntactic and
+            semantic structure, we have poor information about the context in which they are used
+            and where they are located inside a given document. In the best case, an XML instance is
+            compliant with an XML schema, e.g. XHTML, and thus we hopefully know where one can find
+            such a reference, e.g. inside any <emphasis>img</emphasis> element, and more precisely,
+            inside the value of its <emphasis>href</emphasis> attribute. Note that the semantics of
+            the reference is implicitly defined by the informal description of the HTML standard (it
+            points to an image; it must be fetched through the URL and incorporated into the visual
+            representation of the containing document). </para><para> However, many specific transformation operations can be envisioned which are quite
+            focused on these referential objects, and no methods or tools are proposed today to
+            simplify these operations and to make them more reliable and easier to specify. Among
+            others, one can mention : <itemizedlist><listitem><para><emphasis>link relocation</emphasis>, which consists in changing the
+                        external environment of a given instance (for instance, changing absolute
+                        reference to an external server into a pointer on a local cache where the
+                        target resources are stored )</para></listitem><listitem><para><emphasis>document and resource packaging</emphasis>, which consists for
+                        instance in building an archive containing all dependent resources under a
+                        suitable directory structure</para></listitem><listitem><para><emphasis>selective link stabilization </emphasis>; this operation allows
+                        one to substitute some references by others pointing to the same resources,
+                        but via a storage system that guaranties the long term stability of the
+                        access</para></listitem><listitem><para><emphasis>static xml:base attribute processing</emphasis> ; this operation
+                        aims at interpreting the xml:base attribute according to the W3C standard
+                            [<xref linkend="XBase"/>], but as a standalone operation (usually, this
+                        process is done – or just ignored…- inside the applications)</para></listitem><listitem><para><emphasis>static XInclude resolution</emphasis> ; similar remark than
+                        above</para></listitem></itemizedlist></para><para>Our contribution can be understood as a way to express link specific schemas,
+            validations and transformations. It is orthogonal (and complementary) to general purpose
+            schemas.</para></section><section><title>State of the Art</title><section><title>XCatalog</title><para>XCatalog [<xref linkend="XCalatog"/>,<xref linkend="XCataEx"/>] is an XML standard
+                which allows describing link resolving mechanisms. More precisely, the links are
+                categorized into references to XML entities, DTD and XML schema resolution (W3C
+                schemas only) on the one hand, and general URI that are defined as strings that must
+                match a given prefix on the other hand. </para><para> The first category is focused on link resolution, an operational concept that
+                concerns only programmatic toolkits and software libraries that are in charge of
+                retrieving the content of pointed objects (so called
+                <emphasis>resolvers</emphasis>). It means that the only underlying semantics is
+                predefined as “fetch the pointed resource when needed, the way I specify”, and this
+                behavior must be implemented by the XCatalog aware processor (typically, XML
+                parsers). A strange point is that the XML catalog specification defines "what" and
+                "how", but not "when". In other words, the semantics of links is presupposed, and
+                indeed strongly related to the XML validation that is accomplished after parsing. </para><para> The other link category is quite general, but only defined through the concept of
+                “exact prefix matching”. Nothing is said about the location of links and a fortiori
+                about their context. </para><para> Thus there is a deep conceptual difference between our proposal and XCatalog: the
+                latter is focused on resolving links, where links are recognized through their
+                content, whereas our proposal is based upon a methodology which makes explicit the
+                description of links through their localization in the document structure. These
+                descriptions can be used for specifying various link oriented validation and
+                transformation operations. </para></section><section><title>XLink</title><para> XLink [<xref linkend="XLink"/>] is a standard that describes a vocabulary and
+                syntax for specifying generic links inside XML documents. This standard relies in a
+                rich model allowing among others the specification of hyper-graphs, that is, graphs
+                based on a generalized notion of arcs possibly binding several sources to several
+                targets. XLink is based upon URI mechanism and namespace modularity. </para><para> It is not comparable with our approach, as it is a way to express links whereas
+                our method is a way to express properties of links and the related validation or
+                transformation operations that can be derived from these properties. As a
+                consequence, XLink objects are specific targets of the description mechanisms we
+                propose, so as with XInclude, XPointer and other generic linking objects (URI,
+                IRI,...) (see <xref linkend="link-descriptors"/>) </para></section></section><section><title>Approach Principle</title><para>In order to express high level properties over links and their localization inside
+            instances, one needs a specialized language and dedicated abstractions. Moreover, in
+            order to consider the link normalization phenomenon, we also need an execution model.
+            Once captured in an adapted format, the link descriptions we propose in this paper might
+            be reusable for specifying almost any XML link-related operations. </para><para>Our method relies on a specification method, a specialized matching language and an
+            execution model.</para><section><title>Specification</title><para> From the specification point of view, our vocabulary allows one to <orderedlist><listitem xml:id="it1"><para>express link features by means of three separate sections:</para><orderedlist><listitem><para>the link typology and localization (links description), thanks
+                                    to an appropriate sublanguage, typically but not exclusively,
+                                    XPath [<xref linkend="XPath"/>]</para></listitem><listitem><para>the link’s expected properties (validation description)</para><para>This part expresses properties that (groups of) links have to
+                                    satisfy inside a given XML instance in order to be considered as
+                                    valid,</para></listitem><listitem><para>the link transformation rules (link translation description) :</para><orderedlist><listitem><para>transposition (selected links are eventually
+                                            normalized, matched against some pattern and
+                                        rewritten)</para></listitem><listitem><para>dependency extraction rules (dependency
+                                        description)</para></listitem></orderedlist></listitem></orderedlist></listitem><listitem xml:id="it2"><para>identify, group and designate link descriptions</para><para>This one allows the user to attach one or several tags to link
+                            descriptors, and offers a mechanism for factorizing the tag assignation.
+                            Tags are simple labels intended to abstract over the semantics of links
+                            and to memorize them easily.</para></listitem></orderedlist></para><para> The idea of points <xref linkend="it1"/> and <xref linkend="it2"/> above is to
+                express bindings between the descriptive section and the other sections through a
+                convenient designation mechanism. Hence there is little overhead, and the method
+                enables reusing link descriptions in various applicative contexts. </para></section><section><title>Matching language</title><para>The specialized matching language is designed in order to optimize the ratio
+                expressive power versus complexity; in other words, it simplifies the task of
+                expressing the structural properties of links, the (pre/post) processing and
+                transformation of links; by offering the right abstractions, and by relying on the
+                inherent lexical/syntactical structure of links, it avoids the burden of mastering
+                general regular expression languages, tricky and error prone for a non-specialist.
+                Details on this aspect of our contribution can be found in <xref linkend="app-match"/></para></section><section><title>Execution model</title><para>From the execution model point of view, our approach allows one to </para><orderedlist><listitem><para>use the link validation description either via an interpreter or via a
+                        compiler to operate the verification on any instance expected to comply with
+                        the description; the verification may output an error report including the
+                        faulty links, their location in the document and an indicative error message
+                        or any other relevant information ;</para></listitem><listitem><para>use the link translation descriptions either via a direct interpretation
+                        or via a compilation/execution scheme to operate the modification of links
+                        and possibly generate a new document instance in which relevant links have
+                        been modified according to the transcription rules (but without any other
+                        structural changes); this operation may output a log report indicating which
+                        links have been processed and any other relevant information ;</para></listitem><listitem><para>use the dependency extraction rules either via an interpreter or via a
+                        compiler to produce a list of all dependencies, i.e. all resources the given
+                        instance is sensitive to, as estimated by the designer who specified the
+                        dependency rules (Order may be significant, if specified so).</para></listitem></orderedlist><para>Details of significant steps behind applying XRM to some target XML instances can
+                be found in appendix <xref linkend="app-verif"/></para></section></section><section><title>The approach in more detail</title><section><title>Link Description</title><section><title>Overview</title><para>Links are described in a dedicated XRM element called “links” associated with information<itemizedlist><listitem><para> indicating a unique logical name for this section, which will be
+                                used for designing it without ambiguity </para></listitem><listitem><para> specifying the namespace of the target document, if any (see
+                                    [<xref linkend="wikipedia-NS"/>] for a description of
+                                namespaces) </para></listitem><listitem><para> providing the URL of one or several schemas to which the target
+                                document is expected to comply with (optional) </para></listitem><listitem><para> listing all tags used to annotate the link descriptions; this
+                                list is optional, but if provided, it defines exactly and
+                                exhaustively the authorized tags. Tags are names with any relevant
+                                lexical structure, as commonly found in the art. </para></listitem></itemizedlist></para><para>Inside the section, the designer of the description can input as many
+                    descriptors, possibly embedded in grouping subsections. These subsections are
+                    decorated with a tag list; the meaning of this grouping subsection is that all
+                    embedded descriptions will be automatically assigned the associated tags. It is
+                    thus a way to simplify the specification of descriptors (see example <xref linkend="link-description"/>). </para></section><section xml:id="link-descriptors"><title>The link descriptors</title><para>The descriptors themselves are specified through one of the following keywords
+                    :</para><orderedlist><listitem><para><emphasis>URL</emphasis> stands for Uniform Resource Locator (see
+                                [<xref linkend="URI"/>]) and is commonly used to give information on
+                            where a resource is located, understanding that the implicit action is
+                            to fetch this resource in order to incorporate it inside the document
+                            (e.g. an image, a sub-part) or to interpret it with respect to the
+                            current document (e.g. a script)</para></listitem><listitem><para><emphasis>URN</emphasis> stands for Uniform Resource Name and aims at
+                            naming resources in a worldwide unique and temporally stable way. Thus
+                            no specific action or usage is associated with them, they are just used
+                            to designate things (e.g. in PUBLIC field of DTDs); however, they often
+                            have a specific lexical structure, mainly a “urn” scheme and ‘:’
+                            separated sequence of characters (e.g. urn:example:animal:ferret:nose
+                        )</para></listitem><listitem><para><emphasis>URI</emphasis> stands for Uniform Resource Identifier
+                                ([<xref linkend="URI"/>]) and commonly used to identify a resource
+                            in a broader way. The RFC 3986 from IETF explicitly says: <blockquote><para>
+                                    <quote> […] A Uniform Resource Identifier (URI) is a compact
+                                        sequence of characters that identifies an abstract or
+                                        physical resource. […] </quote>
+                                </para><attribution><citation>RFC 3986 from IETF</citation></attribution></blockquote> This excerpt insists on the potential abstract nature of
+                            the pointed resource. In the sequel, the abstraction hierarchy and
+                            relationship between URL, URN and URI is clearly described: <blockquote><para>
+                                    <quote> […] URI can be further classified as a locator, a name,
+                                        or both. The term "Uniform Resource Locator" (URL) refers to
+                                        the subset of URIs that, in addition to identifying a
+                                        resource, provide a means of locating the resource by
+                                        describing its primary access mechanism (e.g., its network
+                                        "location"). The term "Uniform Resource Name" (URN) has been
+                                        used historically to refer to both URIs under the "urn"
+                                        scheme [RFC2141], which are required to remain globally
+                                        unique and persistent even when the resource ceases to exist
+                                        or becomes unavailable, and to any other URI with the
+                                        properties of a name. […] </quote>
+                                </para><attribution><citation>idem</citation></attribution></blockquote></para><para> From the lexical point of view, a URI must only use UCS (Universal
+                            Character Set) code points; these code points must be converted to bytes
+                            through the UTF-8 encoding, but when the character doesn’t belong to the
+                            unreserved subset, it must be escaped using a “%HH” pattern before
+                            encoding (full details in [<xref linkend="URI"/>]). </para></listitem><listitem><para><emphasis>IRI</emphasis> stands for Internationalized Resource
+                            Identifier (see [<xref linkend="IRI"/>]) and has the same meaning and
+                            syntactic structure than URI, but a more abstract lexical structure. An
+                            IRI uses hence an extended character set supporting foreign languages
+                            (foreign should be understood here as non-English), including
+                            right-to-left writing languages such as Arabic. The specification
+                            describes the translation algorithm that transforms an IRI into an URI
+                            (thus allowing physical access if required) through a character
+                            normalization phase followed by an escaping mechanism based on %HH
+                            patterns (H stands for any hexadecimal letter taken from the 0-9A-F
+                            alphabet).</para></listitem><listitem><para><emphasis>HREF</emphasis> refers to “Hyper-references” defined in the
+                            HTML vocabulary among others. Those links have a specific encoding
+                            policy, using a similar escaping mechanism than URI, but with stricter
+                            character set (namely, ASCII)</para></listitem><listitem><para><emphasis>XInclude</emphasis> refers not only to the link associated
+                            with it, but to the whole node. This element is meant to express
+                            document inclusion, a not so simple mechanism whose semantics is
+                            precisely specified in [<xref linkend="XInclude"/>] and makes use of a
+                            predefined attribute “href” containing a specifically encoded URI
+                            according to section 4.2.2 of the XML 1.1 specification [<xref linkend="xml-1.1"/>]: <blockquote><para>
+                                    <quote> […] System identifiers (and other XML strings meant to
+                                        be used as URI references) MAY contain characters that,
+                                        according to [IETF RFC 2396] and [IETF RFC 2732], must be
+                                        escaped before a URI can be used to retrieve the referenced
+                                        resource. The characters to be escaped are the control
+                                        characters #x0 to #x1F and #x7F (most of which cannot appear
+                                        in XML), space #x20, the delimiters '&lt;' #x3C,
+                                        '&gt;' #x3E and '"' #x22, the unwise characters '{'
+                                        #x7B, '}' #x7D, '|' #x7C, '\' #x5C, '^' #x5E and '`' #x60,
+                                        as well as all characters above #x7F. Since escaping is not
+                                        always a fully reversible process, it MUST be performed only
+                                        when absolutely necessary and as late as possible in a
+                                        processing chain. In particular, neither the process of
+                                        converting a relative URI to an absolute one nor the process
+                                        of passing a URI reference to a process or software
+                                        component responsible for dereferencing it SHOULD trigger
+                                        escaping. When escaping does occur, it MUST be performed as
+                                        follows: 1. Each character to be escaped is represented in
+                                        UTF-8 [Unicode] as one or more bytes. 2. The resulting bytes
+                                        are escaped with the URI escaping mechanism (that is,
+                                        converted to %HH, where HH is the hexadecimal notation of
+                                        the byte value). 3. The original character is replaced by
+                                        the resulting character sequence. […] </quote>
+                                </para><attribution><citation>World Wide Web Consortium</citation></attribution></blockquote></para></listitem><listitem><para><emphasis>XLink</emphasis> as for XInclude, refers to a node supposed
+                            to contain XLink related attributes (see [<xref linkend="XLink"/>]); the
+                            specific href attribute from the XLink namespace is an URI. The general
+                            semantics constraints of XLink are captured by this descriptor.</para></listitem><listitem><para><emphasis>XPointer</emphasis> describes a very rich mechanism (see
+                                [<xref linkend="XPtr-scheme"/>, <xref linkend="XPtr-frame"/>]),
+                            based on URI and possibly using various selection languages (so-called
+                                <emphasis>schemes</emphasis>), one of them, most notably, extending
+                            XPath in order to designate one or several fragments of an XML document
+                            tree including segments in text nodes.</para></listitem></orderedlist><para> Each such descriptor is associated with a locator, that is, an expression of
+                    a node selection language that defines where the link should be located in the
+                    document instances under consideration. Note that these XPath may use various
+                    namespaces, provided they are consistently declared thanks to a special element
+                    called <emphasis>ns</emphasis> (the same mechanism is used inside Schematron
+                    specifications [<xref linkend="Schematron"/>])</para><para> The Figure below illustrates how our method can be used to describe links in
+                    any XHTML compliant document <footnote><para>All XPath expressions are here interpreted inside the default
+                            namespace specified in top-level element "links" through the "ns"
+                            attribute.</para></footnote>. </para><figure xml:id="link-description"><title>a link description for XHTML</title><programlisting xml:space="preserve">
+                        
+&lt;links id="xhtml-1.0"  ns="http://www.w3.org/1999/xhtml"&gt;
+&lt;!-- XHTML 1.0 --&gt;
+
+&lt;tags&gt;image-locator source-locator code-locator
+            header links descriptor citation doc-base&lt;/tags&gt;
+
+&lt;group tag="header" locator="/html/head"&gt;
+        &lt;iri locator="/@profile"/&gt;
+    &lt;iri tag="doc-base" locator="/base/@href" /&gt;
+    &lt;iri tag="links" locator="/link/@href"/&gt;
+    &lt;uri tag="source-locator code-locator" locator="/script/@src"/&gt;
+&lt;/group&gt;
+
+&lt;iri tag="descriptor" locator="//iframe/@longdesc"/&gt;
+&lt;iri tag="source-locator" locator="//iframe/@src"/&gt;
+&lt;iri tag="image-locator" locator="/body/@background"/&gt;
+
+&lt;group tag="citation"&gt;
+    &lt;iri locator="//blockquote/@cite"/&gt;
+    &lt;iri locator="//ins/@cite"/&gt;
+    &lt;iri locator="//del/@cite"/&gt;
+    &lt;iri locator="//q/@cite"/&gt;
+&lt;/group&gt;
+
+&lt;group tag="references"&gt;
+    &lt;iri locator="//a/@href"/&gt;
+    &lt;group locator="//object"&gt;
+        &lt;iri locator="/@classid"/&gt;
+        &lt;iri  tag="code-locator" locator="/@codebase"/&gt;
+        &lt;iri locator="/@data"/&gt;
+        &lt;iri locator="/@archive" list="yes"/&gt;
+        &lt;iri locator="/@usemap"/&gt;
+    &lt;/group&gt;
+    &lt;iri tag="code-locator" locator="//applet/@codebase"/&gt;
+&lt;/group&gt;
+
+&lt;group  locator="//img"&gt;
+    &lt;iri tag="image-locator" locator="/@src"/&gt;
+    &lt;iri tag="descriptor" locator="/@longdesc"/&gt;
+    &lt;iri locator="/@usemap"/&gt;
+&lt;/group&gt;
+
+&lt;iri locator="//area/@href"/&gt;
+&lt;iri locator="//form/@action"/&gt;
+&lt;iri locator="//input/@src"/&gt;
+&lt;iri locator="//input/@usemap"/&gt;
+
+&lt;/links&gt;
+
+                    </programlisting><caption><para>An example of a generic link description for XHTML. The descriptors
+                            can be further reused for other operations through a tag based
+                            designation mechanism</para></caption></figure></section></section><section><title>Link Validation</title><para>The link verification is specified in a dedicated section called
+                    <emphasis>validate</emphasis> which contains at least the reference on a link
+                description section, as detailed above (this reference is an URL), which can be
+                located inside or outside the document containing the <emphasis>validate</emphasis>
+                section. If no other information is specified, all links should be checked with
+                respect to the specified semantics. This means that when the verification is
+                executed on a given target XML instance, the links are extracted thanks to the
+                localization information and are examined in accordance with their type as detailed
+                in the previous section. </para><para> Additional constraints can be provided through one or many “properties”
+                subsections. </para><para> Each properties subsection applies to one or several link subsets designated
+                through a list of one or several tags. Each tag may designate one or several links,
+                depending on the link description section, as explained above. Each properties
+                subsection is optionally identified through a unique identifier. </para><para>The properties are specified through one or several descriptors as listed
+                hereafter:</para><orderedlist numeration="arabic"><listitem><para>
+                        <emphasis>scheme</emphasis> defines the expected scheme, e.g. “http”, “ftp”
+                        or “mailto”</para></listitem><listitem><para>
+                        <emphasis>absolute</emphasis> expresses that an absolute link is expected
+                        (the scheme and server location are provided)</para></listitem><listitem><para><emphasis>relative</emphasis> expresses that a relative link is expected
+                        (the path, resource name and optionally the fragments are provided; the
+                        scheme and server location are those of the base URI of the target instance,
+                        as specified in [<xref linkend="URI"/>])</para></listitem><listitem><para>
+                        <emphasis>matches(p)</emphasis> expresses that the link content must match
+                        the provided pattern p. This pattern is expressed according to the method
+                        described later. </para></listitem><listitem><para>
+                        <emphasis>path(p)</emphasis> expresses that the “path” part of the link (see
+                        URI syntactic structure in [<xref linkend="URI"/>]) must match the given
+                        pattern p. </para></listitem><listitem><para>
+                        <emphasis>fragment(p)</emphasis> expresses that the “fragment” part of the
+                        link (see [<xref linkend="URI"/>]) must match the given pattern p. </para></listitem><listitem><para><emphasis>query(p) </emphasis>expresses that the “query” part of the link
+                        (see [<xref linkend="URI"/>]) must match the given pattern p. </para></listitem><listitem><para>
+                        <emphasis>target()</emphasis> expresses that the target reference is
+                        available at the time of the verification; one of several sub-descriptor can
+                        be specified, in order to make-it more precise: </para><orderedlist><listitem xml:id="ra"><para>
+                                <emphasis>mime-type </emphasis>This is a standardized notation for
+                                indicating the type of internet resources (see [15]) </para></listitem><listitem xml:id="rb"><para>
+                                <emphasis>namespace(ns)</emphasis> (makes sense only if the
+                                mime-type is text/xml or derived). </para></listitem><listitem xml:id="rc"><para>
+                                <emphasis>condition(p)</emphasis> ; as for previous item, this
+                                condition needs a parsable XML content ; requires checking if
+                                conditions p holds (p is a XPath qualifier expression) </para></listitem></orderedlist><para> Note that points <xref linkend="rb"/> and <xref linkend="rc"/> above
+                        require solving the reference at verification time, and also possibly XML
+                        decoding and/or parsing. </para></listitem></orderedlist><para>If no descriptor is specified, only standard verifications related to the nature
+                of links are conducted. </para><para> An additional error message can be specified within each property descriptor,
+                that will be used to report any property violation (e.g.
+                matches(http://{*}:{*}/{*},”an explicit port number is expected”) will display the
+                error message for non-matching link such as
+                <emphasis>http://barnum/circus.jpg</emphasis>) </para><para>The following example illustrates the method when applied to an XHTML document </para><figure><title>A link validation specification</title><programlisting xml:space="preserve">
+                    
+&lt;validate link-description="../schemas/html.xrm.xml#xhtml-1.0"&gt;
+
+  &lt;property of="code-locator" xml:id="code1"&gt;
+    &lt;relative&gt;references to code-related objects
+               are expected to be relative&lt;/relative&gt;
+    &lt;fragment&gt; references on code location
+    cannot point to document fragments &lt;/fragment&gt;
+
+    &lt;matches normalize="yes"
+                     pattern="http://bonobo:{*}/code/{*}"/&gt;
+  &lt;/property&gt;
+
+  &lt;property of="image-locator"&gt;
+   &lt;relative/&gt;
+     &lt;query&gt;
+     references to images cannot contain query
+     &lt;/query&gt;
+    &lt;matches pattern="http://bonobo:{*}/image/{*}"/&gt;
+ &lt;/property&gt;
+
+&lt;/validate&gt;
+
+                </programlisting><caption><para>This specification reuses the generic description of XHTML links as shown
+                            <xref linkend="link-description"/>
+                    </para></caption></figure></section><section><title>Link Transformation</title><para> Link transformations are specified in a dedicated section called “rewrite” which
+                comprises a header having the following attributes: <orderedlist><listitem><para><emphasis>link-description</emphasis>: the name of a link description
+                            section, against which link tags will be interpreted (mandatory)</para></listitem><listitem><para><emphasis>normalize</emphasis>: take the value yes or no (defaults to
+                            yes if omitted); if set to yes, the relevant normalization process will
+                            be performed on all links before applying matching operation (the exact
+                            nature of normalization operation depends upon the nature of link); if
+                            set to no, the pattern matching operation will be applied on the
+                            original link <footnote xml:id="norma"><para>Some normalization operation may nevertheless occur due to standard XML
+                        processing, such as interpretation of escaping sequences and expansion of
+                        reference entities.</para></footnote>; </para></listitem><listitem><para><emphasis>resolving-base</emphasis>: optionally specifies an URI that
+                            will be considered as the reference URI for solving relative link. It
+                            supersedes the xml:base information, if present, or the static-base-uri
+                            of the original document.</para></listitem></orderedlist>
+
+            </para><para>Beside header attributes, this section is composed of zero or many rewriting
+                descriptors possibly embedded inside a base descriptor. Each base descriptor has
+                    <orderedlist continuation="continues"><listitem><para>an optional “location” attribute which expresses where an xml:base
+                            attribute must be inserted inside the transformed document. When
+                            omitted, the xml:base attribute is inserted into the root node (of
+                            course, in any case, it is an inconsistency error if several base
+                            descriptors are allocated to the same node).</para></listitem><listitem><para>a “value” attribute which defines the content of the xml:base
+                            attribute. This must be an absolute URL in accordance with the standard
+                                [<xref linkend="XBase"/>]; if omitted, the static-base-uri is used.
+                        </para></listitem></orderedlist></para><para> Each rewriting descriptor may have <itemizedlist><listitem><para>a <emphasis>tags</emphasis> attribute, which is a list of tag name
+                            corresponding to the links to be selected as candidates (all link
+                            descriptors are considered if the tags attribute is omitted) </para></listitem><listitem><para>a <emphasis>condition</emphasis> attribute, which optionally specifies
+                            an additional condition to be checked before trying to apply the
+                            rewriting (typically, an XPath expression)</para></listitem><listitem><para>a <emphasis>from</emphasis> attribute, which optionally specifies a
+                            pattern matching expression that must be successfully applied in order
+                            to rewrite the link ; such pattern may define matching variables (see
+                            the subsection 3.4 “Specification of Patterns” for the whole description
+                            of the link pattern language).</para></listitem><listitem><para>an <emphasis>into</emphasis> attribute, which optionally specifies a
+                            new value for the link. This value may partially or totally reuse the
+                            pattern variables defined inside the from pattern (see the subsection
+                            3.4 “Specification of Patterns”) if any. </para></listitem></itemizedlist></para><para>In the case where a rewriting descriptor has no “from” and no “into” attribute, it
+                may have one or more rewrite sub-descriptor, each of it having a pair of “from/into”
+                attribute. The meaning of this list is that each rewriting is tried in order, until
+                a matching “from” is found.</para><para>Below is an example of link rewriting based on a two-rule sequence to be applied
+                on any link tagged as "images" or "scripts"</para><programlisting xml:space="preserve">
+                    
+&lt;rewrite
+        link-description=”../schemas/html.xrm.xml#xhtml-1.0”
+        tags=”images scripts” &gt;
+  &lt;rewriting from=”{{*}}/{name}.jpg” into=”./images/JPEG/{name}.jpg”/&gt;
+  &lt;rewriting from=”{{*}}/{name}.js” into=”./javascripts/{name}.js”/&gt;
+&lt;/rewrite&gt;
+
+                </programlisting><para> Note that after computing the rewritten link, and if the rewriting descriptor is
+                embedded inside a base descriptor, the result is checked against the value of the
+                base descriptor, and made relative if required. </para><programlisting xml:space="preserve">
+                    
+&lt;base location=”/html/body”&gt;
+  &lt;rewrite
+          link-description=”../schemas/html.xrm.xml#xhtml-1.0”
+          tags=”images scripts” &gt;
+    &lt;rewriting from=”{{A}}/{name}.jpg” into=”{{A}}/JPEG/{name}.jpg”/&gt;
+    &lt;rewriting from=”{{A}}/{name}.js” into=”{{A}}/javascripts/{name}.js”/&gt;
+  &lt;/rewrite&gt;
+&lt;/base&gt;
+
+                </programlisting><para>The example above will, for instance, change the document below </para><programlisting xml:space="preserve">
+                    
+&lt;html &gt;
+  &lt;body&gt;
+    &lt;img href=”http://catworld:8080/friends/garfield.jpg” /&gt;
+  &lt;/body&gt;
+&lt;/html&gt;
+
+                </programlisting><para>into</para><programlisting xml:space="preserve">
+                    
+&lt;html &gt;
+  &lt;body xml:base=”http://catworld:8080” &gt;
+    &lt;img href=”JPEG/garfield.jpg” /&gt;
+  &lt;/body&gt;
+&lt;/html&gt;
+
+            </programlisting><para>where the <emphasis>xml:base</emphasis> attribute attached to the body element has
+                been extrapolated from the static-base-uri of the input document (because no more
+                precise information was provided)</para></section><section><title>Link Dependencies</title><para>They are described using a similar mechanism than for link transformation, through
+                a dedicated section “dependencies” having the following attributes:</para><orderedlist><listitem><para><emphasis>link-description</emphasis>: the name of a link description
+                        section, against which link tags will be interpreted (mandatory)</para></listitem><listitem><para><emphasis>normalize-input</emphasis>: take the value yes or no (defaults
+                        to yes if omitted); if set to yes, the relevant normalization process will
+                        be performed on all links before testing operation (the exact nature of
+                        normalization operation depends upon the nature of link); if set to no, all
+                        tests will be applied on the original link<xref linkend="norma"/>;</para></listitem><listitem><para><emphasis>normalize-output</emphasis>: take the value yes or no (defaults
+                        to yes if omitted); if set to yes, the relevant normalization process will
+                        be performed on all links before dumping the dependency (the exact nature of
+                        normalization operation depends upon the nature of link); when set to no,
+                        minimal transformation may nevertheless occur<xref linkend="norma"/>. </para></listitem><listitem><para><emphasis>resolving-base</emphasis>: optionally specifies an URI that will
+                        be considered as the reference URI for solving relative link. It supersedes
+                        the xml:base information, if present, or the static-base-uri of the original
+                        document otherwise.</para></listitem><listitem><para><emphasis>sorting</emphasis>: takes one of the following values
+                        {“document-order”, “content-order”, “tag-order”}, and expresses the method
+                        used to order the link dependencies dumped into the dependency report. With
+                        document-order, links are organized in the same order than found inside the
+                        original input document. Using content-order, links are alphabetically
+                        classified according to the lexical structure of the URL. The flag mode use
+                        an alphabetical classification based on the tag name of the link, as defined
+                        by the link description section. If omitted, the sorting attribute defaults
+                        to “document-order”.</para></listitem></orderedlist><para>Note that if no <emphasis>extract</emphasis> sub-descriptor is provided, all links
+                found in the input document are dumped into the dependency report.</para></section></section><section><title>Conclusion</title><para> We have implemented most of the features described in this proposal through an XML
+            syntax from which the examples above are extracted, which comes with a RelaxNG schema.
+            An XSLT 2.0 stylesheet (interpreter/compiler front-end) analyzes the specifications and
+            generates another XSLT 2.0 stylesheet for each of the three operations (link
+            verification, link transformation and link dependencies) ; the link description section
+            is only interpreted during the compilation phase in order to produce the adequate code.
+            A dedicated, home-made XSLT 2.0 library defines common operations (such as pattern
+            matching functions), and is reused by all stylesheets including the front-end analyzer.
+            The compiled stylesheet can be dumped for later use, or directly executed through the
+            on-the-fly invocation mechanism offered by the Open Source Saxonica Engine [<xref linkend="Saxonica"/>]. </para><para> Our experimental results demonstrate that the approach is realistic, useful and leads
+            to realistic performance levels (no particular implementation issue raised). </para><para>Evaluation of the qualitative aspect of such a proposal is always a difficult issue,
+            because strongly related to usability and far from being objective matter.</para><para>From this point of view, we were happy to observe that the verbosity of specifications
+            turned out to be nicely under control, mainly thanks to the clear conceptual separation
+            between link descriptors and operations, and also because we designed well-targeted
+            default parameters and behaviors. An other fruitful principle we tried to follow was
+            trying to capture as much as possible common and simple operations into simple
+            abstractions, and to scale up most complex operations toward adding attributes or
+            embedding additional information inside the element content (e.g. a simple rewrite
+            operation can use the "from" and "into" attributes whereas a more complex rewrite
+            operation can be decomposed into a sublist of ordered rewriting rules to try
+            sequentially)</para><para>Regarding the expressive power, it turned out to be adequate for the cases we had to
+            analyze. Of course, the difficult point is to extrapolate to cases we did not forecast.
+            What we can say is that the methodology we have adopted allowed us to abstract over
+            applications and to focus as much as possible on the functions associated with
+            referential objects</para><para>We now consider opening the technology and related tools to a larger technical
+            community as a service accessible through a corporate web portal, and thus to understand
+            if it triggers interest, and hopefully to understand in a deeper way the potential
+            enhancements and evolutions we could envision.</para></section><appendix xml:id="app-match"><title>The pattern matching language</title><para>The pattern matching language we propose hereafter is based on the “{” and “}”
+            characters to serve as delimiters of pattern variables. Those characters have no precise
+            meaning (see the URI specification [<xref linkend="URI"/>]) and do not belong to the
+            standard alphabet or separator sets. Variables are named through using any identifier
+            built from any alphabet excluding the braces and the star “*”. A label can only be used
+            once in a given pattern. If a star is used instead of a name (e.g. “{*}”), it just means
+            that the matching substring is not stored. Double braces mean that the longest matching
+            substring is expected, whereas the shortest match is returned for single braces. </para><para> The table below illustrates the various pattern matching mechanisms:</para><table border="1"><thead><tr><th>Pattern</th><th>Value</th><th>Result</th></tr></thead><tbody><tr><td rowspan="3">http://{server}:{*}/{*}.jpg</td><td>http://barnum:80/circus/jumper.jpg</td><td>Matches=yes ; server=”barnum” </td></tr><tr><td>http://barnum:80/circus/acrobats/juggler.jpg</td><td>Matches=yes ; server=”barnum” </td></tr><tr><td>https://barnum:80/circus/jumper.jpg</td><td>Matches=no </td></tr><tr><td rowspan="2">http://{server}/{{path}}/{object}</td><td>http://barnum:80/circus/jumper.gif</td><td>Matches=yes server=”barnum:80” path=”circus” object=”jumper.gif” </td></tr><tr><td>http://barnum:80/circus/acrobats/juggler.jpg</td><td>Matches=yes server=”barnum:80” path=”circus/acrobat” object=”juggler.gif”
+                    </td></tr><tr><td rowspan="2">http://{server}/{path}/{object}</td><td>http://barnum:80/circus/jumper.gif</td><td>Matches=yes server=”barnum:80” path=”circus” object =”jumper.gif” </td></tr><tr><td>http://barnum:80/circus/acrobats/juggler.jpg</td><td>Matches=yes server=”barnum:80” path=”circus” object =”acrobats/juggler.jpg”
+                    </td></tr></tbody></table></appendix><appendix xml:id="app-verif"><title>Verification and execution of XRM specifications (principles)</title><para>Our descriptions can be expressed through XML or any appropriate language. If the
+            language is not based on XML, a bidirectional, lossless, translation to XML could be
+            provided (this technique is used by the RelaxNG [<xref linkend="wikipedia-RelaxNG"/>]
+            schema language, which provides both an XML based syntax and a so-called “compact
+            syntax”, strictly equivalent). </para><para>In order to be consistent and usable, our link descriptions must comply with specific
+            properties that can be checked in order to assess the correctness of the specifications: </para><orderedlist><listitem><para>Wellformedness of the logical structure (correct occurrence of sections,
+                    subsections and attributes)</para></listitem><listitem><para>Correct use of tags (no dangling tag references, coherence of tag declarations
+                    if any)</para></listitem><listitem><para>Correct structure of URI (reference on link descriptions)</para></listitem></orderedlist><para>The execution model of any processing component functionally encompasses 3 stages
+            (points <xref linkend="vr1"/>, <xref linkend="vr2"/>, <xref linkend="vr3"/> below all
+            cover the third stage, depending on the active operation): </para><orderedlist continuation="continues"><listitem xml:id="vr1"><para>Performs the XML parsing</para></listitem><listitem xml:id="vr2"><para>Extracts of the so-called <emphasis>base-uri</emphasis> (the URL that describes
+                    the localization of the instance to be processed) </para></listitem><listitem xml:id="vr3"><para>For each link specified into the link validation description,</para><orderedlist><listitem><para>Extracts the link value, using the localization information described
+                            in point 1.a above, and accessed through the tag designation
+                        mechanism</para></listitem><listitem><para>Perform a partial normalization of the link, according to information
+                            provided (deals only with escaping issues, depending on the kind of
+                            reference, as specified)</para></listitem><listitem><para>Verifies if the lexical structure of link meets the validation
+                            requirement, depending on those:</para><orderedlist><listitem><para>The link structure is compliant with the declared link
+                                type</para></listitem><listitem><para>The link is verifying the condition (if provided)</para></listitem><listitem><para>The link is matching the pattern (if provided)</para></listitem><listitem><para>The link target is available (if this constraint is
+                                specified)</para></listitem><listitem><para>The link target verifies the expected properties, if any such
+                                    is specified (namespace, node selection condition)</para></listitem></orderedlist></listitem></orderedlist></listitem><listitem><para>For each link specified into the link transformation description,</para><orderedlist><listitem><para>Extracts the link value, using the localization information described
+                            in point 1.a above, and accessed through the tag designation
+                        mechanism</para></listitem><listitem><para>Normalizes the link, according to the information provided by the
+                                <emphasis>normalize</emphasis> attribute of the link transformation
+                            section (if normalize is set to true, solves the relative references
+                            into absolute references, in accordance with the XML Base standard
+                                [<xref linkend="XBase"/>] ; deal with escaping issues, depending on
+                            the kind of reference, as specified)</para></listitem><listitem><para>Applies the rule logic as described above for rewriting
+                        descriptors</para></listitem><listitem><para>Normalizes the resulting link, with respect to xml:base mechanism, if
+                            required</para></listitem><listitem><para>Handle forbidden characters inside link content, as required by its
+                            type (use escaping mechanisms defined in [<xref linkend="URI"/>], e.g. a
+                            space “ “ is escaped into “%20”)</para></listitem><listitem><para>Inserts the resulting link into the output document in replacement of
+                            the original link</para></listitem></orderedlist></listitem><listitem><para>For each link specified in the dependencies section,</para><orderedlist><listitem><para>extracts all relevant link values satisfying the filtering conditions
+                            (prior normalization if required)</para></listitem><listitem><para>normalize the link (if required by the extract sub-descriptor) and
+                            orders the links according to the specified ordering policy</para></listitem><listitem><para>creates an output report with the relevant meta-information: for
+                            instance the date and time of the dependency extraction operation ; the
+                            URL of the input document, the URL of the link dependencies
+                            specification interpreted by the operation</para></listitem><listitem><para>dumps the links in the right order inside the report with the relevant
+                            meta-information as specified by show-tag and show-location
+                        attributes</para></listitem></orderedlist></listitem></orderedlist></appendix><bibliography><title>References</title><bibliomixed xml:id="URI" xreflabel="1">
+            <emphasis>Uniform Resource Identifier: Generic syntax (URI)</emphasis>, IETF - RFC 3986
+            T. Berners-Lee, R. Fielding, L. Masinter, January 2005 <link xlink:href="http://www.ietf.org/rfc/rfc3986.txt" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">rfc content</link>
+        </bibliomixed><bibliomixed xml:id="XCalatog" xreflabel="2">
+            <emphasis>XML Catalogs</emphasis>, OASIS Committee specification, August 2001 <link xlink:href="http://www.oasis-open.org/committees/entity/spec-2001-08-06.html" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">specification</link>
+        </bibliomixed><bibliomixed xml:id="XLink" xreflabel="3">
+            <emphasis>XML Linking Language</emphasis> W3C Recommendation, June 2003, <link xlink:href="http://www.w3.org/TR/xlink/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">recommendation</link>
+        </bibliomixed><bibliomixed xml:id="XML" xreflabel="4">
+            <emphasis>Extensible Markup Language (XML) 1.0 (Second Edition)</emphasis> World Wide
+            Web Consortium, 2000, <link xlink:href="http://www.w3.org/TR/2000/REC-xml-20001006" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">specification</link>
+        </bibliomixed><bibliomixed xml:id="XBase" xreflabel="5">
+            <emphasis>XML Base</emphasis> W3C Recommendation, June 2001, <link xlink:href="http://www.w3.org/TR/xmlbase/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">recommendation</link>
+        </bibliomixed><bibliomixed xml:id="XCataEx" xreflabel="6">
+            <emphasis>How to Write an XML Catalog File</emphasis> Bob Stayton, In “DocBook XSL: The
+            Complete Guide”, Part 1, Chapter 5 <link xlink:href="http://www.sagehill.net/docbookxsl/WriteCatalog.html" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">article</link>
+        </bibliomixed><bibliomixed xml:id="XPath" xreflabel="7">
+            <emphasis>XML Path Language (XPath), version 1.0</emphasis> W3C recommendation, 16
+            November 1999, <link xlink:href="http://www.w3.org/TR/xpath" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">recommendation</link>
+        </bibliomixed><bibliomixed xml:id="IRI" xreflabel="8">
+            <emphasis>Internationalized Resource Identifiers (IRIs)</emphasis> IETF – RFC 3987,
+            Duerest and Suignard, January 2005, <link xlink:href="http://www.ietf.org/rfc/rfc3987.txt" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">rfc content</link>
+        </bibliomixed><bibliomixed xml:id="XInclude" xreflabel="9">
+            <emphasis>XML Inclusion 1.0 (XInclude - Second Edition)</emphasis> W3C recommendation,
+            15 November 2006, <link xlink:href="http://www.w3.org/TR/xinclude/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">recommendation</link>
+        </bibliomixed><bibliomixed xml:id="xml-1.1" xreflabel="10">
+            <emphasis>Extensible Markup Language (XML) 1.1</emphasis> W3C recommendation, 4 February
+            2004 <link xlink:href="http://www.w3.org/TR/2004/REC-xml11-20040204/#sec-external-ent" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">recommendation (ext. entity)</link>
+        </bibliomixed><bibliomixed xml:id="XPtr-scheme" xreflabel="11">
+            <emphasis>XPointer xpointer() Scheme</emphasis> W3C Working Draft 19 December 2002 <link xlink:href="http://www.w3.org/TR/xptr-xpointer/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">working draft</link>
+        </bibliomixed><bibliomixed xml:id="XPtr-frame" xreflabel="12">
+            <emphasis>XPointer Framework</emphasis> W3C Recommendation, 25 March 2005 <link xlink:href="http://www.w3.org/TR/xptr-framework/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">recommendation</link>
+        </bibliomixed><bibliomixed xml:id="wikipedia-NS" xreflabel="13">
+            <emphasis>XML Namespaces</emphasis> Wikipedia, the free Encyclopedia <link xlink:href="http://en.wikipedia.org/wiki/XML_namespace" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">article</link>
+        </bibliomixed><bibliomixed xml:id="wikipedia-RelaxNG" xreflabel="14">
+            <emphasis>RelaxNG</emphasis> Wikipedia, the free Encyclopedia <link xlink:href="http://en.wikipedia.org/wiki/RELAX_NG" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">article</link>
+        </bibliomixed><bibliomixed xml:id="Mime" xreflabel="15">
+            <emphasis>Mime Media Types</emphasis> IANA (Internet Assigned Numbers Authority) <link xlink:href="http://www.iana.org/assignments/media-types/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">specification</link>
+        </bibliomixed><bibliomixed xml:id="Mime-files" xreflabel="16">
+            <emphasis>Mime Types File References</emphasis> non normative list of mime media types
+            and usual associated file name extensions <link xlink:href="http://www.mimetype.org/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.mimetype.org/</link>
+        </bibliomixed><bibliomixed xml:id="Saxonica" xreflabel="17">
+            <emphasis>Saxonica, XSLT and XQuery processing</emphasis> Michael Kay, <link xlink:href="http://www.saxonica.com/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.saxonica.com/</link>
+        </bibliomixed><bibliomixed xml:id="Schematron" xreflabel="18">
+            <emphasis>ISO Schematron, a language for making assertions about patterns found in XML
+                documents</emphasis>, Topologi , <link xlink:href="http://www.schematron.com/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">web site</link>
+        </bibliomixed></bibliography></article>

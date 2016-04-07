@@ -1,0 +1,402 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?><classedDocument><article xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink" class="po-hcontainer e0 e0" version="5.0-subset Balisage-1.2"><title class="po-block e1 e1"><textual class="po-textual">Platform Independence 2010 - Helping Documents Fly Well in Emerging Architectures</textual></title><info class="po-record e2 e2"><confgroup class="po-record e3 e3"><conftitle class="po-field e4 e4"><textual class="po-textual">Balisage: The Markup Conference 2010</textual></conftitle><confdates class="po-field e5 e5"><textual class="po-textual">August 3 - 6, 2010</textual></confdates></confgroup><abstract class="po-container e6 e6"><para class="po-block e7 e7"><textual class="po-textual">Parallel processing and memory bottlenecks dominate current platform architecture
+                conversations. After many years on the sidelines, parallel architectures are rapidly
+                becoming mainstream, with more parallelism the obvious way to gain yet more
+                performance. Feeding data to and from all these parallel cycles is also becoming
+                more challenging. </textual></para><para class="po-block e8 e8"><textual class="po-textual">What does this have to do with XML? Surely all this is under the hood, something
+                for compiler designers, software architects and other non-content people to worry
+                about? The answer is that these issues can't be totally hidden under the hood.
+                Balisageurs as content-folks and interoperability-folks need to pay attention now to
+                the high level information design heuristics that will prevent our data structures
+                being the ones that happen to run like treacle (or molasses) on the coming
+                generations of faster, larger and neater systems.</textual></para></abstract><author class="po-record e9 e9"><personname class="po-record e10 e10"><firstname class="po-field e11 e11"><textual class="po-textual">Ann</textual></firstname><surname class="po-field e12 e12"><textual class="po-textual">Wrightson</textual></surname></personname><personblurb class="po-container e13 e13"><para class="po-block e14 e14"><textual class="po-textual">Ann Wrightson has been working with markup since 1978, from typesetting
+                    languages &amp; fielded records through generic coding to SGML &amp; XML. She
+                    has experience of using markup for interoperability and platform-independence
+                    across a wide range of content including published reference works, technical
+                    publications, e-learning, legal codes &amp; materials, and semantic
+                    interoperability standards for information systems in healthcare. </textual></para></personblurb><affiliation class="po-record e15 e15"><jobtitle class="po-field e16 e16"><textual class="po-textual">IT Consultant - Technical Architecture</textual></jobtitle><orgname class="po-block e17 e17"><textual class="po-textual">Informing Healthcare (NHS Wales)</textual></orgname></affiliation></author><legalnotice class="po-container e18 e18"><para class="po-block e19 e19"><textual class="po-textual">Copyright © 2010 Ann Wrightson</textual></para></legalnotice><keywordset class="po-table e20 e20" role="author"><keyword class="po-field e21 e21"><textual class="po-textual">XML processing performance</textual></keyword><keyword class="po-field e22 e22"><textual class="po-textual">Parallel processing</textual></keyword><keyword class="po-field e23 e23"><textual class="po-textual">Memory hierarchy</textual></keyword><keyword class="po-field e24 e24"><textual class="po-textual">Cache-oblivious data structure</textual></keyword><keyword class="po-field e25 e25"><textual class="po-textual">XML instance design</textual></keyword><keyword class="po-field e26 e26"><textual class="po-textual">Data exchange</textual></keyword></keywordset></info><section class="po-hcontainer e27 e27"><title class="po-block e28 e28"><textual class="po-textual">Introduction</textual></title><para class="po-block e29 e29"><textual class="po-textual">Ever faster sequential computations in single ever-larger memory spaces has been
+            "just how it is" in mainstream computing for about a generation - long enough
+            for design considerations that are actually dependent on this environment to become
+            invisible, unthought assumptions. After many years on the sidelines, parallel
+            architectures are becoming mainstream, with more parallelism now the obvious way to gain
+            more performance. Memory performance has been growing more slowly, so feeding data to
+            and from all these parallel cycles is also a major challenge, with platform architecture
+            solutions generally focussing on efficient ways to move data through deep hierarchies
+            spanning the range from distant network resources to on-chip caches. Large and
+            distributed data in particular needs to move efficiently through many layers of memory
+            hierarchy, with each layer behaving as a cache with respect to the previous layer, that
+            is, being significantly smaller and faster, and with a different block or page size. </textual></para><para class="po-block e30 e30"><textual class="po-textual"> What does this have to do with XML? Surely all this is under the hood or behind the
+            scenes, something for compiler designers, software architects and other non-content
+            people to worry about? After all, a platform is a just a platform, and XML and many XML
+            tools are platform-independent. </textual></para><para class="po-block e31 e31"><textual class="po-textual">To an extent this is true. Compiler designers, software architects and especially
+            database vendors are busy worrying right now, and much thought from the Balisage
+            community and others will also undoubtedly go into making basic XML tools work well on
+            the new platforms. However, notwithstanding these efforts, data designed with due
+            attention to the fundamental characteristics of emerging platform architectures are
+            likely to fare better, especially in speed of processing, than data designed for the
+            "old world".</textual></para><para class="po-block e32 e32"><textual class="po-textual">Against this background, the premise underlying this paper is that since parallel
+            processing and managing data flows within memory hierarchies are increasingly prominent
+            in mainstream platform architecture, any large data structure, or collection of data
+            that is usually processed together, now needs to be more or less parallel-friendly,
+            cache-oblivious, and distribution-tolerant, to be really platform-independent - and this
+            includes XML instances. This paper is about the attention we need to pay now as
+            designers of XML content to the structural design patterns that will promote or prevent
+            our data structures being the ones that happen to start running unexpectedly slowly next
+            year or the year after.</textual></para><section class="po-hcontainer e33 e33"><title class="po-block e34 e34"><textual class="po-textual">Note on language</textual></title><para class="po-block e35 e35"><textual class="po-textual">In this paper, the common parlance "XML vocabularies" is deprecated in
+                favour of discussing XML data structures and design features of instances of XML
+                content. This is partly from personal preference, but also from a suspicion that
+                thinking about XML in terms of vocabularies may inhibit the kind of thinking that
+                this paper is intended to encourage. Markup that contains terms reflecting natural
+                language does function like language vocabulary in some ways (see </textual><xref class="po-milestone e36 e36" linkend="Wrightson05"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">) however XML instances are also structured data, and
+                the latter is the aspect that predominates in the issues discussed in this paper.
+            </textual></para></section></section><section class="po-hcontainer e37 e37"><title class="po-block e38 e38"><textual class="po-textual">What are these emerging architectures?</textual></title><para class="po-block e39 e39"><textual class="po-textual">This section provides a concise account of emerging processor architectures and the
+            state of the art in data access. Implications for platform-independent XML content
+            design are discussed in the following section.</textual></para><section class="po-hcontainer e40 e40"><title class="po-block e41 e41"><textual class="po-textual">Single processor architecture becoming multi-, then many-core</textual></title><para class="po-block e42 e42"><textual class="po-textual">About 2003-4, performance improvement in sequential processors slowed down very
+                significantly. Power density was a major factor, but so was the growing difficulty
+                of getting even cleverer about executing single sequences of instructions really
+                fast. With a way still to go in raw chip capacity, a consensus rapidly emerged
+                amongst the majority of processing-chip designers that the only way forward was to
+                put multiple processing "cores" on a chip, first two or four, then twelve,
+                sixty-four, eighty... The latest edition of Patterson &amp; Hennesey's classic
+                textbook on processor architecture provides a fuller account of this phenomenon (</textual><xref class="po-milestone e43 e43" linkend="PatHen09"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">, Chapter 7).</textual></para><para class="po-block e44 e44"><textual class="po-textual">Graphics processors and some other niche processing applications had already made
+                some progress into gaining performance through large-scale parallel processing, but
+                for the rest of the industry there was a fairly sudden realization a few years ago
+                that all that weird parallel stuff from the 1980s onward that no-one except the
+                high-performance crowd had been taking seriously was on its way back in with a
+                vengeance. Following this realization, and taking into account the head start
+                achieved by graphics applications, graphics processors and general purpose
+                processors are on an interesting journey of combination and convergence, for example
+                in Intel's "Larrabee" architecture (</textual><xref class="po-milestone e45 e45" linkend="Seiler08"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">).</textual></para><para class="po-block e46 e46"><textual class="po-textual">While various parallel computation models have been proposed and investigated, two
+                of the most durable have been BSP (bulk-synchronous-parallelism) and nested
+                parallelism. BSP (</textual><xref class="po-milestone e47 e47" linkend="BSP90"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">, </textual><xref class="po-milestone e48 e48" linkend="BSP96"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">) formalizes the notion of performing a bunch of parallel
+                computations then collating the results before setting up and performing another
+                bunch of parallel computations, in a regular cycle of
+                compute-communicate/collate-compute. Nested parallelism (</textual><xref class="po-milestone e49 e49" linkend="NESL"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">,</textual><xref class="po-milestone e50 e50" linkend="PJ08"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">) is more of a language model, enabling a programmer to
+                describe a large computation as a recursively nested structure of parallel
+                parts.</textual></para><para class="po-block e51 e51"><textual class="po-textual">The main point for our purposes is that in order to work well in a parallel world,
+                computation (and its requisite data) needs to come apart into independent pieces, at
+                least for long enough to be useful in getting some work done. Two interesting
+                special cases are where many computations run in parallel on the same data, and
+                where a single computation runs the same instruction stream to process many
+                different, similar items of data. The latter is the basis of graphics processing
+                units. Both put a disproportionate cost on variation, in data content and processing
+                respectively, compared to sequential processing, so that replication of common parts
+                and separating rather than combining similar cases becomes more efficient. </textual></para><para class="po-block e52 e52"><textual class="po-textual">This is very counterintuitive to those engineers and information designers,
+                including many who have come into markup since XML emerged as a mainstream force in
+                1998-2000, whose intuitions have been formed in situations that take for granted
+                single (increasingly fast) computation and single (increasingly fast and capacious)
+                memory. Based on personal conversations and anecdotal evidence, there is a mixed
+                reaction from the older hands who did not play in the parallel pond, and remember
+                what it took to keep computations and working memory compact on smaller machines or
+                in the small job partitions in early multitasking architectures. To caricature
+                somewhat, some feel that after a period of deep illusion, computing has finally
+                woken up once more to some essential design disciplines - and some feel this is
+                separating the engineer even further from the real machine, which is becoming ever
+                more deeply incomprehensible.</textual></para></section><section class="po-hcontainer e53 e53"><title class="po-block e54 e54"><textual class="po-textual">Memory and storage hierarchy</textual></title><para class="po-block e55 e55"><textual class="po-textual">Memory performance has been growing continually alongside processor performance,
+                over decades. In recent years it has become a commonplace to say that the rate of
+                growth in memory performance is markedly slower than for processing, leading to a
+                large and increasing performance gap. This is broadly true, but stated simply
+                obscures a more interesting detailed picture of evolving patterns of memory and
+                storage access over a range of hardware, media and networks (</textual><xref class="po-milestone e56 e56" linkend="PatHen09"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">, 5.13). </textual></para><para class="po-block e57 e57"><textual class="po-textual"> Multiple cache levels within processors, deep memory hierarchies using different
+                types of hardware, delegating disk access management to on-board processors within
+                disk drives, and introducing specialized storage network managers, have between them
+                taken the strain to a large extent. However, the very intensity and diversity of
+                this effort means that different platforms are more likely than before to have
+                different memory hierarchies and storage characteristics.A practical consequence is
+                that fine tuning of memory hierarchy assumptions and data design to make data fast
+                on one platform can very easily slow it down on another.</textual></para><para class="po-block e58 e58"><textual class="po-textual">This is an area where a good theory has turned out to be very practical as a tool
+                for thinking. Cache-obliviousness (better named hierarchy-obliviousness, but as
+                usual the initial name has stuck) is the core concept of an area of research on data
+                structures that are not only fast to process in principle, but remain fast however
+                the memory hierarchy (and storage network, at larger scale) is structured.
+                Cache-oblivious data structures have high locality with respect to whatever the
+                usual operations are on the data.That is, if an instance of a cache-oblivious data
+                structure is broken arbitrarily into pieces </textual><emphasis class="po-inline e59 e59" role="ital"><textual class="po-textual"> of any size </textual></emphasis><textual class="po-textual"> (for example, loaded a page at a time into
+                a cache, hence the name) the common operations on the data structure are, on
+                average, highly likely to need data that is within the same piece. The value of this
+                area of work for our purposes is not so much in the detail as in the overall
+                concept. Data structures that follow this design pattern are likely to "fly
+                well" in a wide range of memory hierarchies, since at any scale, the usual
+                kinds of processing are less likely to walk or reference out of the piece that is
+                already in fast(er) memory.</textual></para><para class="po-block e60 e60"><textual class="po-textual">For readers interested in following up the detail of the theory, there is a
+                thorough introduction to cache-obliviousness by Erik Demaine (</textual><xref class="po-milestone e61 e61" linkend="Dem02"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">) in the papers from a European summer school on large data
+                structures in 2002 (</textual><xref class="po-milestone e62 e62" linkend="BRICS02"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">).</textual></para></section></section><section class="po-hcontainer e63 e63"><title class="po-block e64 e64"><textual class="po-textual">Platform Independence 2010++? </textual></title><para class="po-block e65 e65"><textual class="po-textual">So what is it to be platform independent in 2010 and beyond? What do we need to be
+            independent of, specifically? In simple terms, the key platform features are:</textual></para><itemizedlist class="po-table e66 e66"><listitem class="po-container e67 e67"><para class="po-block e68 e68"><textual class="po-textual"> A processing model that uses many processing units, breaking large computations
+                    into many independent, different tasks that run simultaneously. This happens
+                    within a many-core chip, and also happens when computations are deployed across
+                    several processors with different data processing characteristics (one example
+                    that is already mainstream is a desktop computer with a separate graphics
+                    processor that is highly data-parallel);</textual></para></listitem><listitem class="po-container e69 e69"><para class="po-block e70 e70"><textual class="po-textual">A memory hierarchy of arbitrary depth and width, with considerable variation
+                    in the detail of how data is moved up and down the hierarchy; and</textual></para></listitem><listitem class="po-container e71 e71"><para class="po-block e72 e72"><textual class="po-textual">Greater variation in platform architectures as architecture concepts developed
+                    in niche areas (especially high performance scientific computing and graphics
+                    processing) are brought to bear in mainstream computing platforms.</textual></para></listitem></itemizedlist><para class="po-block e73 e73"><textual class="po-textual">Any one platform can be assumed to have clever low-level software that is designed to
+            hide its complexity and weirdness, so that everything still works correctly. Preserving
+            correct processing is a high priority in designing new processor architectures with
+            forward compatibility from older ones - however it turns out that data designed for the
+            "old world" , although not broken, can be unexpectedly slow in emerging
+            architectures. This can also lead indirectly to faults, for example when timing
+            assumptions are broken. </textual></para><para class="po-block e74 e74"><textual class="po-textual">The main evidence I have for this is anecdotal - side-remarks in talks and
+            water-cooler chat with infrastructure-specialist colleagues who are managing a range of
+            data-intensive applications in a growing data centre. Suffice it to say that there are
+            people who earn a living advising how to get this right, and that my colleagues tell me
+            that more than one well-established product has needed updates to resolve performance
+            problems in a more distributed, parallel environment. </textual></para><para class="po-block e75 e75"><textual class="po-textual"> Abstracting away from platform features into data processing, the key features are as
+            follows.</textual></para><itemizedlist class="po-table e76 e76"><listitem class="po-container e77 e77"><para class="po-block e78 e78"><textual class="po-textual">Significant performance speed-up by separating large computations into smaller
+                    pieces of computation that can run independently long enough to get some useful
+                    work done (task parallelism).</textual></para></listitem><listitem class="po-container e79 e79"><para class="po-block e80 e80"><textual class="po-textual">Significant performance speed-up by executing exactly the same process
+                    simultaneously and independently across numbers (8, 16, 32...) of data items
+                    (data parallelism);</textual></para></listitem><listitem class="po-container e81 e81"><para class="po-block e82 e82"><textual class="po-textual">Separating large data structures into smaller pieces that are usable in
+                    isolation long enough to get some useful work done (required in both task
+                    parallelism and data parallelism).</textual></para></listitem><listitem class="po-container e83 e83"><para class="po-block e84 e84"><textual class="po-textual">Moving data up (read) and down (write) a deep memory hierarchy. At each level
+                    some size of data will need to be broken into parts (in a very simple manner, eg
+                    pages), and there is significant performance benefit if, on average, such parts
+                    of data (at any level) are usable in isolation long enough to get some useful
+                    work done.</textual></para></listitem><listitem class="po-container e85 e85"><para class="po-block e86 e86"><textual class="po-textual">Moving data between the pieces of a parallel computation so that each piece
+                    has the data it needs, respecting dependencies regarding data integrity (eg read
+                    vs write) and the intended overall flow of computation. </textual></para></listitem></itemizedlist><para class="po-block e87 e87"><textual class="po-textual">The balance of emphasis between these features varies across the different
+            architectures involved, for example scheduling dependencies and data exchange (rather
+            than just data partitioning) become more prominent the more communication is needed
+            between pieces of computation. Data exchange operates at different scales such as a
+            multicore chip passing data between independently processing cores that have separate
+            caches, and a multi-processor architecture passing data between processors (such as the
+            common example of a desktop computer with a separate graphics processor).</textual></para><para class="po-block e88 e88"><textual class="po-textual">A fundamental research result regarding data exchange is that, in the general case
+            where the structures at each end are different, and a computation is needed to map data
+            from one to the other, the computational complexity of a data exchange is exponentially
+            related to the complexity of the data schemas at each end. The complexity of a data
+            schema is a combination of complexity measures on the actual data structure and how it
+            is described (</textual><xref class="po-milestone e89 e89" linkend="Kol06"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">). </textual></para><para class="po-block e90 e90"><textual class="po-textual">This result is no great surprise, since data exchange feels like a hard problem in
+            practice. However, when data exchange becomes a larger proportionate part of general
+            computation, its exponential general complexity properties suggest that there are
+            significant benefits to be gained from keeping data structures and the ways they are
+            described as simple as possible.</textual></para><para class="po-block e91 e91"><textual class="po-textual">Partitioning data and computation is a more familiar problem, though one effect of a
+            generation of ever-more-capable sequential processing environments with ever-larger
+            memory spaces has been a tendency to regard such concerns as rather old-fashioned. High
+            performance computing for scientific data analysis has kept this area of work alive,
+            especially in relation to arrays of data and matrix computations (for example </textual><xref class="po-milestone e92 e92" linkend="LeeZedem02"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">) and automatic data partitioning on this kind of data in XML
+            has also been investigated (</textual><xref class="po-milestone e93 e93" linkend="HG09"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">). </textual></para></section><section class="po-hcontainer e94 e94"><title class="po-block e95 e95"><textual class="po-textual">Design Principles for Platform-Independence</textual></title><para class="po-block e96 e96"><textual class="po-textual">This section suggests a few rules of thumb that are likely to make larger documents,
+            and smaller documents (such as messages) that turn up in large numbers, more truly
+            platform independent over these changes in processing architecture. Some of the rules
+            come naturally when writing or designing documents by hand, but are pretty easy to break
+            or ignore when marked-up data is generated by a program. Others may look like obvious
+            bad practice from the point of view of writing and maintaining documents by hand, but
+            look more like candidates for sensible design trade-offs when marked-up data is being
+            generated by a program. (Note that "generated by a program" includes using one
+            of the many authoring tools that provide an illusion of manual editing. If you are not
+            seeing all the grim details of the pointy brackets as you type, then your data is being
+            generated by a program.)</textual></para><para class="po-block e97 e97"><textual class="po-textual">Note that it is specifically NOT assumed here that the current usual-suspect XML
+            processing tools will be used to process or pre-process the document instances
+            concerned. These tools may or may not be able to overcome fundamental problems in data
+            characterstics " under the hood ", even if rewritten, and new tools will come.
+            The only assumptions made below are the structural properties of XML instances.</textual></para><section class="po-hcontainer e98 e98"><title class="po-block e99 e99"><textual class="po-textual">Minimize action at a distance</textual></title><itemizedlist class="po-table e100 e100"><listitem class="po-container e101 e101"><para class="po-block e102 e102"><textual class="po-textual">Ensure that the intended scope of influence of any data value that
+                        represents a parameter for processing data in the document propagates in a
+                        direction from root to leaf along the tree structure of the document.</textual></para></listitem><listitem class="po-container e103 e103"><para class="po-block e104 e104"><textual class="po-textual"> Minimize cross-references in the data (in particular when purely implicit
+                        in the data and not made evident in the raw XML structure) that mean that a
+                        computation on the data finds out in flight that it needs to look at a
+                        distant part of the tree.</textual></para></listitem></itemizedlist></section><section class="po-hcontainer e105 e105"><title class="po-block e106 e106"><textual class="po-textual">Help processing to "shop local"</textual></title><itemizedlist class="po-table e107 e107"><listitem class="po-container e108 e108"><para class="po-block e109 e109"><textual class="po-textual">Put things that are relevant to each other for processing, close to each
+                        other in the document, that is, few steps apart in the document tree. Expect
+                        the document tree to be cut into branches, twig-bunches or even small twigs
+                        for processing, and think about what computations can be completed in-twig
+                        with larger and smaller twig-sizes.</textual></para></listitem><listitem class="po-container e110 e110"><para class="po-block e111 e111"><textual class="po-textual">Keep document structure aligned with probable processing structures. Think
+                        about the flow of information through expected computations on the document,
+                        and see if it follows a natural decompositon of the document structure. A
+                        simple positive example is hyphenation a paragraph at a time over many
+                        paragraphs making up a chapter of a novel.</textual></para></listitem></itemizedlist></section><section class="po-hcontainer e112 e112"><title class="po-block e113 e113"><textual class="po-textual">Replication may be your friend</textual></title><itemizedlist class="po-table e114 e114"><listitem class="po-container e115 e115"><para class="po-block e116 e116"><textual class="po-textual">Repeating pieces of data in different places seems wasteful, yet it may be
+                        a really good idea. If a document is generated by a program, so that the
+                        conceptual burden of repetition and likelihood of error are small, then
+                        there is no reason not to replicate data items it if it helps to reduce
+                        action at a distance.</textual></para></listitem></itemizedlist></section><section class="po-hcontainer e117 e117"><title class="po-block e118 e118"><textual class="po-textual">Detailed differences across lots of sort-of-similar things may be costly</textual></title><itemizedlist class="po-table e119 e119"><listitem class="po-container e120 e120"><para class="po-block e121 e121"><textual class="po-textual"> If a processor with data-parallel capabilities thinks that some bunch of
+                        things are all the same, then it may decide to process them in a
+                        data-parallel way, that is, assume that their processing is identical. A
+                        consequence of this is that, from the point of view of any arbitrary one of
+                        the parallel processing threads, it has to wait idly through the work needed
+                        to cope with all the detailed optional differences that apply to any of the
+                        others. If this really is efficient for your data, fine, however it may be
+                        better have more different kinds of things, and less optionality within the
+                        same kind of thing, so that the under-the-hood gnomes can make more
+                        efficient choices more easily for parallel processing.</textual></para></listitem></itemizedlist></section><section class="po-hcontainer e122 e122"><title class="po-block e123 e123"><textual class="po-textual">Examples</textual></title><para class="po-block e124 e124"><textual class="po-textual">The performance penalties discussed above would be expected to be felt mainly at
+                large scale, that is, on large documents or high volume processing of smaller
+                documents. However, the structural patterns in the rules of thumb can be illustrated
+                using small examples, and that is the purpose of this section. </textual></para><section class="po-hcontainer e125 e125"><title class="po-block e126 e126"><textual class="po-textual">Action at a distance, "shopping local", and replication</textual></title><para class="po-block e127 e127"><textual class="po-textual">These patterns are illustrated in this section using two contrasting examples.
+                    Each example is based on the structural characteristics of a (different) real
+                    data format designed for exchanging information extracted from patient records. </textual></para><para class="po-block e128 e128"><textual class="po-textual">The first example has instances divided into in two main parts. First, a list
+                    of entities (people, roles and locations), and second, a list of recorded events
+                    involving these entitites. Entities are included in events by reference to a
+                    unique identifier for each entity. </textual></para><para class="po-block e129 e129"><textual class="po-textual">As the number of events grows, then because a patient will tend to interact
+                    with the same people and be treated in the same places, the proportion of
+                    entities compared to events will decrease.</textual></para><para class="po-block e130 e130"><textual class="po-textual">There are two motivating ideas underlying these design features. One is to
+                    minimize repetition of data, and the other is to facilitate data transfer
+                    between instances of software applications having similar (relational) database
+                    structures that are closely aligned with the structure of the data. These aims
+                    lead to a structure that explicitly avoids replication and has a strong tendency
+                    not to &amp;quot;shop local&amp;quot;. In addition, the references to
+                    identifiers are well hidden in the data from the point of view of XML parsing,
+                    and the majority of references are between two subtrees that diverge near the
+                    root of the document (" action at a distance").</textual></para><figure class="po-container e131 e131"><title class="po-block e132 e132"><textual class="po-textual">Example 1</textual></title><programlisting class="po-block e133 e133" xml:space="preserve"><textual class="po-textual">
+&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;record&gt;
+    &lt;entities&gt;
+        &lt;person&gt;
+            &lt;id&gt;FF138AF1-F3BC-4BF7-B45C-427E012BA3F4&lt;/id&gt;
+            &lt;dateOfBirth&gt;1987-11-20&lt;/dateOfBirth&gt;
+            &lt;name&gt;...&lt;/name&gt;
+            &lt;address&gt;...&lt;/address&gt;
+        &lt;/person&gt;
+        &lt;person&gt;
+            &lt;id&gt;BBBBE23A-A9D1-A411-F824-9F7A00A33757&lt;/id&gt;
+            &lt;dateOfBirth&gt;1987-11-20&lt;/dateOfBirth&gt;
+            &lt;name&gt;...&lt;/name&gt;
+            &lt;address&gt;...&lt;/address&gt;
+        &lt;/person&gt;
+        &lt;location&gt;
+            &lt;id&gt;4B98A89C-41AD-4425-B6CF-17DE8C779FC7&lt;/id&gt;
+            &lt;name&gt;...&lt;/name&gt;
+            &lt;address&gt;...&lt;/address&gt;
+        &lt;/location&gt;
+        &lt;role&gt;
+            &lt;id&gt;8533C566-74FB-4176-8EFE-13E3FCE5B3A6&lt;/id&gt;
+            &lt;name&gt;General Practitioner&lt;/name&gt;
+            &lt;moreAboutRole&gt;...&lt;/moreAboutRole&gt;
+        &lt;/role&gt;
+        &lt;practitioner&gt;
+            &lt;id&gt;3CBA0926-1E25-4B0E-AAFC-F9CF02F8596B&lt;/id&gt;
+            &lt;person&gt;BBBBE23A-A9D1-A411-F824-9F7A00A33757&lt;/person&gt;
+            &lt;role&gt;8533C566-74FB-4176-8EFE-13E3FCE5B3A6&lt;/role&gt;
+        &lt;/practitioner&gt;
+        &lt;patient&gt;
+            &lt;id&gt;A17B8BFA-3A2B-4796-87ED-F9A4D7375C3D&lt;/id&gt;
+            &lt;pasNumber&gt;39752746&lt;/pasNumber&gt;
+            &lt;patientPerson&gt;FF138AF1-F3BC-4BF7-B45C-427E012BA3F4&lt;/patientPerson&gt;
+        &lt;/patient&gt;
+    &lt;/entities&gt;
+    &lt;events&gt;
+        &lt;encounter&gt;
+            &lt;id&gt;97E037BE-4CBE-46BA-98F8-3BA6B4DA3D1C&lt;/id&gt;
+            &lt;date&gt;2010-04-01&lt;/date&gt;
+            &lt;patient&gt;A17B8BFA-3A2B-4796-87ED-F9A4D7375C3D&lt;/patient&gt;
+            &lt;practitioner&gt;3CBA0926-1E25-4B0E-AAFC-F9CF02F8596B&lt;/practitioner&gt;
+            &lt;location&gt;4B98A89C-41AD-4425-B6CF-17DE8C779FC7&lt;/location&gt;
+        &lt;/encounter&gt;
+    &lt;/events&gt;
+    &lt;/record&gt;
+</textual></programlisting></figure><para class="po-block e134 e134"><textual class="po-textual">In the second example, data about the people and places involved in a care
+                    event are given directly in each event subtree of the record extract. This data
+                    format was designed to convey information from a number of different software
+                    applications into a common store, from which it is then retrieved on a per-event
+                    basis. An explicit design criterion was to make no assumptions about the
+                    internal structure of the data store, and in the real situation this is based
+                    on, there are several such stores with different internal database structures. </textual></para><para class="po-block e135 e135"><textual class="po-textual">This example also illustrates the role of replicating subtrees of data. A
+                    location address may appear many times, however the benefits of replication were
+                    judged to outweigh the costs, and the sending system is unlikely to make errors
+                    putting the same data into a number of events in a transferred record.</textual></para><figure class="po-container e136 e136"><title class="po-block e137 e137"><textual class="po-textual">Example 2</textual></title><programlisting class="po-block e138 e138" xml:space="preserve"><textual class="po-textual">
+&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;Record&gt;
+&lt;Event&gt;
+    &lt;EffectiveTime&gt;2008-04-23T15:10:00.0Z&lt;/EffectiveTime&gt;
+    &lt;EventType&gt;
+        &lt;IdValue&gt;[Identifier for this event type]&lt;/IdValue&gt;
+    &lt;/EventType&gt;
+    &lt;PatientDetails&gt;
+        &lt;NHSnumber&gt;
+            &lt;IdValue&gt;1234567890&lt;/IdValue&gt;
+        &lt;/NHSnumber&gt;
+        &lt;Name&gt;...&lt;/Name&gt;
+        &lt;Address&gt;...&lt;/Address&gt;
+    &lt;/PatientDetails&gt;
+    &lt;ResponsiblePerson&gt;
+        &lt;StructuredName&gt;
+            &lt;Title&gt;Dr&lt;/Title&gt;
+            &lt;GivenName&gt;Local&lt;/GivenName&gt;
+            &lt;FamilyName&gt;Doctor&lt;/FamilyName&gt;
+        &lt;/StructuredName&gt;
+    &lt;/ResponsiblePerson&gt;
+    &lt;Role&gt;
+        &lt;IdValue&gt;[role of responsible person]&lt;/IdValue&gt;
+    &lt;/Role&gt;
+    &lt;Location&gt;
+        &lt;StructuredAddress&gt;
+            &lt;PropertyNumber&gt;65&lt;/PropertyNumber&gt;
+            &lt;AddressLine&gt;Festaville Way&lt;/AddressLine&gt;
+            &lt;AddressLine&gt;Limnoleon&lt;/AddressLine&gt;
+            &lt;AddressLine&gt;Cranmore Regis&lt;/AddressLine&gt;
+        &lt;/StructuredAddress&gt;
+        &lt;PostCode&gt;LL99 3BB&lt;/PostCode&gt;
+    &lt;/Location&gt;
+    &lt;LocationType&gt;
+        &lt;IdValue&gt;[Identifier for location type]&lt;/IdValue&gt;
+    &lt;/LocationType&gt;
+&lt;/Event&gt;
+&lt;/Record&gt;
+                </textual></programlisting></figure></section><section class="po-hcontainer e139 e139"><title class="po-block e140 e140"><textual class="po-textual">Variation in content between apparently similar things </textual></title><para class="po-block e141 e141"><textual class="po-textual">The next example illustrates in principle how parallel processing of instances
+                    of the same element is slowed down by optionality in the data, in a processor
+                    that runs the same instruction stream in parallel on many data instances (SIMD).
+                    Each picture in the series shows the effect of progressively more variation
+                    between instances. Coloured cells indicate steps where no progress is made in
+                    processing that element.</textual></para><para class="po-block e142 e142"><textual class="po-textual">The first picture below shows element instances with no variation at all, and
+                    there is no loss of performance. In the next, some items are optional. Any
+                    instance that lacks an optional item will be waiting while the other instances
+                    use that part of the instruction stream. The next one after shows what happens
+                    when a content model has a choice of sequences of elements. Finally, the fourth
+                    picture shows the result of having many possible options (for example, a rich XML vocabulary) with only a few used in
+                    any one data instance. </textual></para><figure class="po-container e143 e143"><title class="po-block e144 e144"><textual class="po-textual">No optionality</textual></title><mediaobject class="po-container e145 e145"><imageobject class="po-container e146 e146"><imagedata class="po-meta e147 e147" fileref="../../../vol5/graphics/Wrightson01/Wrightson01-001.JPG" format="jpg"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></imagedata></imageobject></mediaobject></figure><figure class="po-container e148 e148"><title class="po-block e149 e149"><textual class="po-textual">Sparse optionality</textual></title><mediaobject class="po-container e150 e150"><imageobject class="po-container e151 e151"><imagedata class="po-meta e152 e152" fileref="../../../vol5/graphics/Wrightson01/Wrightson01-002.JPG" format="jpg"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></imagedata></imageobject></mediaobject></figure><figure class="po-container e153 e153"><title class="po-block e154 e154"><textual class="po-textual">Alternative substructures</textual></title><mediaobject class="po-container e155 e155"><imageobject class="po-container e156 e156"><imagedata class="po-meta e157 e157" fileref="../../../vol5/graphics/Wrightson01/Wrightson01-003.JPG" format="jpg"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></imagedata></imageobject></mediaobject></figure><figure class="po-container e158 e158"><title class="po-block e159 e159"><textual class="po-textual">Selective use of a large vocabulary</textual></title><mediaobject class="po-container e160 e160"><imageobject class="po-container e161 e161"><imagedata class="po-meta e162 e162" fileref="../../../vol5/graphics/Wrightson01/Wrightson01-004.JPG" format="jpg"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></imagedata></imageobject></mediaobject></figure><para class="po-block e163 e163"><textual class="po-textual">A simple count provides a rough indication of the magnitude of the effect.
+                    Taking the content of the </textual><code class="po-atom e164 e164"><textual class="po-textual">example</textual></code><textual class="po-textual"> element only, in the first case,
+                    all steps are active. In the second, there are 5 idle steps out of 40, giving a
+                    crude efficiency measure of 87.5%. In the third case, 24 steps out of 40 are
+                    idle, i.e. 45% are active. In the final case, the majority of the steps relate
+                    to options not represented in the data, and only 4 steps out of 40 are active,
+                    i.e. 10%. </textual></para><para class="po-block e165 e165"><textual class="po-textual">It must be emphasized that this is only a rough indication in principle; real
+                    effects will depend on a combination of data structures, application-level
+                    algorithms, programming language implementations, and operating system and
+                    processor strategies. However, even this crude analysis indicates the potential
+                    value of, for example, reconfiguring messages that have repetitive internal
+                    structure to use different element names in preference to naming elements by
+                    role and varying their internal structure, in order to provide easy
+                    opportunities for efficient data-parallel processing.</textual></para></section></section></section><section class="po-hcontainer e166 e166"><title class="po-block e167 e167"><textual class="po-textual">Conclusion</textual></title><para class="po-block e168 e168"><textual class="po-textual">Only experience will show conclusively what effect emerging architectures may have on
+            processing XML and other markup language instances. It just might turn out that the
+            under-the-hood gnomes in the new architectures are so clever that most document and data
+            designers can safely ignore these issues. However, the factors discussed above suggest
+            that developers and owners of XML vocabularies, document types and data architectures
+            should give some thought to the effect of emerging architectures on the realities of
+            platform-independence.</textual></para><para class="po-block e169 e169"><textual class="po-textual">This paper has focussed strongly on XML instances, independent from schemas, data
+            models and processing models. Thorough consideration of these from the perspective of
+            platform independence on emerging archtitectures may well either show some of the
+            concerns in the paper to be groundless, or (more likely) yield more refined guidance on
+            design principles. In particular, it is worth noting that the functional style of XSLT,
+            and the explicitly context-limited formal semantics of XQuery, are both favourable
+            characteristics (</textual><xref class="po-milestone e170 e170" linkend="XQsem"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">, </textual><xref class="po-milestone e171 e171" linkend="XDM"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">, </textual><xref class="po-milestone e172 e172" linkend="XSLT2"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">) .</textual></para><para class="po-block e173 e173"><textual class="po-textual">Another possible area of further work would be to analyse data exchange complexity
+            specifically for XML to XML data exchanges. Theoretical work on data exchange complexity
+            mostly uses relational database schemas as a reference model of data structure, and the
+            work on XML-to-XML data exchange that came to light in researching this paper (though
+            well short of a thorough literature review on the topic) indicated a tendency to work
+            from oversimplified models of XML without apparent knowledge of foundational XML-related
+            work such as the XPath/XQuery data model and formal semantics.</textual></para></section><bibliography class="po-hcontainer e174 e174"><title class="po-block e175 e175"><textual class="po-textual">References</textual></title><bibliomixed class="po-block e176 e176" xml:id="LeeZedem02" xreflabel="Lee &amp; Zedem 2002"><textual class="po-textual">P Lee, Z Kedem </textual><emphasis class="po-inline e177 e177"><textual class="po-textual">Automatic Data and Computation
+                Decomposition on Distributed Memory Parallel Computers </textual></emphasis><textual class="po-textual"> ACM Transactions
+            on Programming Languages and Systems, Vol. 24, No. 1, January 2002, Pages 1–50. doi: </textual><biblioid class="po-atom e178 doi e178"><textual class="po-textual">10.1145/509705.509706</textual></biblioid></bibliomixed><bibliomixed class="po-block e179 e179" xml:id="ParLab09" xreflabel="Par Lab 09"><textual class="po-textual">Asanovic, Bodik et al </textual><emphasis class="po-inline e180 e180"><textual class="po-textual">A view of the parallel computing
+                landscape. </textual></emphasis><textual class="po-textual">Commun. ACM 52, 10 (Oct. 2009), 56-67. 
+          doi: </textual><biblioid class="po-atom e181 doi e181"><textual class="po-textual">10.1145/1562764.1562783</textual></biblioid></bibliomixed><bibliomixed class="po-block e182 e182" xml:id="ParLab06" xreflabel="Par Lab 06"><textual class="po-textual">Asanovic, Bodik et al </textual><emphasis class="po-inline e183 e183"><textual class="po-textual">The Landscape of Parallel
+                Computing Research: A View from Berkeley</textual></emphasis><textual class="po-textual"> Technical Report No.
+            UCB/EECS-2006-183 2006 </textual><link class="po-inline e184 e184" xlink:actuate="onRequest" xlink:show="new" xlink:type="simple"><textual class="po-textual">
+                http://www.eecs.berkeley.edu/Pubs/TechRpts/2006/EECS-2006-183.pdf</textual></link></bibliomixed><bibliomixed class="po-block e185 e185" xml:id="Seiler08" xreflabel="Seiler et al 08"><textual class="po-textual">L Seiler et al </textual><emphasis class="po-inline e186 e186"><textual class="po-textual"> Larrabee: A Many-Core x86
+                Architecture for Visual Computing </textual></emphasis><textual class="po-textual"> ACM Transactions on Graphics, Vol. 27,
+            No. 3, Article 18 August 2008. doi: </textual><biblioid class="po-atom e187 doi e187"><textual class="po-textual">10.1145/1360612.1360617</textual></biblioid></bibliomixed><bibliomixed class="po-block e188 e188" xml:id="BSP90" xreflabel="Valliant 90"><textual class="po-textual">L Valliant </textual><emphasis class="po-inline e189 e189"><textual class="po-textual">A Bridging Model for Parallel Computation
+            </textual></emphasis><textual class="po-textual"> Communications of the ACM Vol.33, No.8 August 1990. doi: </textual><biblioid class="po-atom e190 doi e190"><textual class="po-textual">10.1145/79173.79181</textual></biblioid></bibliomixed><bibliomixed class="po-block e191 e191" xml:id="BSP96" xreflabel="Skillicorn et al 96"><textual class="po-textual">D Skillicorn, J Hill and W McColl </textual><emphasis class="po-inline e192 e192"><textual class="po-textual">Questions
+                and Answers about BSP </textual></emphasis><textual class="po-textual"> Oxford University Computing Laboratory
+            PRG-TR-15-96 November 1996</textual></bibliomixed><bibliomixed class="po-block e193 e193" xml:id="PJ08" xreflabel="Peyton Jones et al 08"><textual class="po-textual">S Peyton Jones et al </textual><emphasis class="po-inline e194 e194"><textual class="po-textual"> Harnessing the Multicores: Nested Data
+                Parallelism in Haskell </textual></emphasis><textual class="po-textual"> Foundations of Software Technology and
+            Theoretical Computer Science (Bangalore) 2008.</textual></bibliomixed><bibliomixed class="po-block e195 e195" xml:id="Kol06" xreflabel="Kolaitis et al 06"><textual class="po-textual">P Kolaitis, J Panttaja, W Tan </textual><emphasis class="po-inline e196 e196"><textual class="po-textual">The Complexity of Data Exchange
+            </textual></emphasis><textual class="po-textual"> ACM SIGMOD-SIGACT-SIGART symposium on Principles of database systems (PODS)
+            2006. doi: </textual><biblioid class="po-atom e197 doi e197"><textual class="po-textual">10.1145/1142351.1142357</textual></biblioid></bibliomixed><bibliomixed class="po-block e198 e198" xml:id="XQsem" xreflabel="XPath/XQuery formal semantics"><emphasis class="po-inline e199 e199"><textual class="po-textual">XQuery 1.0 and XPath 2.0 Formal
+                Semantics </textual></emphasis><textual class="po-textual"> W3C Recommendation 23 January 2007 </textual><link class="po-inline e200 e200" xlink:actuate="onRequest" xlink:show="new" xlink:type="simple"><textual class="po-textual">
+                http://www.w3.org/TR/xquery-semantics/</textual></link></bibliomixed><bibliomixed class="po-block e201 e201" xml:id="XDM" xreflabel="XPath/XQuery data model"><emphasis class="po-inline e202 e202"><textual class="po-textual">XQuery 1.0 and XPath 2.0 Data Model (XDM) </textual></emphasis><textual class="po-textual"> W3C
+            Recommendation 23 January 2007 </textual><link class="po-inline e203 e203" xlink:actuate="onRequest" xlink:show="new" xlink:type="simple"><textual class="po-textual">
+            http://www.w3.org/TR/xpath-datamodel/</textual></link></bibliomixed><bibliomixed class="po-block e204 e204" xml:id="XSLT2" xreflabel="XSLT 2.0"><emphasis class="po-inline e205 e205"><textual class="po-textual">XSL Transformations (XSLT) Version 2.0,</textual></emphasis><textual class="po-textual"> W3C
+            Recommendation 23 January 2007 </textual><link class="po-inline e206 e206" xlink:actuate="onRequest" xlink:show="new" xlink:type="simple"><textual class="po-textual"> http://www.w3.org/TR/xslt20/ </textual></link></bibliomixed><bibliomixed class="po-block e207 e207" xml:id="PatHen09" xreflabel="Patterson &amp; Hennessey 09"><textual class="po-textual">D Patterson, J Hennessey </textual><emphasis class="po-inline e208 e208"><textual class="po-textual">Computer
+                Organization and Design: The Hardware/Software Interface</textual></emphasis><textual class="po-textual"> 4th edition,
+            Morgan Kaufmann 2009. </textual></bibliomixed><bibliomixed class="po-block e209 e209" xml:id="NESL" xreflabel="Blelloch et al 94"><textual class="po-textual">G Blelloch et al </textual><emphasis class="po-inline e210 e210"><textual class="po-textual"> Implementation of a Portable
+                Nested Data-Parallel Language </textual></emphasis><textual class="po-textual"> Journal of Parallel and Distributed
+            Computing, 21(1), April 1994. doi: </textual><biblioid class="po-atom e211 doi e211"><textual class="po-textual">10.1006/jpdc.1994.1038</textual></biblioid></bibliomixed><bibliomixed class="po-block e212 e212" xml:id="Dem02" xreflabel="Demaine 02"><textual class="po-textual">E Demaine </textual><emphasis class="po-inline e213 e213"><textual class="po-textual">Cache-Oblivious Algorithms and Data Structures
+            </textual></emphasis><textual class="po-textual"> EEF Summer School on Massive Data Sets June 27-July 1, 2002, BRICS,
+            University of Aarhus, Denmark </textual><link class="po-inline e214 e214" xlink:actuate="onRequest" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://www.brics.dk/MassiveData02/</textual></link></bibliomixed><bibliomixed class="po-block e215 e215" xml:id="BRICS02" xreflabel="Massive Data Sets 02"><textual class="po-textual">EEF Summer School on Massive Data Sets 2002, BRICS,
+            University of Aarhus, Denmark </textual><link class="po-inline e216 e216" xlink:actuate="onRequest" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://www.brics.dk/MassiveData02/</textual></link></bibliomixed><bibliomixed class="po-block e217 e217" xml:id="HG09" xreflabel="Head et al 09"><textual class="po-textual">M Head &amp; M Govindaraju </textual><emphasis class="po-inline e218 e218"><textual class="po-textual">Performance enhancement with
+                speculative execution based parallelism for processing large-scale xml-based
+                application data </textual></emphasis><textual class="po-textual"> 18th ACM international symposium on High performance
+            distributed computing 2009. doi: </textual><biblioid class="po-atom e219 doi e219"><textual class="po-textual">10.1145/1551609.1551615</textual></biblioid></bibliomixed><bibliomixed class="po-block e220 e220" xml:id="Wrightson05" xreflabel="Wrightson 05"><textual class="po-textual"> A Wrightson </textual><emphasis class="po-inline e221 e221"><textual class="po-textual">Semantics of Well Formed XML as a Human
+                and Machine Readable Language</textual></emphasis><textual class="po-textual">Extreme Markup Languages 2005</textual></bibliomixed></bibliography></article></classedDocument>

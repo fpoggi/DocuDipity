@@ -1,0 +1,743 @@
+<?xml version="1.0" encoding="UTF-8"?><article xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink" version="5.0-subset Balisage-1.3"><title>Fat Markup: Trimming the Fat Markup Myth one calorie at a time</title><info><confgroup><conftitle>Balisage: The Markup Conference 2013</conftitle><confdates>August 6 - 9, 2013</confdates></confgroup><abstract><para>We all know that XML is "fat" and JSON is the "thinner", "faster", "smaller",
+                "better" markup. We know this to be true because we've been told it over and over.
+                It's "obvious" and "inherently true" because XML has redundant end tags,
+                namespaces, entities and other extra "pounds of fat" that JSON doesn't have. But
+                where is the science supporting this? What are the facts and what is myth? When
+                people make design and architecture decisions it should be supported by facts not
+                speculation. In this paper I show the results of an ongoing series of real world
+                tests of Markup performance in browsers across a wide variety of devices, browsers
+                and operating systems and attempt to quantify markup performance with experimental
+                results and maybe trim the fat myth one calorie at a time.</para></abstract><author><personname><firstname>David</firstname><surname>Lee</surname></personname><personblurb><para>David Lee has over 30 years' experience in the software industry responsible
+                    for many major projects in small and large companies including Sun Microsystems,
+                    IBM, Centura Software (formerly Gupta.), Premenos, Epiphany (formerly
+                    RightPoint), WebGain, Nexstra, Epocrates, MarkLogic. As Lead Engineer at
+                    MarkLogic, Inc., Mr. Lee is responsible for maintaining and enhancing the core
+                    XML Database server.</para></personblurb><affiliation><jobtitle>Lead Engineer</jobtitle><orgname>MarkLogic, Inc.</orgname></affiliation><email>dlee@marklogic.com</email></author><legalnotice><para>Copyright © 2013 David A. Lee</para></legalnotice></info><section><title>The Myth</title><para>JSON is lean and XML is fat. We know this to be true. Here is a typical quote stated
+            as an undisputed fact. <blockquote><para>JSON’s lightweight payload allows for reduced bandwidth needs and faster
+                    transfers. <xref linkend="JSONLIGHT"/></para></blockquote> Douglas Crockford boldly titles his paper <blockquote><para>JSON: The Fat-Free Alternative to XML <xref linkend="XMLFAT"/>
+                </para></blockquote>
+            <footnote><para>Although interestingly he claims that JSON is neither a document format nor a
+                    markup language.<quote>JSON is not a document format. It is not a markup
+                        language.</quote></para></footnote>
+        </para><para>Simply search the web or ask your friends and except for a few evangelist's <xref linkend="XMLJSON1"/> they will tell you the same thing. For people who want to
+            promote and use JSON they often use this "fact" to support their cause. For people who
+            want to use and promote XML they usually accept this and point to XML's other features
+            that are more important.</para><para>Yet few dispute this fact or attempt a systematic measurement to validate or disprove
+            it.  And when they do it's usually a very constrained test with a single corpus <xref linkend="AJAX1"/>. It's just true. </para><blockquote><para>The worst misconceptions are those which everyone knows to be true, and yet are completely false. Once a false idea gets into the public consciousness, however, they are very difficult to expunge, and rarely go away completely.</para></blockquote><para>Dr. Steven Novella <xref linkend="MISCONCEPTION"/> </para></section><section><title>What is "Fat Markup"?</title><para>When used to describe Markup, "Fat" has many factors and connotations. For the
+            purposes of this paper the following attributes are investigated - size, shape, speed
+            and looks.</para><section><title>Size Matters</title><para>The total size of a marked up document matters for some purposes. The larger the size
+                of the document, generally the more memory it consumes when parsed, the more space
+                it takes in storage and the more time it takes to transfer over a network. However,
+                a single measurement of size is misleading.</para><para>Size can be measured in bytes, characters, nodes and other metrics - both on
+                storage and in memory. Encoding and compression can affect the byte size given the
+                same character size in storage (and often memory). Choices of particular markup style
+                representing the same document data can affect the number of characters; for example
+                choosing shorter element names can produce a document with less characters. Markup
+                choices can also affect node structure and size; for example using attributes in XML
+                instead of elements for some data produces a different representation of the node
+                tree itself which in turn affects the number of characters and bytes. There are many
+                other considerations such as numeric precision, ignorable and boundary whitespace,
+                defaulted attributes, use of namespaces etc. While some specifics are particular to
+                the markup language the concept is valid in both XML and JSON formats.</para><para>Thus given the same document as an abstract object, it is meaningless to attempt
+                to provide a single measurement of its size as expressed in a particular markup
+                format. However, one can measure specific sizes of a particular representation of a
+                document.</para><para>But even given a specific metric for the size of a document, does it matter? That
+                would depend on what one cares about. Size is at best an indirect measurement of
+                some other quantity one is interested in such as time to transmit over a network or
+                disk space used. General intuition is that probably smaller is "better". However, to
+                get a more definitive answer then that we need to ask "better for what and whom?" A
+                binary compressed document may be smallest and better at conserving disk space but
+                not better at readability, usability or parsing speed.</para></section><section><title>Shape Matters</title><para>The "Shape" or particular structure of a document matters for some purposes. For
+                example, readability and ease of authoring by humans or machines may be important.
+                The "shape" also affects the design of parsers, data models and programming
+                API's.</para><para>A particular shape may be better for some uses then others - an exact mapping to a
+                particular programming language object structure may be useful in that language but
+                cumbersome in another. Even in a single language some models may be better suited
+                for direct access and others for searching.</para><para>Shape of a document is hard to quantify, but I suggest that one can use "ease of
+                use" as a proxy. A shape that doesn’t fit your use case is hard to use and could be
+                considered "Fat" in terms of the difficulty of using it.</para></section><section><title>Speed Matters</title><para>When something is considered "Fat" it's generally implied that its "Slow". Speed
+                matters. The time it takes to transfer a document from disk to memory, the time it
+                takes to transfer across a network, the time it takes to parse and query a document
+                - all matter. There is also developer time. How long does it take a developer to
+                learn a language and write code to process a document?</para><para>Sometimes speed in the small doesn’t mean speed in the large. The story of the
+                Tortoise and the Hare can provide good reflection on this. As a practical example,
+                imagine a document which is very fast to load into a programming language but the
+                data format produced doesn’t lend itself for some use cases so extra processing,
+                internal transformations to other models or use of complex and slow libraries may be
+                required to access the document. For example it is common practice in JSON to embed
+                HTML snippets as strings. If you want to search, combine or reformat them you may
+                then have to construct an HTML document and parse it with an HTML parser to produce
+                an object model which useful. The leanness of the original markup is lost in the
+                overhead of having to perform multiple layers of parsing. </para></section><section><title>Looks Matter</title><para>Fat is generally considered "Ugly". A "Fat Markup" often implies an ugly one. If a
+                document format is so ugly you can't stand looking it, you will try to avoid
+                it.</para><para>Fortunately "Beauty is in the eyes of the Beholder". This is true in markup as
+                well as the humanities. As time, exposure, and fashion change so can the subjective
+                beauty of a markup format.</para></section><section><title>What's it all mean?</title><para>Sweeping statements of technologies like "Fat", "Slow", "Bloated" have  imprecise
+                meaning. Worse they are often chosen to pull in emotional associations which may not apply to
+                the specific cases. So even if it were considered true, what does it mean by saying
+                "XML Is Fat"? I suggest it means very little, actually of negative usefulness. A
+                markup itself is not used in isolation; it is used in the context of complex
+                work-flows including editing, distribution and processing. So what should one do to
+                characterize a Markup Language in a meaningful and useful way? </para><para>I suggest a path lies in defining tests that measure specific use cases and
+                provide reproducible metrics. These metrics can be used to get a better
+                understanding of the performance of markup in a meaningful way.</para><para>In short, An Experiment.</para></section></section><section><title>The Experiment</title><para>I designed an experiment to attempt to quantify some of the attributes attributed to
+            "Fat Markup". In particular I focused on what is generally considered an already
+            answered question in particular because I would like to validate that the "common
+            wisdom" is in fact based on fact, and if so or not, to what degree and in what exact
+            cases. The Experiment focuses on performance of JSON and XML in the use case of being
+            delivered by a standard web Server and being parsed and queried in a Browser.
+            Furthermore, mobile devices are becoming vastly more prevalent then in the recent past
+            and little research addresses Mobile Browsers so I attempt to include them as much as
+            possible in the tested scenarios.</para><para>The Experiment I developed attempts to test the following attributes of XML and JSON
+            processing.</para><section><title>Multiple Document Corpuses</title><para>Most of the past publications I have found focus on a single corpus of documents and usually attempt to derive a single metric.
+                These are often very artificial, focused on a single domain or structurally similar.
+                For this experiment I take 6 very different documents and a baseline to attempt to
+                cover a range of document uses 'in the wild'.</para><para>Subsets of larger corpus and duplication of smaller datasets were chosen so the
+                resultant XML and JSON sizes ranged from 100 KB to 1 MB. These limits were chosen so
+                the size was large enough to take noticeable time to load, parse and query but not so
+                large as to break most reasonable browsers even on mobile devices.</para><para>The Document corpus used is as follows</para><itemizedlist><listitem><para>base</para><para>This is a very basic baseline document. It consists of a root object and a
+                        child object with 3 properties. This baseline is used to sanity check the
+                        test to make sure proper counting of size and nodes could be easily manually
+                        validated.</para></listitem><listitem><para>books</para><para>This is an expanded sample of the BOOKS sample distributed with Saxon <xref linkend="Saxon"/>. It
+                        contains 600 book items, with 300 categories.</para></listitem><listitem><para>epa</para><para>A portion of the EPA  Geospatial  data at <link xlink:href="http://www.epa.gov/enviro/geo_data.html" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.epa.gov/enviro/geo_data.html</link> containing a collection
+                        of 100 FacilitySite records.</para></listitem><listitem><para>ndc</para><para>A subset of the National Drug Code Directory at <link xlink:href="http://www.fda.gov/drugs/informationondrugs/ucm142438.htm" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.fda.gov/drugs/informationondrugs/ucm142438.htm</link>
+                        containing a collection of 1000 FORMULATRION records.</para></listitem><listitem><para>snomed</para><para>A subset of the SNOMED concept database from <link xlink:href="http://www.nlm.nih.gov/research/umls/Snomed/snomed_main.html" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.nlm.nih.gov/research/umls/Snomed/snomed_main.html</link>
+                        containing a collection of 100 SNOMED concept records.</para></listitem><listitem><para>spl</para><para>A single SPL document from the FDA as provided by DailyMed, a website
+                        run by the National Institute of Health <link xlink:href="http://dailymed.nlm.nih.gov/dailymed/downloadLabels.cfm" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://dailymed.nlm.nih.gov/dailymed/downloadLabels.cfm</link>
+                    </para></listitem><listitem><para>twitter</para><para>A collection of 1000 random tweets from a search of Super Bowl and
+                        advertiser terms.   Identifying data from the collection was anonymized by
+                        randomizing the user names and ID's.</para></listitem></itemizedlist></section><section><title>Document Size and shape</title><para>Most research I have found makes the incorrect assumption that there is a single
+                representation of a document in a particular markup. I take a different approach.
+                Starting with seven (7) different documents I produce 2 variants in JSON and 3
+                variants in XML that all represent the same abstract document. These documents span
+                several data styles including simple tabular, highly structured and document format.
+                Some of the corpus is synthetic and some taken from real world data. In addition I
+                test the support for HTTP gzip compression on these documents.</para><section><title>JSON Formats</title><para>For JSON documents I produced 2 variants. </para><para>One variant similar to the default XML to JSON transformation from json.org (<link xlink:href="http://www.json.org/java/index.html" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.json.org/java/index.html</link>). This variant, while fully
+                    expressive is generally not what a JSON developer would expect. However, it is
+                    what a naive XML to JSON transformation may produce.</para><para>The second JSON variant is a custom transformation informed by the specific
+                    data structures and is close to what a JSON programmer might expect from a JSON
+                    format.</para><para>In both cases extraneously white-spaces are removed.</para><section><title>JSON Examples</title><section><title>Twitter 1 Full</title><para>The following is an example of a single JSON object in the twiter-1full.json.  This is representative of a naive conversion from XML using code similar to that at json.org.  Whitespace, newlines and indentation was added for presentation only; it does not exist in the actual document.</para><figure xml:id="Twitter1"><title>Twitter 1 full example</title><para>
+                        <code>
+
+{
+    "status": {
+        "_attributes": {
+            "id": "303239543170138114"
+        },
+        "_children": [
+            "\n      ",
+            {
+                "created-at": {
+                    "_children": [
+                        "2013-02-17T15:28:35"
+                    ]
+                }
+            },
+            "\n      ",
+            {
+                "user": {
+                    "_attributes": {
+                        "created-at": "2012-05-30T01:40:04",
+                        "description": "No regrets im blessed to say the old me dead and gone away",
+                        "favorites-count": "1079",
+                        "id": "6674089274671724277",
+                        "lang": "en",
+                        "name": "AqmtidAkSesSZ",
+                        "screen-name": "ITQMiAqmti"
+                    },
+                    "_children": [
+                        "\n         ",
+                        {
+                            "location": {
+                                "_children": [
+                                    "Hartselle "
+                                ]
+                            }
+                        },
+                        "\n      "
+                    ]
+                }
+            },
+            "\n      ",
+            {
+                "hash-tags": {
+                    "_children": [
+                        "\n         ",
+                        {
+                            "hash-tag": {
+                                "_attributes": {
+                                    "start": "65",
+                                    "end": "78"
+                                },
+                                "_children": [
+                                    "coolranchdlt"
+                                ]
+                            }
+                        },
+                        "\n      "
+                    ]
+                }
+            },
+            "\n      ",
+            {
+                "source": {
+                    "_children": [
+                        "&amp;lt;a href=\"http://twitter.com/download/iphone\" rel=\"nofollow\"&amp;gt;Twitter for iPhone&amp;lt;/a&amp;gt;"
+                    ]
+                }
+            },
+            "\n      ",
+            {
+                "text": {
+                    "_children": [
+                        "Taco Bell has cooler ranch Doritos tacos my life just got better #coolranchdlt"
+                    ]
+                }
+            },
+            "\n      ",
+            {
+                "url-entities": {}
+            },
+            "\n      ",
+            {
+                "user-mention-entities": {}
+            },
+            "\n   "
+        ]
+    }
+                            
+                            
+                        </code></para></figure><para>This is an example of the same record represented in a format that a
+                            native JSON developer may expect. Whitespace, newlines and indentation
+                            was added for presentation only; it does not exist in the actual
+                            document.</para><figure xml:id="Twitter2"><title>Twitter 2 custom example</title><para>
+                        
+                        <code>
+
+ {
+    "status": {
+        "id": "303239543170138114",
+        "created-at": "2013-02-17T15:28:35",
+        "user": {
+            "created-at": "2012-05-30T01:40:04",
+            "description": "No regrets im blessed to say the old me dead and gone away",
+            "favorites-count": "1079",
+            "id": "6674089274671724277",
+            "lang": "en",
+            "name": "AqmtidAkSesSZ",
+            "screen-name": "ITQMiAqmti",
+            "location": "Hartselle "
+        },
+        "hash-tags": {
+            "hash-tag": [
+                {
+                    "start": "65",
+                    "end": "78",
+                    "_value": "coolranchdlt"
+                }
+            ]
+        },
+        "source": "&amp;lt;a href=\"http://twitter.com/download/iphone\" rel=\"nofollow\"&amp;gt;Twitter for iPhone&amp;lt;/a&amp;gt;",
+        "text": "Taco Bell has cooler ranch Doritos tacos my life just got better #coolranchdlt",
+        "url-entities": "",
+        "user-mention-entities": ""
+    }
+},
+
+                            
+                            
+                            
+                        </code>
+                            </para></figure></section></section></section><section><title>XML Formats</title><para>For the first format I used the "native" XML format (if the document
+                    originated as XML) or a naive transformation from the object model to
+                    XML.</para><para>For the second format I took the first format and simply removed boundary and
+                    ignorable whitespace</para><para>For the third XML format I transformed the XML into an attribute centric
+                    format. This was accomplished by taking all XML elements which contained only
+                    text content, no attributes, and is not repeating and transformed that element
+                    into an attribute. </para><section><title>XML Examples</title><para>What follows are 3 examples of the same twitter record as used for the XML
+                        documents.</para><figure xml:id="TwitterXML1"><title>XML 1 example - base xml with whitespace and indentation</title><para>
+                        
+                    <code>
+  
+                        
+ &lt;status id="303239543170138114"&gt;
+      &lt;created-at&gt;2013-02-17T15:28:35&lt;/created-at&gt;
+      &lt;user created-at="2012-05-30T01:40:04" description="No regrets im blessed to say the old me dead and gone away" favorites-count="1079" id="6674089274671724277" lang="en" name="AqmtidAkSesSZ" screen-name="ITQMiAqmti"&gt;
+         &lt;location&gt;Hartselle &lt;/location&gt;
+      &lt;/user&gt;
+      &lt;hash-tags&gt;
+         &lt;hash-tag start="65" end="78"&gt;coolranchdlt&lt;/hash-tag&gt;
+      &lt;/hash-tags&gt;
+      &lt;source&gt;&amp;lt;a href="http://twitter.com/download/iphone" rel="nofollow"&amp;gt;Twitter for iPhone&amp;lt;/a&amp;gt;&lt;/source&gt;
+      &lt;text&gt;Taco Bell has cooler ranch Doritos tacos my life just got better #coolranchdlt&lt;/text&gt;
+      &lt;url-entities/&gt;
+      &lt;user-mention-entities/&gt;
+ &lt;/status&gt;
+
+                    </code> </para></figure><figure xml:id="TwitterXML2"><title>XML 2 example - All whitespace and indentation removed</title><para>
+                    <code>
+
+&lt;status id="303239543170138114"&gt;&lt;created-at&gt;2013-02-17T15:28:35&lt;/created-at&gt;&lt;user created-at="2012-05-30T01:40:04" description="No regrets im blessed to say the old me dead and gone away" favorites-count="1079" id="6674089274671724277" lang="en" name="AqmtidAkSesSZ" screen-name="ITQMiAqmti"&gt;&lt;location&gt;Hartselle &lt;/location&gt;&lt;/user&gt;&lt;hash-tags&gt;&lt;hash-tag start="65" end="78"&gt;coolranchdlt&lt;/hash-tag&gt;&lt;/hash-tags&gt;&lt;source&gt;&amp;lt;a href="http://twitter.com/download/iphone" rel="nofollow"&amp;gt;Twitter for iPhone&amp;lt;/a&amp;gt;&lt;/source&gt;&lt;text&gt;Taco Bell has cooler ranch Doritos tacos my life just got better #coolranchdlt&lt;/text&gt;&lt;url-entities/&gt;&lt;user-mention-entities/&gt;&lt;/status&gt;                        
+                        
+                    </code>
+                            </para></figure><figure xml:id="TwitterXML3"><title>XML 3 example - All non-repeating leaf elements pulled up into
+                            attributes</title><para>
+                    <code>
+                        
+&lt;status id="303239543170138114" created-at="2013-02-17T15:28:35" source="&amp;lt;a href=&amp;#34;http://twitter.com/download/iphone&amp;#34; rel=&amp;#34;nofollow&amp;#34;&amp;gt;Twitter for iPhone&amp;lt;/a&amp;gt;" text="Taco Bell has cooler ranch Doritos tacos my life just got better #coolranchdlt" url-entities="" user-mention-entities=""&gt;&lt;user created-at="2012-05-30T01:40:04" description="No regrets im blessed to say the old me dead and gone away" favorites-count="1079" id="6674089274671724277" lang="en" name="AqmtidAkSesSZ" screen-name="ITQMiAqmti" location="Hartselle "/&gt;&lt;hash-tags&gt;&lt;hash-tag start="65" end="78"&gt;coolranchdlt&lt;/hash-tag&gt;&lt;/hash-tags&gt;&lt;/status&gt;&lt;/twitter&gt;                   
+
+                    </code>
+                        </para></figure></section></section><section><title>Sizes of corpus</title><para> The following table lists the corpus documents, types, and sizes (raw and
+                    compressed). This data is stored as a resource (index) and is available to the
+                    client on start-up. <table xml:id="FileSizeTable"><caption><para>Corpus documents with sizes</para></caption><tr><th>group</th><th>type</th><th>name</th><th>size</th><th>compress-size</th></tr><tr><td>base</td><td>json</td><td>base-custom.json</td><td align="right">56</td><td align="right">83</td></tr><tr><td>base</td><td>json</td><td>base-full.json</td><td align="right">93</td><td align="right">107</td></tr><tr><td>base</td><td>xml</td><td>base.xml</td><td align="right">45</td><td align="right">69</td></tr><tr><td>books</td><td>json</td><td>books1-custom.json</td><td align="right">204832</td><td align="right">1933</td></tr><tr><td>books</td><td>json</td><td>books1-full.json</td><td align="right">438133</td><td align="right">3758</td></tr><tr><td>books</td><td>xml</td><td>books1.xml</td><td align="right">256030</td><td align="right">2412</td></tr><tr><td>books</td><td>xml</td><td>books2.xml</td><td align="right">226430</td><td align="right">2169</td></tr><tr><td>books</td><td>xml</td><td>books3.xml</td><td align="right">186230</td><td align="right">1819</td></tr><tr><td>epa</td><td>json</td><td>epa1-custom.json</td><td align="right">140914</td><td align="right">13024</td></tr><tr><td>epa</td><td>json</td><td>epa1-full.json</td><td align="right">199025</td><td align="right">14862</td></tr><tr><td>epa</td><td>xml</td><td>epa1.xml</td><td align="right">195201</td><td align="right">14591</td></tr><tr><td>epa</td><td>xml</td><td>epa2.xml</td><td align="right">192449</td><td align="right">14528</td></tr><tr><td>epa</td><td>xml</td><td>epa3.xml</td><td align="right">136813</td><td align="right">12729</td></tr><tr><td>ndc</td><td>json</td><td>ndc1-custom.json</td><td align="right">95093</td><td align="right">8503</td></tr><tr><td>ndc</td><td>json</td><td>ndc1-full.json</td><td align="right">235603</td><td align="right">9621</td></tr><tr><td>ndc</td><td>xml</td><td>ndc1.xml</td><td align="right">176157</td><td align="right">9140</td></tr><tr><td>ndc</td><td>xml</td><td>ndc2.xml</td><td align="right">153157</td><td align="right">8952</td></tr><tr><td>ndc</td><td>xml</td><td>ndc3.xml</td><td align="right">96087</td><td align="right">8295</td></tr><tr><td>snomed</td><td>json</td><td>snomed1-custom.json</td><td align="right">230371</td><td align="right">22665</td></tr><tr><td>snomed</td><td>json</td><td>snomed1-full.json</td><td align="right">501577</td><td align="right">25757</td></tr><tr><td>snomed</td><td>xml</td><td>snomed1.xml</td><td align="right">405294</td><td align="right">24484</td></tr><tr><td>snomed</td><td>xml</td><td>snomed2.xml</td><td align="right">355195</td><td align="right">23853</td></tr><tr><td>snomed</td><td>xml</td><td>snomed3.xml</td><td align="right">221409</td><td align="right">22237</td></tr><tr><td>spl</td><td>json</td><td>spl1-custom.json</td><td align="right">55762</td><td align="right">10857</td></tr><tr><td>spl</td><td>json</td><td>spl1-full.json</td><td align="right">135948</td><td align="right">12398</td></tr><tr><td>spl</td><td>xml</td><td>spl1.xml</td><td align="right">99571</td><td align="right">11974</td></tr><tr><td>spl</td><td>xml</td><td>spl2.xml</td><td align="right">97965</td><td align="right">11927</td></tr><tr><td>spl</td><td>xml</td><td>spl3.xml</td><td align="right">87755</td><td align="right">11262</td></tr><tr><td>twitter</td><td>json</td><td>twitter1-custom.json</td><td align="right">715005</td><td align="right">196939</td></tr><tr><td>twitter</td><td>xml</td><td>twitter1-full.json</td><td align="right">1056212</td><td align="right">207340</td></tr><tr><td>twitter</td><td>xml</td><td>twitter1.xml</td><td align="right">809469</td><td align="right">198325</td></tr><tr><td>twitter</td><td>xml</td><td>twitter2.xml</td><td align="right">718016</td><td align="right">195197</td></tr><tr><td>twitter</td><td>xml</td><td>twitter3.xml</td><td align="right">700412</td><td align="right">194971</td></tr></table>
+                </para></section></section><section><title>Methodology and Architecture</title><para>The experiment contains a Server, Browser, and Analysis components. The components
+                were created using standard open source software and as much as possible designed to
+                focus on the attributes being tested and eliminating introduction of bias from
+                components which are not related to the test goals.</para><section><title>Server</title><para>The Server component provides two roles. It serves the source data used by the
+                    Client and collects the results submitted by the client.</para><para>The Server software used is Apache HTTP server<xref linkend="Apache"/>. Client
+                    documents (HTML, CSS, JavaScript and corpus data) are served as static resources
+                    to minimize server side variations.  The server is running on an Amazon EC2
+                    instance in Virginia, US.</para><para>Results from the client are sent back to the server via an HTTP POST. The
+                    server runs a CGI script which formats the results and queues them to a message queue.<footnote><para>Amazon SQS service was used for the messaging queue <link xlink:href="http://aws.amazon.com/sqs/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://aws.amazon.com/sqs/</link></para></footnote></para><para>A data collection script periodically polls the queue for new results and when
+                    it receives one enriches the results by expanding the UserAgent string into
+                    sub-components for easier identification of browser and OS versions.<footnote><para>The service "user agent info" <link xlink:href="http://user-agent-string.info/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://user-agent-string.info/</link> was used for this enrichment.</para></footnote>   The
+                    results are then stored locally as an XML file and also published to a database
+                    for future analysis.</para><para>The mechanism used to report results is independent of the tests themselves,
+                    do not affect the test data and could be replaced by other analogous
+                    methods.</para><para>The only Server component that could affect the tests is the serving of static
+                    JSON and XML corpus documents. These are exposed as static resources with HTTP
+                    GET, with and without gzip compression enabled.</para></section><section><title>Client</title><para>The Client is a Browser based JavaScript application. The GUI components of
+                    the client were developed using GWT <xref linkend="GWT"/>. The code which performs the measured parts
+                    of the tests are hand written JavaScript, with the exception that jQuery<xref linkend="JQUERY"/> is used
+                    for part of the test as indicated.</para><para>
+                    <figure xml:id="ClientApp"><title>Client Application</title><mediaobject><imageobject><imagedata fileref="../../../vol10/graphics/Lee01/Lee01-001.png"/></imageobject></mediaobject></figure>
+                </para><para>On start-up the client requests an index document and shows a list of all files
+                    in the corpus, their types and sizes. The user can choose to run tests
+                    individually or as a whole.</para><para>There is one button which when tapped runs all tests then submits the results
+                    to the server via an HTTP POST. The time it takes to load, initialize and update
+                    the GUI, and to send the results is not included in the results.</para><para>Publicly available data available to the client program (browser) is also
+                    included in the results. This data is used to identify the browser and OS of the
+                    client.</para><section><title>Tests</title><para>When the "Run All Tests" button is tapped the following procedure is run.
+                        For each of the files in the index the following is performed and
+                        individually timed. <itemizedlist><listitem><para>The data file is fetched from the server in raw (not
+                                    compressed) format and stored as a string. Where possible the
+                                    actual Content-Length is used to update the data size metric for
+                                    this file.</para></listitem><listitem><para>The data file is fetched from the server in compressed (gzip)
+                                    format and uncompressed and stored as a string. Where possible
+                                    the actual Content-Length is used to update the compressed size
+                                    metric for this file.</para></listitem><listitem><para>The data is parsed into an in memory object. For JSON files
+                                    this uses the JavaScript eval() method. For XML files standard
+                                    browser methods are used to parse the XML file.</para></listitem><listitem><para>The object is "Queried". To simulate a consistent query across
+                                    the variety of the corpus all nodes of the document are
+                                    recursively descended and counted. The number of nodes visited
+                                    is recorded along with the elapsed time.</para></listitem><listitem><para>The data is again parsed into an in memory object. For both
+                                    JSON and XML files, jQuery is used to parse the document and
+                                    produce a jQuery object.</para></listitem><listitem><para>The object is "Queried". To simulate a consistent query across
+                                    the variety of the corpus all nodes of the jQuery document are
+                                    recursively descended and evaluated. The number of nodes visited
+                                    is recorded along with the elapsed time.</para></listitem></itemizedlist>
+                    </para></section></section></section></section><section><title>Results</title><section><title>Test Coverage</title><para>In addition to a variety of data sources and formats, the experiment attempts to
+                cover a range of devices, operating systems, browsers and networks. This is achieved
+                by "crowd sourcing". The URL to the test was made public and distributed to a range
+                of mailing lists and social media sites including Amazon Mechanical Turk<xref linkend="TURK"/>. Ideally
+                this experiment can continue for a long duration so that trends over time can be
+                measured.</para><para>It is expected that performance varies considerably across devices, especially
+                mobile devices, and prior research has largely ignored differences across
+                devices.</para><para>Only the browser "User Agent" string is used to distinguish browsers, devices and
+                operating systems. This makes some measurements impossible such as distinguishing
+                between broadband, wifi, 3G, LTE and other networks.</para><para>However, even lacking some measurements and precision, seeing the range of
+                performance across platforms is still educational and useful.</para><para>At the time of this paper approximately 1200 distinct successful tests results
+                were collected.</para><section><title>Browser Coverage</title><para>
+                
+                <table><tr><th rowspan="1" colspan="1">name</th><th rowspan="1" colspan="1">count</th></tr><tr><td rowspan="1" colspan="1">Chrome</td><td rowspan="1" colspan="1" align="right">423</td></tr><tr><td rowspan="1" colspan="1">Firefox</td><td rowspan="1" colspan="1" align="right">277</td></tr><tr><td rowspan="1" colspan="1">Mobile Safari</td><td rowspan="1" colspan="1" align="right">148</td></tr><tr><td rowspan="1" colspan="1">IE</td><td rowspan="1" colspan="1" align="right">75</td></tr><tr><td rowspan="1" colspan="1">Android Webkit</td><td rowspan="1" colspan="1" align="right">75</td></tr><tr><td rowspan="1" colspan="1">Safari</td><td rowspan="1" colspan="1" align="right">72</td></tr><tr><td rowspan="1" colspan="1">Chrome Mobile</td><td rowspan="1" colspan="1" align="right">57</td></tr><tr><td rowspan="1" colspan="1">Opera</td><td rowspan="1" colspan="1" align="right">15</td></tr><tr><td rowspan="1" colspan="1">Chromium</td><td rowspan="1" colspan="1" align="right">7</td></tr><tr><td rowspan="1" colspan="1">Mobile Firefox</td><td rowspan="1" colspan="1" align="right">4</td></tr><tr><td rowspan="1" colspan="1">IceWeasel</td><td rowspan="1" colspan="1" align="right">4</td></tr><tr><td rowspan="1" colspan="1">IE Mobile</td><td rowspan="1" colspan="1" align="right">3</td></tr><tr><td rowspan="1" colspan="1">Opera Mobile</td><td rowspan="1" colspan="1" align="right">3</td></tr><tr><td rowspan="1" colspan="1">Avant Browser</td><td rowspan="1" colspan="1" align="right">2</td></tr><tr><td rowspan="1" colspan="1">SeaMonkey</td><td rowspan="1" colspan="1" align="right">2</td></tr><tr><td rowspan="1" colspan="1">Epiphany</td><td rowspan="1" colspan="1" align="right">1</td></tr><tr><td rowspan="1" colspan="1">Netscape Navigator</td><td rowspan="1" colspan="1" align="right">1</td></tr><tr><td rowspan="1" colspan="1">Rekonq</td><td rowspan="1" colspan="1" align="right">1</td></tr><tr><td rowspan="1" colspan="1">Konqueror</td><td rowspan="1" colspan="1" align="right">1</td></tr></table>
+            </para><para>
+                <figure xml:id="Browsers"><title>Browsers Covered</title><mediaobject><imageobject><imagedata fileref="../../../vol10/graphics/Lee01/Lee01-002.png"/></imageobject></mediaobject><caption><para>Number of tests suites run on specific browsers</para></caption></figure>
+            </para></section><section><title>Operating System Coverage</title><para>
+                <table><tr><th rowspan="1" colspan="1">OS</th><th rowspan="1" colspan="1">count</th></tr><tr><td rowspan="1" colspan="1">Windows 7</td><td rowspan="1" colspan="1" align="right">402</td></tr><tr><td rowspan="1" colspan="1">iOS 6</td><td rowspan="1" colspan="1" align="right">138</td></tr><tr><td rowspan="1" colspan="1">OS X 10.8 Mountain Lion</td><td rowspan="1" colspan="1" align="right">136</td></tr><tr><td rowspan="1" colspan="1">Windows XP</td><td rowspan="1" colspan="1" align="right">70</td></tr><tr><td rowspan="1" colspan="1">Linux</td><td rowspan="1" colspan="1" align="right">69</td></tr><tr><td rowspan="1" colspan="1">Android 4.1.x Jelly Bean</td><td rowspan="1" colspan="1" align="right">48</td></tr><tr><td rowspan="1" colspan="1">Linux (Ubuntu)</td><td rowspan="1" colspan="1" align="right">46</td></tr><tr><td rowspan="1" colspan="1">Android 4.2 Jelly Bean</td><td rowspan="1" colspan="1" align="right">39</td></tr><tr><td rowspan="1" colspan="1">Windows 8</td><td rowspan="1" colspan="1" align="right">38</td></tr><tr><td rowspan="1" colspan="1">OS X 10.7 Lion</td><td rowspan="1" colspan="1" align="right">36</td></tr><tr><td rowspan="1" colspan="1">OS X 10.6 Snow Leopard</td><td rowspan="1" colspan="1" align="right">33</td></tr><tr><td rowspan="1" colspan="1">Android 4.0.x Ice Cream Sandwich</td><td rowspan="1" colspan="1" align="right">32</td></tr><tr><td rowspan="1" colspan="1">iOS 5</td><td rowspan="1" colspan="1" align="right">20</td></tr><tr><td rowspan="1" colspan="1">Android 2.3.x Gingerbread</td><td rowspan="1" colspan="1" align="right">18</td></tr><tr><td rowspan="1" colspan="1">Windows Vista</td><td rowspan="1" colspan="1" align="right">17</td></tr><tr><td rowspan="1" colspan="1">Android</td><td rowspan="1" colspan="1" align="right">8</td></tr><tr><td rowspan="1" colspan="1">Android 2.2.x Froyo</td><td rowspan="1" colspan="1" align="right">5</td></tr><tr><td rowspan="1" colspan="1">FreeBSD</td><td rowspan="1" colspan="1" align="right">3</td></tr><tr><td rowspan="1" colspan="1">Windows Phone 8</td><td rowspan="1" colspan="1" align="right">3</td></tr><tr><td rowspan="1" colspan="1">Windows RT</td><td rowspan="1" colspan="1" align="right">2</td></tr><tr><td rowspan="1" colspan="1">OS X 10.5 Leopard</td><td rowspan="1" colspan="1" align="right">2</td></tr><tr><td rowspan="1" colspan="1">iOS</td><td rowspan="1" colspan="1" align="right">1</td></tr><tr><td rowspan="1" colspan="1">Linux (CentOS)</td><td rowspan="1" colspan="1" align="right">1</td></tr><tr><td rowspan="1" colspan="1">Linux (Fedora)</td><td rowspan="1" colspan="1" align="right">1</td></tr><tr><td rowspan="1" colspan="1">iOS 7</td><td rowspan="1" colspan="1" align="right">1</td></tr><tr><td rowspan="1" colspan="1">OS X</td><td rowspan="1" colspan="1" align="right">1</td></tr><tr><td rowspan="1" colspan="1">Solaris</td><td rowspan="1" colspan="1" align="right">1</td></tr></table>
+            </para><para>
+                <figure xml:id="OSs"><title>Operating Systems Covered</title><mediaobject><imageobject><imagedata fileref="../../../vol10/graphics/Lee01/Lee01-003.png"/></imageobject></mediaobject><caption><para>Number of tests suites run on specific Operating Systems</para></caption></figure>
+            </para></section></section><section><title>Data Sizes</title><para>XML is inherently larger then than JSON. This is known as 'obviously true' due to
+                several factors inherent to XML markup. <itemizedlist><listitem><para>The end tags of XML duplicate data in the start tags making the total
+                            text longer.</para></listitem><listitem><para>Namespaces, prefixes, entities, comments, PI's and other XML features
+                            add bloat not present in JSON.</para></listitem><listitem><para>JSON has a direct concise representation for arrays which XML does
+                            not.</para></listitem></itemizedlist> These are all reasonable presumptions, but how much do these things
+                contribute to data sizes? In real use how much difference does it make? One of the
+                features of modern markup is that we sacrifice some compactness in exchange for
+                readability and usability.  If the most important goal was compact size we would be
+                using specialized binary formats.   In any case let's look at the actual
+                measurements from the corpus. For the most part size is a static feature of the data
+                files themselves, although this can be affected somewhat by the transmission
+                protocol. Experimentation has shown that overwhelmingly the static data size is very
+                close to the HTTP transmitted size of anything but very tiny documents. HTTP does
+                add a little variable overhead such as chunked encoding and headers, but this is
+                very small. The gzip compression available in HTTP 1.1 has been shown to be equal in
+                size to using the "gzip" command. For the purposes of Data Size we shall examine the
+                static size of the documents on disk. All documents are stored in UTF-8 encoding as
+                plain text files. </para><para>As we can see from <xref linkend="FileSizeFigure"/> and <xref linkend="FileSizeTable"/>, for each data set the XML and JSON file size can vary
+                significantly depending on the formatting choices used. However, if one carefully
+                chooses a formatting style to minimize size then XML and JSON come very close with
+                XML smaller in some cases and JSON in others. Looking at the compressed sizes of the
+                files in <xref linkend="FileSizeCompressFigure"/> we can see that the file sizes are
+                very close <emphasis role="ital">regardless</emphasis> of formatting style.</para><para>
+                <figure xml:id="FileSizeFigure"><title>Corpus File Sizes </title><mediaobject><imageobject><imagedata fileref="../../../vol10/graphics/Lee01/Lee01-004.png"/></imageobject></mediaobject><caption><para>Compressed and uncompressed file sizes</para></caption></figure>
+            </para><para>
+                <figure xml:id="FileSizeCompressFigure"><title>Compressed File Sizes </title><mediaobject><imageobject><imagedata fileref="../../../vol10/graphics/Lee01/Lee01-005.png"/></imageobject></mediaobject><caption><para>Compressed file sizes (excluding twitter data)</para></caption></figure>
+            </para></section><section><title>Data Transmission Speed</title><para>The predominant factors influencing data transmission speed are the size of the
+                data transmitted and the network speed. In addition, processing speed of the client
+                (browser) and server have some influence as well as packet losses and other internet
+                related issues. Mobile networks generally have significantly higher latency so are
+                more affected by packet loss and retransmission.</para><para>This experiment focuses on measuring end to end speeds of HTTP from server to
+                browser using uncompressed and HTTP gzip compression across a range of devices and
+                browsers. It does not attempt to examine the root causes of network bandwidth and
+                traffic.</para><para>The range of devices and networks produces a large scatter of transmission speeds.
+                While the trend is that uncompressed and compressed data are fairly linear with
+                respect to bytes transferred there are a lot of outliers. Note that each mark
+                represents the same base document requested uncompressed then compressed via HTTP.
+                If network speed was identical for both then the marks would have x and y values
+                equal, forming a tight line.  Rather we see significant amount of outliers.</para><para>Transmission Speed<figure xml:id="NetSpeed"><mediaobject><imageobject><imagedata fileref="../../../vol10/graphics/Lee01/Lee01-006.png"/></imageobject></mediaobject><caption><para>Transmission time in bytes/sec for Compressed (x) vs Raw (y)</para></caption></figure></para></section><section><title>Parsing Speed</title><para>So far we have dealt with markup agnostic metrics. It doesn’t take any more or less
+                time to transfer the same number of JSON bytes as XML bytes. Parsing is a different
+                matter. This experiment tests two variants of parsing for each JSON and XML. The
+                first variant is to use standard low level JavaScript methods for parsing. The other
+                variant is to use a common library (jQuery). The code for parsing was hand written
+                JavaScript and corresponds to what seems "best practice" in web programming
+                today.</para><figure xml:id="jsonparse1"><title>JSON Parsing using native JavaScript</title><programlisting xml:space="preserve">          
+  eval('(' + responseString + ')');
+</programlisting></figure><figure xml:id="jsonparse2"><title>JSON Parsing using jQuery</title><programlisting xml:space="preserve">	            
+   $wnd.jQuery.parseJSON( responseString );
+</programlisting></figure><figure xml:id="xmlparse1"><title>XML Parsing using native JavaScript</title><programlisting xml:space="preserve">function getIEParser() {
+    try { return new ActiveXObject("Msxml2.DOMDocument"); } catch (e) { }
+    try { return new ActiveXObject("MSXML.DOMDocument"); } catch (e) { }
+    try { return new ActiveXObject("MSXML3.DOMDocument"); } catch (e) { }
+    try { return new ActiveXObject("Microsoft.XmlDom"); } catch (e) { }
+    try { return new ActiveXObject("Microsoft.DOMDocument"); } catch (e) { }
+            
+    throw new Error("XMLParserImplIE6.createDocumentImpl: Could not find appropriate version of DOMDocument.");
+};
+if ($wnd.DOMParser){
+    parser=new DOMParser();
+    xmlDoc=parser.parseFromString(responseString,"text/xml");
+}
+else // Internet Explorer
+{
+    xmlDoc=  getIEParser();
+    xmlDoc.async=false;
+    xmlDoc.loadXML(txt); 
+}
+return xmlDoc ;
+</programlisting></figure><figure xml:id="xmlparse2"><title>XML Parsing using jQuery</title><programlisting xml:space="preserve">	            
+ $wnd.jQuery.parseXML( responseString );
+</programlisting></figure><para>
+                <figure xml:id="JavascriptParse"><title>Parsing speed using JavaScript in seconds vs file size</title><mediaobject><imageobject><imagedata format="png" fileref="../../../vol10/graphics/Lee01/Lee01-007.png" width="75%"/></imageobject></mediaobject><caption><para>Parses time in seconds for native JavaScript (y) vs size of raw
+                            document in bytes (x).</para></caption></figure>
+            </para><para>
+                <figure xml:id="JQueryParse"><title>Parsing speed using jQuery in seconds vs file size</title><mediaobject><imageobject><imagedata format="png" fileref="../../../vol10/graphics/Lee01/Lee01-008.png" width="75%"/></imageobject></mediaobject><caption><para>Parses time in seconds for jQuery (y) vs size of raw document in bytes
+                            (x).</para></caption></figure>
+            </para></section><section><title>Query Speed</title><para>Testing query across markup languages and a diverse corpus is tricky to achieve
+                without bias. For the purposes of this experiment I postulate that the purpose of
+                loading the document (JSON or XML) is to use all of it's data in some form.</para><para>Therefore to simulate a fair "query" I perform a recursive decent of the parsed
+                object's document model and count every node. There are certainly many other equally
+                good definitions of "query" but I wanted to have a similar test across all the
+                corpus that has a reasonable relevance to typical use cases.</para><para>The following listings show the JavaScript code for a recursive decent query of
+                all nodes in the document. It is very interesting to the author that despite popular
+                opinion the code for JSON and XML are extremely similar. XML has attributes which
+                adds a few lines of code but otherwise it's effectively the same amount of
+                programming to recurse and examine a JSON object and an XML object in JavaScript and
+                jQuery. XML adds about 4 lines of JavaScript to handle attributes in both the
+                JavaScript and jQuery case, but other than that the code is nearly identical.</para><figure xml:id="jsonquery1"><title>JSON Query using native JavaScript</title><programlisting xml:space="preserve">	            
+var n = 0;
+var walk = function(o){
+  if( o == null || typeof(o) == "undefined" ) 
+     return;
+  n++;
+ 
+  for(var prop in o){
+    n++;
+    if(o.hasOwnProperty(prop)){
+      var val = o[prop];
+
+      if(typeof val == 'object'){
+          walk(val);
+      }            
+    }
+     else
+        var val = o ;
+  }
+};
+
+walk( this );
+return n; 
+</programlisting></figure><figure xml:id="jsonquery2"><title>JSON Query using jQuery</title><programlisting xml:space="preserve">	            
+var n = 0;
+var walk = function( o )
+{
+    if( o == null || typeof(o) == "undefined")
+        return ;
+    n++;
+    $wnd.jQuery.each(o, function(key, value) {
+      if( value != null &amp;&amp; typeof(value) == "object" )
+           walk( value )
+}
+walk(this);
+return n;
+        
+ </programlisting></figure><figure xml:id="xmlquery1"><title>XML Query using native JavaScript</title><programlisting xml:space="preserve">	            
+var n =0;
+var walk = function( o )
+{
+    if( o == null || typeof(o) == "undefined" )
+       return ;  
+    n++;
+    if( o.attributes != null &amp;&amp; typeof(  o.attributes) != "undefined" )
+        for( var x = 0; x &lt;  o.attributes.length; x++ ) {
+            n++;
+        }
+    if(  o.childNodes != null &amp;&amp; typeof(  o.childNodes) != "undefined" )
+        for( var x = 0; x &lt;  o.childNodes.length; x++ ) {
+            walk(  o.childNodes[x] ); 
+        }
+}
+walk(this);
+return n;
+ </programlisting></figure><figure xml:id="xmlquery2"><title>XML Query using jQuery</title><programlisting xml:space="preserve">	            
+var n = 0;
+var walk = function( o )
+{
+    if( o == null || typeof(o) == "undefined" )
+       return ;
+    n++;
+    $wnd.jQuery( o).children().each( function( ) {
+        n++ ;
+        walk( this );      
+    })
+    var a = o.attributes;
+    if( a != null &amp;&amp; typeof(a) != "undefined" )
+        $wnd.jQuery(a).each( function() {
+         n++;
+    })
+}
+walk(this);
+return n;       
+ </programlisting></figure><para>Taking a look at the query times however, JSON clearly has an advantage over XML
+                in pure query times. jQuery clearly imposes a significant penalty on XML query but
+                it also imposes a huge penalty on JSON query.</para><para>
+                <figure xml:id="JavascriptQuery2"><title>Query speed using JavaScript in seconds vs file size</title><mediaobject><imageobject><imagedata format="png" fileref="../../../vol10/graphics/Lee01/Lee01-009.png" width="75%"/></imageobject></mediaobject><caption><para>Query speed in seconds (y) using pure JavaScript vs file size
+                            (x).</para></caption></figure>
+            </para><para>
+                <figure xml:id="JQueryParse2"><title>Query speed using jQuery in seconds vs file size</title><mediaobject><imageobject><imagedata format="png" fileref="../../../vol10/graphics/Lee01/Lee01-010.png" width="75%"/></imageobject></mediaobject><caption><para>Query speed in seconds using jQuery (y) vs file size (x).</para></caption></figure>
+            </para></section><section><title>Putting it together</title><para>So far we have looked at pieces of the entire work-flow - network speed, parsing
+                and query. Putting it all together what does it look like? Lets assume the developer
+                has chosen the most compact form for each document (JSON and XML), presuming that
+                would also be the most efficient form. What performance can we see across all
+                devices, OS's and browsers tested ? The following figures show the full time for
+                each test using only the most compact form of each document, tested using pure
+                JavaScript and jQuery, both compressed and uncompressed HTTP transfers.</para><para>The results are somewhat surprising. It's not a great surprise that jQuery adds a
+                significant performance penalty, but it is a surprise that across all ranges of
+                platforms that the total time for JSON and XML using native JavaScript is
+                effectively identical. Compare <xref linkend="FullJS"/> and <xref linkend="FullJSCompress"/>. This is still looking at the whole forest and not
+                the trees, but it is surprising to the author that there appears to be no
+                significant performance penalty using XML over JSON in pure JavaScript. However,
+                jQuery does impose a significant performance penalty to both JSON and XML, much more
+                so for XML.</para><para>
+                <figure xml:id="FullJS"><title>Complete time uncompressed in pure JavaScript in seconds vs file
+                        size</title><mediaobject><imageobject><imagedata format="png" fileref="../../../vol10/graphics/Lee01/Lee01-011.png" width="75%"/></imageobject></mediaobject><caption><para>Total time uncompressed in seconds. (transmission + parse + query) in
+                            pure Javascript (y) vs raw document size (x)</para></caption></figure>
+            </para><para>
+                <figure xml:id="FullJQ"><title>Complete time uncompressed in jQuery in seconds vs file size</title><mediaobject><imageobject><imagedata format="png" fileref="../../../vol10/graphics/Lee01/Lee01-012.png" width="75%"/></imageobject></mediaobject><caption><para>Total time uncompressed in seconds (transmission + parse + query) in
+                            jQuery (y) vs raw document size (x)</para></caption></figure>
+            </para><para>
+                <figure xml:id="FullJSCompress"><title>Complete time gzip in JavaScript in seconds vs file size</title><mediaobject><imageobject><imagedata format="png" fileref="../../../vol10/graphics/Lee01/Lee01-013.png" width="75%"/></imageobject></mediaobject><caption><para>Total time gzip compressed in seconds (transmission + parse + query)
+                            in pure JavaScript (y) vs raw document size (x)</para></caption></figure>
+            </para><para>
+                <figure xml:id="FullJQCompress"><title>Complete time gzip in jQuery in seconds vs file size</title><mediaobject><imageobject><imagedata format="png" fileref="../../../vol10/graphics/Lee01/Lee01-014.png" width="75%"/></imageobject></mediaobject><caption><para>Total time gzip compressed in seconds (transmission + parse + query)
+                            in jQuery (y) vs raw document size (x)</para></caption></figure>
+            </para></section><section><title>Pulling it apart</title><para>It is interesting to see how everything adds up, but so far we've seen the forest
+                not the trees. What does it look like for a particular user? Where is time spent for
+                a specific document on a particular browser and OS?</para><para>Since the experiment collects data from such a wide variety of systems it's
+                difficult to show a meaningful view of this. Averages and even percentiles mean very
+                little when looking at data that spans orders of magnitude. Instead lets look at a
+                couple typical test results which might help make sense of the big picture.</para><para>The following are the total of median times (median(data transfer) + median(parse)
+                + median(query)) for the most compact form of the Twitter document in both JSON and
+                XML using both pure JavaScript and jQuery across all browsers. These results span
+                across a variety of devices, some browsers are obvious if they are mobile or desktop
+                and some are not obvious.</para><para>In the following charts, the vertical axis is time in seconds (more is slower),
+                and the horizontal axis represents one combination of  "User Agent" + either JSON or
+                XML (for every user agent there is two columns of data).    Network transfer time is
+                indicated as blue.  Parsing time is indicated as red. Query time is indicated as
+                green.</para><para>
+                <figure xml:id="TwitterJS_Raw"><title>Browser Processing Speed, Uncompressed, JavaScript</title><mediaobject><imageobject><imagedata fileref="../../../vol10/graphics/Lee01/Lee01-015.png"/></imageobject></mediaobject><caption><para>Median total times in seconds (y) for Twitter document, raw file using
+                            JavaScript vs. user agent (y). User Agent is often a proxy for device type.</para></caption></figure>
+            </para><para>In <xref linkend="TwitterJS_Raw"/> we can see that the total time is dominated by
+                network transmission time.   Mobile browsers such as Android Webkit, IE Mobile  and
+                Opera Mobile take more time in the parsing and query layer probably due to their
+                slower CPU.</para><para>
+                <figure xml:id="TwitterJQ_Raw"><title>Browser Processing Speed, Uncompressed, jQuery</title><mediaobject><imageobject><imagedata fileref="../../../vol10/graphics/Lee01/Lee01-016.png"/></imageobject></mediaobject><caption><para>Median total times in seconds (y) for Twitter document, raw file using
+                            jQuery vs. user agent (y).   User Agent is often a proxy for device
+                            type.</para></caption></figure>
+            </para><para> In <xref linkend="TwitterJQ_Raw"/>  notice the change in the vertical access to
+                accomidate for large time spent in query and parse on some devices.   Network time
+                remains the same but in many more cases are parse and query time a larger
+                contributor.</para><para>
+                <figure xml:id="TwitterJS_Compressed"><title>Browser Processing Speed, Compressed, JavaScript</title><mediaobject><imageobject><imagedata fileref="../../../vol10/graphics/Lee01/Lee01-017.png"/></imageobject></mediaobject><caption><para>Median total times in seconds (y) for Twitter document, compressed
+                            using JavaScript vs User Agent (y). User Agent is often a proxy for device type.</para></caption></figure>
+            </para><para>In <xref linkend="TwitterJS_Compressed"/> notice the change in vertical axis.  The total time is dramatically smaller revealing the relative times for parse and query being a larger portion of the total time, especially on mobile devices.</para><para>
+                <figure xml:id="TwitterJQ_Compressed"><title>Browser Processing Speed, Compressed, jQuery</title><mediaobject><imageobject><imagedata fileref="../../../vol10/graphics/Lee01/Lee01-018.png"/></imageobject></mediaobject><caption><para>Median total times in seconds (y) for Twitter document, compressed using jQuery vs User Agent (y). User Agent is often a proxy for device type.</para></caption></figure>
+            </para><para>In <xref linkend="TwitterJQ_Compressed"/> we can see the impact of using jQuery on mobile devices especially for XML.</para></section></section><section><title>Problems and Issues</title><para>The topic in general and the experiment in particular are difficult issues to address.
+            The topic itself is "slippery". How does one address a generalized concept where the
+            basis is ill defined and the generalization is hazy?  What is trying to be proved? The
+            experiment only addresses a few questions from a huge range of possibilities.</para><para>Focusing on the experiment itself there are many specific issues which could be improved and should be addressed in future experiments.</para><para><itemizedlist><listitem><para>Browser Focused</para><para>The experiments and this paper focus specifically on the use case of data
+                        sent from a "Server" and parsed and queried in a "Browser".  There is no
+                        testing of server based processing of data. The language in the browser is
+                        limited to JavaScript which has very limited choice of technologies so there
+                        was no testing of different libraries, languages and technologies.</para><para>Additional experiments involving server to server communications would be
+                        useful to collaborate the findings and expand on the range of
+                        analysis.</para></listitem><listitem><para>Browser Errors</para><para>The nature of the client program is such that server errors are not
+                        reported. If things go wrong in the client then no record is reported. Only
+                        by out of band information have I discovered issues such as individuals who
+                        were not able to run the test. For example IE versions 8 and below were
+                        particularly problematic and reports indicate it would stop part way through
+                        the test. Future experiments should have a means of better reporting of
+                        errors.   </para><para>In addition approximately 1% of the results showed meaningless data most
+                        likely a result of a browser error.  An example is tests that report
+                        negative times or file sizes.  These tests were excluded from the
+                        analysis.</para></listitem><listitem><para>Limited Corpus</para><para>The Corpus was designed to span a wide range of use cases, but ultimately any sample set of data is limited and biased.  Future experiments could improve on the variety and focus on if different types of data perform differently.</para></listitem><listitem><para>Simplistic parsing tests</para><para>The parsing test does not attempt to do very much with the data besides
+                        walk the parsed tree. More complex tests could be performed that attempt to
+                        do something with the data such as create new objects or search for specific
+                        values. I choose this test as a bare minimum that could be universally
+                        applied to the entire corpus but acknowledge that it could be biased in that
+                        it does very little with the parsed data so may not reflective of real world
+                        use cases.</para></listitem><listitem><para>Too Much Data</para><para>This experiment produced a lot of data. Compared to many scientific
+                        experiments the data size is trivial, but for the purposes of distilling
+                        down a few basic principles the amount and variety of test results is
+                        daunting especially in its variety. On the other hand, more data is better
+                        than less and this experiment improves on many attempts to categorize markup
+                        performance in browsers. I am hopeful that the experiment can run for a long
+                        duration so that ongoing analysis can be performed. The raw data will be
+                        provided for those who wish to analyze it themselves.</para></listitem><listitem><para>Statistical Analysis</para><para>This paper focuses more on showing the range of results with visualizations and trends rather
+                        than traditional statistical analysis. However this seems less scientific
+                        and exact then ideal. Many more visualizations and analysis would be useful
+                        but are limited by forum of publication and time, imagination and skills of
+                        the author. Suggestions on improvement of the analytics and visualizations
+                        are greatly welcome. </para></listitem><listitem><para>Crowd Sourcing</para><para>Due to a lack of an army of volunteers and a vast personal collection of
+                        hardware, crowd-sourcing was used to enlist participation. This produced a
+                        good number of responses (about 650 as of this writing) but is likely to
+                        include self-selected bias. The distribution channel for the solicitation
+                        and people who volunteered to run the tests may well not be a statistically
+                        good sample set. Future experiments should focus on getting a wider range of
+                        people to perform tests.</para></listitem><listitem><para>Mechanical Turk</para><para>In order to acquire more test samples, Amazon "Mechanical Turk"<xref linkend="TURK"/> was employed to hire additional testers focusing on
+                        mobile devices. This added about 500 additional responses in a 3 day period
+                        at an average cost of 15 cents (USD) / test. </para></listitem></itemizedlist></para></section><section><title>Conclusions</title><para>We have shown that many of the presumptions of "Fat XML", while well imagined, do not
+            hold up to experiment. Given the same document object, one can produce nearly identical
+            sized JSON and XML representations. Network transfer speed is directly related to the
+            document size so is unaffected by the markup given similar size. Compressed documents in
+            all formats even very "Fat" representations of JSON or XML compress to nearly identical
+            size which is an indicator that they contain approximately the same entropy or
+            information content and transferring these documents to a wide variety of devices takes
+            effectively the same time per device. Parsing speed varies on the technique used. Pure
+            JavaScript parsing generally performs better with XML then with JSON but not always,
+            while Query speed generally is faster for JSON, but again, not always. Overall using
+            native JavaScript the use of XML and JSON is essentially identical performance for total
+            user experience (transfer plus parse plus query), however use of the popular JavaScript
+            library jQuery imposes a steep penalty on both JSON and XML, more-so for XML. <footnote><para>Experiments comparing different JavaScript libraries would be useful to see if
+                    jQuery is unique or is representative of JavaScript query libraries in
+                    general.</para></footnote></para><para>From a programming perspective accessing both JSON and XML in a generic fashion, using
+            either pure JavaScript or jQuery is very similar in complexity and difficulty. Not shown
+            is the advantage of accessing JSON objects as JavaScript objects using "dot notation"
+            which provides a programming advantage, however the evolution towards using query
+            languages to access JSON (or XML) such as jQuery largely negates that advantage. Future
+            enhancements in JavaScript libraries and cross compilation technologies (such as
+                CoffeeScript<xref linkend="COFFEESCRIPT"/>, GWT and Dart<xref linkend="DART"/>) may
+            well equalize these discrepancies but that is yet to be seen. The fact that hand-coded
+            JavaScript query of XML can perform as well as query over JSON does suggest that
+            libraries such as jQuery could be optimized for similar performance and especially cross
+            compilers should be able to achieve similar performance. On the other-hand, the wide
+            adoption of JavaScript libraries even in the face of significant performance degradation
+            even for JSON suggests that developers are not as concerned about performance
+            considerations over ease of programming.  This may be because the data layer of the
+            application is small compared to the other components of the application such as GUI and
+            business logic.</para><para/><section><title>Suggestions to Architects and Developers</title><para>Architects and developers who are seriously interested in maximizing performance should consider the following.</para><itemizedlist><listitem><para>Use HTTP Compression</para><para>The use of HTTP compression, regardless of the device, operating system, browser or markup
+                        language is the biggest factor in total performance, and by inference, user
+                        experience. Use of HTTP Compression should be used in most cases where large
+                        amounts of data is being transferred from server to client. The exception is
+                        that in some cases under powered devices can actually perform slower with
+                        compressed data then uncompressed data. If you are targeting low end mobile
+                        devices then using your own tests to validate customer experience is
+                        suggested.</para></listitem><listitem><para>Optimize your markup</para><para>Optimizing markup for transmission and query provides a second order
+                        performance enhancement. Sometimes this is at the cost of usability.
+                        Compression effectively eliminates the advantages of optimized markup for
+                        transmission purposes, but parsing and query times are affected by the
+                        particulars of the markup form. Choosing the right balance between ease of
+                        programming and transmission should be seriously considered. If your target
+                        is specific known devices then optimizing for those devices may be
+                        beneficial. How you intend to use the data once it is turned into JavaScript
+                        objects is also an important consideration. Using a library like jQuery
+                        eliminates the preconceived advantage of native "dot notation" for
+                        JavaScript (using JSON) but adds loose binding, query, search and often
+                        performance degradation.</para></listitem><listitem><para>Use optimized libraries or hand coded JavaScript.</para><para>Use of libraries to ease development effort can have a significant
+                        performance penalty. This penalty is in general much greater than the
+                        penalty of which markup format you are using. If performance is your most
+                        important factor then avoiding unoptimized libraries will be your biggest
+                        performance gain regardless of the markup format. Look to the future for
+                        this issue to be improved. If more developers prioritize performance then
+                        library and cross compilation vendors are likely to focus more on
+                        performance. In any case your choice of a parsing and query library are by
+                        far the biggest performance factor beyond compression, much more so than the
+                        markup format. Look to Cross Compilation technologies such as GWT and Blink
+                        to provide machine optimized JavaScript code much like the compilers for C,
+                        C++ and Java do for non browser environments. </para></listitem><listitem><para>Know your users.</para><para>Performance varies *vastly* across browsers, operating systems and
+                        devices. If you know your users and their platforms you can make better
+                        choices about which technologies and formats to use. But be aware that
+                        implementations change frequently and what is efficient today may be slow
+                        tomorrow and visa-versa so optimizing too tightly for particular devices may
+                        be detrimental in the future.  Mobile devices are particularly prone to
+                        differences in performance but are often hard to optimize because the
+                        biggest hit is network speed which is usually not under the programmers
+                        control. However programming for minimum network usage will provide the best
+                        advantage for mobile devices. Use of HTML local storage, JavaScript based
+                        applications which avoid passing page markup and instead pass data and allow
+                        page transitions to be performed without a round trip to the server are
+                        likely going to provide good user experience. </para></listitem><listitem><para>Markup doesn’t matter.</para><para>The choice of JSON vs XML is nearly indistinguishable from a performance
+                        perspective. There are a few outliers (such as Mobile and Desktop Firefox
+                        using jQuery) where there is a notable difference but as time goes on and
+                        vendors pay attention to user feedback I expect these differences to be
+                        reduced. But for most uses the difference in markup choice will result in
+                        little or no user noticeable difference in performance and end user
+                        experience. There are significant browser architectural changes coming such
+                        as HTML5 and Chrome Blink <xref linkend="BLINK"/>. We don’t know what
+                        performance changes these will incur but evidence suggests that performance
+                        in the browser is a main goal of new browser technologies.  Looking to the
+                        future the landscape may change.</para></listitem><listitem><para>Markup Matters</para><para>Contrary to myth, performance varies very little with different markup formats in current
+                        devices and software. However the shape and ease of use of markup formats
+                        can matter for developers (both client and server). As can be seen with the
+                        use of libraries such as jQuery, performance is often trivially tossed away
+                        in exchange for ease of programming - even with JSON. Sometimes that is a
+                        reasonable tradeoff.  <footnote><para> It is interesting to the author that the use of libraries like
+                                jQuery entirely eliminate the native advantage in JavaScript of
+                                using JSON as the data format ("dot notation"), add significant
+                                processing overhead and yet is strongly promoted while XML usage is
+                                discouraged under the guise of it not mapping well to native
+                                JavaScript data structures and its slow performance. Compare the
+                                jQuery code for JSON and XML and you can see the programming
+                                difference is nearly indistinguishable. </para></footnote>
+                    </para><para>Engineering is about balancing compromises. Make the compromise that
+                        maters to you, your product, your business and your customers. If
+                        performance matters to you and your applications - do what it takes to
+                        achieve maximum performance. If it doesn’t matter then use whatever
+                        technology is easiest for you. Often the "you" is many people in an
+                        organization or across organizations. If its harder for the producer of data
+                        to change formats then work with them to use their format. If its harder for
+                        the consumer to change formats then work with the producers to produce the
+                        format the consumer needs.</para><para>In any case make this decision based on facts not myth. </para></listitem><listitem><para>Is Data really your problem ?</para><para>This paper focuses exclusively on data transmission, parsing and querying.
+                        It may well be that in your application that component is a small piece
+                        compared to display and business logic. If the data layer is not a
+                        significant part of your performance or development problem then it may not
+                        be worth the effort to optimize it. As your application evolves your data
+                        use may change so always be open to re-evaluating decisions made early in
+                        the design process.</para></listitem><listitem><para>Don’t Trust Anyone</para><para>Don’t believe blindly what you are told. Perform experiments, test your
+                        own data and code with your own users and devices.  What "seems obvious" is
+                        not always true.</para><para>As always with engineering; experiment, develop, test. And test
+                        again.</para><para>The source code and data corpus is published at <link xlink:href="https://code.google.com/p/jsonxmlspeed/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">https://code.google.com/p/jsonxmlspeed/</link>. The raw results for
+                        this experiment will be published along with this paper for peer review.
+                        Test it. Dispute it. Come up with better tests and publish the
+                        results.</para><para> It is hoped that an ongoing interactive web site will be developed to
+                        continue to track, analyze, and monitor this research.</para></listitem></itemizedlist></section></section><bibliography><title>References</title><bibliomixed xml:id="AJAX1" xreflabel="AJAX Performance">AJAX - JSON vs. XML <link xlink:href="http://www.navioo.com/ajax/ajax_json_xml_Benchmarking.php" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.navioo.com/ajax/ajax_json_xml_Benchmarking.php</link></bibliomixed><bibliomixed xml:id="XMLJSON1" xreflabel="XML vs JSON">Edward A. Webb, XML vs JSON <link xlink:href="http://www.edwardawebb.com/tips/xml-json" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.edwardawebb.com/tips/xml-json</link></bibliomixed><bibliomixed xml:id="JSONLIGHT" xreflabel="JSONLIGHT">janu bajaj, My Open Source Initiative <link xlink:href="http://bajajblog123.blogspot.com/2012/07/json.html" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://bajajblog123.blogspot.com/2012/07/json.html</link></bibliomixed><bibliomixed xml:id="XMLFAT" xreflabel="XMLFAT">Douglas Crockford, 2006; JSON: The Fat-Free Alternative to XML <link xlink:href="http://www.json.org/fatfree.html" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.json.org/fatfree.html</link></bibliomixed><bibliomixed xml:id="MISCONCEPTION" xreflabel="MISCONCEPTION">Dr. Steven Novella; <link xlink:href="http://tech.groups.yahoo.com/group/skeptic/message/30893" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://tech.groups.yahoo.com/group/skeptic/message/30893</link></bibliomixed><bibliomixed xml:id="Saxon" xreflabel="Saxon">Saxon XSLT and XQuery Processor <link xlink:href="http://www.saxonica.com" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.saxonica.com</link></bibliomixed><bibliomixed xml:id="BLINK" xreflabel="Blink">Chrome Blink <link xlink:href="http://www.theverge.com/2013/4/3/4180260/google-forks-webkit-with-new-blink-rendering-engine-for-chrome" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.theverge.com/2013/4/3/4180260/google-forks-webkit-with-new-blink-rendering-engine-for-chrome
+        </link></bibliomixed><bibliomixed xml:id="GWT" xreflabel="GWT">Google Web Toolkit <link xlink:href="https://developers.google.com/web-toolkit/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">https://developers.google.com/web-toolkit/</link></bibliomixed><bibliomixed xml:id="JQUERY" xreflabel="jQuery">jQueryt <link xlink:href="http://jquery.com/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://jquery.com/</link></bibliomixed><bibliomixed xml:id="COFFEESCRIPT" xreflabel="CoffeScript">CoffeeScript <link xlink:href="http://coffeescript.org/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://coffeescript.org/</link></bibliomixed><bibliomixed xml:id="DART" xreflabel="DART">DART <link xlink:href="http://www.dartlang.org/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.dartlang.org/</link></bibliomixed><bibliomixed xml:id="TURK" xreflabel="Mechanical Turk">Mechanical Turk <link xlink:href="https://www.mturk.com/mturk/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">https://www.mturk.com/mturk/</link></bibliomixed><bibliomixed xml:id="Apache" xreflabel="Apache">Apache HTTPD server <link xlink:href="http://httpd.apache.org/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://httpd.apache.org/</link></bibliomixed></bibliography></article>

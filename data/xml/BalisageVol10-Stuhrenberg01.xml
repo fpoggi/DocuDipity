@@ -1,0 +1,416 @@
+<?xml version="1.0" encoding="UTF-8"?><article xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink" version="5.0-subset Balisage-1.3"><title>What, when, where? Spatial and temporal annotations with XStandoff</title><info><confgroup><conftitle>Balisage: The Markup Conference 2013</conftitle><confdates>August 6 - 9, 2013</confdates></confgroup><abstract><para>We describe an extension for the generalized standoff approach XStandoff to describe
+        spatial information over non-textual primary data objects. A use case for this kind of
+        markup is the annotation of multimodal documents, that is text-image
+        combinations.</para></abstract><author><personname><firstname>Maik</firstname><surname>Stührenberg</surname></personname><personblurb><para>Maik Stührenberg received his Ph.D. in Computational Linguistics and Text Technology
+          from Bielefeld University in 2012. After graduating in 2001 he worked different
+          text-technological projects at Gießen University, Bielefeld University and the Institut
+          für Deutsche Sprache (IDS, Institute for the German Language) in Mannheim. He is currently
+          employed as research assistant at Bielefeld University.</para><para>His main research interests include specifications for structuring multiple annotated
+          data, schema languages, and query processing.</para></personblurb><affiliation><orgname>Universität Bielefeld</orgname></affiliation><email>maik.stuehrenberg@uni-bielefeld.de</email></author><legalnotice><para>Copyright © 2013 by the author. Used with permission.</para></legalnotice></info><section xml:id="sec.intro"><title>Introduction</title><para>Not only since the advent of services such as Google Maps, demand for the annotation of
+      (geo-) spatial information has risen. Therefore, first proposals for spatial markup languages
+      have been developed, such as SpatialML (<xref linkend="Mani2008"/>, <xref linkend="Mani2010"/>). The International Organization for Standardization (ISO) has started a new project in
+      2012 to create an international standard for the annotation of spatial and spatial-temporal
+      annotation as part of the Semantic Annotation Framework, ISO/NP 24617-7, ISO-Space (<xref linkend="ISO-Space2012"/>). As a member of a greater family of specifications, ISO-Space
+      borrows some concepts from SpatialML and should play well with other members, such as
+      ISO-TimeML (<xref linkend="ISO-TimeML2012"/>). Some of these markup languages annotate spatial
+      information represented in textual primary data (such as place names or paths which are
+      traversed by an entity), however, <xref linkend="Lee2013"/> demonstrates that at least
+      ISO-Space can be used to describe spatial information in figures.</para><para>Standoff annotation is a valuable and common mechanism to annotate multiple hierarchies
+      and read-only media. One of these approaches, the XStandoff meta markup language, was already
+      discussed in detail in <xref linkend="Stuehrenberg2009"/> and <xref linkend="Jettka2011"/>.
+      Although XStandoff was developed for a variety of primary data formats (including textual and
+      multimedia-based), its sequencing system was primarily designed for character- or time-based
+      segments.</para><para>Since standoff annotation separates the markup from the data that is annotated, we will
+      firstly define some concepts that will be used throughout the following text. The data to be
+      annotated is called <emphasis>primary data</emphasis> (<emphasis>P</emphasis>). It should be
+      noted, however, that <emphasis>P</emphasis> but may consist of more than one member and may
+      even be empty under certain circumstances (see the following sections). The finite set of
+      regions (spans) over <emphasis>P</emphasis> is called <emphasis>markables</emphasis>
+        (<emphasis>M</emphasis>). Each markable <emphasis>m</emphasis> as a member of
+        <emphasis>M</emphasis> is constructed by a set of coordinates in space or time and can be
+      identified. The set of coordinates is derived by a concept of
+        <emphasis>segmentation</emphasis>. The markables may be annotated afterwards by using a
+      finite set of <emphasis>annotations</emphasis>
+      <emphasis>A</emphasis>.</para><para>A key problem when using standoff annotation is the identification of the markables,
+      entities that are defined by a region of the corresponding primary data and that will be used
+      as anchors for the annotation. In case of textual primary data, we have to deal with a stream
+      of characters (or byte sequences) that can be delimited by using corresponding tokenization
+      methods (for example, splitting text into sentences by detecting sentence boundaries and
+      sentences into words). In case of multimedia-based primary data one typically uses points in
+      time to establish regions that are used as markables. Markables in spatial primary data (in
+      contrast to spatial information provided in textual data) can be seen as two- or
+      three-dimensional objects, defined by a set of coordinates in space. While the demonstration
+      of describing spatial information given by <xref linkend="Lee2013"/> uses different iterations
+      of a figure to identify specific regions (first by using names, later on by using
+      coordinates), which are afterwards used as markables, it remains unclear how the different
+      iterations of the example figures are constructed (and processed). We therefore have chosen to
+      adapt XStandoff's concept of segmentation to support the identification of spatial markables
+      in non-textual primary data (that is, both still and moving pictures).</para></section><section xml:id="sec.xsf-spatial"><title>Using XStandoff for spatial and temporal annotation</title><para>Since XStandoff already has features for temporal segmentation (e. g. for annotating
+      multimedia-based primary data files such as video or audio files), we will concentrate on the
+      aspect of adding spatial segmentation features. Defining a spatial markable is done by
+      extending XStandoff's <code>segment</code> element. Usually, the element's content is either
+      empty or consists of metadata, therefore we concentrate on the attributes. Apart form the
+      basic attributes <code>start</code> and <code>end</code> for defining the segment's range,
+      there are attributes for defining its type and its mode (value either
+        <emphasis>continuous</emphasis> or <emphasis>disjoint</emphasis>), both have been discussed
+      in <xref linkend="Stuehrenberg2009"/>.</para><para>To extend the <code>segment</code> element to cover spatial markables we have added
+      further attributes. Firstly we opened up the value space of the <code>type</code> attribute by
+      including the value <emphasis>spatial</emphasis>. Then we created a new globally defined
+      attribute group <code>spatial.attributes</code> as a container for the newly developed
+      attributes. For the naming of these attributes we tried to stay as close as possible to
+      already established specifications. A natural example for creating regions on non-textual data
+      is HTML's image map.<footnote><para>For various reasons we decided not to follow HyTime's approach of Finite Coordinate
+          Space Location (<code>fcsloc</code>) demonstrated in <xref linkend="DeRose1994"/>, p.
+          70ff. See <xref linkend="sec.xsf2compared"/> for a discussion of other
+          specifications.</para></footnote> An image map is created by referring to an external image using a <code>map</code>
+      element consisting of a number of <code>area</code> child elements. Each <code>area</code>
+      element has <code>shape</code> and <code>coords</code> attributes, amongst others. Therefore,
+      we decided to add these two attributes as well. In addition we introduced a
+        <code>context</code> attribute (with possible values <emphasis>2d</emphasis> and
+        <emphasis>3d</emphasis>) borrowed from HTML5's <code>canvas</code> element (although HTML5
+      up to now only supports 2d contexts, 3d support is planned for future versions).</para><para>The <code>coords</code> attribute is used to depict coordinates on non-textual media file
+      (the relation between the <code>segment</code> element as bearer of the <code>coords</code>
+      attribute and the primary data file is established by the optional <code>primaryData</code>
+      attribute if more than one primary data file is used, see <xref linkend="lst.xsf-soccer"/> as
+      an example).</para><para>For demonstration purposes, we use Balisage's logo as a still picture example. The graphic
+      is provided as png image file with dimensions of 2625 * 966 pixels at a resolution of 300
+      pixels per inch (both horizontal and vertical).</para><figure><title>Balisage's logo as an example</title><mediaobject><imageobject><imagedata fileref="../../../vol10/graphics/Stuhrenberg01/Stuhrenberg01-001.png" format="png" width="33%"/></imageobject></mediaobject></figure><para>If we want to select the <quote>2013</quote> part of the image we use an image processing
+      programme to get the coordinates of the rectangular area starting at position
+        x<subscript>1</subscript>=2400,y<subscript>1</subscript>=125,
+        x<subscript>2</subscript>=2600,y<subscript>2</subscript>=125,
+        x<subscript>3</subscript>=2400,y<subscript>3</subscript>=945, and
+        x<subscript>4</subscript>=2600,y<subscript>4</subscript>=945.</para><para>XStandoff's 2.0 schema file defines the value range of the <code>coords</code> attribute
+      in terms of a regular expression pattern matching either pairs or triples of coordinates
+      separated by blanks, while the comma is used as in-pair separator. At least one pair (or
+      triplet) has to be present for depicting a point in space. Since we use the blank character as
+      separator between digit pairs it is feasible to use XPath's <code>tokenize()</code> function
+      to split the total string into the corresponding pairs of digits and use this to further
+      restrict the value space by using XSD 1.1 assertions (see <xref linkend="lst.coord"/>). When
+      dealing with 3d spatial coordinates, we use triplets instead of pairs.<footnote><para>Note, that the assertion given in <xref linkend="lst.coord"/> does not yet reflect 3d
+          contexts.</para></footnote> Again, following HTML's image map approach, the starting point of the coordinate
+      system is not the lower left but the <emphasis>upper</emphasis> left corner of the
+      grid.</para><figure xml:id="lst.coord"><title>Declaration of the <code>coords</code> attribute</title><programlisting xml:space="preserve">&lt;xs:simpleType name="coord"&gt;
+    &lt;xs:restriction base="xs:string"&gt;
+      &lt;xs:pattern value="(\d+,\d+( \d+,\d+)*)|(\d+,\d+,\d+( \d+,\d+,\d+)*)+|C\d+,\d+ (\d+,\d+ \d+,\d+ \d+,\d+)+"/&gt;
+    &lt;/xs:restriction&gt;
+&lt;/xs:simpleType&gt;
+&lt;!-- [...] --&gt;
+&lt;xs:assert test="if (@type='spatial' and @context='2d' and @shape='poly') 
+  then count(tokenize(@coords,' ')) &gt; 2 
+  else  
+    if (@type='spatial' and @shape='circle' and count(tokenize(@coords,' ')) = 1) 
+    then (for $coord in tokenize(@coords,' ') return count(tokenize($coord,',')) = 3) 
+    else 
+      if (@type='spatial' and @shape='bezier')
+      then starts-with(@coords,'C')
+      else (@type!='spatial' or @context!='2d')"&gt;
+&lt;/xs:assert&gt;</programlisting></figure><para>Instead of strictly following HTML's <code>shape</code> attribute which provides values
+      for defining either a rectangle, a polygon or a circle, we only use
+        <emphasis>polygon</emphasis>, <emphasis>circle</emphasis>, and <emphasis>bezier</emphasis>
+      as valid values (since rectangles are a special form of polygons). The final form of the shape
+      can be extracted by its coordinates (if three coordinates are given, we have to deal with a
+      triangular shape, if four coordinates are supplied, the shape can either be a rectangle or
+      polygon). Similar to HTML's image map approach a virtual line is constructed to connect the
+      last coordinate given with the first one (coordinates are supplied in clockwise direction).
+      The full XStandoff instance describing the spatial segment of Balisage's logo can be found in
+        <xref linkend="lst.xsf.logo"/>.</para><figure xml:id="lst.xsf.logo"><title>Spatial annotation of the Balisage logo</title><programlisting xml:space="preserve">&lt;xsf:corpusData xml:id="bal2013" xsfVersion="2.0"  
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns:xsf="http://www.xstandoff.net/2009/xstandoff/1.1"
+  xsi:schemaLocation="http://www.xstandoff.net/2009/xstandoff/1.1 
+  ../xsd/xsf2_1.1.xsd"&gt;
+  &lt;xsf:primaryData xml:id="balisage_logo2013" role="master"&gt;
+    &lt;xsf:primaryDataRef uri="Balisage-logotype-2013.png" mimeType="image/png" 
+    width="2625" height="966" horizontalResolution="300" verticalResolution="300"/&gt;
+  &lt;/xsf:primaryData&gt;
+  &lt;xsf:segmentation&gt;
+    &lt;xsf:segment xml:id="s1" type="spatial" name="2013" shape="poly" 
+    coords="2400,125 2600,125 2400,945 2600,945" /&gt;   
+  &lt;/xsf:segmentation&gt;  
+&lt;/xsf:corpusData&gt;</programlisting></figure><para>It is possible to define a Bézier curve as well. In this case, the <code>shape</code>
+      attribute uses the <emphasis>bezier</emphasis> value and the <code>coords</code> attribute
+      contains at least four coordinate pairs. We have chosen to adopt SVG's model of cubic Bézier
+      curve commands (Section 8.3.6 in <xref linkend="SVG2011"/>). The first coordinate pair starts
+      with the capital letter <emphasis>C</emphasis> (<code>curveto</code> with absolute
+      positioning) and depicts the start coordinate (since there is no equivalent to SVG's
+        <code>moveto</code> command). The following coordinates are construed as follows:
+        x<subscript>2</subscript>,y<subscript>2</subscript> as control point at the beginning of the
+      curve, x<subscript>3</subscript>,y<subscript>3</subscript> as the control point at the end of
+      the curve and x<subscript>4</subscript>,y<subscript>4</subscript> as the end coordinate. After
+      the first set of four coordinate pairs, it is possible to use a multiplicity of triple pairs
+      as additional coordinates. Note, that the Bézier curve will be closed via a line drawn between
+      the last coordinate and the first (simulating SVG's <code>closepath</code> command
+        <code>z</code>, see Section 8.3.3 in <xref linkend="SVG2011"/>).</para><para>Following <xref linkend="Lee2013"/>, we introduced the possibility to name a segment (via
+      the corresponding attribute). Additionally, we added the <code>width</code>,
+        <code>height</code>, <code>horizontalResolution</code>, and <code>verticalResolution</code>
+      attributes to the <code>primaryData</code> element for describing spatial primary data
+      files.</para><para>For describing parts of moving pictures, we have to combine spatial and temporal
+      segmentation attributes (see <xref linkend="lst.xsf.spatial-move"/>).</para><figure xml:id="lst.xsf.spatial-move"><title>Spatial segments in moving pictures</title><programlisting xml:space="preserve">&lt;segment xml:id="s1a" type="spatial" shape="poly" coords="0,10 20,50 0,2" 
+ start="00:00:00" end="00:02:00"/&gt;</programlisting></figure><para>In this example we have an object in space which stays at the same coordinates during the
+      time period starting at time code 00:00:00 and ending at 00:02:00. However, usually the object
+      examined changes its position over time. Since XStandoff supports the construction of segments
+      by referring to already established ones, we can use this mechanism to express a movement of a
+      named markable over time (which can be expressed via path expressions in the other mentioned
+      spatial markup languages). In the example given in <xref linkend="lst.xsf.kin"/> we have the
+      segments s1 and s2 which both depict a spatial object named <quote>AnkleLeft</quote>. By
+      creating a segment s3 as a combination of s1 and s2 we express that the object named
+        <quote>AnkleLeft</quote> has moved over the timespan ranging form 00:00:00 to 00:01:15 from
+      the coordinates given in s1 to the coordinates given in s2. This defines a linear movement. Up
+      to now, there is no inherent mechanism to describe non-linear movement (except as content of
+      the optional metadata of a <code>segment</code> element in combination with the
+        <emphasis>disjoint</emphasis> value of the <code>mode</code> attribute, see <xref linkend="Stuehrenberg2009"/> for a further description).</para><figure xml:id="lst.xsf.kin"><title>Annotating movement in space and time via additional segments</title><programlisting xml:space="preserve">&lt;xsf:corpusData xxsfVersion="2.0"
+  xmlns="http://www.xstandoff.net/2009/xstandoff/1.1"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns:xsf="http://www.xstandoff.net/2009/xstandoff/1.1"
+  xsi:schemaLocation="http://www.xstandoff.net/2009/xstandoff/1.1 
+  ../xsd/xsf2_1.1.xsd"&gt;
+  &lt;resources&gt;
+    &lt;resource xml:id="Kin1"&gt;
+      &lt;meta&gt;
+        &lt;sensor xmlns="http://www.example.org/interaction"&gt;
+          &lt;type number="1"&gt;Microsoft Kinect&lt;/type&gt;
+        &lt;/sensor&gt;
+      &lt;/meta&gt;
+    &lt;/resource&gt;
+    &lt;!-- [...] --&gt;
+  &lt;/resources&gt;
+  &lt;xsf:segmentation&gt;
+    &lt;segment xml:id="s1" type="spatial" context="2d" shape="poly" creator="Kin1" coords="0,10,30 100,150,30 0,200,30 0,100,30"/&gt;
+    &lt;segment xml:id="s2" type="spatial" context="2d" shape="poly" creator="Kin2" coords="10,10,40 110,150,40 10,200,40 110,100,40"/&gt;
+    &lt;segment xml:id="s3" type="seg" segments="s1 s2" name="AnkleLeft" mode="continuous" start="00:00:00" end="00:01:15"/&gt;
+    &lt;!.. [...] --&gt;
+  &lt;/xsf:segmentation&gt;
+  &lt;!.. [...] --&gt;
+&lt;/xsf:corpusData&gt;</programlisting></figure><para>An alternative representation makes use of XStandoff's logging functionality which has
+      been changed in XStandoff 2.0 compared to previous versions (see <xref linkend="lst.xsf.kin2"/>). While in SGF (<xref linkend="Stuehrenberg2008"/>), logging was inherited from the
+      Serengeti annotation tool (<xref linkend="Stuehrenberg2007"/>) and was placed underneath a
+      seperate <code>log</code> element, XStandoff 2.0's schema contains a log model group
+      consisting of the elements <code>update</code> and <code>delete</code> which may be inserted
+      as children of the <code>segment</code> element and elements of imported layers. </para><figure xml:id="lst.xsf.kin2"><title>Annotating movement in space and time via the <code>update</code> element</title><programlisting xml:space="preserve">&lt;segment xml:id="s1" type="spatial" context="3d" shape="poly" creator="Kin1"
+      coords="0,10,30 100,150,30 0,200,30 0,100,30" start="00:00:00"&gt;
+  &lt;update&gt;
+    &lt;segment coords="10,10,40 110,150,40 10,200,40 110,100,40" end="00:01:15"/&gt;
+  &lt;/update&gt;
+&lt;/segment&gt;</programlisting></figure><para>Although this construct may seem a bit awkward at first, it is not only conformant to
+      XStandoff's already established mechanism but may be easier to realize than ISO-Space's
+        <code>MOVELINK</code> element demonstrated in <xref linkend="Lee2013"/>. While the
+      representation given in <xref linkend="lst.xsf.kin"/> is the preferred one, the second tends
+      to be more natural when dealing with sensor data (see below). Both serialization options are
+      not stable since there are a couple of issues to resolve, for example the definition of
+      non-linear movements.</para><para>We examine if XStandoff 2.0 can be used to store information gathered by eye-tracking and
+      other motion-capture sensors (see <xref linkend="sec.conclusion"/>) as a base format for
+      annotating sensor information. Eye-trackers are used in a growing number of linguistic and
+      psychological experiments and usability studies. Up to now, there is no common export format
+      for the raw data that is collected by these sensors which are — in terms of XStandoff —
+      resources that can be referenced via the optional <code>creator</code> attribute.<footnote><para>The <code>resource</code> element is used to store information about human, software
+          or hardware agents that produced segmentation or annotation layers.</para></footnote> In the example given in <xref linkend="lst.xsf.kin"/> we use two Microsoft Kinect
+      sensors, that deliver three-dimensional data (hence the <emphasis>3d</emphasis> value of the
+        <code>context</code> attribute). This example introduces a change in XStandoff's paradigm,
+      since the primary data to be annotated is not already present but is construed from the
+      segmentation.</para></section><section><title>Multimodal documents: a real-life example</title><para>Information is often encoded by a combination of visuals and text referring to each other.
+      We will call members of this category multimodal documents. A prototypic example of a
+      multimodal document is an instruction manual (for example for an electronic gadget), another
+      is the text-figure-combination which can often be found in the analysis of sport matches.<footnote><para>Typical examples are available at <link xlink:href="http://spielverlagerung.de/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://spielverlagerung.de/</link>, for example
+          the analysis of the Champions League Final between Borussia Dortmund and Bayern Munich at
+            <link xlink:href="http://spielverlagerung.de/2013/05/28/english-borussia-dortmund-bayern-munich-12-champions-league-final/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://spielverlagerung.de/2013/05/28/english-borussia-dortmund-bayern-munich-12-champions-league-final/</link>.</para></footnote> For demonstration purposes we have constructed an analysis of a fictional soccer
+      match between teams A and B shown in <xref linkend="fig.sport"/>.</para><figure xml:id="fig.sport"><title>Soccer analysis as an example of a multimodal document</title><mediaobject><imageobject><imagedata fileref="../../../vol10/graphics/Stuhrenberg01/Stuhrenberg01-002.png" format="png" width="412"/></imageobject></mediaobject><para>Another situation in which team A is not able to finish its move: Y tries to pass the
+        ball through the small gap to X (instead of passing it to G) while Z is unintentionally
+        obstructing Y's way. But before the ball reaches X, D intercepts and passes the ball to
+        A.</para></figure><para>Textual and graphical representation go hand in hand in this example. We can observe that
+      there are two teams playing (color-coded in the graphic) and we are able to recognize the
+      players and the ball in both representation formats. However, while the text refers to a
+      player named <quote>G</quote> and a <quote>small gap</quote>, there are no corresponding parts
+      in the image. For a human reader it is easy to conclude which small gap was meant and that the
+      player named <quote>G</quote> is represented by the blue circle without any letter, but a
+      software agent may have problems to draw the same conclusions. To make these text-image
+      mappings explicit we use an XStandoff 2.0 instance.</para><para>First we create an encoding of the information given in the textual part (<xref linkend="lst.soccer-text"/>) which will afterwards be transformed into a single-level XSF
+      instance by using the XStandoff-Toolkit (<xref linkend="Stuehrenberg2009"/>).<footnote><para>For this example we use a representation format such as HTML, that allows us for
+          selecting the textual information character-wise and can therefore use the classic
+          XStandoff approach of segmentation.</para></footnote></para><figure xml:id="lst.soccer-text"><title>Inline representation of the textal-encoded information</title><programlisting xml:space="preserve">&lt;text xmlns="http://www.xstandoff.net/examples/playbook"
+ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+ xsi:schemaLocation="http://www.xstandoff.net/examples/playbook ../xsd/soccer.xsd"&gt;
+Another situation in which &lt;team name="teamA"&gt;team A&lt;/team&gt; is not able to finish its move: &lt;player name="Y"&gt;Y&lt;/player&gt; tries to pass the ball through &lt;place name="gap"&gt;the small gap&lt;/place&gt; to &lt;player name="X"&gt;X&lt;/player&gt; (instead of passing it to &lt;player name="G"&gt;G&lt;/player&gt;) while &lt;player name="Z"&gt;Z&lt;/player&gt; is unintentionally obstructing &lt;player name="Y"&gt;Y&lt;/player&gt;'s way.
+But before the ball reaches &lt;player name="X"&gt;X&lt;/player&gt;, &lt;player name="D"&gt;D&lt;/player&gt; intercepts and passes the ball to &lt;player name="A"&gt;A&lt;/player&gt;.
+&lt;/text&gt;</programlisting></figure><para>Some information is encoded in one of the two representation formats only: For example, we
+      can definitely say which player belongs to which team by using the color information (even for
+      the unnamed player) and use spatial attributes to create the according segments. <xref linkend="lst.xsf-soccer"/> shows the resulting XStandoff 2.0 instance after we have combined
+      both textual and spatial segments and the converted annotation layer.</para><figure xml:id="lst.xsf-soccer"><title>XStandoff 2.0 instance containing both textual and visual primary data and
+        annotation</title><programlisting xml:space="preserve">&lt;xsf:corpusData xml:id="xsf_spatial" xsfVersion="2.0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns:xsf="http://www.xstandoff.net/2009/xstandoff/1.1"
+  xsi:schemaLocation="http://www.xstandoff.net/2009/xstandoff/1.1 ../xsd/xsf2_1.1.xsd"&gt;
+  &lt;xsf:primaryData xml:id="soccer-txt" start="0" end="265"&gt;
+    &lt;xsf:primaryDataRef uri="../pd/soccer_balisage.txt" encoding="utf-8" mimeType="text/plain"/&gt;
+  &lt;/xsf:primaryData&gt;
+  &lt;xsf:primaryData xml:id="soccer-img" unit="pixels"&gt;
+    &lt;xsf:primaryDataRef uri="../pd/soccer_balisage.png" mimeType="image/png" width="824" height="679"/&gt;
+  &lt;/xsf:primaryData&gt;
+  &lt;xsf:segmentation&gt;
+    &lt;xsf:segment xml:id="seg1" start="0" end="265" primaryData="soccer-txt"/&gt;
+    &lt;xsf:segment xml:id="seg2" start="27" end="33" primaryData="soccer-txt"/&gt;
+    &lt;xsf:segment xml:id="seg3" start="66" end="67" primaryData="soccer-txt"/&gt;
+    &lt;xsf:segment xml:id="seg4" start="99" end="112" primaryData="soccer-txt"/&gt;
+    &lt;xsf:segment xml:id="seg5" start="116" end="117" primaryData="soccer-txt"/&gt;
+    &lt;xsf:segment xml:id="seg6" start="144" end="145" primaryData="soccer-txt"/&gt;
+    &lt;xsf:segment xml:id="seg7" start="153" end="154" primaryData="soccer-txt"/&gt;
+    &lt;xsf:segment xml:id="seg8" start="186" end="187" primaryData="soccer-txt"/&gt;
+    &lt;xsf:segment xml:id="seg9" start="223" end="224" primaryData="soccer-txt"/&gt;
+    &lt;xsf:segment xml:id="seg10" start="226" end="227" primaryData="soccer-txt"/&gt;
+    &lt;xsf:segment xml:id="seg11" start="262" end="263" primaryData="soccer-txt"/&gt;
+    &lt;xsf:segment xml:id="seg12" type="spatial" shape="circle" coords="312,651,23" primaryData="soccer-img" name="Y"/&gt;
+    &lt;xsf:segment xml:id="seg13" type="spatial" shape="circle" coords="327,473,23" primaryData="soccer-img" name="Z"/&gt;
+    &lt;xsf:segment xml:id="seg14" type="spatial" shape="circle" coords="405,422,23" primaryData="soccer-img" name="X"/&gt;
+    &lt;xsf:segment xml:id="seg15" type="spatial" shape="circle" coords="365,396,23" primaryData="soccer-img" name="D"/&gt;
+    &lt;xsf:segment xml:id="seg16" type="spatial" shape="circle" coords="781,339,23" primaryData="soccer-img" name="A"/&gt;
+    &lt;xsf:segment xml:id="seg17" type="spatial" shape="circle" coords="554,399,23" primaryData="soccer-img"/&gt;
+    &lt;xsf:segment xml:id="seg18" type="spatial" shape="poly" coords="300,618 371,439 428,444 363,618" primaryData="soccer-img" name="gap"/&gt;
+    &lt;xsf:segment xml:id="seg19" type="seg" segments="seg12 seg13 seg14 seg17" mode="disjoint" name="Team A"/&gt;
+    &lt;xsf:segment xml:id="seg20" type="seg" segments="seg15 seg16" mode="disjoint" name="Team B"/&gt;
+  &lt;/xsf:segmentation&gt;
+  &lt;xsf:annotation&gt;
+    &lt;xsf:level xml:id="soccer"&gt;
+      &lt;xsf:layer xmlns="http://www.xstandoff.net/examples/playbook" xsi:schemaLocation="http://www.xstandoff.net/examples/playbook ../xsd/soccer.xsd"&gt;
+        &lt;text xsf:segment="seg1"&gt;
+          &lt;team name="teamA" xsf:segment="seg2 seg19"/&gt;
+          &lt;player name="Y" xsf:segment="seg3 seg12"/&gt;
+          &lt;place name="gap" xsf:segment="seg4 seg18"/&gt;
+          &lt;player name="X" xsf:segment="seg5 seg14"/&gt;
+          &lt;player name="G" xsf:segment="seg6 seg17"&gt;
+            &lt;xsf:meta xmlns="http://www.tei-c.org/ns/1.0" xsi:schemaLocation="http://www.tei-c.org/ns/1.0 ../xsd/TEICertainty.xsd"&gt;
+              &lt;certainty locus="name" target="playerG" degree="0.9"&gt;
+                &lt;desc&gt;Although the part of the graphic depicted with seg17 comes without a name tag, it is most likely that it depicts the player called 'G' in the running text.&lt;/desc&gt;
+              &lt;/certainty&gt;
+            &lt;/xsf:meta&gt;
+          &lt;/player&gt;
+          &lt;player name="Z" xsf:segment="seg7 seg13"/&gt;
+          &lt;player name="Y" xsf:segment="seg8 seg12"/&gt;
+          &lt;player name="X" xsf:segment="seg9 seg14"/&gt;
+          &lt;player name="D" xsf:segment="seg10 seg15"/&gt;
+          &lt;player name="A" xsf:segment="seg11 seg16"/&gt;
+        &lt;/text&gt;
+      &lt;/xsf:layer&gt;
+    &lt;/xsf:level&gt;
+  &lt;/xsf:annotation&gt;
+&lt;/xsf:corpusData&gt;</programlisting></figure><para>Elements of the annotation layer may refer either to segments of one of the primary data
+      files only or both (as seen in the example). In the latter case the reference can be seen as a
+      simple way of a text-to-image mapping.<footnote><para>Of course it would be possible to make the mapping explicit by adding a special
+          annotation layer for this purpose.</para></footnote> Since we are uncertain if the unnamed blue dot refers to the player named
+        <quote>G</quote> in the running text, we have used TEI's <code>certainty</code> element to
+      express our degree of confidence. Note, that we have chosen this place for the
+        <code>certainty</code> element instead of placing it underneath the <code>segment</code>
+      element identified by <emphasis>seg17</emphasis>, since the segment as such is undisputed, but
+      not its reference to the entity mentioned in the running text.<footnote><para>Another option could be to use two <code>player</code> elements (one for each primary
+          data) and to add the certainty information to the one referring to the segment of the
+          graphical primary data only. But this would introduce an additional element not present
+          before in the original inline annotation.</para></footnote>
+    </para></section><section xml:id="sec.xsf2compared"><title>XStandoff 2.0 compared</title><para>There are already a couple of specifications that allow for spatial annotation, some of
+      which have been mentioned already in <xref linkend="sec.intro"/> and <xref linkend="sec.xsf-spatial"/>. The TEI supports spatial annotation by means of the
+        <code>facsimile</code> element introduced in the current version P5 (Chapter 11 in <xref linkend="TEIP5"/>). A possible serialization of a the text-picture combination shown in
+        <xref linkend="fig.sport"/> can be seen in <xref linkend="lst.tei"/>. The appearance of the
+      player's <code>zone</code> elements as circles (or ellipses) is encoded by using
+        <code>rendition</code> child element underneath the <code>tagsDecl</code> metadata (the
+      example has been produced by using the Image Markup Tool (IMT)<footnote><para>Further information about IMT including downloads can be obtained at <link xlink:href="http://www.tapor.uvic.ca/~mholmes/image_markup/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.tapor.uvic.ca/~mholmes/image_markup/</link>.</para></footnote> and have been altered manually afterwards to include the textual content. Since we
+      use rectangular zones (that are rendered as ellipses in case of the players), the coordinates
+      used define boxes. The <code>point</code> attribute, that uses a series of x,y coordinate
+      pairs to define complex 2d areas (similar to XStandoff's approach) is another option.</para><figure xml:id="lst.tei"><title>TEI's <code>facsimile</code> element</title><programlisting xml:space="preserve">&lt;?xml-model href="http://www.tei-c.org/release/xml/tei/custom/schema/relaxng/tei_all.rng" type="application/xml" schematypens="http://relaxng.org/ns/structure/1.0"?&gt;
+&lt;TEI xmlns="http://www.tei-c.org/ns/1.0" version="5.0" xml:id="tei-facsimile_instanz"&gt;
+  &lt;teiHeader&gt;
+    &lt;fileDesc&gt;
+      &lt;!-- [...] --&gt;
+    &lt;/fileDesc&gt;
+    &lt;encodingDesc&gt;
+      &lt;tagsDecl&gt;
+        &lt;rendition xml:id="player"&gt;&lt;label&gt;Player&lt;/label&gt;&lt;code rend="ellipse"
+          lang="text/css"&gt;color: #ff0000&lt;/code&gt;&lt;/rendition&gt;
+        &lt;rendition xml:id="place"&gt;&lt;label&gt;Places&lt;/label&gt;&lt;code rend="rectangle" lang="text/css"&gt;color:
+          #ffffff&lt;/code&gt;&lt;/rendition&gt;
+      &lt;/tagsDecl&gt;
+    &lt;/encodingDesc&gt;
+  &lt;/teiHeader&gt;
+  &lt;facsimile xml:id="soccer-img"&gt;
+    &lt;surface&gt;
+      &lt;desc&gt;Visualization of a situation in a soccer game between teams A and B&lt;/desc&gt;
+      &lt;graphic url="soccer_balisage.png.png" width="824px" height="678px"/&gt;
+      &lt;zone xml:id="Y" rendition="player" ulx="290" uly="626" lrx="335" lry="674" rend="visible"/&gt;
+      &lt;zone xml:id="X" rendition="player" ulx="381" uly="397" lrx="430" lry="446" rend="visible"/&gt;
+      &lt;zone xml:id="Z" rendition="player" ulx="303" uly="448" lrx="349" lry="495" rend="visible"/&gt;
+      &lt;zone xml:id="D" rendition="player" ulx="343" uly="375" lrx="389" lry="420" rend="visible"/&gt;
+      &lt;zone xml:id="G" rendition="player" ulx="533" uly="376" lrx="576" lry="423" rend="visible"/&gt;
+      &lt;zone xml:id="A" rendition="player" ulx="758" uly="317" lrx="806" lry="365" rend="visible"/&gt;
+      &lt;zone xml:id="gap" rendition="place" ulx="343" uly="445" lrx="406" lry="630" rend="visible"/&gt;
+    &lt;/surface&gt;
+  &lt;/facsimile&gt;
+  &lt;text&gt;
+    &lt;body&gt;
+      &lt;p&gt;Another situation in which &lt;seg type="team"&gt;team A&lt;/seg&gt; is not able to finish its move:
+        &lt;seg facs="#Y" type="player"&gt;Y&lt;/seg&gt; tries to pass the ball through &lt;seg facs="#gap"
+          type="place"&gt;the small gap&lt;/seg&gt; to &lt;seg facs="#X" type="player"&gt;X&lt;/seg&gt; (instead of
+        passing it to &lt;seg facs="#G" type="player"&gt;G&lt;/seg&gt;) while &lt;seg facs="#Z" type="player"
+          &gt;Z&lt;/seg&gt; is unintentionally obstructing &lt;seg facs="#Y" type="player"&gt;Y&lt;/seg&gt;'s way. But
+        before the ball reaches &lt;seg facs="#X" type="player"&gt;X&lt;/seg&gt;, &lt;seg facs="#D" type="player"
+          &gt;D&lt;/seg&gt; intercepts and passes the ball to &lt;seg facs="#A" type="player"&gt;A&lt;/seg&gt;.&lt;/p&gt;
+    &lt;/body&gt;
+  &lt;/text&gt;
+&lt;/TEI&gt;</programlisting></figure><para>We have used TEI's <code>seg</code> element as bearer of the information encoded in the
+      element names in <xref linkend="lst.soccer-text"/>. There are of course other (and better)
+      options to encode the information, especially the text-to-image mapping which in our example
+      has been done by using the <code>facs</code> attribute. Although this attribute is defined in
+      the TEI to <quote>point[s] to all or part of an image which corresponds with the content of
+        the element</quote>, its (and the one of the <code>facsimile</code> element) main purpose is
+      to represent digital facsimiles. It remains to the reader to judge the tag abuse contained in
+        <xref linkend="lst.tei"/>.</para><para>Another specification worth mentioning is Analyzed Layout and Text Object (ALTO)
+      originally developed as part of the Metadata Engine (METAe) project and which is nowadays
+      often used as an extension of the Metadata Encoding &amp; Transmission Standard (<xref linkend="McDonough2006"/>). METS/ALTO supports several geographical shapes such as polygons,
+      ellipses and circles to define spatial areas and uses a similar <code>point</code> attribute
+        (<xref linkend="ALTO"/>). However, the main purpose of ALTO is to store layout and content
+      information of OCR recognized text of pages of various printed document types.</para></section><section xml:id="sec.conclusion"><title>Conclusion and future work</title><para>We have demonstrated the upcoming version 2.0 of the meta markup language XStandoff, which
+      supports spatial segmentation and annotation of non-textual primary data. Although we have
+      already annotated a medium-sized number of examples, using XStandoff for multimodal documents
+      have just begun and further changes to the format cannot be excluded. We hope to create a
+      web-based application for segmenting and annotating text and graphical-encoded information as
+      a next step. Existing software such as the already-mentioned IMT or the Text-Image Linking
+      Environment (TILE)<footnote><para>See <link xlink:href="http://mith.umd.edu/tile/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://mith.umd.edu/tile/</link> for further
+          details.</para></footnote> may serve as starting points. Furthermore we will examine the applicability of
+      XStandoff as pivot format for eye-tracking and other sensor data.</para></section><section><title>Acknowledgements</title><para>The author would like to thank the anonymous reviewers for their helpful comments and
+      ideas, especially regarding (but not limited to) the availability of tools for spatial
+      annotation.</para></section><bibliography><title>References</title><bibliomixed xml:id="TEIP5" xreflabel="Burnard and Bauman, 2013">Burnard, L. and S. Bauman
+      (2013). TEI P5: Guidelines for Electronic Text Encoding and Interchange. Text Encoding
+      Initiative Consortium, Charlottesville, Virginia. Version 2.4.0. Last updated on 5th July
+      2013</bibliomixed><bibliomixed xml:id="SVG2011" xreflabel="Dahlström, et al., 2011">Dahlström, E.. Dengler, P.,
+      Grasso, A., Lilley, C., McCormack, C., Schepers, D. and J. Watt (2011). Scalable Vector
+      Graphics (SVG) 1.1 (Second Edition). W3C Recommendation, World Wide Web Consortium (W3C).<link xlink:href="http://www.w3.org/TR/2011/REC-SVG11-20110816/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/2011/REC-SVG11-20110816/</link></bibliomixed><bibliomixed xml:id="DeRose1994" xreflabel="DeRose and Durand, 1994">DeRose, S. J., and D. G.
+      Durand (1994). Making Hypermedia Work. A User’s Guide to HyTime. Kluwer Academic Publishers,
+      Boston and Dordrecht and London. doi:<biblioid class="doi">10.1007/978-1-4615-2754-1</biblioid>.</bibliomixed><bibliomixed xml:id="ALTO" xreflabel="Egger et al., 2010">Egger, A., Stehno, B., Retti, G.,
+      Tiede, R., and J. Littman (2010). Analyzed Layout and Text Object (ALTO). Technical report,
+      Library of Congress Network Development and MARC Standards Office.</bibliomixed><bibliomixed xml:id="Lee2013" xreflabel="Lee (2013)">Lee, K. (2013). Multi-layered annotation of
+      non-textual data for spatial information. In: Bunt, H., editor, Proceedings of the 9th Joint
+      ISO - ACL SIGSEM Workshop on Interoperable Semantic Annotation, pages 15–23,
+      Potsdam</bibliomixed><bibliomixed xml:id="ISO-TimeML2012" xreflabel="ISO 24617-1:2012">ISO/TC 37/SC 4/WG 2 (2012).
+      Language Resource Management — Semantic annotation framework — Part 1: Time and events
+      (SemAF-Time, ISO-TimeML). International Standard ISO 24617-1:2012, International Organization
+      for Standardization, Geneva</bibliomixed><bibliomixed xml:id="ISO-Space2012" xreflabel="ISO/NP 24617-7">ISO/TC 37/SC 4/WG 2 (2012).
+      Language Resource Management — Semantic annotation framework — part 7: Spatial Information
+      (ISO-Space). Technical Report ISO/NP 24617-7, International Organization for Standardization,
+      Geneva</bibliomixed><bibliomixed xml:id="Jettka2011" xreflabel="Jettka and Stührenberg, 2011">Daniel Jettka, and
+      Maik Stührenberg (2011). Visualization of concurrent markup: From trees to graphs, from 2d to
+      3d. In: Proceedings of Balisage: The Markup Conference 2011. Balisage Series on Markup
+      Technologies, vol 7. doi:<biblioid class="doi">10.4242/BalisageVol7.Jettka01</biblioid>.</bibliomixed><bibliomixed xml:id="Mani2008" xreflabel="Mani et al., 2008">Mani, I., Hitzeman, J., Richer, J.,
+      Harris, D., Quimby, R., and B. Wellner (2008). SpatialML: Annotation Scheme, Corpora, and
+      Tools. In: Calzolari, N., Choukri, K., Maegaard, B., Mariani, J., Odjik, J., Piperidis, S.,
+      and Tapias, D., editors, Proceedings of the Sixth International Language Re- sources and
+      Evaluation (LREC 2008), pages 28–30, Marrakech. European Language Resources Association
+      (ELRA)</bibliomixed><bibliomixed xml:id="Mani2010" xreflabel="Mani et al., 2010">Mani, I., Doran, C., Harris, D.,
+      Hitzeman, J., Quimby, R., Richer, J., Wellner, B., Mardis, S., and S. Clancy (2010).
+      SpatialML: annotation scheme, resources, and evaluation. Language Resources and Evaluation,
+      44(3):263280. doi:<biblioid class="doi">10.1007/s10579-010-9121-0</biblioid>.</bibliomixed><bibliomixed xml:id="McDonough2006" xreflabel="McDonough, 2006">McDonough, J. (2006). METS:
+      standardized encoding for digital library objects. International Journal on Digital Libraries,
+      6:148–158. doi:<biblioid class="doi">10.1007/s00799-005-0132-1</biblioid>.</bibliomixed><bibliomixed xml:id="Stuehrenberg2007" xreflabel="Stührenberg et al., 2007"> Stührenberg, Maik,
+      Goecke, Daniela, Diewald, Nils, Cramer, Irene, and Alexander Mehler (2007). Web-based
+      annotation of anaphoric relations and lexical chains. In: Proceedings of the Linguistic
+      Annotation Workshop (LAW), pages 140–147, Prague. Association for Computational Linguistics,
+      2007. doi:<biblioid class="doi">10.3115/1642059.1642082</biblioid>.</bibliomixed><bibliomixed xml:id="Stuehrenberg2008" xreflabel="Stührenberg and Goecke, 2008">Stührenberg,
+      Maik, and Daniela Goecke (2008). SGF - An integrated model for multiple annotations and its
+      application in a linguistic domain. In: Proceedings of Balisage: The Markup Conference 2008.
+      Balisage Series on Markup Technologies, vol. 1. doi:<biblioid class="doi">10.4242/BalisageVol1.Stuehrenberg01</biblioid>.</bibliomixed><bibliomixed xml:id="Stuehrenberg2009" xreflabel="Stührenberg and Jettka, 2009">Stührenberg,
+      Maik, and Daniel Jettka (2009). A toolkit for multi-dimensional markup: The development of SGF
+      to XStandoff. In: Proceedings of Balisage: The Markup Conference 2009. Balisage Series on
+      Markup Technologies, vol. 3. doi:<biblioid class="doi">10.4242/BalisageVol3.Stuhrenberg01</biblioid>.</bibliomixed></bibliography></article>

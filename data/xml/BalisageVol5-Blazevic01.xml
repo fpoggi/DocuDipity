@@ -1,0 +1,758 @@
+<?xml version="1.0" encoding="UTF-8"?><article xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink" version="5.0-subset Balisage-1.2"><title>Grammar-driven Markup Generation</title><info><confgroup><conftitle>Balisage: The Markup Conference 2010</conftitle><confdates>August 3 - 6, 2010</confdates></confgroup><abstract><para>
+    This paper defines the concept of grammar-driven normalization of incomplete instances, sketches its implementation
+    for RELAX NG schema and XML documents, and presents an example of its practical use for automated document
+    conversion.
+  </para></abstract><author><personname><firstname>Mario</firstname><surname>Blažević</surname></personname><personblurb><para>
+        The author has a Master's degree in Computer Science from University of Novi Sad, Yugoslavia. Since moving to
+        Canada in 2000, he has been working for OmniMark Technologies, later acquired by Stilo International plc.,
+        mostly in the area of markup processing and on development of the OmniMark programming language.
+      </para></personblurb><email>mblazevic@stilo.com</email><affiliation><jobtitle>Senior software developer</jobtitle><orgname>Stilo International plc.</orgname></affiliation></author><legalnotice><para>Copyright © 2010 by the author.  Used with
+permission.</para></legalnotice></info><note><programlisting xml:space="preserve">
+    I want to thank my colleagues Jacques Légaré, Joe Gollner, Patrick Baker, and Roy Amodeo for their
+    valuable comments, and Stilo International for providing the initial motivation for the work and giving me time to
+    do it properly.
+  </programlisting></note><section><title> Introduction
+
+  </title><para>A grammar is a set of rules that describes the composition of a language. Grammars have existed for at least two
+  and half millenia, but their use was mainly didactic. The practical applications of grammars started with their
+  mathematical formalization in the 1950s <citation linkend="c56"/> and the emergence of computer programming languages
+  <citation linkend="b59"/>.</para><para>There are three ways to apply a grammar:</para><variablelist><varlistentry><term>Validate</term><listitem><para>a given sentence to determine if it is grammatically correct.</para></listitem></varlistentry><varlistentry><term>Generate</term><listitem><para>a correct sentence according to the grammar.</para></listitem></varlistentry><varlistentry><term>Parse</term><listitem><para>a given sentence to determine its structure and constituent parts.</para></listitem></varlistentry></variablelist><para>The historical motivation for development of the theory of formal languages was to explain the method of
+  generation of valid sentences as well as their recognition and parsing. Generative grammars are still an active area
+  of reasearch in linguistics. In computer science, however, it is parsing that is the primary role of grammars; their
+  use for generation of valid sentences appears to be forgotten.</para><para>One reason for this lack of interest in grammar-driven generation is that the problem is poorly defined. The
+  output of a generator is a grammatically valid sentence. But what is its input, other than the grammar? The task of a
+  parser is clearer: while its output in practice can be anything, it is usually defined as a parse tree of some
+  form.</para><para>While many kinds of generator inputs are possible and interesting to contemplate, we shall concentrate on the
+  specific task of generating a grammatically valid sentence from a sequence of tokens (<emphasis role="ital">i.e.</emphasis>, terminals) allowed by the grammar. Furthermore, the generator must exactly reproduce any
+  input that is already a grammatically valid sentence. We shall use the term <emphasis role="ital">normalization</emphasis> to refer to this form of sentence generation, and the term <emphasis role="ital">normalizer</emphasis> for the generator that performs it.</para><para>Given a normalizer that maps a set of token sequences <emphasis role="ital">T</emphasis> into a set of
+  cannonical, grammatically valid sequences <emphasis role="ital">S</emphasis>, one can define a new language <emphasis role="ital">S'</emphasis> as the union of the core language <emphasis role="ital">S</emphasis> and the non-core
+  language <emphasis role="ital">T</emphasis>.</para><para>For an actual example of this kind of language definition, we need look no further than SGML. An SGML parser
+  performs parsing, normalization, and validation at the same time. For example, given the following SGML DTD that
+  declares the end tag of element <emphasis role="ital">a</emphasis> and both tags of element <emphasis role="ital">b</emphasis> to be omissible:</para><programlisting xml:space="preserve">
+&lt;!element a - o (b)&gt;
+&lt;!element b o o (#pcdata)&gt;</programlisting><para>an SGML parser with OMITTAG feature enabled will parse the instance <code>&lt;a&gt;Hello, World!</code>
+  into a syntax tree corresponding to <code>&lt;a&gt;&lt;b&gt;Hello, World!&lt;/b&gt;&lt;/a&gt;</code>. Any conformant SGML parser
+  with support for omissible tags will consider these two instances as equivalent, as long as the same DTD is used to
+  parse them. If the DTD should change, however, an instance that omits element tags may become not only invalid but
+  unparsable.</para><para>For this reason and others, an XML parser does not perform any normalization. A well-formed XML instance is
+  always parsed in the same way according to a fixed grammar, regardless of what DTD or schema the instance happens to
+  also conform to. Various types of XML schemas are used only for validation, not for parsing or normalization.</para><para>This paper will demonstrate how an XML schema (a RELAX NG schema specifically) can be used to generate a valid
+  instance of the schema from an invalid but well-formed XML instance. In other words, we shall normalize a well-formed
+  XML instance so it conforms to a given schema.</para><para>The only element tags allowed in the input are those that occur in the target schema. If normalization succeeds
+  with no errors, the output of the normalizer will:</para><itemizedlist><listitem><para>be well-formed XML,</para></listitem><listitem><para>conform to the target schema, and</para></listitem><listitem><para>contain the entire input instance as its subsequence, interleaved with additional element tags.
+  <footnote xml:id="interleave-exception"><para>There is one exception. The normalizer may reorder those parts of the input
+  content that the target schema models as interleaved. In essence, its output will conform to the target schema
+  strictified by replacing its every <emphasis role="ital">interleave</emphasis> pattern node by a <emphasis role="ital">group</emphasis> node.</para></footnote>
+  </para></listitem></itemizedlist><para>The normalizer is much more forgiving than the SGML parser in what kinds of input it can normalize. The target
+  grammar is allowed to be ambiguous, though this is not recommended for performance reasons. There is no <emphasis role="ital">unique particle contribution</emphasis> constraint <citation linkend="w04"/>, nor is the generation
+  restricted to <emphasis role="ital">contextually required elements</emphasis> <citation linkend="s86"/>. If the input
+  instance is ambiguous, <emphasis role="ital">i.e.</emphasis>, there is more than one way to normalize it, the
+  normalization with the least amount of added markup will be chosen. This choice is not made at the point when the
+  particle is encountered, because the subsequent content could make that choice invalid, but deferred until the
+  enclosing element ends. The biggest constraint is that only plain element tags with no attributes can be
+  inserted. Even this constraint could be overcome by automatically generating some arbitrary grammatically correct
+  values for all required attributes, but we felt that this might cause more harm than benefit in practice.</para><para>The primary purpose of SGML's minimization features was making SGML easier to author. We do not recommend using
+  the XML normalizer in this way; we feel that it is important that every XML document in permanent storage should
+  conform to a clearly expressed schema.</para><para>The legitimate place for the normalization process is inside a processing pipeline, where it can usefully be
+  applied to or produce a transient XML document instance. Normalization can thus be applied before another process in
+  order to transform the input document into a form easier to process. The target schema for the normalizer may be just
+  a stricter form of the input document's schema, or it may specify additional disambiguating markup.</para><para>Alternatively, a normalizer can appear at the opposite end of the processing pipeline, where it ensures that the
+  output of the preceding process conforms to the target schema. We shall demonstrate this latter possibility of
+  practical use in <link linkend="Results" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">a later section</link>.</para><para>The rest of the paper is organized as follows: the next section will present an example of normalizer's use, and
+   afterwards its design and implementation will be explained. The section following after that explains the purpose and
+   results of the normalizer in production, and the paper concludes with a discussion of related work.</para></section><section><title> Example 
+  </title><para>This section will demonstrate the capabilities of our normalizer
+  through an example. Let us take the following RELAX NG schema as our target:</para><programlisting xml:space="preserve">
+start = document
+block = p | ol | ul
+
+document = element document { title, block+, section* }
+section  = element section { title, block+, section* }
+title    = element title { text }
+p        = element p { text }
+ol       = element ol { li+ }
+ul       = element ul { li+ }
+li       = element li { block+ }</programlisting><para>The goal is to convert our input to a valid instance of this grammar. As for the input, it may start as a plain
+  text file like the following one:</para><programlisting xml:space="preserve">
+Normalizer test input
+
+This is a short test input for the normalizer.
+
+Purpose
+
+The purpose of this document is to demonstrate the capabilities of the normalizer.
+The normalizer is schema-driven, and it tries to fit its input into the target schema.
+
+Constraints
+
+The goal of the normalizer is to produce output that conforms to the schema, while 
+preserving complete input. It does not always succeed:
+- A piece of input that cannot be fit into the schema will be dropped.
+- The normalizer does not attempt to conjure any required attribute values nor text data.
+  These must be present in the input.
+</programlisting><para>We first need to ensure that our input is a well-fomed XML document, which can be achieved simply by putting the
+  entire text inside the <code>&lt;document&gt;...&lt;/document&gt;</code> tags. If we then run this XML instance
+  through the normalizer, it will be converted to</para><programlisting xml:space="preserve">
+&lt;document&gt;
+  &lt;title&gt;&lt;/title&gt;
+  &lt;p&gt;
+Normalizer test input
+
+This is a short test input for the normalizer.
+
+Purpose
+
+The purpose of this document is to demonstrate the capabilities of the normalizer.
+The normalizer is schema-driven, and it tries to fit its input into the target schema.
+
+Constraints
+
+The goal of the normalizer is to produce output that conforms to the schema, while 
+preserving complete input. It does not always succeed:
+- A piece of input that cannot be fit into the schema will be dropped.
+- The normalizer does not attempt to conjure any required attribute values nor text data.
+  These must be present in the input.
+  &lt;/p&gt;
+&lt;/document&gt;</programlisting><para>As we can verify, the output indeed does conform to the target schema. The content model of
+  <code>document</code> requires a <code>title</code> element, for example, and this element has been inserted. Since it
+  has no content, though, it may not be all that useful.</para><para>In order to produce a more appropriate instance, we need to place certain constraints on the solution. One way
+  to do this would be make the schema stricter. We could require the title content to be non-empty, and the paragraph
+  content to contain no line-breaks. Alternatively, we can specify the constraints by adding the desired markup to the
+  input document. For example, we can mark up all input lines that appear to be titles:</para><programlisting xml:space="preserve">
+&lt;document&gt;
+&lt;title&gt;Normalizer test input&lt;/title&gt;
+
+This is a short test input for the normalizer.
+
+&lt;title&gt;Purpose&lt;/title&gt;
+
+The purpose of this document is to demonstrate the capabilities of the normalizer.
+The normalizer is schema-driven, and it tries to fit its input into the target schema.
+
+&lt;title&gt;Constraints&lt;/title&gt;
+
+The goal of the normalizer is to produce output that conforms to the schema, while 
+preserving complete input. It does not always succeed:
+- A piece of input that cannot be fit into the schema will be dropped.
+- The normalizer does not attempt to conjure any required attribute values nor text data.
+  These must be present in the input.
+&lt;/document&gt;</programlisting><para>Given this enriched input together with the original schema, the normalizer produces the following
+  output:</para><programlisting xml:space="preserve">
+&lt;document&gt;
+  &lt;title&gt;Normalizer test input&lt;/title&gt;
+  &lt;p&gt;
+
+This is a short test input for the normalizer.
+
+  &lt;/p&gt;
+  &lt;section&gt;
+    &lt;title&gt;Purpose&lt;/title&gt;
+    &lt;p&gt;
+
+The purpose of this document is to demonstrate the capabilities of the normalizer.
+The normalizer is schema-driven, and it tries to fit its input into the target schema.
+
+    &lt;/p&gt;
+    &lt;section&gt;
+      &lt;title&gt;Constraints&lt;/title&gt;
+      &lt;p&gt;
+
+The goal of the normalizer is to produce output that conforms to the schema, while 
+preserving complete input. It does not always succeed:
+- A piece of input that cannot be fit into the schema will be dropped.
+- The normalizer does not attempt to conjure any required attribute values nor text data.
+  These must be present in the input.
+      &lt;/p&gt;
+    &lt;/section&gt;
+  &lt;/section&gt;
+&lt;/document&gt;
+  </programlisting><para>The good news is that the normalizer has not only respected and kept our <code>title</code> markup, it has
+  inferred that every title but the first one has to start a new section. The bad news is that the second section has
+  been nested within the first one. While this does conform to the target schema, the two sections belong at the same
+  level. Furthermore, we want every line to be a separate paragraph; and there appears to be a list at the end of our
+  document and it should be marked up as such.</para><para>In this simple example we could just visually determine where each section, paragraph, or list item starts and
+  ends and mark them up with XML element tags. In practice, however, we'd rather have this work done automatically. A
+  simple pattern-matching rule would be capable of inserting a start tag wherever there is a hyphen at the beginning of
+  the line, but finding where it ends is much more difficult. To make this marking-up process easier, the normalizer
+  recognizes a number of processing instructions as output constraints. Once we apply them, our input document might
+  look like this:</para><programlisting xml:space="preserve">
+&lt;document&gt;
+&lt;title&gt;Normalizer test input&lt;/title&gt;
+
+&lt;?derivative.start-anew &lt;p&gt;?&gt;This is a short test input for the normalizer.
+
+&lt;?derivative.start-anew &lt;section&gt;?&gt;&lt;title&gt;Purpose&lt;/title&gt;
+
+&lt;?derivative.start-anew &lt;p&gt;?&gt;The purpose of this document is to demonstrate 
+the capabilities of the normalizer.
+&lt;?derivative.start-anew &lt;p&gt;?&gt;The normalizer is schema-driven, and it tries 
+to fit its input into the target schema.
+
+&lt;?derivative.start-anew &lt;section&gt;?&gt;&lt;title&gt;Constraints&lt;/title&gt;
+
+&lt;?derivative.start-anew &lt;p&gt;?&gt;The goal of the normalizer is to produce output 
+that conforms to the schema, while preserving complete input. It does not always succeed:
+&lt;?derivative.proceed-with &lt;ul&gt;?&gt;&lt;?derivative.start-anew &lt;li&gt;?&gt;
+A piece of input that cannot be fit into the schema will be dropped.
+&lt;?derivative.proceed-with &lt;ul&gt;?&gt;&lt;?derivative.start-anew &lt;li&gt;?&gt;
+The normalizer does not attempt to conjure any required attribute values nor text data.
+&lt;?derivative.start-anew &lt;p&gt;?&gt;These must be present in the input.
+&lt;/document&gt;
+</programlisting><para>The processing instructions basically act as placeholders for element start tags, letting the normalizer know
+  which element is supposed to enclose the following content. The exact location of the element's end tag will be
+  inferred by the normalizer. The details of the processing instructions and the inference algorithm will be explained in
+  the next chapter. The normalizer's output, based on our last enriched input above, looks as follows:</para><programlisting xml:space="preserve">
+&lt;document&gt;
+  &lt;title&gt;Normalizer test input&lt;/title&gt;
+  &lt;p&gt;This is a short test input for the normalizer.&lt;/p&gt;
+  &lt;section&gt;
+    &lt;title&gt;Purpose&lt;/title&gt;
+    &lt;p&gt;The purpose of this document is to demonstrate the capabilities of the normalizer.&lt;/p&gt;
+    &lt;p&gt;The normalizer is schema-driven, and it tries to fit its input into the target schema.&lt;/p&gt;
+  &lt;/section&gt;
+  &lt;section&gt;
+    &lt;title&gt;Constraints&lt;/title&gt;
+    &lt;p&gt;The goal of the normalizer is to produce output that conforms to the schema, while 
+preserving complete input. It does not always succeed:&lt;/p&gt;
+    &lt;ul&gt;
+      &lt;li&gt;
+        &lt;p&gt;A piece of input that cannot be fit into the schema will be dropped.&lt;/p&gt;
+      &lt;/li&gt;
+      &lt;li&gt;
+        &lt;p&gt;The normalizer does not attempt to conjure any required attribute values nor 
+text data.&lt;/p&gt;
+        &lt;p&gt;These must be present in the input.&lt;/p&gt;
+      &lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/section&gt;
+&lt;/document&gt;
+</programlisting></section><section><title> Design and Implementation
+
+  </title><para>The basic idea that drove the normalizer design came after implementing the validator automaton <citation linkend="c02"/> for RELAX NG <citation linkend="c01"/>. This automaton uses a flexible validation algorithm based on
+  Brzozowski derivatives <citation linkend="b64"/>. We shall now sketch the basic idea of this validation algorithm; a
+  more thorough treatment can be found in the literature <citation linkend="a72"/>.</para><para>Informally, the derivative of a grammar <emphasis role="ital">G</emphasis> with respect to a sequence of tokens
+  <emphasis role="ital">S</emphasis> is the grammar <emphasis role="ital">G'</emphasis>, such that a sequence <emphasis role="ital">S'</emphasis> is valid according to <emphasis role="ital">G'</emphasis> if and only if the concatenation
+  of <emphasis role="ital">S</emphasis> and <emphasis role="ital">S'</emphasis> is valid according to <emphasis role="ital">G</emphasis>.</para><para>We can think of the grammar <emphasis role="ital">G</emphasis> as the initial state of a validating automaton,
+  and the grammar derivative calculation as its transition function. A very simple and generic validator algorithm can
+  be built on top of this concept <citation linkend="s05"/>, and one such validator is the standard RELAX NG validation
+  algorithm.</para><para>While working on the implementation of an RELAX NG validator library <citation linkend="s09b"/> for OmniMark
+  <citation linkend="s09a"/>, it became clear that the automaton could be relatively easily extended in two orthogonal
+  ways: with additional pattern constructs, and with additional actions to perform. In particular, the validating
+  automaton could be modified to produce arbitrary output, in the same way a deterministic finite automaton can be
+  extended to a Moore machine <citation linkend="m56"/>.</para><para>The original RELAX NG validation algorithm <citation linkend="c02"/> represents the grammar as a tree data
+  structure. Here is its definition in Haskell <citation linkend="h02"/>:</para><programlisting xml:space="preserve">
+data Pattern = Empty
+               | NotAllowed
+               | Text
+               | Choice Pattern Pattern
+               | Interleave Pattern Pattern
+               | Group Pattern Pattern
+               | OneOrMore Pattern
+               | List Pattern
+               | Data Datatype ParamList
+               | DataExcept Datatype ParamList Pattern
+               | Value Datatype String Context
+               | Attribute NameClass Pattern
+               | Element NameClass Pattern
+               | After Pattern Pattern
+</programlisting><para>The constructors of this data type, with the exception of the last one, correspond to the constructs of the
+  RELAX NG schema language. The last constructor, <code>After</code>, appears when a start tag of an element is
+  consumed, and matches the remainder of the XML input together with the corresponding end tag.</para><para>We need two extensions to this data structure in order to enable the automaton to perform normalization. First,
+  we need to be able to assume the presence of an omitted element tag. Secondly, we must be able to output the
+  normalized version of our input, together with the omitted and inferred tags. So we add two more data
+  constructors:</para><programlisting xml:space="preserve">
+data Pattern = Empty
+               | ...
+               | Region Bool QName Pattern
+               | Result [ResultDelta] Pattern
+
+data ResultDelta = StartTag ChildNode | Add ChildNode | EndTag | Inferred ResultDelta
+</programlisting><para>The <code>Result</code> constructor keeps track of the output that should be emitted if the pattern it wraps
+  succeeds. Whenever the current pattern (<emphasis role="ital">i.e.</emphasis>, the state of the automaton) has a
+  <code>Result</code> node at its root, the accumulated chunk of output is flushed and the root node is replaced by its
+  child pattern.</para><para>The <code>Region</code> constructor denotes an open element region, which may have come from the input or may
+  have been inserted in order to normalize it. In the former role, it acts as a replacement for the <code>After</code>
+  node. To accomodate this change in the representation of open element regions, we have to make another adjustment to
+  the <code>Interleave</code> constructor. It needs an extra integer field to keep track of which of its patterns has
+  consumed unmatched start tags, and how many of them.</para><para>As long as the input conforms to the target schema, the normalizer acts the same way as the RELAX NG validator,
+  except it builds the <code>Result</code> nodes and flushes them at the output. When a particle that doesn't match the
+  current pattern is encountered, the normalizer attempts to recover by descending into the content models of elements
+  that are allowed at the current point. The derivative of the current pattern is then the sum of derivatives of all
+  content models that accept the particle, with each content derivative wrapped into a <code>Region</code> node and a
+  <code>Result</code> node; these keep track of the inferred element start tag.</para><para>This modification of the RELAX NG validation algorithm results in the normalizer whose complete source code is
+  listed in the paper's appendix <xref linkend="appendix"/>. This simple normalizer is completely correct, but far from
+  perfect. It easily runs into a combinatorial explosion of the pattern tree, and it cannot be customized to resolve the
+  ambiguity in a desired way. While the available space is too short to describe all of the additional features and
+  optimizations, the role of the processing instruction guides is too important to leave out.</para><para>Many interesting target schemas contain a large number of elements which have nearly identical content models
+  and which are allowed to appear in the same places. Such is the case, for example, with DocBook 5 elements
+  <code>glossary</code>, <code>bibliography</code>, <code>index</code>, <code>toc</code>, <code>dedication</code>,
+  <code>acknowledgements</code>, <code>preface</code>, <code>chapter</code>, <code>appendix</code>,
+  <code>article</code>, and <code>colophon</code>. This represents a problem for the normalizer because it must keep
+  track of all the alternative elements in case of recovery. If the user can specify which of the elements should be
+  used for recovery, this improves the output and the performance at the same time.</para><para>At the moment, the normalizer accepts the following processing instructions:</para><itemizedlist><listitem><para>&lt;?<code>derivative.start-anew</code> <emphasis role="ital">depth</emphasis>? <emphasis role="ital">start-tag</emphasis>?&gt;</para></listitem><listitem><para>&lt;?<code>derivative.start-nested</code> <emphasis role="ital">depth</emphasis>? <emphasis role="ital">start-tag</emphasis>?&gt;</para></listitem><listitem><para>&lt;?<code>derivative.proceed-with</code> <emphasis role="ital">depth</emphasis>? <emphasis role="ital">start-tag</emphasis>?&gt;</para></listitem><listitem><para>&lt;?<code>derivative.ensure-inside</code> <emphasis role="ital">element-name</emphasis>?&gt;</para></listitem><listitem><para>&lt;?<code>derivative.ensure-outside</code> <emphasis role="ital">element-name</emphasis>?&gt;</para></listitem></itemizedlist><para>where <emphasis role="ital">depth</emphasis> has the form <emphasis role="ital">region-identifier</emphasis><code>:</code><emphasis role="ital">integer</emphasis>.</para><para>Processing instructions are used instead of element tags because the input document has to be well-formed XML,
+  so it cannot contain unmatched element start tags. Using empty element tags in a special namespace could cause
+  difficulties because the target schema may or may not allow them in that position. Finally, since these instructions
+  target one specific tool, the normalizer, this is an appropriate use of processing instructions if there ever was
+  one.</para><para>The normalizer evaluates these processing instructions as follows:</para><variablelist><varlistentry><term>start-anew</term><listitem><para>
+  Any existing element region that was open with the same <emphasis role="ital">region-identifier</emphasis> and larger
+  or equal <emphasis role="ital">integer</emphasis> depth will be closed. If <emphasis role="ital">depth</emphasis> is
+  not specified, any existing element region with the same element name will be closed. A new element region will be
+  started as if the specified <emphasis role="ital">start-tag</emphasis> appeared instead of the instruction.
+
+  </para></listitem></varlistentry><varlistentry><term>start-nested</term><listitem><para>
+  Any existing element region that was open with the same <emphasis role="ital">region-identifier</emphasis> and larger
+  <emphasis role="ital">integer</emphasis> depth will be closed. A new element region will be started as if the specified
+  <emphasis role="ital">start-tag</emphasis> appeared instead of the instruction.
+
+  </para></listitem></varlistentry><varlistentry><term>proceed-with</term><listitem><para>
+  Any existing element region that was open with the same <emphasis role="ital">region-identifier</emphasis> and larger
+  <emphasis role="ital">integer</emphasis> depth will be closed. If there is an existing element region with the same
+  <emphasis role="ital">region-identifier</emphasis> and equal integer depth, this region is kept and nothing else
+  happens. Otherwise a new element region will be started as if the specified <emphasis role="ital">start-tag</emphasis>
+  appeared instead of the instruction.
+
+  </para></listitem></varlistentry><varlistentry><term>ensure-inside</term><listitem><para>
+  The current pattern is trimmed to leave only those possibilities which assume the specified <emphasis role="ital">element-name</emphasis> is currently open.
+
+  </para></listitem></varlistentry><varlistentry><term>ensure-outside</term><listitem><para>
+  The existing schema of the remainder of the document is trimmed to leave only those possibilities which assume the
+  specified <emphasis role="ital">element-name</emphasis> is not currently open.
+
+  </para></listitem></varlistentry></variablelist></section><section xml:id="Results"><title> Results
+
+  </title><para>The schema-driven normalizer described above has been implemented in the OmniMark programming language, to serve
+  as a component in various document conversion solutions. We shall now briefly describe this environment in order to
+  illustrate the practical benefits of the approach.</para><para>The wider purpose is to convert documents from a legacy presentation-oriented format into a semantically richer
+  XML format. Some examples of the source document format are FrameMaker, HTML, InDesign, or Quark Xpress. The target
+  format of the conversion can be DITA, DocBook, or a user-specified XML format.</para><para>One obvious simplification when faced with converting M source formats to N target formats is to introduce an
+  intermediate format, and thus replace M∗N direct converters by M input converters to the intermediate format
+  plus N output converters from the intermediate to the target format. Another benefit of having the intermediate
+  document is that it can be enriched with user annotations to guide the output converter.</para><para>Experience we gained in building specific output converters showed that hand-written implementations were
+  difficult to verify and maintain, so we needed a more robust and more flexible solution. Some customers required
+  outputs that conform to a specialization of DITA, others wanted DocBook with various extensions.</para><para>The core of the output converters is the topic of this paper: the schema-driven normalizer. Its draft
+  implementation, given in the appendix, was coded in Haskell and tested using the QuickCheck library <citation linkend="c10"/>. After this proof of concept, the production implementation was developed in OmniMark. Once the
+  normalizer was ready, the old hand-coded output converters for DITA and DocBook were replaced with new converters in a
+  matter of days.</para><para>Compared to the hand-written output converters they replaced, the converters based on the schema-driven
+  normalizer provide several benefits:</para><itemizedlist><listitem><para>Assuming the normalizer itself is correct, the output of the converter is guaranteed to be conformant to the
+  target schema. The correctness of hand-written converters' output is more difficult to verify.</para></listitem><listitem><para>A new target format can be supported very quickly as long as we have a schema for it, while before it would
+  require rewriting the entire converter. If the new target language is a strict subset of an existing one, no coding is
+  required whatsoever. For a small extension of an already supported schema, only a few lines of code must be
+  added.</para></listitem><listitem><para>Many users have various stylistic requirements that can be supported simply by restricting the target
+  schema, with no code modifications required.</para></listitem><listitem><para>The new converters are capable of automatically reordering parts of the input to make it conform to the
+  target schema, with no user intervention required beyond the usual annotations. One example that we have often
+  encountered in practice is that of DITA task topics: the DITA 1.1 schema requires the <code>prereq</code>,
+  <code>context</code>, <code>steps</code>, <code>result</code>, <code>example</code>, and <code>postreq</code> elements
+  to be listed in this specific order. Most existing technical documentation is not written this way.
+
+  <footnote><para>Note that this reordering transformation applies only where the target content model specifies that its
+  parts can appear in any order. In case of DITA task topics, this means that we have to modify the target schema so it
+  accepts the elements listed above in any order. The normalizer will output them in the canonical order.</para></footnote>
+  </para></listitem></itemizedlist><para>One downside of the new converters is their performance, especially their worst-case memory consumption. The
+  worst case in question is generally an input document which is annotated in a way that makes it non-conformant with
+  the target schema. The hand-coded converters would in this situation either report errors (which is the desired
+  behaviour) or generate invalid output (which is not). The schema-driven converters try to recover by inserting the
+  missing element tags and by rearranging the input. The recovery eventually fails and the normalizer produces an error
+  report, but its attempt costs a lot of time and memory. We are still looking for a way to fix this issue.</para></section><section><title> Related Work
+
+  </title><para>Automatic grammar-driven sentence normalization has been done in linguistics, for the automatic correction of
+  grammatically incorrect English sentences <citation linkend="v88"/>.</para><para>For markup languages, particularly XML, there has been some related work in the area of <emphasis role="ital">automatic markup</emphasis> <citation linkend="f93"/> <citation linkend="k97"/> <citation linkend="t98"/>. The main difference with our work is that the input of an automatic markup system is typically plain
+  text, usually produced by OCR. As a consequence, even those automatic markup systems whose output schema is not fixed
+  require additional configuration in form of pattern-matching rules. The normaliser approach presented in this paper
+  can be coupled with a pattern-matching engine as well, but it does not depend on one.</para><para> The automatic markup system that seems nearest to ours is the <emphasis role="ital">Vasari project</emphasis>
+  <citation linkend="a03"/>, which is also schema-driven to some extent. The target schema must be enriched using a
+  special pattern-matching language which determines where the required element tags can be inserted. It is not clear if
+  the location of every tag required by the target schema must be specified this way.</para><para>There is a large body of work on the automatic translation between structured documents that conform to similar
+  schemas <citation linkend="a72"/> <citation linkend="m96"/> <citation linkend="t03"/>. The approaches based on the
+  concept of <emphasis role="ital">syntax-directed translation schema</emphasis> <citation linkend="l68"/> and its
+  extensions, such as <emphasis role="ital">extended syntax-directed translation schema</emphasis> <citation linkend="k95"/> and <emphasis role="ital">tree transformation grammars</emphasis> <citation linkend="l97"/>, seem to
+  be most related to our work. The syntax-directed translation is simpler and more direct than our approach to
+  translation, but it requires both the source and target format to be well structured. Our problem, quite common in
+  practice, is that the source format is only weakly structured. The transformation process presented in this paper
+  proceeds in two stages: the weakly structured source document is first translated into another weakly structured
+  document which uses the tags allowed by the target schema. This intermediate document is then normalized to a valid
+  schema instance.</para></section><appendix xml:id="appendix"><title>Sample implementation
+
+  </title><para>This appendix contains a sample normalizer implementation in Haskell. The implementation depends on the sample
+  code for the RELAX NG validator <citation linkend="c02"/>, which it expects to find in module file
+  <code>Validator.hs</code>.</para><programlisting xml:space="preserve">
+
+module Normalizer where
+
+import Control.Monad (liftM2)
+import Control.Exception (assert)
+import Data.List (minimumBy)
+
+-- The RELAX NG validator automaton code from http://www.thaiopensource.com/relaxng/derivative.html
+import Validator (contains, datatypeAllows, datatypeEqual, strip, whitespace,
+                  Uri, LocalName, ParamList, Prefix, Context, Datatype,
+                  NameClass(..), QName(..), ChildNode(..), AttributeNode(..))
+
+data Pattern = Empty
+               | NotAllowed
+               | Text
+               | Choice Pattern Pattern
+               | Interleave Int Pattern Pattern
+               | Group Pattern Pattern
+               | OneOrMore Pattern
+               | List Pattern
+               | Data Datatype ParamList
+               | DataExcept Datatype ParamList Pattern
+               | Value Datatype String Context
+               | Attribute NameClass Pattern
+               | Element NameClass Pattern
+               | Region Bool QName Pattern
+               | Result [ResultDelta] Pattern
+                 deriving (Eq, Show)
+
+data ResultDelta = StartTag ChildNode | Add ChildNode | EndTag | Inferred ResultDelta
+                   deriving (Eq, Show)
+
+nullable:: Pattern -&gt; Bool
+nullable (Group p1 p2) = nullable p1 &amp;&amp; nullable p2
+nullable (Interleave balance p1 p2) = balance == 0 &amp;&amp; nullable p1 &amp;&amp; nullable p2
+nullable (Choice p1 p2) = nullable p1 || nullable p2
+nullable (OneOrMore p) = nullable p
+nullable (Element _ _) = False
+nullable (Attribute _ _) = False
+nullable (List _) = False
+nullable (Value _ _ _) = False
+nullable (Data _ _) = False
+nullable (DataExcept _ _ _) = False
+nullable NotAllowed = False
+nullable Empty = True
+nullable Text = True
+nullable (Region False _ _) = False
+nullable (Region True _ p) = nullable p
+nullable (Result _ p) = nullable p
+
+inferred :: ResultDelta -&gt; Bool
+inferred (Inferred _) = True
+inferred _ = False
+
+nullableResults:: Pattern -&gt; [[ResultDelta]]
+nullableResults (Group p1 p2) = case nullableResults p2 of [] -&gt; []
+                                                           l -&gt; assert (all null l) (nullableResults p1)
+nullableResults (Interleave 0 p1 p2) = liftM2 (++) (nullableResults p1) (nullableResults p2)
+nullableResults Interleave{} = []
+nullableResults (Choice p1 p2) = nullableResults p1 ++ nullableResults p2
+nullableResults (OneOrMore p) = nullableResults p
+nullableResults (Element _ _) = []
+nullableResults (Attribute _ _) = []
+nullableResults (List _) = []
+nullableResults (Value _ _ _) = []
+nullableResults (Data _ _) = []
+nullableResults (DataExcept _ _ _) = []
+nullableResults NotAllowed = []
+nullableResults (Region False _ _) = []
+nullableResults (Region True q p) = map (++ [Inferred EndTag]) (nullableResults p)
+nullableResults Empty = [[]]
+nullableResults Text = [[]]
+nullableResults (Result r p) = map (r ++) (nullableResults p)
+
+bestNullableResult :: Pattern -&gt; [ResultDelta]
+bestNullableResult p = if nullableResults p == []
+                       then error ("bestNullableResult: " ++ show p)
+                       else minimumBy innermostLength (nullableResults p)
+  where innermostLength r1 r2 = compare (length r1) (length r2)
+
+childDeriv :: Context -&gt; Pattern -&gt; ChildNode -&gt; Pattern
+childDeriv cx p (TextNode s) = textDeriv cx False p s
+childDeriv _ p (ElementNode qn cx atts children) =
+  let p1 = startTagOpenDeriv p (ElementNode qn cx atts [])
+      p2 = attsDeriv cx p1 atts
+      p3 = startTagCloseDeriv p2
+      p4 = childrenDeriv cx p3 children
+  in endTagDeriv p4
+
+textDeriv :: Context -&gt; Bool -&gt; Pattern -&gt; String -&gt; Pattern
+textDeriv cx inf (Choice p1 p2) s = choice (textDeriv cx inf p1 s) (textDeriv cx inf p2 s)
+textDeriv cx False (Interleave 0 p1 p2) s =
+    choice (interleave 0 (textDeriv cx False p1 s) p2)
+           (interleave 0 p1 (textDeriv cx False p2 s))
+textDeriv cx False (Interleave balance p1 p2) s = if balance &lt; 0
+                                                  then interleave balance (textDeriv cx False p1 s) p2
+                                                  else interleave balance p1 (textDeriv cx False p2 s)
+textDeriv cx True (Interleave 0 p1 p2) s = choice
+                                              (interleave 0 (textDeriv cx True p1 s) p2)
+                                              (interleave 0 p1 (textDeriv cx True p2 s))
+textDeriv cx True (Interleave balance p1 p2) s = if balance &lt; 0
+                                                 then interleave balance (textDeriv cx True p1 s) p2
+                                                 else interleave balance p1 (textDeriv cx True p2 s)
+textDeriv cx inf (Group p1 p2) s = let p = group (textDeriv cx inf p1 s) p2
+                                   in if nullable p1
+                                      then choice p (result (bestNullableResult p1) (textDeriv cx inf p2 s))
+                                      else p
+textDeriv cx inf (OneOrMore p) s = group (textDeriv cx inf p s) (choice (OneOrMore p) Empty)
+textDeriv cx inf Text s = result [(if inf then Inferred else id) (Add (TextNode s))] Text
+textDeriv cx1 inf (Value dt value cx2) s = if datatypeEqual dt value cx2 s cx1
+                                           then result [(if inf then Inferred else id) (Add (TextNode s))] Empty
+                                           else NotAllowed
+textDeriv cx inf (Data dt params) s = if datatypeAllows dt params s cx
+                                      then result [(if inf then Inferred else id) (Add (TextNode s))] Empty
+                                      else NotAllowed
+textDeriv cx inf (DataExcept dt params p) s =
+    if datatypeAllows dt params s cx &amp;&amp; not (nullable (textDeriv cx inf p s))
+    then result [(if inf then Inferred else id) (Add (TextNode s))] Empty
+    else NotAllowed
+textDeriv cx inf (List p) s = if nullable (listDeriv cx p (words s))
+                              then result [(if inf then Inferred else id) (Add (TextNode s))] Empty
+                              else NotAllowed
+textDeriv cx inf (Element (Name uri local) p) s =
+    let qn = QName uri local
+    in region True qn (textDeriv cx inf (startRecovery qn cx p) s)
+textDeriv cx inf (Element (NameClassChoice n1 n2) p) s =
+    choice (textDeriv cx inf (Element n1 p) s) (textDeriv cx inf (Element n2 p) s)
+textDeriv cx inf (Element _ _) s = NotAllowed
+textDeriv cx inf (Region inferred qn p) s = region inferred qn (textDeriv cx inf p s)
+textDeriv cx inf (Result r p) s = result r (textDeriv cx inf p s)
+textDeriv _ _ _ _ = NotAllowed
+
+listDeriv :: Context -&gt; Pattern -&gt; [String] -&gt; Pattern
+listDeriv _ p [] = p
+listDeriv cx p (h:t) = listDeriv cx (textDeriv cx False p h) t
+
+startRecovery :: QName -&gt; Context -&gt; Pattern -&gt; Pattern
+startRecovery qn cx p = result [Inferred (StartTag (ElementNode qn cx [] []))] (startTagCloseDeriv p)
+
+region :: Bool -&gt; QName -&gt; Pattern -&gt; Pattern
+region inferred qname NotAllowed = NotAllowed
+region inferred qname p = Region inferred qname p
+
+result :: [ResultDelta] -&gt; Pattern -&gt; Pattern
+result _ NotAllowed = NotAllowed
+result r (Choice p1 p2) = Choice (result r p1) (result r p2)
+result r1 (Result r2 p) = Result (r1 ++ r2) p
+result [] p = p
+result r p = Result r p
+
+addResult :: Pattern -&gt; [ResultDelta] -&gt; Pattern
+addResult NotAllowed _ = NotAllowed
+addResult (Choice p1 p2) r = Choice (addResult p1 r) (addResult p2 r)
+addResult (Group p1 p2) r = group (addResult p1 r) p2
+addResult p@(Interleave balance p1 p2) r = interleave balance (addResult p1 r) p2
+addResult (Result r1 p) r2 = result r1 (addResult p r2)
+addResult (Region inferred qn p) r = Region inferred qn (addResult p r)
+addResult p r = Result r p
+
+choice :: Pattern -&gt; Pattern -&gt; Pattern
+choice p NotAllowed = p
+choice NotAllowed p = p
+choice Empty Text = Text
+choice Text Empty = Text
+choice p1 p2 | p1 == p2 = p1
+choice p1 p2 = Choice p1 p2
+
+group :: Pattern -&gt; Pattern -&gt; Pattern
+group p NotAllowed = NotAllowed
+group NotAllowed p = NotAllowed
+group p Empty = p
+group Empty p = p
+group Text Text = Text
+group _ (Result _ _) = error "Can't have Result on the RHS of Group."
+group (Result r p1) p2 = result r (group p1 p2)
+group p1 p2 = Group p1 p2
+
+interleave :: Int -&gt; Pattern -&gt; Pattern -&gt; Pattern
+interleave _ p NotAllowed = NotAllowed
+interleave _ NotAllowed p = NotAllowed
+interleave _ p Empty = p
+interleave _ Empty p = p
+interleave _ Text Text = Text
+interleave balance p1 p2 = Interleave balance p1 p2
+
+startTagOpenDeriv :: Pattern -&gt; ChildNode -&gt; Pattern
+startTagOpenDeriv (Choice p1 p2) node = choice (startTagOpenDeriv p1 node) (startTagOpenDeriv p2 node)
+startTagOpenDeriv (Element (NameClassChoice n1 n2) p) node =
+    choice (startTagOpenDeriv (Element n1 p) node) (startTagOpenDeriv (Element n2 p) node)
+startTagOpenDeriv (Element nc@(Name uri local) p) node@(ElementNode qn cx _ _) =
+    if contains nc qn
+    then Region False qn (result [StartTag node] p)
+    else let qn = QName uri local
+         in region True qn (startTagOpenDeriv (startRecovery qn cx p) node)
+startTagOpenDeriv (Element nc p) node@(ElementNode qn cx _ _) =
+   if contains nc qn then Region False qn (result [StartTag node] p) else NotAllowed
+startTagOpenDeriv (Interleave 0 p1 p2) node =
+   choice
+      (interleave (-1) (startTagOpenDeriv p1 node) p2)
+      (interleave 1 p1 (startTagOpenDeriv p2 node))
+startTagOpenDeriv (Interleave balance p1 p2) node =
+   if balance &lt; 0
+   then interleave (balance-1) (startTagOpenDeriv p1 node) p2
+   else interleave (balance+1) p1 (startTagOpenDeriv p2 node)
+startTagOpenDeriv (OneOrMore p) node = group (startTagOpenDeriv p node) (choice (OneOrMore p) Empty)
+startTagOpenDeriv (Group p1 p2) node =
+   let x = group (startTagOpenDeriv p1 node) p2
+   in if nullable p1
+      then choice x (result (bestNullableResult p1) (startTagOpenDeriv p2 node))
+      else x
+startTagOpenDeriv (Region inferred qn p) node = region inferred qn (startTagOpenDeriv p node)
+startTagOpenDeriv (Result r p) node = result r (startTagOpenDeriv p node)
+startTagOpenDeriv _ _ = NotAllowed
+
+attsDeriv :: Context -&gt; Pattern -&gt; [AttributeNode] -&gt; Pattern
+attsDeriv cx p [] = p
+attsDeriv cx p ((AttributeNode qn s):t) = attsDeriv cx (attDeriv cx p (AttributeNode qn s)) t
+
+attDeriv :: Context -&gt; Pattern -&gt; AttributeNode -&gt; Pattern
+attDeriv cx (Choice p1 p2) att = choice (attDeriv cx p1 att) (attDeriv cx p2 att)
+attDeriv cx (Group p1 p2) att = choice (group (attDeriv cx p1 att) p2) (group p1 (attDeriv cx p2 att))
+attDeriv cx (Interleave balance p1 p2) att =
+   choice (interleave balance (attDeriv cx p1 att) p2) (interleave balance p1 (attDeriv cx p2 att))
+attDeriv cx (OneOrMore p) att = group (attDeriv cx p att) (choice (OneOrMore p) Empty)
+attDeriv cx (Attribute nc p) (AttributeNode qn s) = if contains nc qn &amp;&amp; valueMatch cx p s 
+                                                    then Empty else NotAllowed
+attDeriv cx (Region inferred qn p) att = Region inferred qn (attDeriv cx p att)
+attDeriv cx (Result r p) att = result r (attDeriv cx p att)
+attDeriv _ _ _ = NotAllowed
+
+valueMatch :: Context -&gt; Pattern -&gt; String -&gt; Bool
+valueMatch cx p s = (nullable p &amp;&amp; whitespace s) || nullable (textDeriv cx False p s)
+
+startTagCloseDeriv :: Pattern -&gt; Pattern
+startTagCloseDeriv (Choice p1 p2) = choice (startTagCloseDeriv p1) (startTagCloseDeriv p2)
+startTagCloseDeriv (Group p1 p2) = group (startTagCloseDeriv p1) (startTagCloseDeriv p2)
+startTagCloseDeriv (Interleave balance p1 p2) = interleave balance (startTagCloseDeriv p1) (startTagCloseDeriv p2)
+startTagCloseDeriv (OneOrMore p) = oneOrMore (startTagCloseDeriv p)
+startTagCloseDeriv (Attribute _ _) = NotAllowed
+startTagCloseDeriv (Region inferred qn p) = Region inferred qn (startTagCloseDeriv p)
+startTagCloseDeriv (Result r p) = result r (startTagCloseDeriv p)
+startTagCloseDeriv p = p
+
+oneOrMore :: Pattern -&gt; Pattern
+oneOrMore NotAllowed = NotAllowed
+oneOrMore Empty = Empty
+oneOrMore Text = Text
+oneOrMore p@OneOrMore{} = p
+oneOrMore (Choice p Empty) = Choice (oneOrMore p) Empty
+oneOrMore (Choice Empty p) = Choice Empty (oneOrMore p)
+oneOrMore (Result r p) = result r (oneOrMore p)
+oneOrMore p = OneOrMore p
+
+childrenDeriv :: Context -&gt; Pattern -&gt; [ChildNode] -&gt; Pattern
+childrenDeriv _ NotAllowed _ = NotAllowed
+childrenDeriv cx p [] = let p1 = textDeriv cx True p ""
+                        in choice (addResult p [Inferred (Add (TextNode ""))]) p1
+childrenDeriv cx p [(TextNode s)] = let p1 = childDeriv cx p (TextNode s)
+                                    in if whitespace s 
+                                       then choice (addResult p [Add (TextNode s)]) p1 
+                                       else p1
+childrenDeriv cx p children = stripChildrenDeriv cx p children
+
+stripChildrenDeriv :: Context -&gt; Pattern -&gt; [ChildNode] -&gt; Pattern
+stripChildrenDeriv _ p [] = p
+stripChildrenDeriv cx p (h:t) = stripChildrenDeriv cx (if strip h 
+                                                       then (addResult p [Add h]) 
+                                                       else childDeriv cx p h) t
+
+endTagDeriv :: Pattern -&gt; Pattern
+endTagDeriv (Choice p1 p2) = choice (endTagDeriv p1) (endTagDeriv p2)
+endTagDeriv (Region False qn p) = if nullable p
+                                  then result (bestNullableResult p ++ [EndTag]) Empty
+                                  else region False qn (endTagDeriv p)
+endTagDeriv (Region True qn p) = region True qn (endTagDeriv p)
+endTagDeriv (Result r p) = result r (endTagDeriv p)
+endTagDeriv (Group p1 p2) = group (endTagDeriv p1) p2
+endTagDeriv (Interleave balance p1 p2) | balance &lt; 0 = interleave (balance+1) (endTagDeriv p1) p2
+                                       | balance == 0 = NotAllowed
+                                       | balance &gt; 0 = interleave (balance-1) p1 (endTagDeriv p2)
+endTagDeriv _ = NotAllowed
+
+  </programlisting></appendix><bibliography><title>Bibliography</title><bibliomixed xml:id="a72">
+    AV Aho, JD Ullman, 1972.
+    The Theory of Parsing, Translation, and Compiling.
+    <emphasis role="ital">Prentice Hall</emphasis>
+  </bibliomixed><bibliomixed xml:id="a03">
+    Mohammad Abolhassani, Norbert Fuhr and Norbert Gövert,
+    Information extraction and automatic markup for XML documents,
+    In Blanken et al, 2003, 159--174,
+    Springer. doi: <biblioid class="doi">10.1007/978-3-540-45194-5_11</biblioid>
+  </bibliomixed><bibliomixed xml:id="b59">
+    Backus, J.W.,
+    The Syntax and Semantics of the Proposed International Algebraic Language of Zürich ACM-GAMM Conference,
+    <emphasis role="ital">Proceedings of the International Conference on Information Processing, UNESCO</emphasis>,
+    1959, pp.125-132.
+  </bibliomixed><bibliomixed xml:id="b64">
+    Brzozowski, J. A. 1964. Derivatives of Regular Expressions. <emphasis role="ital">J. ACM 11</emphasis>,
+    4 (Oct. 1964), 481-494.
+    doi: <biblioid class="doi">10.1145/321239.321249</biblioid>
+  </bibliomixed><bibliomixed xml:id="c56">
+    Chomsky, Noam (1956). "Three models for the description of language".
+    <emphasis role="ital">IRE Transactions on Information Theory 2</emphasis>: 113–124.
+      doi: <biblioid class="doi">10.1109/TIT.1956.1056813</biblioid>
+  </bibliomixed><bibliomixed xml:id="c01">
+    James Clark and Makoto Murata. RELAX NG Specification.
+    <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://relaxng.org/spec-20011203.html</link>, 2001. ISO/IEC 19757-2:2003.
+  </bibliomixed><bibliomixed xml:id="c02">
+    James Clark. An algorithm for RELAX NG validation
+    <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.thaiopensource.com/relaxng/derivative.html</link>
+  </bibliomixed><bibliomixed xml:id="c10">
+    QuickCheck: Automatic testing of Haskell programs
+    <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://hackage.haskell.org/package/QuickCheck-2.1.0.3</link>
+  </bibliomixed><bibliomixed xml:id="f93">
+    Peter Fankhauser and Yi Xu,
+    MarkItUp! - An incremental approach to document structure recognition,
+    <emphasis role="ital">Electronic Publishing</emphasis>, 1993, pages 447-456
+  </bibliomixed><bibliomixed xml:id="k95">
+    Eila Kuikka and Martti Penttonen,
+    Transformation of Structured Documents,
+    <emphasis role="ital">Electronic Publishing Origination, Dissemination and Design</emphasis>, 8(4), 1995.
+  </bibliomixed><bibliomixed xml:id="k97">
+    Bertin Klein and Peter Fankhauser,
+    Error tolerant Document Structure Analysis,
+    <emphasis role="ital">International Journal on Digital Libraries</emphasis>,
+    1997, volume 1, pages 344-357.
+      doi: <biblioid class="doi">10.1007/s007990050028</biblioid> 
+  </bibliomixed><bibliomixed xml:id="l68">
+    Lewis, P. M. and Stearns, R. E. 1968. Syntax-Directed Transduction.
+    <emphasis role="ital">J. ACM 15</emphasis>, 3 (Jul. 1968), 465-488.
+      doi: <biblioid class="doi">10.1145/321466.321477</biblioid>
+  </bibliomixed><bibliomixed xml:id="l97">
+    Greger Lindén,
+    Structured Document Transformations,
+    1997
+  </bibliomixed><bibliomixed xml:id="m56">
+    Moore, E. F., [1956]. Gedanken experiments on sequential machines,
+    <emphasis role="ital">Automata Studies, Princeton Univ. Press</emphasis>,
+    Princeton, New Jersey, pp. 129-153.
+  </bibliomixed><bibliomixed xml:id="m96">
+    Makoto Murata,
+    Transformation of Documents and Schemas by Patterns and Contextual Conditions,
+    <emphasis role="ital">Proceedings of the Third International Workshop on Principles of Document Processing (PODP 96)</emphasis>,
+    1997, pages 153-169, Springer-Verlag. doi: <biblioid class="doi">10.1007/3-540-63620-X_61</biblioid>
+  </bibliomixed><bibliomixed xml:id="s05">
+    Sperberg-McQueen, C. M. Applications of Brzozowski derivatives to XML schema processing.
+    In <emphasis role="ital">Extreme Markup Languages</emphasis> 2005, page 26, Internet, 2005. IDEAlliance.
+  </bibliomixed><bibliomixed xml:id="t98">
+    Kazem Taghva, Allen Condit, and Julie Borsack,
+    Autotag: A tool for creating structured document collections from printed materials,
+    <emphasis role="ital">Electronic Publishing, Artistic Imaging, and Digital Typography, Proc. of the EP ’98 and RIDT
+    ’98 Conferences</emphasis>, 1998, pages 420-431,
+    Springer-Verlag
+  </bibliomixed><bibliomixed xml:id="t03">
+    Tang, X. 2003 A High-Level Specification Language for Structured Document Transformation. Doctoral Thesis.
+    UMI Order Number: AAINQ84932., University of Waterloo.
+  </bibliomixed><bibliomixed xml:id="v88">
+    Dénes Vargha,
+    Schema method: a framework for correcting grammatically ill-formed input
+    <emphasis role="ital">Proceedings of the 12th conference on Computational linguistics</emphasis> - Volume 1
+    Computer and Automation Institute, Hungarian Academy of Sciences
+    Pages 341 - 347
+    Association for Computational Linguistics Morristown, NJ, USA ©1988
+    ISBN: 9638431563. doi: <biblioid class="doi">10.3115/991635.991705</biblioid>
+  </bibliomixed><bibliomixed xml:id="h02">
+    Haskell 98 Language and Libraries, the Revised Report. December 2002.
+    <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://haskell.org/onlinereport/</link>
+  </bibliomixed><bibliomixed xml:id="s86">
+    Standard Generalized Markup Language (SGML)
+    <emphasis role="ital">International Organization for Standardization</emphasis> ISO 8879:1986
+  </bibliomixed><bibliomixed xml:id="s09a">
+    OmniMark language documentation
+    <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://developers.omnimark.com/docs-extract/html/index.htm</link>
+  </bibliomixed><bibliomixed xml:id="s09b">
+    OmniMark RELAX NG (OMRELAXNG) library documentation
+    <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://developers.omnimark.com/docs-extract/html/library/125.htm</link>
+  </bibliomixed><bibliomixed xml:id="w04">
+    XML Schema Part 1: Structures Second Edition, Analysis of the Unique Particle Attribution Constraint
+    W3C Recommendation 28 October 2004
+    <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/xmlschema-1/#non-ambig</link>
+  </bibliomixed></bibliography></article>

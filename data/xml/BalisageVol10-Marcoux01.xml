@@ -1,0 +1,1036 @@
+<?xml version="1.0" encoding="UTF-8"?><article xmlns:xlink="http://www.w3.org/1999/xlink" xmlns="http://docbook.org/ns/docbook" version="5.0-subset Balisage-1.3"><title>Modeling overlapping structures</title><subtitle>Graphs and serializability</subtitle><info><confgroup><conftitle>Balisage: The Markup Conference 2013</conftitle><confdates>August 6 - 9, 2013</confdates></confgroup><abstract><!--      &warning;--><para>The problem of overlapping structures has long been familiar to the
+      structured document community. In a poem, for example, the verse and line
+      structures overlap, and having them both available simultaneously is
+      convenient, and sometimes necessary (for example for automatic analyses).
+      However, only structures that embed nicely can be represented directly in
+      XML. Proposals to address this problem include XML solutions (based
+      essentially on a layer of semantics) and non-XML ones. Among the latter is
+      TexMecs <xref linkend="HS2003"/>, a markup language that allows overlap
+      (and many other features).</para><para>XML documents, when viewed as graphs, correspond to trees. Marcoux <xref linkend="M2008"/> characterized overlap-only TexMecs documents by
+      showing that they correspond exactly to <emphasis role="ital">completion-acyclic node-ordered directed acyclic graphs</emphasis>.
+      In this paper, we elaborate on that result in two ways.</para><para>First, we cast it in the setting of a strictly larger class of graphs,
+      <emphasis role="ital">child-arc-ordered directed graphs</emphasis>, that
+      includes multi-graphs and non-acyclic graphs, and show that —
+      somewhat surprisingly — it does not hold in general for graphs with
+      multiple roots. Second, we formulate a stronger condition, <emphasis role="ital">full-completion-acyclicity</emphasis>, that guarantees
+      correspondence with an overlap-only document, even for graphs that have
+      multiple roots.</para><para>The definition of fully-completion-acyclic graph does not in itself
+      suggest an efficient algorithm for checking the condition, nor for
+      computing a corresponding overlap-only document when the condition is
+      satisfied. We present basic polynomial-time upper bounds on the complexity
+      of accomplishing those tasks.</para><!--
+          <para>We study various types of directed graphs with respect to
+          serializability in overlap-only markup languages. In particular, we generalize
+          the charactarization of serializable graphs given in Marcoux 
+          <citation linkend="M2008">M2008</citation> to graphs which are not 
+          acyclic and in which the roots are not 
+          ordered.</para>--></abstract><author><personname><firstname>Yves</firstname><surname>Marcoux</surname></personname><personblurb><para/></personblurb><affiliation><jobtitle>Associate professor</jobtitle><orgname>Université de Montréal, Canada</orgname></affiliation><email>yves.marcoux@umontreal.ca</email></author><author><personname><firstname>Michael</firstname><surname>Sperberg-McQueen</surname></personname><personblurb><para/></personblurb><affiliation><jobtitle>Senior consultant</jobtitle><orgname>Black Mesa
+      Technologies</orgname></affiliation><email>cmsmcq@blackmesatech.com</email></author><author><personname><firstname>Claus</firstname><surname>Huitfeldt</surname></personname><personblurb><para/></personblurb><affiliation><jobtitle>Associate professor</jobtitle><orgname>University of Bergen, Norway</orgname></affiliation><email>claus.huitfeldt@uib.no</email></author><legalnotice><para>Copyright © 2013 by the authors.  Used with permission.</para></legalnotice></info><!--<section> 
+      <title>Introduction</title> 
+      <para>Keep this section?</para> 
+      </section> 
+  --><!--  &warning;--><section><title>1. Motivation and related work</title><section><title>1.1. Graphs and documents</title><para>Many operations are more conveniently performed on a graph
+	representation than on a linear representation of a marked up
+	document, and vice versa. One of the strengths of XML is that
+	XML documents in serial form are readily deserialized into
+	ordered trees, which form a convenient data structure for many
+	useful operations.<footnote><!--* attach this footnote to the end of the first
+	  paragraph. *--><para>The authors thank Deborah A. Lapeyre and several 
+	    anonymous Balisage peer reviewers for their extensive
+	    help in improving the presentation of this paper.
+	  </para></footnote>
+      </para><para>So-called “XML trees” are directed acyclic
+	graphs with single parenthood and a total ordering on leaf
+	nodes. While this constitutes an intuitively natural and
+	generally suitable model for the representation of the
+	structure of most documents, and for most purposes, it also
+	poses a challenge for the representation of complex structures
+	such as overlapping, fragmented or disordered document
+	elements, and multiple co-existing alternative structures,
+	which allow for a more natural representation of complex
+	documents in a wide range of situations.</para><para>For such purposes, a different kind of graph
+	representation has been proposed, the so-called Goddag <xref linkend="SH2004"/>. Roughly, Goddags (<emphasis role="ital">General Ordered-Descendant Directed Acyclic
+	  Graphs</emphasis>) are like XML trees except that they allow
+	multiple parenthood and do not require a total ordering on
+	leaf nodes. (Thus, XML trees constitute a subset of
+	Goddags.)</para><para>Documents using different techniques for representing such
+	structures in XML form (e.g., milestones, fragmentation,
+	virtual elements, etc.  <xref linkend="B1995"/> <xref linkend="SH1999"/> <xref linkend="W2005"/>) can be mapped onto
+	Goddags, though not without application-specific mechanisms
+	typically involving levels of indirection which may appear
+	cumbersome. The experimental markup system TexMecs <xref linkend="HS2003"/> offers mechanisms for the representation of
+	complex structures which can be mapped on to Goddags
+	independently of such knowledge.</para><para>Since its introduction, the Goddag data structure has
+	frequently been cited, and it is used as a reference in
+	various works on overlap. (For example, Moore <xref linkend="M2012"/>
+	studied Goddags in the context of access control, and
+	introduced the notion of <emphasis>globally ordered
+	  Goddag</emphasis>.) However, the original description of
+	Goddags is rather informal, and exhibits the kinds of gaps,
+	vaguenesses, and ambiguities that have, over time, given
+	informality a bad name among mathematicians and others
+	interested in firm results.</para><para>For example, it was <!--* assumed *--> conjectured that a
+	linearized document which made use, in addition to the
+	mechanisms of XML, only of markup for overlapping elements,
+	could be represented by a Goddag with a total order on leaf
+	nodes (so-called <emphasis role="ital">restricted</emphasis>
+	Goddags), but no proofs were given of this fact. The paper was
+	silent and its authors agnostic about the serializability of
+	graphs with multiple roots, and the relationship between Goddags
+	and markup in terms of serializability was not systematically
+	investigated. In <xref linkend="HS2003"/>, it was assumed, but
+	no attempt was made to prove, that all TexMecs documents could
+	be represented as Goddags, or that all Goddags could be
+	serialized as TexMecs documents. The present paper is a modest
+	contribution towards straightening up the situation, by way of a
+	systematic study of the fine point of the complex relationship
+	between markup formalisms like TexMecs and graph structures like
+	Goddags.</para></section><section><title>1.2. The problem of serialization</title><para>The general problem is this: whenever a markup system (be it
+	XML, TexMecs, or another system) provides more than one way to
+	represent a given abstract structure,<footnote><para>We focus here exclusively on graphs as the abstract
+	    structures conveyed by marked up documents.</para></footnote> 
+	that same abstract structure can be written out again
+	(serialized) in more than one way.  Can we control the
+	serialization process to provide the marked-up forms we find
+	easiest to work with at a given moment?  Can we tell, by
+	inspection of a given graph, what serialization formats are
+	possible for the graph?  In many cases, a marked up form using
+	overlapping elements, seems to at least some observers to be the
+	most <quote>natural</quote> representation of a given document;
+	when can a graph be serialized using overlap alone, and when
+	does it require use of the more powerful mechanisms of virtual
+	or discontinuous elements?
+      </para><para>A concrete example may help illustrate the point.</para><para>
+
+	In the following fragment (adapted from <xref linkend="D2004"/>), the <code>verse</code> elements are
+	empty milestones marking the beginning and end of verses, in
+	<quote>Trojan Horse</quote> style markup.  A Goddag structure
+	representing this fragment would have nodes for the verses,
+	but those nodes do not correspond one to one with XML elements
+	in this serialization:<footnote><para>A number of other equivalent encodings are of
+	    course possible.  The <code>q</code> elements can be fragmented
+	    in TEI style to signal that multiple XML elements together
+	    make up a single logical unit.  In a Goddag structure built
+	    from this example, one would expect to find one node in the
+	    graph for each logical <code>q</code> element, rather one for
+	    each <code>q</code> element in the XML.
+	    
+      <programlisting xml:space="preserve">&lt;div xmlns="http://www.tei-c.org/ns/1.0"&gt;
+  &lt;p&gt;
+    &lt;verse n="Jer.2.1"&gt;Moreover the word 
+      of the LORD came to me, saying,&lt;/verse&gt;
+    &lt;verse n="Jer.2.2"&gt;
+      &lt;q xml:id="Q-Jer.2.2-A" part="I"&gt;
+	Go and cry in the hearing of 
+	Jerusalem, saying, 
+        &lt;q xml:id="Q-Jer.2.2-B" part="I"&gt;
+	  Thus says the LORD:
+          &lt;q xml:id="Q-Jer.2.2-C" part="I"&gt;
+	    I remember you, 
+            The kindness of your youth, 
+	    The love of your betrothal, 
+	    When you went after Me in the wilderness, 
+	    In a land not sown. 
+	  &lt;/q&gt;
+        &lt;/q&gt;
+      &lt;/q&gt;
+    &lt;/verse&gt;
+    &lt;verse n="Jer.2.3"&gt;
+      &lt;q part="M" prev="#Q-Jer.2.2-A"&gt;
+        &lt;q part="F" prev="#Q-Jer.2.2-B"&gt;
+          &lt;q part="F" prev="#Q-Jer.2.2-C"&gt;
+	    Israel [was] holiness to the LORD, 
+	    The firstfruits of His increase.  
+	    All that devour him will offend;
+	    Disaster will come upon them,
+	  &lt;/q&gt;
+	  says the LORD.
+	&lt;/q&gt;
+      &lt;/q&gt;
+    &lt;/verse&gt;
+  &lt;/p&gt;
+&lt;/div&gt;
+</programlisting></para><para>Or the <code>verse</code> elements can be fragmented.
+	    Or TEI virtual elements can be used to represent parts of
+	    the document structure that do not fit neatly into a 
+	    hierarchy.</para></footnote>
+
+      <programlisting xml:space="preserve">&lt;div xmlns="http://www.tei-c.org/ns/1.0"&gt;
+  &lt;p&gt;
+    &lt;verse xml:id="Jer.2.1"/&gt;
+    Moreover the word of the LORD 
+    came to me, saying,
+    &lt;verse eID="#Jer.2.1"/&gt;
+    &lt;q n="Q-Jer.2.2-A"&gt;
+      &lt;verse xml:id="Jer.2.2"/&gt;
+      Go and cry in the
+      hearing of Jerusalem, saying,
+      &lt;q n="Q-Jer.2.2-B"&gt;
+	Thus says the LORD:
+	&lt;q n="Q-Jer.2.2-C"&gt;
+	  I remember you, 
+	  The kindness of your youth, 
+	  The love of your betrothal, 
+	  When you went after Me in the wilderness, 
+	  In a land not sown.
+	  &lt;verse eID="#Jer.2.2"/&gt;
+	  &lt;verse xml:id="Jer.2.3"/&gt;
+	  Israel [was] holiness to the LORD, 
+	  The firstfruits of His increase.  
+	  All that devour him will offend; 
+	  Disaster will come upon them,
+	&lt;/q&gt;
+	&lt;!--True Close Q-Jer.2.2-C--&gt;
+      says the LORD.&lt;/q&gt;
+      &lt;verse eID="#Jer.2.3"/&gt;
+      &lt;!--* ... *--&gt;
+    &lt;/q&gt;
+  &lt;/p&gt;
+&lt;/div&gt;</programlisting>      
+      </para><para>The same Goddag structure can also be serialized in an extended
+	form of TexMecs notation.<footnote><para>Readers who have not recently reviewed the definition
+	    of TexMecs may need to be reminded of some basics of 
+	    TexMecs notation.  The conventions used here are these;
+	    most are adopted from <xref linkend="HS2003"/> but
+	    bilocation tags are new; they are introduced in order to
+	    allow the serialization of a larger class of graphs.
+	    <itemizedlist><listitem><para>Start-, end-, and sole-tags for an element 
+		  of type <code>e</code> take the
+		  forms <code>&lt;e|</code>, <code>|e&gt;</code>
+		  <code>&lt;e&gt;</code>.</para></listitem><listitem><para>Elements may overlap.</para></listitem><listitem><para>A unique identifier may be assigned to an
+		  element by following its generic identifier immediately
+		  with <code>@</code> and an ID value.  These IDs are
+		  recognized and handled at the TexMecs level; they do 
+		  not require declaration or application-level
+		  semantics.
+		</para></listitem><listitem><para>The generic identifier may be omitted from
+		  start- and end-tags, in which case they mark a
+		  pseduo-element: an arbitrary portion of the
+		  document, typically marked this way in order to
+		  assign an identifier to that segment of the text.
+		  In the examples in this paper, we assume a
+		  convention that wrapping a text node in such an
+		  <quote>anonymous</quote> element does not create a
+		  new node but merely gives an identifier for the text
+		  node.  (This is not stated normatively in the
+		  definition of TexMecs.)
+		</para></listitem><listitem><para>
+		  The notation <code>&lt;^e^xyz&gt;</code> marks a
+		  <quote>virtual element</quote>, whose type is
+		  <code>e</code> and whose children are those of the element
+		  whose ID is <code>xyz</code>.  Virtual elements thus
+		  serve as additional parents to nodes already
+		  present with other parents.
+		</para><para>
+		  The analogous notation <code>&lt;^^xyz&gt;</code> is
+		  used to refer to the pseudo-element whose ID is
+		  <code>xyz</code>.  
+		</para></listitem><listitem><para>
+		  The notation <code>&lt;=xyz=&gt;</code> is a 
+		  <quote>bilocation tag</quote>, used to signal
+		  that the element whose ID is <code>xyz</code>
+		  appears as a child of the immediately open
+		  elements, at the location indicated.  </para><para>
+		  Bilocation tags are not defined in <xref linkend="HS2003"/>; they are defined here in order
+		  to have a convenient notation for the graphs in this
+		  paper.  When a bilocation tag appears in a TexMecs
+		  document, all the same parent-child arcs are created
+		  in the document graph as would be created were there
+		  a sole-tag at that location. But the target of the
+		  parent-child arcs is not a new element represented
+		  by a sole tag, but the element whose ID appears in
+		  the bilocation tag.
+		</para></listitem></itemizedlist>
+	  </para><para>The example given here could be represented without
+	    bilocation tags, by adopting the convention that neither
+	    pseudo-elements nor virtual-element references to
+	    pseudo-elements create new nodes during parsing.  Verse 3
+	    would look like this using this convention.
+	<programlisting xml:space="preserve">      &lt;verse@Jer.2.3|
+        &lt;^^Jer.2.3a&gt;
+        says the LORD.
+      |verse&gt;</programlisting></para></footnote>
+	<programlisting xml:space="preserve">&lt;div|
+  &lt;p|
+    &lt;verse@Jer.2.1|Moreover the word 
+    of the LORD came to me, saying,|verse&gt;
+    &lt;q n="Q-Jer.2.2-A"|
+      &lt;verse@Jer.2.2|
+	Go and cry in the
+	hearing of Jerusalem, saying, 
+        &lt;~@Jer.2.2b|
+          Thus says the LORD:|~&gt;
+        &lt;~@Jer.2.2c|
+	    I remember you, 
+	    The kindness of your youth, 
+	    The love of your betrothal, 
+	    When you went after Me in the wilderness, 
+	    In a land not sown.|~&gt;
+      |verse&gt;	
+      &lt;q n="Q-Jer.2.2-B"|
+        &lt;=@Jer.2.2b=&gt;
+	  &lt;q n="Q-Jer.2.2-C"|
+            &lt;=Jer.2.2c=&gt;
+            &lt;~@Jer.2.3a|
+	    Israel [was] holiness to the LORD, 
+	    The firstfruits of His increase.  
+	    All that devour him will offend; 
+	    Disaster will come upon them,
+            |~&gt;
+          |q&gt;
+      |q&gt;
+      &lt;verse@Jer.2.3|
+        &lt;=Jer.2.3a=&gt;
+        says the LORD.
+    |verse&gt;
+    &lt;* ... *&gt;
+    |q&gt;
+  |p&gt;
+|div&gt;</programlisting>
+      </para><para>
+	This particular Goddag structure can also be
+	serialized without virtual elements, just by allowing
+	the <code>q</code> and <code>verse</code> elements
+	to overlap:
+	<programlisting xml:space="preserve">&lt;div|
+  &lt;p|
+    &lt;verse@Jer.2.1|
+    Moreover the word of the LORD 
+    came to me, saying,
+    |verse&gt;
+    &lt;q n="Q-Jer.2.2-A"|
+      &lt;verse@Jer.2.2|
+      Go and cry in the
+      hearing of Jerusalem, saying,
+      &lt;q n="Q-Jer.2.2-B"|
+	Thus says the LORD:
+	&lt;q n="Q-Jer.2.2-C"|
+	  I remember you, 
+	  The kindness of your youth, 
+	  The love of your betrothal, 
+	  When you went after Me in the wilderness, 
+	  In a land not sown.
+	  |verse&gt;
+	  &lt;verse@Jer.2.3|
+	  Israel [was] holiness to the LORD, 
+	  The firstfruits of His increase.  
+	  All that devour him will offend; 
+	  Disaster will come upon them,
+	|q&gt;
+	  says the LORD.
+	|verse&gt;
+      |q&gt;
+      &lt;* ... etc. ... *&gt;
+    |q&gt;
+  |p&gt;
+|div&gt;</programlisting>
+
+	Intuitively, many readers find the overlap-only version of the
+	document simpler and more natural than the version using
+	bilocation tags. But (as demonstrated by <xref linkend="M2008"/>), not all Goddag structures can be 
+	written out using only overlap, without virtual elements,
+	discontinuous elements, or bilocation tags. </para><para>
+	This leads directly and obviously to the questions
+	<quote>When <emphasis>can</emphasis> graphs be serialized
+	  using overlap only?  And conversely, when are other
+	  markup mechanisms necessary?</quote>
+      </para><para>Marcoux <xref linkend="M2008"/> introduced the notions of
+	<emphasis role="ital">noDAG</emphasis> and <emphasis role="ital">overlap-only
+	  (oo) TexMecs</emphasis> as a first step towards answering these
+	questions.
+	A noDAG is a node-ordered directed acyclic graph,
+	i.e., a slight variation on the Goddag, where there is a strict partial
+	ordering on nodes. As a markup language, oo-TexMecs is the subset of TexMecs that
+	allows multiple roots and overlapping elements, but not virtual or interrupted
+	elements. Marcoux established that a noDAG is serializable if and only if it is
+	<emphasis role="ital">completion-acyclic</emphasis>, and that
+	“round-tripping” is possible, in that there is essentially a
+	bijective correspondence between noDAGs and oo-TexMecs documents.</para></section><section><title>1.3 The approach of this paper</title><para>In order to investigate whether and how the results of 
+	<xref linkend="M2008"/>	apply to other classes
+	of graphs, we introduce here the more general notion of a <emphasis role="ital">child-arc-ordered directed graph</emphasis> (CODG), and
+	demonstrate that the results from <xref linkend="M2008"/> hold also for CODGs,
+	with the somewhat surprising exception of <emphasis role="ital">some</emphasis> CODGs with multiple roots. By defining the stronger
+	notion of “fully completion-acyclic” graphs, we succeed in
+	identifying this subset: the oo-serializable CODGs are exactly the
+	fully-completion-acyclic ones. We also give basic polynomial-time upper bounds
+	on the complexity of checking full-completion-acyclicity and of actually
+	computing an oo-serialization of fully-completion-acyclic
+	CODGs.</para></section><!--
+        <note> 
+        <para>A general introduction to the need for overlapping
+        structures.</para> 
+        <para>An explanation of why generalizations such as cycles, multiple
+        parent-child relationships, multiple roots, and disconnectedness are
+        interesting.</para> 
+        </note>--></section><section><title>2. Child-arc-ordered directed graphs</title><!--<note> 
+        <para>Informal discussion of what we want to achieve and informal
+        introduction of the CODG.</para> 
+        </note> 
+    --><para><emphasis role="bold">2.1 Definition</emphasis> A <emphasis role="ital">child-arc-ordered directed graph</emphasis> (CODG for short) G = (V, ch) is a
+    directed graph over a
+    finite<!--<footnote> 
+    <para>There is no <emphasis role="ital">a priori</emphasis> reason that
+    a CODG could not be infinite. By the constraint that the children of a node be
+    ordered in a sequence, the out-degree of any node would have to be countable,
+    but the in-degree could be uncountable. However, we will be dealing here with
+    finite cases only, and thus, restrict ourselves to graphs with a finite set of
+    vertices and finite sequences of children.</para></footnote>-->
+    non-empty set of <emphasis role="ital">vertices</emphasis> (or <emphasis role="ital">nodes</emphasis>) V, where ch (for <emphasis role="ital">children</emphasis>) is a total mapping from V to finite (and possibly
+    empty) sequences of nodes from V. The set of <emphasis role="ital">arcs</emphasis> (or <emphasis role="ital">edges</emphasis>) of G, noted
+    E(G), comprises exactly those ordered pairs (v, w) for which</para><blockquote><para>(∃n ∈ N)[ ch(v, n) = w ],</para></blockquote><para>where N represents the set of non-negative integers. The notation
+    ch(v, n) is used as a shorthand for (ch(v))(n), that is, for the element with
+    index n in the sequence ch(v). We use 0-origin indexing; thus, for all v
+    ∈ V, ch(v, 0) denotes the first child of v (or is undefined, if v has no child).</para><para><emphasis role="bold">Note:</emphasis> Throughout this paper, the
+    “parent” relation must be understood to be the exact inverse of
+    the “child” relation (we bother to make this explicit because it
+    is <emphasis role="ital">not</emphasis> the case in some other models, such as
+    the XPath 1.0 data model).</para><para>It is possible for the same child to show up at more than one place
+    in a sequence of children; that is, ch(v, n) = ch(v, m) with m ≠ n is
+    possible. Loops are allowed; that is, ch(v, n) = v for a given n is possible.</para><para>Note that (v, w) ∈ E(G) for given v and w tells only part of the story: There
+    could be many distinct values of n for which ch(v, n) = w. Also note that the
+    length of ch(v), i.e., the smallest value of n (≥ 0) for which ch(v, n) is undefined,
+    is greater than or equal to the number of distinct children of v (if v has no child,
+    ch(v) = ∅, which, as a sequence, is of length 0).</para><para>CODGs are very loose structures: they can be
+    “multi-graphs,” in that more than one arc can link any given
+    pair of nodes. They can have cycles and loops (i.e., cycles of length one).
+    There can be both a direct (length one) and indirect path between any two given
+    nodes.</para><para>The rationale for the adjective <quote>child-arc-ordered</quote> is that for all
+      v ∈ V, ch(v) can be seen as inducing an ordering on the arcs <quote>going out of</quote> v (the
+      <quote>child-arcs</quote> of v).</para><para><emphasis role="bold">Examples</emphasis> We present examples of
+    CODGs illustrating some of their features.</para><para><mediaobject><imageobject><imagedata format="png" fileref="../../../vol10/graphics/Marcoux01/Marcoux01-001.png"/></imageobject><caption><para>Example 2.1</para></caption></mediaobject></para><para>Example 2.1 illustrates that CODGs can be disconnected, and that, in a
+    CODG:</para><itemizedlist><listitem><para>A node can have more than one parent (here most simply
+	  node <emphasis role="ital">d</emphasis>, with parents <emphasis role="ital">a</emphasis> and <emphasis role="ital">c</emphasis>, but also node <emphasis role="ital">b</emphasis> [with
+	  parents <emphasis role="ital">a</emphasis> and <emphasis role="ital">b</emphasis>]). This is a significant departure from
+	  the rule of single parenthood in XML.</para></listitem><listitem><para>There can be cycles and loops (cycles of length 1); here
+	  the only example is the loop on node <emphasis role="ital">b</emphasis>.</para></listitem><listitem><para>The same node can occur more than once as a child of
+	  some parent (here node <emphasis role="ital">c</emphasis>, which is both second and fourth
+	  among the children of node <emphasis role="ital">a</emphasis>).</para></listitem><listitem><para>There can be both direct and indirect paths between two
+	  nodes (here node <emphasis role="ital">a</emphasis> dominates node <emphasis role="ital">d</emphasis> both directly and
+	  via node <emphasis role="ital">c</emphasis>).</para></listitem></itemizedlist><para>Note that the <emphasis role="ital">order</emphasis> of the
+      outgoing arcs is usually not shown explicitly in the visual representation of a CODG.
+      We adopt the convention of drawing
+      the arcs going out of any node in order from left to right (even if
+      the arcs must cross each other further down, in order to reach
+      the child node they point to).  So the leftmost arc leaving any
+      parent is pointing to that parent's first child, and the
+      rightmost arc points to that parent's last child.<footnote><para>This
+	  may sound like a fragile or error-prone convention, but it
+	  turns out to work well most of the time, and it makes the
+	  diagrams easier to read than attaching numbers to the arcs
+	  and drawing them with fewer crossings but out of order.</para></footnote>
+      Thus, in Example 1, ch(a) = (b, c, d, c).</para><para>On the rare occasions that this convention is not practical, we use
+    explicit <emphasis role="ital">green arrows</emphasis> between the outgoing
+    arcs to indicate their order, as in the next example.
+    </para><para><mediaobject><imageobject><imagedata format="png" fileref="../../../vol10/graphics/Marcoux01/Marcoux01-002.png"/></imageobject><caption><para>Example 2.2</para></caption></mediaobject></para><para>In Example 2.2, ch(a) = (b, c) and ch(d) = (e, c). Right-pointing
+    arrows, though superfluous, are sometimes shown as a reminder of the implicit
+    convention.</para><para><emphasis role="bold">Sibling precedence</emphasis> For all v, ch(v) 
+      induces a <quote>sibling-precedence</quote> relation sp(v) among
+      the children of v, defined by:
+      <blockquote><para>sp(v) =<subscript>def</subscript> { (w, x) ∈ V × V
+          | (∃m, n ∈ N)[ m &lt; n &amp; ch(v, m) = w &amp; ch(v, n) = x ]
+          }.</para></blockquote>
+      This relation may or may not be a strict order relation. When it is, we say that v
+      <emphasis>orders its children</emphasis>.</para><para><mediaobject><imageobject><imagedata format="png" fileref="../../../vol10/graphics/Marcoux01/Marcoux01-003.png"/></imageobject><caption><para>Example 2.3</para></caption></mediaobject></para><para>Example 2.3 illustrates that parents may order the same nodes
+    differently as children. Thus, note that ch(a) = (b, c), which induces the 
+    strict order relation b
+    &lt; c, and ch(d) = (c, b), which induces the strict order relation c &lt; b.</para><para>In examples in which no pair of nodes is ordered differently by different
+    parents, we will usually place the green arrows between nodes, rather than between
+    arcs:</para><para><mediaobject><imageobject><imagedata format="png" fileref="../../../vol10/graphics/Marcoux01/Marcoux01-004.png"/></imageobject><caption><para>Example 2.4</para></caption></mediaobject></para><para><emphasis role="bold">Auxiliary concepts</emphasis> We now define a
+    number of auxiliary concepts useful in discussions of CODGs.  All
+    of them are secondary concepts in the sense that they are entirely and uniquely
+    determined by the set of vertices and the sequences of children of the
+    graph.</para><para><emphasis role="bold">2.2 Definition</emphasis> Let G = (V, ch) be a
+    CODG. Then:</para><orderedlist><listitem><para>⇒<subscript>G</subscript> denotes the (positive)
+        transitive closure of E(G).</para><para>Note that ⇒<subscript>G</subscript> is not necessarily
+        antireflexive, as E(G) may contain cycles.</para></listitem><listitem><para>⇒<superscript>*</superscript><subscript>G</subscript>
+        denotes the reflexive transitive closure of E(G), that is:</para><blockquote><para>⇒<subscript>G</subscript> ∪ { (v, v) | v ∈
+          V }.</para></blockquote></listitem><listitem><para>sp(G) =<subscript>def</subscript> { (v, w, x) ∈ V × V × V
+        | (∃m, n ∈ N)[ m &lt; n &amp; ch(v, m) = w &amp; ch(v, n) = x ]
+        }.</para><para>The name “sp” stands for “sibling
+        precedence.” Note that, iff w occurs more than once in the sequence of
+        children of v, then (v, w, w) ∈ sp(G). Note also that it is entirely
+        possible for both (v, w, x) and and (v, x, w) to be members of sp(G).
+        Finally note that sp(G) is the union over all v ∈ V of ({v} × sp(v)),
+        where sp(v) is the sibling-precedence relation induced by ch(v), as defined above 
+        at <emphasis role="bold">Sibling precedence</emphasis>.</para></listitem><listitem><para>gsp(G) =<subscript>def</subscript> { (w, x) ∈ V × V |
+        (∃v ∈ V)[ (v, w, x) ∈ sp(G) ] }.</para><para>The name “gsp” stands for “global sibling
+        precedence.” It is the projection of sp(G) onto the last two components.
+        It follows from the observations in the preceding point that there can be loops
+        and cycles in gsp(G).</para></listitem></orderedlist><para><emphasis role="bold">2.3 Notation</emphasis> Let G = (V, ch) be a CODG.
+    Unless otherwise stated:</para><orderedlist><listitem><para>V can also be denoted by V(G),</para></listitem><listitem><para>E denotes E(G),</para></listitem><listitem><para>⇒ denotes ⇒<subscript>G</subscript>,</para></listitem><listitem><para>⇒<superscript>*</superscript> denotes
+        ⇒<superscript>*</superscript><subscript>G</subscript>,</para></listitem><listitem><para>sp denotes sp(G),</para></listitem><listitem><para>gsp denotes gsp(G).</para></listitem></orderedlist></section><section><title>3. Overlap-only documents</title><para>The phenomenon we wish to study in this paper is how the structural
+    properties of a CODG relate to the fact that it mimics the containment and
+    precedence relationships among elements in some marked-up document. More
+    specifically, we want to consider documents expressed in markup languages that
+    allow overlapping elements, such as TexMecs <xref linkend="HS2003"/>. Thus, we
+    need to define a model for such documents.</para><para>TexMecs allows many more constructs than element embedding and
+    overlap. However, in this paper, we concentrate on those two, ignoring the
+    others, such as virtual elements, interrupted elements, empty elements,
+    attribute specifications, entity references, generic identifier co-indexing
+    (for handling self-overlap), unordered contents, and comments. This is why we
+    speak of “overlap-only” (or “oo”) documents. When
+    the structure of a CODG corresponds to the containment and precedence
+    relationships of some oo-document (to be defined precisely in a moment), we say
+    the CODG is “oo-serializable,” because the oo-document can be
+    viewed as a <emphasis role="ital">serialization</emphasis> (a representation in
+    serial form) of the CODG.</para><para>Instead of defining documents as character strings with syntactic
+    constraints, we use a more abstract approach that avoids some complications and
+    leads to results that are simpler to formulate. More constraints on the
+    definition of document could later be added to suit specific markup languages
+    if and when desired.</para><para>Intuitively, we adopt a tokenized view of the document, where tokens
+    are tags and leaves. Tokens are represented by their (integer) position in the
+    sequence of tokens that make up the document.</para><para>The tags in our model of oo-documents correspond, in the XML
+      world, to start- and end-tags for non-empty elements.</para><para>The leaves in our model of oo-documents correspond, in the
+      XML world, to text nodes (#PCDATA) and empty elements. Note that
+      our model abstracts away from the actual textual content of
+      elements and documents, and also ignores the differences among
+      different element types. We claim, however, that our abstraction
+      captures the essential structural aspects of marked-up documents
+      with possible element overlap.</para><para><emphasis role="bold">3.1 Definition</emphasis> An <emphasis role="ital">oo-document</emphasis> is a finite set of pairs of
+    the form (x, y), where x, y ∈ N (the set of non-negative
+    natural numbers) and x ≤ y, additionally satisfying a number of
+    “well-formedness” constraints (stated below).</para><para>The pairs in a document are called <emphasis role="ital">ranges</emphasis>. If r = (x, y) is a
+    range, then r<subscript>1</subscript> and r<subscript>2</subscript> denote
+    respectively x and y.</para><para>Intuitively, a range gives the position of a start-tag and of the
+    corresponding end-tag, or the position of a leaf, in which case, x =
+    y. Formally, if D is an oo-document:</para><blockquote><itemizedlist><listitem><para>leaves(D) =<subscript>def</subscript> { x ∈ N | (x, x)
+          ∈ D },</para></listitem><listitem><para>stags(D) =<subscript>def</subscript> domain(D) -
+          leaves(D),</para></listitem><listitem><para>etags(D) =<subscript>def</subscript> image(D) -
+          leaves(D).</para></listitem></itemizedlist></blockquote><para>Note that, as usual:</para><blockquote><itemizedlist><listitem><para>domain(D) =<subscript>def</subscript> { x ∈ N | ( ∃ y ∈ N | (x,
+            y) ∈ D ) }, and</para></listitem><listitem><para>image(D) =<subscript>def</subscript> { y ∈ N | ( ∃ x ∈ N | (x,
+            y) ∈ D ) }, and</para></listitem></itemizedlist></blockquote><para>Oo-documents are subject to the following well-formedness
+    constraints.</para><blockquote><para>For all oo-document D:</para><orderedlist><listitem><para>D is a partial function over N, i.e., for all x ∈ N,
+          there is at most one y such that (x, y) ∈ D.</para></listitem><listitem><para>D<superscript>-1</superscript> (that is, the inverse
+	    of D) is also a partial function over N, i.e., for all y
+	    ∈ N, there is at most one x such that (x, y)
+	    ∈ D.</para></listitem><listitem><para>stags(D) ∩ etags(D) = ∅.</para><para>Put less formally: No token is both a start-tag and an
+          end-tag.</para></listitem></orderedlist></blockquote><para>It must also be remembered that (as stated at the beginning of the
+    definition) for all range r, r<subscript>1</subscript> ≤
+    r<subscript>2</subscript>, which corresponds to the normal
+      rule of syntax that start-tag must precede its matching end-tag.</para><para>Note that we do not require the numbering of token positions to be
+    gap-free, nor do we forbid consecutive leaves without intervening
+    tags. There is also no requirement of an element spanning the whole
+    document: this is of course crucial for oo-documents to be able to
+    correspond to graphs with multiple roots.</para><!--*
+    <para>The closest, in the XML world, to our notion of a leaf is something
+    that is either a text node (#PCDATA) or an empty element. The actual
+    textual content of elements and documents is not represented at all
+    in our formal model of a document. We claim, however, that it fully
+    captures the essential structural aspects of marked-up documents with
+    possible element overlap.</para>
+    *--><para><emphasis role="bold">3.2 Definition</emphasis> Let D be an oo-document,
+    and r, s ∈ D:</para><itemizedlist><listitem><para>r is said to <emphasis role="ital">contain</emphasis> s iff
+        (r<subscript>1</subscript> &lt; s<subscript>1</subscript> and
+        s<subscript>2</subscript> &lt; r<subscript>2</subscript>).</para></listitem><listitem><para>r is said to <emphasis role="ital">precede</emphasis> s iff
+        (r<subscript>1</subscript> &lt; s<subscript>1</subscript> and
+        r<subscript>2</subscript> &lt; s<subscript>2</subscript>).</para></listitem></itemizedlist><para>Note that in the latter case, r and s may or may not overlap. Also
+    note that r cannot both contain <emphasis role="ital">and</emphasis> precede
+    s.</para></section><section><title>4. Correspondence between a graph and a document</title><para>Intuitively, a CODG and an oo-document <emphasis role="ital">correspond</emphasis> to each other when the nodes of the graph and
+    the ranges of the document can be put in correspondence in such a way that node
+    reachability corresponds to range containment, and gsp corresponds to range
+    precedence.</para><para><emphasis role="bold">4.1 Definition</emphasis> A CODG G and an
+    oo-document D <emphasis role="ital">correspond</emphasis> to each other iff
+    there exists a bijective mapping g from V(G) to D, such that all of the
+    following conditions hold:</para><orderedlist><listitem><para>(∀ b, c ∈ V(G)) [(b ⇒ c) iff g(b) contains
+        g(c)]</para></listitem><listitem><para>(∀ b, c ∈ V(G)) [if (b, c) ∈ gsp(G), then
+        g(b) precedes g(c)]</para></listitem></orderedlist><para>We then say that G and D correspond to each other
+    <emphasis role="ital">through</emphasis> g.</para><para><emphasis role="bold">4.2 Definition</emphasis> A CODG G is said to
+    be <emphasis role="ital">oo-serializable</emphasis> iff there exists an
+    oo-document that corresponds to G.</para><para>It is clear that every oo-document has a corresponding CODG: use
+    ranges as nodes, and the transitive reduction of range containment as
+    parent-child relation. Then, order all sets of siblings in range precedence
+    order.</para><para>It is also clear that <emphasis role="ital">some</emphasis> CODGs are
+    not oo-serializable: for example, a CODG with cycles would imply (by
+    transitivity) a range containing itself, which is impossible. But are all
+    acyclic CODGs oo-serializable? The following examples, inspired from
+    <xref linkend="M2008"/>, show that the question is at best not trivial:</para><para><mediaobject><imageobject><imagedata format="png" fileref="../../../vol10/graphics/Marcoux01/Marcoux01-005.png"/></imageobject><caption><para>Example 4</para></caption></mediaobject> 
+    <mediaobject><imageobject><imagedata format="png" fileref="../../../vol10/graphics/Marcoux01/Marcoux01-006.png"/></imageobject><caption><para>Example 5</para></caption></mediaobject></para><para>Both graphs are acyclic and they differ by just the presence/absence
+    of one arc. Yet, only the first one is oo-serializable <xref linkend="M2008"/>.<footnote><para>Example 4 is oo-serializable in the TexMecs form
+	  <code>&lt;poem| &lt;verse| &lt;quote~1| leaves &lt;quote~2| fall |verse&gt;
+	    |quote~1&gt; |quote~2&gt; |poem&gt;</code>.</para><para>Example 5 is not oo-serializable, in brief, because
+	  its EA (ends-after) relation has a cycle among the first
+	  <code>quote</code> element, the <code>verse</code> element,
+	  and the text node containing the word <code>fall</code>.
+	  Let us refer to them as <emphasis role="ital">q</emphasis><subscript>1</subscript>, <emphasis role="ital">v</emphasis>, and <emphasis role="ital">f</emphasis> for short.
+	  <itemizedlist><listitem><para><emphasis role="ital">q</emphasis><subscript>1</subscript> follows <emphasis role="ital">v</emphasis> among the children of the
+		<code>poem</code> element, and thus <emphasis role="ital">q</emphasis><subscript>1</subscript> must end
+		after <emphasis role="ital">v</emphasis>.
+	      </para></listitem><listitem><para><emphasis role="ital">v</emphasis> dominates <emphasis role="ital">f</emphasis>, and thus <emphasis role="ital">v</emphasis> must end after
+		<emphasis role="ital">f</emphasis>.
+	      </para></listitem><listitem><para><emphasis role="ital">f</emphasis> is not dominated by <emphasis role="ital">q</emphasis><subscript>1</subscript>, but it
+		<emphasis>is</emphasis> dominated by a following
+		sibling of <emphasis role="ital">q</emphasis><subscript>1</subscript> (namely, the second <code>quote</code>
+		element), and thus <emphasis role="ital">f</emphasis> must end after <emphasis role="ital">q</emphasis><subscript>1</subscript>.
+	      </para></listitem></itemizedlist>
+	  It is the third constraint, not present in Example 4,
+	  which makes the difference between the oo-serializability
+	  of the two examples.
+	</para></footnote>
+    </para><para>In <xref linkend="M2008"/>, Marcoux defined noDAGs, or
+    <emphasis role="ital">node-ordered DAGs</emphasis>, as (essentially) directed
+    acyclic graphs (DAGs) in which the nodes are partially ordered in such a way
+    that siblings (children of a common parent), <emphasis role="ital">as well as
+    distinct roots</emphasis>, are totally ordered. He then defined the property of
+    <emphasis role="ital">completion-acyclicity</emphasis> for noDAGs, and showed
+    that oo-serializable noDAGs are exactly the completion-acyclic ones.</para><para>In order to investigate whether the same is true of CODGs, we must
+    define an analogous property for CODGs. The following definition is the natural
+    adaptation of completion-acyclicity to CODGs.</para><para><emphasis role="bold">4.3 Definition</emphasis> Let G = (V, ch) be a
+    CODG. Then:</para><orderedlist><listitem><para>ssba(G) =<subscript>def</subscript> { (w, x) ∈ V × V |
+        (∃v ∈ V)[ v ⇒ w &amp; (v, x) ∈ gsp &amp; x
+        ⇏ w ] }.</para><para>The name “ssba” stands for
+        “should-start-before additions.”</para></listitem><listitem><para>ssb(G) denotes the transitive closure of (E ∪ gsp ∪
+        ssba).</para><para>The relation “ssb” is called the
+        “should-start-before completion” of G.</para></listitem><listitem><para>seaa(G) =<subscript>def</subscript> { (w, x) ∈ V × V |
+        (∃v ∈ V)[ v ⇒ w &amp; (v, x) ∈
+        gsp<superscript>-1</superscript> &amp; x ⇏ w
+        ] }.</para><para>The name “seaa” stands for “should-end-after
+        additions.” The relation gsp<superscript>-1</superscript> is
+	the inverse of relation gsp.</para></listitem><listitem><para>sea(G) denotes the transitive closure of (E ∪
+        gsp<superscript>-1</superscript> ∪ seaa).</para><para>The relation “sea” is called the
+        “should-end-after completion” of G.</para></listitem></orderedlist><para><emphasis role="bold">4.4 Notation</emphasis> Let G = (V, ch) be a CODG.
+    Unless otherwise stated:</para><orderedlist><listitem><para>ssba denotes ssba(G),</para></listitem><listitem><para>ssb denotes ssb(G),</para></listitem><listitem><para>seaa denotes seaa(G),</para></listitem><listitem><para>sea denotes sea(G).</para></listitem></orderedlist><para>The relations ssb and sea can be understood as meaning:
+    “should &lt;<emphasis role="ital">something</emphasis>&gt;
+    <emphasis role="ital"><emphasis role="bold">in any oo-serialization of the
+    CODG</emphasis></emphasis>,” for example “should
+    <emphasis role="ital">end after</emphasis> in any oo-serialization of the
+    CODG.” Thus, “(v, w) ∈ ssb” can be read out as:
+    “v should start before w in any oo-serialization of the CODG.” In
+    other words, ssb (respectively, sea) represents the start- (respectively, end-)
+    tag-precedence relations that can be deduced from the topology of the CODG,
+    supposing parent-child relations are interpreted as element containment, and
+    sibling-precedence relations as start- and end-tag-precedence.</para><para>The relations ssba and seaa represent the “additional”
+    arcs (over and above those in E and gsp or gsp<superscript>-1</superscript>)
+    that must be considered to compute <emphasis role="ital">all</emphasis> the
+    possible ssb and sea pairs that can be deduced from the CODG topology.</para><para><emphasis role="bold">4.5 Definition</emphasis> A CODG G = (V, ch) is
+    said to be <emphasis role="ital">completion-acyclic</emphasis> (CA) iff each of
+    ssb(G) and sea(G) is acyclic.</para></section><section><title>5. Main results</title><para>Things are not as simple with CODGs as with noDAGs. There
+    are, it turns out, CODGs that are completion-acyclic, yet not oo-serializable. Our
+    first result is to show that Example 2.2 above, as well as the following CODG,
+    are in that situation:</para><para><mediaobject><imageobject><imagedata format="png" fileref="../../../vol10/graphics/Marcoux01/Marcoux01-007.png"/></imageobject><caption><para>Example 6</para></caption></mediaobject></para><para>Since the number of structurally distinct documents that can
+    possibly correspond to a 5-node graph is finite, we could
+    exhaustively enumerate them and verify that none of them correspond
+    to either Example 2.2 or to
+    Example 6. 
+      However, that would not be very
+      insightful.<footnote><para>The curious reader may, however, be interested in the
+	  enumeration.  We cannot give it in full, but we can sketch
+	  it here.</para><para>In Example 6, nodes <emphasis role="ital">a</emphasis> and <emphasis role="ital">e</emphasis> are non-terminals
+	  (which means they must correspond to elements in TexMecs)
+	  and nodes <emphasis role="ital">b</emphasis>, <emphasis role="ital">c</emphasis> and <emphasis role="ital">d</emphasis> are childless (which means they may
+	  correspond either to empty elements or to spans of character
+	  data in TexMecs, that is, to leaf nodes).  
+	  One way to begin the enumeration is to
+	  observe that in overlap-only TexMecs the elements <emphasis role="ital">a</emphasis> and
+	  <emphasis role="ital">e</emphasis> will each have one start- and one end-tag.  There are
+	  six possible orders for these four tags:
+	  <orderedlist><listitem><para><code>&lt;a| &lt;e| |a&gt; |e&gt;</code></para></listitem><listitem><para><code>&lt;a| &lt;e| |e&gt; |a&gt;</code></para></listitem><listitem><para><code>&lt;a| |a&gt; &lt;e| |e&gt;</code></para></listitem><listitem><para><code>&lt;e| &lt;a| |a&gt; |e&gt;</code></para></listitem><listitem><para><code>&lt;e| &lt;a| |e&gt; |a&gt;</code></para></listitem><listitem><para><code>&lt;e| |e&gt; &lt;a| |a&gt;</code></para></listitem></orderedlist>
+	  Note that the possible number of orderings for any <emphasis role="ital">n</emphasis> items is
+	  <emphasis role="ital">n</emphasis>! (<emphasis role="ital">n</emphasis> factorial), so the total number of orderings for
+	  the four tags involved here is 24 (= 4!).  Of those 24, half
+	  are ill-formed because in them the end-tag for <emphasis role="ital">a</emphasis>
+	  precedes its end-tag; of the remaining 12, half are
+	  ill-formed because the end-tag of <emphasis role="ital">e</emphasis> precedes the start-tag.
+	</para><para>To each of these six patterns for the representation of
+	  nodes <emphasis role="ital">a</emphasis> and <emphasis role="ital">e</emphasis> there correspond 210 possible TexMecs
+	  documents with nodes <emphasis role="ital">b</emphasis>, <emphasis role="ital">c</emphasis>, and <emphasis role="ital">d</emphasis> interleaved among the
+	  tags for <emphasis role="ital">a</emphasis> and <emphasis role="ital">e</emphasis>.  (Node <emphasis role="ital">b</emphasis> can be situated in any of
+	  five locations:  before the first tag, after the first tag,
+	  after the second, after the third, after the fourth.  The
+	  tag for node <emphasis role="ital">c</emphasis> can be placed in any of six locations
+	  (before or after any of the four start- and end-tags and
+	  node <emphasis role="ital">b</emphasis>); the
+	  tag for node <emphasis role="ital">d</emphasis> can be placed in any of seven locations.
+	  210 = 5 × 6 × 7.)  The beginning of the
+	  enumeration might look like this:<itemizedlist><listitem><para><emphasis role="ital">d</emphasis> <emphasis role="ital">c</emphasis> <emphasis role="ital">b</emphasis> &lt;a| &lt;e| |a&gt; |e&gt;</para></listitem><listitem><para><emphasis role="ital">c</emphasis> <emphasis role="ital">d</emphasis> <emphasis role="ital">b</emphasis> &lt;a| &lt;e| |a&gt; |e&gt;</para></listitem><listitem><para><emphasis role="ital">c</emphasis> <emphasis role="ital">b</emphasis> <emphasis role="ital">d</emphasis> &lt;a| &lt;e| |a&gt; |e&gt;</para></listitem><listitem><para><emphasis role="ital">c</emphasis> <emphasis role="ital">b</emphasis> &lt;a| <emphasis role="ital">d</emphasis> &lt;e| |a&gt; |e&gt;</para></listitem><listitem><para><emphasis role="ital">c</emphasis> <emphasis role="ital">b</emphasis> &lt;a| &lt;e| <emphasis role="ital">d</emphasis> |a&gt; |e&gt;</para></listitem><listitem><para><emphasis role="ital">c</emphasis> <emphasis role="ital">b</emphasis> &lt;a| &lt;e| |a&gt; <emphasis role="ital">d</emphasis> |e&gt;</para></listitem><listitem><para><emphasis role="ital">c</emphasis> <emphasis role="ital">b</emphasis> &lt;a| &lt;e| |a&gt; |e&gt; <emphasis role="ital">d</emphasis></para></listitem><listitem><para><emphasis role="ital">d</emphasis> <emphasis role="ital">b</emphasis> <emphasis role="ital">c</emphasis> &lt;a| &lt;e| |a&gt; |e&gt;</para></listitem><listitem><para><emphasis role="ital">b</emphasis> <emphasis role="ital">d</emphasis> <emphasis role="ital">c</emphasis> &lt;a| &lt;e| |a&gt; |e&gt;</para></listitem><listitem><para><emphasis role="ital">b</emphasis> <emphasis role="ital">c</emphasis> <emphasis role="ital">d</emphasis> &lt;a| &lt;e| |a&gt; |e&gt;</para></listitem><listitem><para><emphasis role="ital">b</emphasis> <emphasis role="ital">c</emphasis> &lt;a| <emphasis role="ital">d</emphasis> &lt;e| |a&gt; |e&gt;</para></listitem><listitem><para> … </para></listitem><listitem><para><emphasis role="ital">d</emphasis> <emphasis role="ital">b</emphasis> &lt;a| <emphasis role="ital">c</emphasis> &lt;e| |a&gt; |e&gt;</para></listitem><listitem><para><emphasis role="ital">b</emphasis> <emphasis role="ital">d</emphasis> &lt;a| <emphasis role="ital">c</emphasis> &lt;e| |a&gt; |e&gt;</para></listitem><listitem><para><emphasis role="ital">b</emphasis> &lt;a| <emphasis role="ital">d</emphasis> <emphasis role="ital">c</emphasis> &lt;e| |a&gt; |e&gt;</para></listitem><listitem><para><emphasis role="ital">b</emphasis> &lt;a| <emphasis role="ital">c</emphasis> <emphasis role="ital">d</emphasis> &lt;e| |a&gt; |e&gt;</para></listitem><listitem><para><emphasis role="ital">b</emphasis> &lt;a| <emphasis role="ital">c</emphasis> &lt;e| <emphasis role="ital">d</emphasis> |a&gt; |e&gt;</para></listitem><listitem><para> … </para></listitem></itemizedlist>
+	</para><para>To each of these 210 interleavings of <emphasis role="ital">b</emphasis>, <emphasis role="ital">c</emphasis>, and <emphasis role="ital">d</emphasis>
+	into the four start- and end-tags for <emphasis role="ital">a</emphasis> and <emphasis role="ital">e</emphasis>, there
+	correspond eight TexMecs documents.  Each of nodes <emphasis role="ital">b</emphasis>, <emphasis role="ital">c</emphasis>,
+	and <emphasis role="ital">d</emphasis> may be either a text node or an empty element, so
+	there are eight (two to the third power) combinations.  The
+	first pattern in the preceding list corresponds to the
+	following eight TexMecs documents, and each of the other 210
+	  expands similarly.<itemizedlist><listitem><para>d c b &lt;a| &lt;e| |a&gt; |e&gt;</para></listitem><listitem><para>&lt;d&gt; c b &lt;a| &lt;e| |a&gt; |e&gt;</para></listitem><listitem><para>d &lt;c&gt; b &lt;a| &lt;e| |a&gt; |e&gt;</para></listitem><listitem><para>&lt;d&gt; &lt;c&gt; b &lt;a| &lt;e| |a&gt; |e&gt;</para></listitem><listitem><para>d c &lt;b&gt; &lt;a| &lt;e| |a&gt; |e&gt;</para></listitem><listitem><para>&lt;d&gt; c &lt;b&gt; &lt;a| &lt;e| |a&gt; |e&gt;</para></listitem><listitem><para>d &lt;c&gt; &lt;b&gt; &lt;a| &lt;e| |a&gt; |e&gt;</para></listitem><listitem><para>&lt;d&gt; &lt;c&gt; &lt;b&gt; &lt;a| &lt;e| |a&gt; |e&gt;</para></listitem></itemizedlist>
+	</para><para>In total, then, there are 6 patterns for the start- and
+	  end-tags of <emphasis role="ital">a</emphasis> and <emphasis role="ital">e</emphasis>, 210 ways to interleave <emphasis role="ital">b</emphasis>, <emphasis role="ital">c</emphasis>,
+	  and <emphasis role="ital">d</emphasis> into those patterns, and 8 ways to realize each
+	  interleaving, for 10,080 (6 × 210 × 8)
+	  structurally possible oo-TexMecs documents for this
+	  configuration of five nodes.  Since each of the five nodes
+	  can be either a leaf node or a non-terminal, there are 32
+	  possible configurations.  These vary in their number of
+	  possible realizations, but we hope it is now clear why
+	  enumerating the distinct documents for five-node graphs
+	  seems unlikely to be a helpful approach.
+	</para></footnote>
+We will thus rather proceed by way of a lemma (5.9) that
+    provides a general characterization of oo-serializable CODGs, and
+    will be useful for our second main result.</para><para><emphasis role="bold">5.1 Definition</emphasis> Let G = (V, ch) be a
+    CODG. The <emphasis role="ital">ancestral precedence</emphasis> relation of G,
+    denoted ap(G), is defined as:</para><blockquote><para>ap(G) =<subscript>def</subscript> { (v, w) ∈ V × V | (v
+      ⇒ w) &amp; (w ⇏ v) }.</para></blockquote><para>It is easy to show that ap(G) is always a strict partial-order on V.
+    Informally, we could say that ap(G) gets rid of the cycles in G by contracting
+    its (maximal) strongly-connected components, then re-expanding them to an equal
+      number of <emphasis role="ital">disconnected</emphasis>
+    vertices.<!--<footnote>
+	<para>An example may help make this clearer.</para>
+	<para>[To be supplied.]</para>
+      </footnote>-->
+    </para><!--<note> 
+        <para>In the paper, we will prove that ap(G) is a strict
+        partial-order.</para> 
+        </note> 
+    --><para><emphasis role="bold">5.2 Definition</emphasis> Let G = (V, ch) be a
+    CODG. A <emphasis role="ital">root</emphasis> in G is a vertex r ∈ V for
+    which:</para><blockquote><para>(∄w ∈ V)[ (w, r) ∈ ap(G) ].</para></blockquote><para><emphasis role="bold">5.3 Notation</emphasis> Let G = (V, ch) be a CODG.
+    Unless otherwise stated, ap denotes ap(G).</para><!--<orderedlist numeration="loweralpha"> 
+        <listitem> 
+        <para>A <emphasis role="ital">root</emphasis> in G is a vertex v
+        &#x2208; V for which:</para> 
+        <blockquote> 
+        <para>(&#x2204;w &#x2208; V)[ (w, v) &#x2208; ap(G) ].</para> 
+        </blockquote> 
+        </listitem> 
+        <listitem> 
+        <para>A <emphasis role="ital">leaf</emphasis> in G is a vertex v
+        &#x2208; V for which:</para> 
+        <blockquote> 
+        <para>(&#x2204;w &#x2208; V)[ (v, w) &#x2208; ap(G) ].</para> 
+        </blockquote></listitem> 
+        </orderedlist>--><!--<para>Note the following equivalent definitions of
+        root and leaf:</para> 
+        <para><emphasis role="bold">10. Observation</emphasis> Let G = (V, ch) be a
+        CODG.</para> 
+        <orderedlist numeration="loweralpha"> 
+        <listitem> 
+        <para>A vertex v &#x2208; V is a root in G iff:</para> 
+        <blockquote> 
+        <para>(&#x2200;w &#x2208; V)[ (w &#x21D2; v) implies (v &#x21D2; w)
+        ].</para> 
+        </blockquote></listitem> 
+        <listitem> 
+        <para>A vertex v &#x2208; V is a leaf in G iff:</para> 
+        <blockquote> 
+        <para>(&#x2200;w &#x2208; V)[ (v &#x21D2; w) implies (w &#x21D2; v)
+        ].</para> 
+        </blockquote> 
+        </listitem> 
+        </orderedlist>--><para>The next result establishes that for any distinct roots v and w,
+    either v and w are in the same strongly-connected component, or else v and w
+    are unordered in each of ssb and sea.</para><para><emphasis role="bold">5.4 Lemma</emphasis> Let G = (V, ch) be a CODG,
+    and v and w two distinct roots in G. Then, either:</para><blockquote><para>(v ⇒ w) &amp; (w ⇒ v)</para></blockquote><para>or</para><blockquote><para>{ (v, w), (w, v) } ∩ ((ssb ∪ sea) − ⇒) = ∅.</para></blockquote><para><emphasis role="bold">Note:</emphasis> For space consideration, most
+    proofs are omitted. <!--Omitted proofs are usually straightforward.--></para><para>Thus, an important difference between noDAGs and CODGs is that the
+    latter can have unordered root pairs, whereas noDAGs have (by definition) their
+    roots totally-ordered.</para><!--<para><emphasis role="bold">5.5 Definition</emphasis> A CODG G = (V, ch) is
+        said to be <emphasis role="ital">acyclic</emphasis> iff E(G) is an acyclic
+        relation, i.e., since &#x21D2; is the transitive closure of E(G), iff:</para> 
+        <blockquote> 
+        <para>(&#x2200;v &#x2208; V)[v &#x21CF; v].</para> 
+        </blockquote> 
+    --><para><emphasis role="bold">5.5 Definition</emphasis> A CODG G = (V, ch) is
+    said to be <emphasis role="ital">sp-consistent</emphasis> iff gsp is an acyclic
+    relation, i.e., iff:</para><blockquote><para>(∀v ∈ V)[(v, v) ∉ transitive-closure(gsp)].</para></blockquote><para>Note that if G is truly a multi-graph, i.e., if some node occurs more
+    than once as a child of the same parent, then G is certainly
+    <emphasis role="ital">not</emphasis> sp-consistent. However, G could fail to be
+    sp-consistent without being a true multi-graph, for example if two siblings are
+    ordered differently by two distinct parents.</para><para><emphasis role="bold">5.6 Definition</emphasis> A CODG G = (V, ch) is
+    said to be <emphasis role="ital">reduced</emphasis> iff no node is both
+    directly and indirectly reachable from some other node, i.e., iff:</para><blockquote><para>(∄v, w, x ∈ V)[ {(v, w), (v, x)} ⊆ E(G) &amp;
+      w ⇒ x].</para></blockquote><para>Note that if there is a cycle in G, then it is <emphasis role="ital">not</emphasis> reduced.</para><para><emphasis role="bold">5.7 Lemma</emphasis> If a CODG is
+    sp-consistent, is reduced, and has a single root, then it is isomorphic to a
+    noDAG; thus, by <xref linkend="M2008"/>, it is oo-serializable iff it is
+    completion-acyclic.</para><para><emphasis role="bold">5.8 Definition</emphasis> Let G be a CODG. A
+    <emphasis role="ital">single-rooted extension</emphasis> (sre) of a G, is
+    identical to G with an added root that has as children the roots of the
+    original CODG, in <emphasis role="ital">some</emphasis> ordering, without
+    repetition.</para><para>Note that, in general, a CODG has more than one sre (in effect, n!,
+    where n is the number of roots in the original CODG, i.e., one for each
+    possible ordering of the original roots).</para><para><emphasis role="bold">5.9 Lemma</emphasis> A CODG is oo-serializable
+    iff it has an sre that is oo-serializable.</para><para><emphasis role="ital">Proof sketch.</emphasis> (←): Let G be a
+    CODG, and H an oo-serializable sre of G. Let D be any serialization of H.
+    Because H has only one root, and D corresponds to H, there must be a range in D
+    that contains all the others. Thus, the first and last tag of H must be
+    matching tags. By “removing” those tags from D, we obtain an
+    oo-serialization of G.</para><para>(→): Let G be an oo-serializable CODG, and D any serialization
+    of G. By “adding” a start-tag and a matching end- tag at
+    (respectively) the beginning and end of D, we obtain a document that can be
+    shown to correspond to some sre of G.</para><para>We are now ready to state our first main result:</para><para><emphasis role="bold">5.10 Theorem</emphasis> There exist CODGs that
+    are completion-acyclic but not oo-serializable.</para><para><emphasis role="ital">Proof sketch.</emphasis> The theorem follows
+    from the observations that:</para><itemizedlist><listitem><para>Each of Examples 2.2 and 6 is completion-acyclic.</para></listitem><listitem><para>Each of Examples 2.2 and 6 has exactly two sres, each of which is
+        sp-consistent, reduced, and (by definition of sre) has a single root.</para></listitem><listitem><para>Each sre of each of Examples 2.2 and 6 is completion-<emphasis role="ital">cyclic</emphasis>.</para></listitem></itemizedlist><para>By Lemma 5.7, none of Examples 2.2 and 6 has an sre that is
+    oo-serializable. Thus, by Lemma 5.9, none of Examples 2.2 and 6 is
+    oo-serializable.</para><para>Our second main result is easiest seen as a corollary to the proof of
+    the preceding theorem. First, we define:</para><para><emphasis role="bold">5.11 Definition</emphasis> A CODG is said to be
+    <emphasis role="ital">fully-completion-acyclic</emphasis> (FCA) iff it has an sre
+    that is completion-acyclic.</para><para><emphasis role="bold">5.12 Theorem</emphasis> A CODG is
+    oo-serializable iff it is fully-completion-acyclic.</para><para><emphasis role="ital">Proof sketch.</emphasis> The theorem follows
+    from the proof of the preceding theorem and the following lemma:</para><para><emphasis role="bold">5.13 Lemma</emphasis> If a CODG is not
+    sp-consistent or is not reduced, then it is not completion-acyclic.</para></section><section><title>6. Checking full-completion-acyclicity</title><para>An obvious way to check whether a CODG is fully-completion-acyclic is to try
+    out all possible sres and see if at least one is completion-acyclic. From a
+    completion-acyclic sre, it would be easy to derive an oo-serialization
+    of the CODG. However, since there are n! different sres to check (where n is
+    the number of roots in the CODG), this can be very inefficient. It would be
+    nice to be able to check whether a CODG is fully-completion-acyclic without
+    having to generate all possible sres.</para><para>It turns out it suffices to check each pair of roots for a particular
+    condition which is verifiable in polynomial time. Since there are n × (n - 1)
+    / 2 root-pairs and checking the condition can be done in polynomial time, it
+    follows that full-completion-acyclicity can in fact be checked in polynomial
+    time.</para><para>The condition to be checked is as follows.</para><para><emphasis role="bold">6.1 Definition</emphasis> Let r and s be two roots of
+    some CODG G = (V, ch) that are unordered with respect to ssb(G). We say that r
+    <emphasis role="ital">must precede</emphasis> s, noted r ↝ s, iff there
+    exist vertices x and y standing in either (or both) of the following configurations with
+    respect to r and s:</para><para>
+      <mediaobject><imageobject><imagedata format="png" fileref="../../../vol10/graphics/Marcoux01/Marcoux01-008.png"/></imageobject><caption><para>Root-pair configuration 1</para></caption></mediaobject>
+      <mediaobject><imageobject><imagedata format="png" fileref="../../../vol10/graphics/Marcoux01/Marcoux01-009.png"/></imageobject><caption><para>Root-pair configuration 2</para></caption></mediaobject>
+    </para><para>Here, the double-arrows represent the reachability (⇒) relation, not just
+    parent-child relationships. The red double-arrow (with a stroke through it)
+    means the complement of ⇒ (thus, in Configuration 1, s ⇏ x). It does not
+    matter whether or not r ⇒ y (resp. s ⇒ x) in Configuration 1 (resp.
+    Configuration 2). In other words, <emphasis>at least</emphasis> one of r
+    ⇏ y and s ⇏ x must be the case. The dotted green arrow means that (x, y) ∈
+    (ssb − ⇒), in other words, that x precedes y without being an ancestor of
+    it.</para><para>An instance of at least one of those configurations is found in each of the following
+    CODGs:</para><para><mediaobject><imageobject><imagedata format="png" fileref="../../../vol10/graphics/Marcoux01/Marcoux01-010.png"/></imageobject><caption><para>Example 7</para></caption></mediaobject>
+    <mediaobject><imageobject><imagedata format="png" fileref="../../../vol10/graphics/Marcoux01/Marcoux01-011.png"/></imageobject><caption><para>Example 8</para></caption></mediaobject>
+    <mediaobject><imageobject><imagedata format="png" fileref="../../../vol10/graphics/Marcoux01/Marcoux01-012.png"/></imageobject><caption><para>Example 9</para></caption></mediaobject></para><para><emphasis role="bold">6.2 Lemma</emphasis> Let G be a CODG, and r and s be
+    two roots in G such that r ↝ s. Then, for each H that is a CA sre of G, (r, s)
+    ∈ gsp(H).</para><para><emphasis>Proof sketch.</emphasis> If there exists no CA sre of G, or if
+    there are no two roots r and s in G such that r ↝ s, then the lemma is
+    vacuously verified. Let thus H be any CA sre of G and, for the sake of
+    contradiction, suppose r and s are two G-roots such that r ↝ s and such that
+    (r, s) ∉ gsp(H). Suppose x and y are two vertices as in Configuration 1
+    above (we prove only the case of Configuration 1; that of
+    Configuration 2 is proved similarly).</para><para>By the definition of sre, if (r, s) ∉ gsp(H), then it must be the case that
+    (s, r) ∈ gsp(H), and thus, by construction of ssb(H) (Definition 4.3-2),
+    that (s, r) ∈ ssb(H). Hence, it follows by Lemma 4 of <xref linkend="M2008"/> and the fact that r and s do not stand in
+    ancestor-descendant relationship (being both G-roots, they are
+    ⇒-incomparable), that (r, s) ∈ sea(H). Similarly, from (x, y) ∈ ssb(H) and x ⇏
+    y, and y ⇏ x (because (x, y) ∈ ssb(H)), we conclude that (y, x) ∈
+    sea(H).</para><para>Now, by construction of sea(H) (Definition 4.3-4), and from the facts
+    that r ⇒ x, that (r, s) ∈ gsp<superscript>-1</superscript>(H), and that s ⇏ x,
+    we conclude that (x, s) ∈ sea(H). So, we have (y, x) ∈ sea(H) (established
+    earlier), and (x, s) ∈ sea(H), and (s, y) ∈ sea(H) (because s ⇒ y). Thus,
+    sea(H) is cyclic, contrary to our hypothesis that H is CA, and so we must
+    reject the hypothesis that (r, s) ∉ gsp(H), and conclude that (r, s) ∈
+    gsp(H).</para><para>QED</para><para><emphasis role="bold">6.3 Theorem</emphasis> A CODG is FCA iff it is CA and
+    it does not have any two roots r and s such that r ↝ s and s ↝ r.</para><para><emphasis>Proof sketch.</emphasis></para><para>(⇒) Any FCA CODG is CA. If a CODG had roots r and s such that r ↝ s and s ↝
+    r, then by Lemma 6.2, it would have a cycle in ssb, and thus could not be
+    CA.</para><para>(⇐) Let G be a CA CODG in which no two roots r and s are such that r ↝ s and
+    s ↝ r. Note that by Lemma 5.13 and the fact that G is CA, we know that G
+    is sp-consistent and reduced, and will thus take this for granted.</para><para>We give an algorithm for constructing an ordering of the roots of G that can
+    be used as the root-order in a sre H of G which will be shown to be FCA. In
+    the algorithm, ssb(G, ROR) denotes the result of building ssb as per
+    Definitions 4.3-1 and 4.3-2, but using gsp(G) ∪ ROR instead of
+    gsp(G)</para><para><emphasis role="bold">Algorithm:</emphasis>
+    <orderedlist><listitem><para>Let ROR = { (r, s) | r and s are roots in G and r ↝ s }.</para></listitem><listitem><para>Let SSB = ssb(G, ROR).</para></listitem><listitem><para>WHILE (∃ x, y ∈ V)[ch(x) = ch(y) &amp; {(x, y), (y, x)} ∩ SSB =
+        ∅] <orderedlist><listitem><para>Pick any x and y satisfying the WHILE clause, and
+          let X = x, and Y = y.</para></listitem><listitem><para>Let ROR = ROR ∪ {(r, s) | r and s are roots in G,
+          and r ⇒<superscript>*</superscript> X, and s
+          ⇒<superscript>*</superscript> Y}.</para></listitem><listitem><para>Let SSB = ssb(G, ROR).</para></listitem></orderedlist>
+        </para></listitem><!--                              <listitem>
+          <para>Let ROR &#x2190; transitive-closure(ROR &#x222A; an arbitrary ordering of the
+          connected components of ROR).</para>
+          </listitem>--></orderedlist> When the algorithm stops, ROR is the root-order to be used for
+    constructing H.</para><para>The intuition behind the algorithm is best conveyed with examples.
+    Essentially, the algorithm goes like this: start with the root-orderings that
+    are imposed by the topology of the CODG, i.e., those pairs of roots (r, s) for
+    which r ↝ s. Then, for the other root-pairs, they can basically be ordered
+    randomly, as long as no <quote>silly decision</quote> is taken.</para><para>To see what <quote>silly decisions</quote> would be, consider
+    Example 10. A silly decision would be to stick root r between s and t. To
+    avoid such decisions, the root-ordering must be built gradually, considering
+    one by one (the order does not matter) the unordered pairs of parents of the
+    same children. For each such pair (x, y), decide of an arbitrary order, then,
+    make sure all roots reachable upwards from x come before all those reachable
+    upwards from y (there can be no root reachable both ways, otherwise, x and y
+    would have been ordered to start with).</para><para>Each time such root-orderings are added, the consequences on the global ordering
+    of the CODG are recomputed and propagated down from the roots.</para><para>Example 11 provides a more intricate example, in which eight possible
+    pairs of unordered parents of the same children exist: (u, w), (u, x), (v, w),
+    and (v, x), and their inverse. Whichever pair is chosen, it will result in roots r and s
+    being ordered at step 3b, and then, in all eight pairs being ordered at 
+    step 3c.</para><para>Examples 12 and 13 show that the addition of a leaf can cause some
+      root-pairs to be ordered from the start: (r ↝ s) and (r ↝ t) in
+      Example 12; (r ↝ s) in Example 13.</para><para>
+      <mediaobject><imageobject><imagedata format="png" fileref="../../../vol10/graphics/Marcoux01/Marcoux01-013.png"/></imageobject><caption><para>Example 10</para></caption></mediaobject>
+      <mediaobject><imageobject><imagedata format="png" fileref="../../../vol10/graphics/Marcoux01/Marcoux01-014.png"/></imageobject><caption><para>Example 11</para></caption></mediaobject>
+      <mediaobject><imageobject><imagedata format="png" fileref="../../../vol10/graphics/Marcoux01/Marcoux01-015.png"/></imageobject><caption><para>Example 12</para></caption></mediaobject>
+      <mediaobject><imageobject><imagedata format="png" fileref="../../../vol10/graphics/Marcoux01/Marcoux01-016.png"/></imageobject><caption><para>Example 13</para></caption></mediaobject>
+    </para><para><emphasis>Proof sketch of termination:</emphasis> At each turn, at least one
+    pair of the kind sought for in (3) is ordered. Indeed, it can be shown that
+    the chosen pair (x, y) causes arcs to be added to ROR that will necessarily
+    order the pair (x, y) itself. Thus, eventually, no pair satisfying the WHILE
+    clause will remain.</para><para><emphasis>Proof sketch that ROR orders all pairs of roots:</emphasis> The
+    existence of an unordered root-pair <!--within the same connected component-->
+    implies that there is a pair satisfying the WHILE clause. Thus, when no more
+    such pair exists, all the roots <!--within the same connected components-->
+    have been ordered.
+    <!--Step&#160;4 takes care of the roots in different connected
+        components.--></para><para><emphasis>Proof sketch that ssb(G, ROR) is acyclic:</emphasis> Any condition
+    that might cause a cycle would also cause a cycle in { (r, s) | r and s are
+    roots in G and r ↝ s }, a contradiction.</para><para>A rough analysis of the algorithm shows that its running time is polynomial
+    (probably with degree at most 3 or 4). Obviously, it could be used to actually
+    build a CA sre of any FCA CODG, and thus an oo-serialization of the CODG. This
+    establishes a polynomial upper-bound on the task of verifying
+    full-completion-acyclicity and of generating an oo-serialization of a FCA
+    CODG. While interesting, we do not believe these upper-bounds to be tight, and
+    hence consider the exact complexity of these tasks to be open
+    questions.</para></section><section><title>7. Conclusion and future work</title><para>In this paper, we defined a class of graphs, <emphasis role="ital">child-arc-ordered directed graphs</emphasis> (CODGs), that includes
+    multi-graphs and non-acyclic graphs, and investigated the conditions under
+    which a CODG is “oo-serializable”, i.e., has a structure which
+    corresponds to that of an overlap-only marked-up document. We found that the
+    property of completion-acyclicity does <emphasis role="ital">not</emphasis>
+    guarantee oo-serializability in general for CODGs, by showing that there exist
+    completion-acyclic CODGs that are not oo-serializable. By contrast, Marcoux
+    has shown that for the less general class of <emphasis role="ital">node-ordered-DAGs</emphasis> (noDAGs), completion-acyclicity does
+    guarantee oo-serializability <xref linkend="M2008"/>.</para><para>We then defined a condition strictly stronger than
+    completion-acyclicity, <emphasis role="ital">full-completion-acyclicity</emphasis>, and showed that it does
+    guarantee oo-serializability for all CODGs.</para><para>Finally, we presented polynomial-time algorithms for checking
+    full-completion-acyclicity and for computing an oo-serialization of
+    fully-completion-acyclic CODGs. However, we do not believe these algorithms to
+    be optimal. Thus, open questions include determining the exact complexity of
+    — and finding optimal algorithms for — checking
+    completion-acyclicity, full-completion-acyclicity, and of actually computing
+    an oo-serialization of a CODG once it is found to be serializable.</para><para>Another area of research we hope to pursue in the near future is
+    investigating whether and how some forms of interrupted and virtual elements,
+    as found in TexMecs, can be characterized in terms of graphs.</para></section><appendix><title>Notation and symbols</title><para>For the convenience of readers who find the notation used
+      here unfamiliar, we list here the symbols and conventional
+      variable names used in this paper.</para><variablelist><varlistentry><term>↝</term><listitem><para>the must-precede relation on roots of a graph
+	  G:  r ↝ s if and only if there exist vertices x and y standing in some
+	  specific configurations with respect to r and s (see Definition 6.1).
+	  </para></listitem></varlistentry><varlistentry><term>⇒<subscript>G</subscript></term><listitem><para>the positive transitive closure of
+	    E(G), for any graph G; sometimes known as the 
+	    reachability relation of G; often abbreviated
+	    to ⇒ when the identity of G is understood.
+	  </para></listitem></varlistentry><varlistentry><term>⇒<superscript>*</superscript><subscript>G</subscript></term><listitem><para>the reflexive transitive closure of
+	    E(G), for any graph G; often abbreviated
+	    to ⇒<superscript>*</superscript> when 
+	    the identity of G is understood.
+	  </para></listitem></varlistentry><varlistentry><term>∈</term><listitem><para>is an element of.  So <quote>x ∈
+	      y</quote> means that x is an element in the 
+	    set y.
+	  </para></listitem></varlistentry><varlistentry><term>∪</term><listitem><para>set union.  So <quote>x ∪ y</quote>
+	    denotes the set of all elements which are members either
+	    of set x or of set y or both.
+	  </para></listitem></varlistentry><varlistentry><term>∩</term><listitem><para>set intersection.  So <quote>x ∩ y</quote>
+	    denotes the set of all elements which are members of
+	    both set x and set y.
+	  </para></listitem></varlistentry><varlistentry><term>ap(G)</term><listitem><para>the ancestral-precedence relation of a graph G;
+	    abbreviated ap when G is understood.  This is a binary
+	    relation consisting of all node pairs (v, w) for which
+	    (informally) v is an ancestor of w and not vice-versa.
+	  </para></listitem></varlistentry><varlistentry><term>ch</term><listitem><para>(core meaning) a unary function that maps each
+	    node of a graph to a sequence of nodes of that
+	    graph.</para><para>(secondary meaning) a two-argument function that 
+	    maps from a pair (v, n) (where v is a node and n is
+	    an integer) to at most one node among the children of v.
+	  </para></listitem></varlistentry><varlistentry><term>ch(v)</term><listitem><para>for any node v in a graph G,
+	    <quote>ch(v)</quote> denotes a sequence of nodes in
+	    G.</para><para>Note that sequences are typically modeled as
+	    sets of pairs (n, e) where n is a number and e an 
+	    element of the sequence.  The set of pairs
+	    denoted by ch(v) can thus be treated as a function 
+	    from non-negative integers to nodes in the graph:
+	    for any node v and any suitable integer
+	    n, <quote>ch(v)(n)</quote> denotes the nth child of v;
+	    ch(v)(0) denotes the first child, ch(v)(1) denotes
+	    the second, etc. To reduce the need for parentheses,
+	    <quote>ch(v)(n)</quote> is normally written in the
+	    simpler form <quote>ch(v,n)</quote>.
+	  </para></listitem></varlistentry><varlistentry><term>ch(v, n)</term><listitem><para>denotes the nth child (counting from 0)
+	    of node v.  This is a short-hand form for the
+	    expression ch(v)(n).
+	  </para></listitem></varlistentry><varlistentry><term>E(G)</term><listitem><para>the set of arcs in a graph G</para></listitem></varlistentry><varlistentry><term>G</term><listitem><para>the conventional variable for a graph (here
+	invariably a CODG)</para></listitem></varlistentry><varlistentry><term>gsp</term><listitem><para>a shorthand form of gsp(G) when the identity of
+	    the graph G is understood.
+	  </para></listitem></varlistentry><varlistentry><term>gsp(G)</term><listitem><para>the global sibling-precedence relation of a graph G;
+	    written as <quote>sp</quote> when G is understood.
+	    This is (speaking informally) a relation consisting of all
+	    node pairs (v, w) which share a parent, and for which v
+	    precedes w among the children of that parent. Note that
+	    the same pair of children may share more than one parent,
+	    occurring in one order for one parent and in the other
+	    order for the other parent.  So gsp(Example 2.3)
+	    includes both (<emphasis role="ital">b</emphasis>, <emphasis role="ital">c</emphasis>) and (<emphasis role="ital">c</emphasis>, <emphasis role="ital">b</emphasis>).
+	  </para></listitem></varlistentry><varlistentry><term>N</term><listitem><para>the natural numbers (0, 1, 2, ...)</para></listitem></varlistentry><varlistentry><term>n, m</term><listitem><para>conventional variables used to represent
+	    individual natural numbers</para></listitem></varlistentry><varlistentry><term>r</term><listitem><para>conventional variable used to denote an
+	    arbitrary range.</para></listitem></varlistentry><varlistentry><term>r<subscript>1</subscript></term><listitem><para>for a given range r, 
+	    r<subscript>1</subscript> denotes the first
+	    element of r.</para></listitem></varlistentry><varlistentry><term>r<subscript>2</subscript></term><listitem><para>for a given range r, 
+	    r<subscript>2</subscript> denotes the second
+	    element of r.</para></listitem></varlistentry><varlistentry><term>r, s</term><listitem><para>conventional variables used to denote two
+	    roots of a CODG.</para></listitem></varlistentry><varlistentry><term>sea(G)</term><listitem><para>the <quote>should-end-after</quote> relation
+	    of a graph G; abbreviated <quote>sea</quote> when G is
+	    understood</para></listitem></varlistentry><varlistentry><term>seaa(G)</term><listitem><para>the <quote>should-end-after additions</quote>
+	    relation of a graph G; abbreviated <quote>seaa</quote>
+	    when G is understood</para></listitem></varlistentry><varlistentry><term>sp</term><listitem><para>a shorthand form of sp(G) when the identity of
+	    the graph G is understood.
+	  </para></listitem></varlistentry><varlistentry><term>sp(G)</term><listitem><para>the sibling-precedence relation of a graph G; this is
+	    a ternary relation consisting of all node triples (v, w,
+	    x) for which (informally) w precedes x among the children
+	    of v; note that if w occurs more than once among the
+	    children of v, then the triple (v, w, w) appears in
+	    sp.  If some node x occurs between the two occurrences of
+	    w, then (v, w, x) and (v, x, w) are both in sp.</para></listitem></varlistentry><varlistentry><term>sre</term><listitem><para>single-rooted extension of some graph G.  Note that
+	    any multi-rooted graph G has many single-rooted extensions
+	    (one for each possible ordering of the roots of G).
+	  </para></listitem></varlistentry><varlistentry><term>ssb(G)</term><listitem><para>the <quote>should-start-before</quote>
+	    relation of a graph G; abbreviated <quote>ssb</quote> when
+	    G is understood</para></listitem></varlistentry><varlistentry><term>ssba(G)</term><listitem><para>the <quote>should-start-before
+	      additions</quote> relation of a graph G; abbreviated
+	    <quote>ssba</quote> when G is understood</para></listitem></varlistentry><varlistentry><term>V</term><listitem><para>the set of nodes (or vertices) in a graph; 
+	  a short-hand for V(G)</para></listitem></varlistentry><varlistentry><term>V(G)</term><listitem><para>the set of vertices in a graph G</para></listitem></varlistentry><varlistentry><term>V × V</term><listitem><para>the Cartesian product of V, the set of nodes;
+	    that is, the set of pairs (v, w) where v ∈ V and w
+	    ∈ V</para></listitem></varlistentry><varlistentry><term>V × V × V</term><listitem><para>the set of triples (v, w, x) where v, w and x
+	are all ∈ V.</para></listitem></varlistentry><varlistentry><term>v, w, x, u</term><listitem><para>variables conventionally used
+	    for individual nodes in a graph (by convention, all of 
+	    v, w, x, u ∈ V)</para></listitem></varlistentry></variablelist></appendix><bibliography><title>References</title><!-- xreflabel bucket:
+         xreflabel="[Barnard et al. 1995]"
+         xreflabel="[Huitfeldt and Sperberg-McQueen 2003]"
+         xreflabel="[Marcoux 2008]"
+         xreflabel="[Sperberg-McQueen and Huitfeldt 2004]"
+         xreflabel="[Sperberg-McQueen and Huitfeldt 1999]"
+         xreflabel="[Witt 2005]"
+    --><bibliomixed xml:id="B1995">David Barnard, Lou Burnard, Jean-Pierre
+    Gaspart, Lynne A. Price, C. M. Sperberg-McQueen, and Giovanni Battista Varile.
+    “Hierarchical Encoding of Text: Technical Problems and SGML
+    Solutions”, in <emphasis role="ital">Computers and the
+    Humanities</emphasis>, 29/3 1995, pp. 211-231. 
+    <link xlink:href="http://www.springerlink.com/content/p7775247276v88h3/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.springerlink.com/content/p7775247276v88h3/</link>,  <link xlink:href="http://xml.coverpages.org/barnardHier-ps.gz" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://xml.coverpages.org/barnardHier-ps.gz</link>. doi:<biblioid class="doi">10.1007/BF01830617</biblioid></bibliomixed><bibliomixed xml:id="D2004">Steven DeRose. “Markup Overlap: A
+      Review and a Horse”.  Paper delivered at Extreme Markup
+      Languages, 2004, Montréal.
+       <link xlink:href="http://conferences.idealliance.org/extreme/html/2004/DeRose01/EML2004DeRose01.html" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://conferences.idealliance.org/extreme/html/2004/DeRose01/EML2004DeRose01.html</link>
+    </bibliomixed><bibliomixed xml:id="HS2003">Claus Huitfeldt and C. M. Sperberg-McQueen.
+    <emphasis role="ital">TexMECS: An experimental markup meta-language for complex
+    documents.</emphasis> University of Bergen, January 2001, rev. October 2003. 
+    <link xlink:href="http://mlcd.blackmesatech.com/mlcd/2003/Papers/texmecs.html" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://mlcd.blackmesatech.com/mlcd/2003/Papers/texmecs.html</link></bibliomixed><!--<bibliomixed>Jagadish, H. V., Laks V. S. Lakshmanan, Monica Scannapieco,
+        Divesh Srivastava, and Nuwee Wiwatwattana. 2004. &#x201C;Colorful XML: One
+        hierarchy isn't enough&#x201D;. Proceedings of the 2004 ACM SIGMOD
+        International conference on management of data. 
+        doi:<biblioid class="doi">10.1145/1007568.1007598</biblioid></bibliomixed>--><bibliomixed xml:id="M2008">Yves Marcoux. <emphasis role="ital">Graph
+    characterization of overlap-only TexMECS and other overlapping markup
+    formalisms</emphasis>. Proceedings of the <emphasis role="ital">Balisage
+    2008</emphasis> conference, 12-15 august 2008, Montréal (Canada). 
+    doi:<biblioid class="doi">10.4242/BalisageVol1.Marcoux01</biblioid></bibliomixed><bibliomixed xml:id="M2012">Moore, Neil. <emphasis>Multihierarchical documents
+    and fine-grained access control</emphasis> (2012). Theses and
+    Dissertations--Computer Science. Paper 6. <link xlink:href="http://uknowledge.uky.edu/cs_etds/6" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://uknowledge.uky.edu/cs_etds/6</link></bibliomixed><bibliomixed xml:id="SH2004">C. M. Sperberg-McQueen and Claus Huitfeldt.
+    <emphasis role="ital">GODDAG: A Data Structure for Overlapping
+    Hierarchies.</emphasis> Springer-Verlag (2004).
+      Preprint at 
+      <link xlink:href="http://cmsmcq.com/2000/poddp2000.html" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://cmsmcq.com/2000/poddp2000.html</link>
+    </bibliomixed><bibliomixed xml:id="SH1999">C. M. Sperberg-McQueen and Claus Huitfeldt:
+    “Concurrent Document Hierarchies in MECS and SGML”, in
+    <emphasis role="ital">Literary and Linguistic Computing</emphasis>, 14 1999,
+    pp. 29-42. 
+    <link xlink:href="http://llc.oxfordjournals.org/cgi/content/abstract/14/1/29" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://llc.oxfordjournals.org/cgi/content/abstract/14/1/29</link>. doi:<biblioid class="doi">10.1093/llc/14.1.29</biblioid></bibliomixed><!--
+        <bibliomixed>TEI Guidelines for Electronic Text Encoding and Interchange 
+        <link xlink:href="http://www.tei-c.org/Guidelines/"
+        xlink:type="simple">http://www.tei-c.org/Guidelines/</link></bibliomixed> 
+    --><!--<bibliomixed>Jeni Tennison, Gavin Thomas Nicol, and Wendell Piez. LMNL
+           (Layered Markup and Annotation Language) Tutorial 
+           <link xlink:href="http://www.lmnl.org/wiki/" xlink:type="simple">http://www.lmnl.org/wiki/</link></bibliomixed> 
+       --><bibliomixed xml:id="W2005">Andreas Witt. “Multiple Hierarchies: New
+    Aspects of an Old Solution”, in: Stefanie Dipper, Michael Götze, and
+    Manfred Stede (eds.), <emphasis role="ital">Heterogeneity in Focus: Creating
+    and Using Linguistic Databases</emphasis>, vol. 2 of Interdisciplinary
+    Studies on Information Structure (ISIS), Working Papers of the SFB 632.
+    University of Potsdam, Germany, 2005. (Corrected reprint of an Extreme Markup
+    2004 paper.) 
+    <link xlink:href="http://www.sfb632.uni-potsdam.de/publications/isis02_4witt.pdf" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.sfb632.uni-potsdam.de/publications/isis02_4witt.pdf</link></bibliomixed></bibliography></article>

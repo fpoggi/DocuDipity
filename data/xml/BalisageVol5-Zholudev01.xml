@@ -1,0 +1,679 @@
+<?xml version="1.0" encoding="UTF-8"?><article xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink" version="5.0-subset Balisage-1.2"><title>Scripting Documents with XQuery: Virtual Documents in TNTBase</title><info><confgroup><conftitle>Balisage: The Markup Conference 2010</conftitle><confdates>August 3 - 6, 2010</confdates></confgroup><abstract><para>This paper introduces the concept of Virtual Documents and its prototypical realization
+in our TNTBase system, a versioned XML database. Virtual Documents integrate XQuery-based
+computational facilities into documents like JSP/PHP do for relational queries. We view
+the integration of computation in documents as an <emphasis role="ital">enabling technology</emphasis> and
+evaluate it on a handful of real-world use cases.
+</para></abstract><author><personname><firstname>Vyacheslav</firstname><surname>Zholudev</surname></personname><personblurb><para>Vyacheslav Zholudev has graduated in May, 2007 from Saint-Petersburg State University, Russia with a Master degree in Computer Science. 
+          He is continuing his studies at Jacobs University Bremen as a Ph.D student. 
+          Starting from September of 2007 he is working in the KWARC research group under the supervision of Prof. Michael Kohlhase.</para></personblurb><affiliation><jobtitle>PhD Student</jobtitle><orgname>Jacobs University Bremen</orgname></affiliation><email>vyacheslav.zholudev@gmail.com</email></author><author><personname><firstname>Michael</firstname><surname>Kohlhase</surname></personname><personblurb><para>Dr. Michael Kohlhase (born 1964 in Erlangen) is a 
+          German computer scientist and professor at Jacobs University, Bremen, Germany, 
+          where he is head of the KWARC research group (Knowledge Adaptation and Reasoning for Content) at the School of Engineering and Science.</para></personblurb><affiliation><jobtitle>Professor</jobtitle><orgname>Jacobs University Bremen</orgname></affiliation><email>m.kohlhase@jacobs-university.de</email></author><legalnotice><para>Copyright © 2010 Vyacheslav Zholudev, Michael Kohlhase. Licensed under the Creative Commons License <link xlink:href="http://creativecommons.org/licenses/by-sa/3.0/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://creativecommons.org/licenses/by-sa/3.0/</link>.</para></legalnotice></info><section xml:id="LABEL.intro"><title>Introduction</title><para>One of the big promises of XML as a representation paradigm is that documents become uniformly
+machine-processable. Indeed XSLT is widely used for pre/postprocessing XML-encoded documents, and
+XQuery is poised to become for semi-structured data what SQL is for relational data.  But in both
+cases, traditional workflows have important features that are largely missing from XML workflows.
+(i)  Document authoring and management systems<footnote><para>We take TeX/LaTeX as the most prominent
+example from which we take our intuitions. Wikis usually also allow in-text macros and arguably
+the VB/VBA extensions of Office suites also allow macros, even if they are less extensively
+used.</para></footnote> allow user-definable, <emphasis role="ital">in-document macros</emphasis> that allow the computation repetitive
+writing tasks or processing of outside data.
+(ii)  Relational databases support <emphasis role="ital">database views as first-class citizens</emphasis>,
+i.e. computational devices that look like tables to the user, but internally are embedded queries.
+
+Both in-text macros and views could in principle be externalized from production workflows at the
+cost of losing locality and ease-of-use. And indeed their integrated nature has brought levels of
+customization and functionality that have not been achieved in practice without.</para><para>In this paper, we present <emphasis role="ital">Virtual Documents</emphasis> (VDocs), a general framework for
+<emphasis role="ital">integrating XQueries into XML documents as computational devices</emphasis> and processing them
+efficiently. As a rough approximation, VDocs are “XML database views”
+analogous to views in relational databases;
+these are tables that are virtual in the sense that they are the results of SQL queries computed on
+demand from the explicitly represented database tables. Similarly, TNTBase Virtual Documents
+are the results of XQueries computed on demand from the XML files explicitly represented in TNTBase,
+presented to the user as entities (files) in the TNTBase file system.  Like views in relational
+databases TNTBase VDocs are editable, and the TNTBase system transparently patches the differences
+into the original files in its underlying versioning system. Thus a user does not have to know about
+the original source of document parts which allows him to focus only on relevant pieces of
+information.  Again, like relational database views, VDocs become very useful abstractions in the
+interaction with versioned XML storage.</para><para>We have already discussed VDocs [<xref linkend="zhokohrab.tntbasef10"/>], concentrating on theoretical issues such
+as when XML-based document formats admit virtual documents. Since
+then, our VDocs implementation has been extended and has
+matured considerably, and we will concentrate on features and real word use cases and practical issues. In the
+next section we recap the basics of our TNTBase system, before we introduce the functionality of VDocs
+in Section <xref linkend="LABEL.sec.vds"/>. Section <xref linkend="LABEL.sec.usecases"/> discusses some high-profile use cases of VDocs
+and Section <xref linkend="LABEL.sec.concl"/> concludes the paper.
+</para></section><section xml:id="LABEL.sec.tntbase"><title>TNTBase, a Short Recap</title><para>The TNTBase system is a versioned XML-database with a client-server
+architecture. Essentially, it consists of two parts: the core and the application-specific
+layer. Let us briefly discuss them.</para><section xml:id="LABEL.sec.tntbase-core"><title>The Core</title><para>The core of TNTBase consists of the xSVN module, which integrates Berkeley DB
+XML [<xref linkend="berkeleydbxml.web"/>] into a Subversion server [<xref linkend="svn.web"/>]. DB XML stores HEAD
+revisions of XML files; non-XML content like PDF, images or LaTeX source files,
+differences between revisions, directory entry lists and other repository information are
+retained in a usual SVN back-end storage (Berkeley DB [<xref linkend="berkeleydb.web"/>] in our
+case). It is worth mentioning here that TNTBase also supports <emphasis role="ital">branching</emphasis>
+as SVN does (see also Section <xref linkend="LABEL.sec.usecases.branches"/> for a use-case of virtual
+documents with on this).  Keeping XML documents in DB XML allows us to access those files
+not only via any SVN client, but also through the DB XML API that supports efficient
+querying of XML content via XQuery [<xref linkend="w3c.xquery10"/>] and modifying that content via
+XQuery Update [<xref linkend="w3c.xquery-update"/>]. As with many XML-native databases, DB XML (and hence
+TNTBase) supports <emphasis role="ital">indexing</emphasis>, which improves performance of certain
+queries. TNTBase also adopted <emphasis role="ital">transactional support</emphasis> (atomicity,
+consistency, isolation, durability) from DB XML.</para><para>The TNTBase system is realized as a web-application that provides two different interfaces
+to communicate with: an xSVN interface and a RESTful interface (for
+details refer to [<xref linkend="zholudev.tntbaserestful.web"/>]) for XML-related tasks. The
+xSVN interface behaves like the normal SVN interface — the mod_dav_svn Apache module
+serves requests from remote SVN clients — with one exception: If one of the committed XML
+files is ill-formed, then xSVN will abort the whole transaction. The RESTful [<xref linkend="jsr311.web"/>] interface
+provides XML fragment access to the versioned collection of documents:</para><variablelist><varlistentry><term>Querying:</term><listitem><para>As every XML-native database, TNTBase supports XQuery, but extends the DB XML
+syntax by a notion of file system path and revision to address different versions of path-based
+collections of documents.</para></listitem></varlistentry><varlistentry><term>Modifying:</term><listitem><para>Apart from modifying any kinds of documents via any SVN client, TNTBase takes
+advantage of XQuery Update facilities, and, in contrast to pure DB XML, modified documents are
+versioned, i.e., a new revision is committed to xSVN whenever some changed are made to the
+documents stored in a TNTBase repository .</para></listitem></varlistentry><varlistentry><term>Querying of previous revisions:</term><listitem><para>Although xSVN’s DB XML back-end by default holds only HEAD
+(the last) revisions of XML documents, and others are stored as reverse deltas against HEAD
+revisions, it is also possible to access and query previous versions by additionally providing a
+revision number to the TNTBase XQuery extension functions. It is necessary to note that
+previous versions cannot be modified because once a revision is committed to an xSVN repository it
+becomes persistent.</para></listitem></varlistentry><varlistentry><term>Virtual Files:</term><listitem><para>This is a precursor technology to the Virtual Documents discussed in this
+paper. It has been described in detail in [<xref linkend="zhokoh.tvsx09.biblatex"/>]: a Virtual File is a
+TNTBase file system entity whose content is defined by a single XQuery expression. For the end
+user they are like normal files whose contents are the wrapped results of an associated query. Virtual
+Files also can be queried and modified.</para></listitem></varlistentry></variablelist><para>For more information about the TNTBase core refer
+to [<xref linkend="zhokoh.tvsx09.biblatex"/>]. Since then we have significantly increased stability and
+performance that can be proved that TNTBase is being used for the LATIN
+Project [<xref linkend="latin.url"/>], for General Computer Science lectures repository (that counts
+more than 2000 XML documents with over 2500 revisions) and Translation SUMO to OMDoc
+Project [<xref linkend="misev.sumo2omdoc"/>]. Moreover, we are mirroring some of TNTBase
+repositories to normal SVN repositories by replication functionality adopted from
+Subversion. This possibility once more justifies the decision of combining the two
+systems. If something went wrong with a TNTBase repository and the data got corrupted
+(actually, it never happened to us), then we can easily restore them from a replicated SVN
+repository with all history preservation.</para></section><section xml:id="LABEL.sub.vd"><title>Application Layer of TNTBase</title><figure xml:id="LABEL.tntf" xreflabel="TNTBase"><title>
+          TNTBase
+        </title><mediaobject><imageobject><imagedata fileref="../../../vol5/graphics/Zholudev01/Zholudev01-001.png"/></imageobject></mediaobject></figure><para>In our experiments it turned out that many tasks specific to particular XML formats can be done by
+TNTBase. This was a reason to derive a separate layer on top of the TNTBase core and
+augment this layer with format-specific functionalities (see Figure <xref linkend="LABEL.tntf"/>). Although the detailed information can be
+found in [<xref linkend="zhokohrab.tntbasef10"/>], let us briefly describe the major features:</para><section><title>Validation, Presentation, Interface Extraction, Plugin Architecture</title><para>TNTBase
+provides facilities to integrate format-specific validation (e.g. for RelaxNG schemas) and
+presentation (e.g. via XSL transformations). But sometimes a format requires more specific
+functionality, e.g. extraction and caching RDF information upon commit or retrieval of
+rendered MathML. Such functionality can be supplied as additional modules and injected
+into the application layer via the TNTBase plugin API. Configuration files are also
+stored in a TNTBase repository, so a user do not have to have an access to a server:
+for instance, commit-time behavior is defined by an SVN <emphasis role="ital">tntbase:validate</emphasis> property
+that can be assigned to files as well as to whole directories. Pre-commit or post-commit
+hooks that are automatically generated take care of processing committed information based
+on the configuration files. In case of pre-commit processing a corresponding plugin has
+access to the documents that are about to be committed, and may reject a transaction if
+the collection of committed documents is format-inconsistent, or clashes with existing
+documents in the repository.  Last but not least, TNTBase RESTful URLs that are used to perform validation
+or presentation are dynamically changed once configuration files are modified.</para></section><section><title>Custom XQuery modules</title><para>A user can write his own XQuery extensions and store
+them in the repository. Thus it is not necessary to have modules located in the server’s
+file system or remotely. XQuery modules can be referenced inside repository itself, which
+might happen to be useful if the development of XQuery modules is still in progress.</para></section><section><title>Virtual Documents</title><para>Virtual Documents are also a part of an application layer,
+but we will focus on them in the next sections.</para><para>TNTBase also gained number of features that have been requested by TNTBase users. To
+name just a few of them: integration with JOBAD framework [<xref linkend="jobad.web"/>], extracting RDF
+from OMDoc [<xref linkend="kohlhase.omdoc1.6spec"/>] documents upon commit and storing it in
+TNTBase, integration with LaTeXML [<xref linkend="miller.latexml"/>] and
+Virtuoso [<xref linkend="openlinkvirtuoso.web"/>] (for more details refer
+to [<xref linkend="dklrz.pubmathlectnotlinkeddata10"/>]). Those features are pluggable, so a new
+TNTBase installation does not have to include them.</para></section></section></section><section xml:id="LABEL.sec.vds"><title>Virtual Documents</title><para>This section introduces practical aspects and technical details of Virtual Documents (for
+the theory we refer to [<xref linkend="zhokohrab.tntbasef10"/>]) using a simple running example to
+fortify our intuitions. Section <xref linkend="LABEL.sec.usecases"/> will tackle the real-world scenarios
+and justify VDocs in TNTBase.</para><figure xml:id="LABEL.vd_wf" xreflabel="VDoc Workflow"><title>VDoc Workflow</title><mediaobject><imageobject><imagedata fileref="../../../vol5/graphics/Zholudev01/Zholudev01-002.png"/></imageobject></mediaobject></figure><para>VDocs are the first class citizens in the TNTBase file system. Whereas internally they
+are quite different from usual documents in the repository, for a user they look like
+normal files: one can browse them, validate, apply stylesheets, query and even modify. VDocs
+are essentially a tight mix of static XML parts with XQuery queries and instructions in
+XML form that prompt TNTBase how to organize the XQuery results inside a VDoc. Let us
+start with a simple example. Assume that we want to have a joined list of mathematical
+exercises together with authors contributed to them. We might want to have the root
+element and the elements that embrace authors and exercises (we will refer to
+Figure <xref linkend="LABEL.vd_wf"/> throughout this section). XQueries that select necessary data will
+augment our document. The way we describe the VDoc is the subject of the next subsection.</para><section xml:id="LABEL.sec.vds.spec"><title>VDoc Specifications and Skeletons</title><para><emphasis role="ital">VDoc Specification (VDoc Spec)</emphasis> is the most important part of any VDoc. Basically, it is a
+document template with XQuery inclusions and some other auxiliary elements helping
+TNTBase to figure out how to execute a particular XQuery and how to populate query
+results. It must be XML. In Listing <xref linkend="LABEL.lst.vd_spec"/> one can see a simple example of a
+VDoc Spec that is supposed to define a VDoc that would contain thematic lecture exercises
+together with their authors. For the complete RelaxNG [<xref linkend="relaxngweb"/>] schema refer
+to [<xref linkend="tntvdskel.url"/>].</para><figure xml:id="LABEL.lst.vd_spec" xreflabel="Example of  a VDoc Spec"><title>Example of  a VDoc Spec</title><programlisting xml:space="preserve">&lt;tnt:virtualdocument xmlns:tnt=”http://tntbase.mathweb.org/ns”&gt;
+  &lt;tnt:skeleton xml:id=”exercises”&gt;
+    &lt;omdoc xmlns:dc=”http://purl.org/dc/elements/1.1/”&gt;
+      &lt;dc:title&gt;Exercises for Computer Science lectures&lt;/dc:title&gt;
+      &lt;dc:creator&gt;Michael Kohlhase&lt;/dc:creator&gt;
+      &lt;omdoc&gt;
+        &lt;dc:title&gt;Acknowledgements&lt;/dc:title&gt;
+        &lt;omtext&gt;
+          The following individuals have contributed material to this document:
+          &lt;tnt:xqinclude query=”tnt:collection(’/exercises//*.omdoc’)//dc:creator”&gt;
+            &lt;tnt:return&gt;&lt;tnt:result/&gt;&lt;/tnt:return&gt;
+          &lt;/tnt:xqinclude&gt;
+        &lt;/omtext&gt;
+      &lt;/omdoc&gt;
+      &lt;omdoc&gt;
+        &lt;dc:title&gt;Exercises&lt;/dc:title&gt;
+        &lt;tnt:xqinclude&gt;
+          &lt;tnt:query name=”exercises.xq”/&gt;
+          &lt;tnt:return&gt;&lt;tnt:result/&gt;&lt;/tnt:return&gt;
+        &lt;/tnt:xqinclude&gt;
+      &lt;/omdoc&gt;
+    &lt;/omdoc&gt;
+  &lt;/tnt:skeleton&gt;
+
+  &lt;tnt:query name=”exercises.xq”&gt;
+    for $t in $topics return
+      tnt:collection(concat(’/exercises/’, $t, ’/*.omdoc’))//exercise[position() le $max]
+  &lt;/tnt:query&gt;
+
+  &lt;tnt:params&gt;
+    &lt;tnt:param name=”max”&gt;
+      &lt;tnt:value&gt;10&lt;/tnt:value&gt;
+    &lt;/tnt:param&gt;
+    &lt;tnt:param name = ”topics”&gt;
+      &lt;tnt:value&gt;search&lt;/tnt:value&gt;
+      &lt;tnt:value&gt;graphs&lt;/tnt:value&gt;
+    &lt;/tnt:param&gt;
+  &lt;/tnt:params&gt;
+&lt;/tnt:virtualdocument&gt;
+</programlisting></figure><para>A VDoc Spec consists of a <emphasis role="ital">VDoc Skeleton (VDoc Skel)</emphasis>, number of named queries that are
+referenced from VDoc Skel and arbitrary parameters that are used in XQueries.  Let us consider
+these elements in order:</para><section><title>VDoc Skeletons</title><para>contain a mixture between any XML nodes and
+<emphasis role="ital">tnt:xqinclude</emphasis> elements. The latter ones specify a single
+XQuery query and “the rules” how results of that query will be mixed with other elements
+in a VDoc. The rules are enclosed into a single <emphasis role="ital">tnt:return</emphasis>
+child element that, in turn, contains a mixture of any XML elements with empty
+<emphasis role="ital">tnt:result</emphasis> elements. In order to understand how VDoc content
+is produced let us consider the following sequence of actions:</para><itemizedlist><listitem><para>We take a <emphasis role="ital">tnt:xqinclude</emphasis> element and obtain an XQuery
+associated with it</para></listitem><listitem><para>We get the results of that query and iterate over them
+</para></listitem><listitem><para>For every result we get children of the <emphasis role="ital">tnt:return</emphasis>
+element and substitute any <emphasis role="ital">tnt:result</emphasis> element with a
+considered query result</para></listitem><listitem><para>We concatenate all children obtained from step 3) in order</para></listitem><listitem><para>The result of concatenation replaces the considered
+<emphasis role="ital">tnt:xqinclude</emphasis> element</para></listitem><listitem><para>Repeat steps 1)-5) for all <emphasis role="ital">tnt:xqinclude</emphasis> elements in a
+VDoc Spec</para></listitem></itemizedlist><para>Although this workflow might seem complicated, the logics behind it are quite intuitive,
+which is observed in the following example. The part of a VDoc:</para><programlisting xml:space="preserve">&lt;tnt:xqinclude query=”tnt:collection(’/exercises//*.omdoc’)//dc:creator/text()”&gt;
+  &lt;tnt:return&gt;&lt;omtext&gt;&lt;tnt:result/&gt;&lt;/omtext&gt;&lt;/tnt:return&gt;
+&lt;/tnt:xqinclude&gt;
+</programlisting><para>assuming for the sake of simplicity that results of the query</para><programlisting xml:space="preserve">tnt:collection(’/exercises//*.omdoc’)//dc:creator/text()
+</programlisting><para>are “Paul” and “John”, will be substituted by:</para><programlisting xml:space="preserve">&lt;omtext&gt;Paul&lt;/omtext&gt;
+&lt;omtext&gt;John&lt;/omtext&gt;
+</programlisting><para>VDocs allow an arbitrary number of <emphasis role="ital">tnt:xqinclude</emphasis> elements in
+the VDoc Skel (not nested, though) with different XQueries. XQueries can be defined in 4
+ways: in the attribute, in the child element as text, as a reference to outside defined
+queries (see next bullet) and as a reference to another file in a TNTBase repository
+that contains the implied query.  It is worth mentioning that VDoc Specs may contain only
+references to skeletons in other VDoc Specs and differ just in queries or parameters. This
+approach becomes very handy when we want to leverage from the same skeleton but tweak
+another parts of a VDoc Spec, i.e. queries or parameters (see below for examples).</para></section><section><title>Queries</title><para>Apart from being defined in
+<emphasis role="ital">tnt:xqinclude</emphasis> elements, XQueries can also be described in
+            separate <emphasis role="ital">tnt:query</emphasis> elements, again as a text or as a
+reference to another file in the repository. Query should contain a name that serves as
+a link point from a VDoc Skel. There are no constraints on a query: it may reference
+<emphasis role="ital">older</emphasis> revisions of documents (that justifies a temporal aspect of TNTBase),
+<emphasis role="ital">other VDocs</emphasis> or <emphasis role="ital">auxiliary information</emphasis> associated with documents, e.g. RDF
+(see [<xref linkend="zhokohrab.tntbasef10"/>] for more details).  Such “external” query definition
+may be handy when we want to <emphasis role="ital">override</emphasis> the queries for a particular VDoc Skel. Getting
+back to our example, assume that we want to embed only statements of assignments in our
+VDoc preserving the common structure. We do not need to modify a VDoc Skel. Instead we create
+a new VDoc Spec that references the existing one with an overriding XQuery:</para><programlisting xml:space="preserve">&lt;tnt:virtualdocument xmlns:tnt=”http://tntbase.mathweb.org/ns”&gt;
+  &lt;tnt:skeleton href=”/basic-spec.xml”/&gt;
+  &lt;tnt:query name=”exercises.xq”&gt;
+    for $t in $topics return
+      tnt:collection(concat(’/exercises/’, $t, ’/*.omdoc’))//exercise/statement
+  &lt;/tnt:query&gt;
+&lt;/tnt:virtualdocument&gt;
+</programlisting><para>Here we assume that the full-fledged VDoc Skel can be found in the VDoc Spec under the path
+<emphasis role="ital">/basic-spec.xml</emphasis>. Thus we can <emphasis role="ital">”inherit”</emphasis> VDoc Skels recursively and override
+XQueries in any combination that comprised quite a flexible mechanism to reuse existing
+VDoc Skels and queries and override only parts when needed. Also it is possible to create
+VDoc Specs whose skeletons reference queries that are not present in the same VDoc Spec. This
+feature is comparable to e.g. Java abstract classes, i.e. such a VDoc Spec cannot be used as such,
+but can be referenced from another VDoc Specs that defines the missing queries.</para></section><section><title>Parameters</title><para>XQueries can reference variables that are not defined in the
+current context. Those can be externally defined in the
+<emphasis role="ital">tnt:param</emphasis> elements outside the
+query. This approach separates logics
+from the input. Similarly to queries, parameters can also be overridden or be absent in a
+particular VDoc Spec. In the latter case, VDoc Specs that inherit the current VDoc Spec should define
+absent parameters. In our example in Listing <xref linkend="LABEL.lst.vd_spec"/> we are using two
+parameters: a list of topics for which we retrieve exercises
+(<emphasis role="ital">$topics</emphasis>) and a maximum number of returned exercises for
+each topic (<emphasis role="ital">$max</emphasis>). Such a mechanism considerably improves
+reusability and flexibility of VDocs.</para><para>In this subsection we described the <emphasis role="ital">VDoc Specs</emphasis> — means to define the structure of
+VDocs. In Figure <xref linkend="LABEL.vd_wf"/> a VDoc Spec is denoted as the left bottom picture in the life cycle
+of VDocs. But how do we <emphasis role="ital">handle</emphasis> and <emphasis role="ital">consume</emphasis> VDoc content?</para></section></section><section xml:id="LABEL.sec.vds.wrappers"><title>VDocs as TNTBase FS Entities and Their Materializing</title><para>In order to make VDocs as a part of a TNTBase file system and expose them to users, one has
+to utilize the RESTful API of TNTBase [<xref linkend="zholudev.tntbaserestful.web"/>]. When creating
+a VDoc, a user has to provide a path and a name of a VDoc, a VDoc Spec and its
+revision which a VDoc will be
+linked to and, optionally, a set of parameters, analogously to those that a VDoc Spec has
+(thus, one can override VDoc Spec parameters or define new ones). Note that it is possible to
+associate a VDoc with a VDoc Spec of a <emphasis role="ital">particular revision</emphasis>, not only with the <emphasis role="ital">HEAD</emphasis>
+revision. Parameters associated with VDoc file system entities make VDoc Spec even more
+reusable. When retrieving content of a VDoc (i.e. the expanded version of a VDoc Spec), a user
+might also provide parameters that will override those defined in a
+VDoc Spec and in a VDoc
+itself. It might be very useful for dynamic alternation of a VDoc or during debugging. In
+Figure <xref linkend="LABEL.vd_wf"/> the content of a VDoc is presented in the second picture at the
+bottom. We see how data are aggregated and mashed up with the static
+parts of a VDoc Spec.</para><para>Currently every time VDoc content is requested, TNTBase executes every query included into a VDoc Spec and aggregates the results. 
+          For certain VDoc Specs it may be time-consuming. Furthermore, generated on the fly VDoc content is not accessible via xSVN working copy. Therefore a user may want to 
+          <emphasis role="ital">fix</emphasis> the content and make it versioned. In our example when a user is satisfied with exercises
+          list he got through a VDoc, he may desire to make it persistent by putting it into a
+          repository file under a certain path. To satisfy these demands TNTBase RESTful interface provides a VDoc feature that turns
+ the content of a VDoc into a regular file in a repository. We call such a process
+as <emphasis role="ital">VDoc materializing</emphasis>. If there is already a document
+under a provided path, the materializing process results in a new revision of that file. Thus we make VDocs content accessible via SVN client and track the revision history.</para></section><section xml:id="LABEL.sec.vds.query"><title>Querying VDocs</title><para>The contents of a VDoc can be addressed in a query via the TNTBase XQuery extension
+function <emphasis role="ital">tnt:vdoc($path as xs:string)</emphasis>, where
+<emphasis role="ital">$path</emphasis> is a path of a VDoc in a TNTBase repository. Thus
+one may combine querying of usual repository files together with multiple VDocs. It is
+also possible to retrieve just the expanded version of a VDoc Spec (not the content of a VDoc
+which might be different due to additionally defined parameters). The XQuery extension
+function looks similar - <emphasis role="ital">tnt:vd-spec($path as xs:string)</emphasis>,
+but instead of a VDoc path, we provide a path to a VDoc Spec. As an example, assume that we
+want to get a number of authors that contributed to exercises in a VDoc. The query will be
+simple:</para><programlisting xml:space="preserve">count(tnt:vdoc(’/path/to/vd’)//dc:author)
+</programlisting></section><section xml:id="LABEL.sec.vds.edit"><title>VDoc Editing</title><para>One of the strongest features of VDocs is that they can be edited and <emphasis role="ital">committed</emphasis> to
+TNTBase via the RESTful interface. Changed parts of a VDoc that came from files in a
+repository will be transparently propagated back to the sources with repository history
+preservation, i.e. a new revision will appear in TNTBase.  In Figure <xref linkend="LABEL.vd_wf"/> on the
+bottom right picture we can see the final phase of a VDoc workflow: editing and submitting
+it back -- the modified parts (marked with red) are populated back to their “home”. All
+changes are performed in a single xSVN transaction and only those files will be part of it
+that were implicitly affected by VDoc editing.</para><para>In a VDoc we distinguish <emphasis role="ital">static</emphasis> parts (i.e. those that come from the VDoc Spec) from
+<emphasis role="ital">generated</emphasis> ones (i.e. those parts that are results of a particular VDoc Spec query). Currently, static parts are not editable in a VDoc – TNTBase will abort a commit,
+if they have been changed. However, static parts can be modified by changing VDoc Spec file
+directly in a repository.  From the generated part, only the XML elements that come from the
+repository are <emphasis role="ital">editable</emphasis>; TNTBase annotates them with
+<emphasis role="ital">tnt:doc</emphasis> and <emphasis role="ital">tnt:xpath</emphasis>
+attributes that cache information about the element source needed for the commit.  In our
+exercise example an editable part might look like:</para><programlisting xml:space="preserve">&lt;exercise topic=”algebra” tnt:xpath=”/omdoc[1]/theory[3]/exercise[2]”
+                           tnt:doc=”/exercises/algebra/isomorphic-sets.omdoc”&gt;
+          ...                
+&lt;/exercise&gt;
+          ...
+&lt;exercise topic=”algebra” tnt:xpath=”/omdoc[1]/theory[2]/exercise[1]”
+                           tnt:doc=”/exercises/algebra/relations.omdoc”&gt;                   
+          ...
+&lt;/exercise&gt;
+</programlisting><para>A user may add attributes, text, comments, new elements or delete the old ones, but he is
+<emphasis role="ital">not</emphasis> allowed to modify <emphasis role="ital">tnt:doc</emphasis> and
+<emphasis role="ital">tnt:xpath</emphasis> attributes, otherwise TNTBase will abort
+committing.</para><para>So far we have considered only <emphasis role="ital">editable</emphasis> parts of the generated part.
+There could be, however, non-editable, generated nodes (e.g. dates or
+average of some values), which we
+call <emphasis role="ital">constructed</emphasis>. In some cases, we can even partially modify these and
+propagate changes back to a repository: If XQueries
+wrap some of DB XML elements into some other elements, making these
+constructed. For example, the query associated with some
+<emphasis role="ital">tnt:xqinclude</emphasis> element could be:</para><programlisting xml:space="preserve">&lt;author&gt;{tnt:collection(’/exercises//*.omdoc’)//dc:creator}&lt;/author&gt;
+</programlisting><para>So the results might be:</para><programlisting xml:space="preserve">&lt;author&gt;
+ &lt;dc:creator&gt;Paul&lt;/dc:creator&gt;
+ &lt;dc:creator&gt;John&lt;/dc:creator&gt;
+&lt;/author&gt;
+</programlisting><para>In such cases we can make these elements editable via the XQuery <emphasis role="ital">wrapper</emphasis> function
+<emphasis role="ital">tnt:make-editable</emphasis> supplied by TNTBase for this purpose. This function adds
+<emphasis role="ital">tnt:doc</emphasis> and <emphasis role="ital">tnt:xpath</emphasis>
+attributes to the wrapped elements if possible (i.e. if the input sequence of elements are
+nodes in DB XML) to mark them as editable. So in our example the query should really be:</para><programlisting xml:space="preserve">&lt;author&gt;{tnt:make-editable(tnt:collection(’/exercises//*.omdoc’)//dc:creator)}&lt;/author&gt;
+</programlisting><para>This leads to the following result which parts are editable:</para><programlisting xml:space="preserve">&lt;author&gt;
+ &lt;dc:creator tnt:doc=’…’ tnt:xpath=’…’&gt;Paul&lt;/dc:creator&gt;
+ &lt;dc:creator tnt:doc=’…’ tnt:xpath=’…’&gt;John&lt;/dc:creator&gt;
+&lt;/author&gt;
+</programlisting><para>The editing approach has a number of natural limitations:</para><itemizedlist><listitem><para>If VDoc content contains multiple results that are the same document node in a
+repository, then TNTBase will not allow committing this VDoc either because in this case
+it is not clear which of modified nodes should be propagated to a source document. In
+future, this behavior might be changed so that e.g. the first or the last change of the
+same node wins and is sent to a repository.</para></listitem><listitem><para>If VDoc dynamic parts came from older revisions of repository files, then such parts
+can not be editable as well because once revision is committed to a repository it becomes
+unchangeable.</para></listitem><listitem><para>From a dynamic part only XML elements<footnote><para>i.e. that are of
+XML Schema type <emphasis role="ital">xs:element</emphasis></para></footnote> are editable.  This limitation stems from the
+fact that e.g. text may be produced by concatenation of multiple strings inside some
+element and TNTBase will not be able to determine how to propagate
+changes back and there is no place to put source
+information inside a VDoc (the latter holds for all remained types of XML nodes
+as well). However, it
+is possible to work around this limitation by embedding XQueries
+that
+return those nodes together with their parent element.</para></listitem></itemizedlist><para>Last but not least, TNTBase follows the “update-modify-commit-merge” cycle from the
+underlying version control system in this process, so if another user modified repository
+contents while we were editing a VDoc, submitting of the latter will fail, since our VDoc is
+“out-of-date” and we have to get the VDoc content again and merge our changes. This
+mechanism guarantees that we will not overwrite somebody else’s changes.</para></section><section xml:id="LABEL.sec.vds.schema"><title>VDoc Schema Validation</title><para>The obvious well-formedness constraints for a VDoc Spec can easily be expressed in a RelaxNG
+schema, which we supply as [<xref linkend="tntvdskel.url"/>].  But schema-validity of the VDoc Spec does not
+ensure validity of the resulting VDoc because it
+does not take the constraints of the target format into account. Fortunately, we can
+easily integrate the VDoc Spec schema with the target schema, if the latter meets (or is
+extended to meet) some modularity requirements. As an example we provide such a
+combination for OMDoc language in Listing <xref linkend="LABEL.lst.ovd.rnc"/>.</para><figure xml:id="LABEL.lst.ovd.rnc" xreflabel="A RelaxNG Schema for Virtual OMDoc Specifications"><title>A RelaxNG Schema for Virtual OMDoc Specifications</title><programlisting xml:space="preserve">include ”tnt-vd-spec.rnc” {
+        skeleton.model  = grammar {include ”omdoc/omdoc.rnc”
+                                                         {ss |= parent xq?}}
+        return.internal.el = grammar {include ”omdoc/omdoc.rnc”
+                                                         {start= omdoc.class|CMP|FMP
+                                                          ss |= parent result.el}}}
+
+</programlisting></figure><para>Here we made use of the fact that the OMDoc schema has a hook (the <emphasis role="ital">ss</emphasis>
+schema macro) that allows replacement of elements in the declarations: all element
+declarations are of the form</para><programlisting xml:space="preserve">CMP = (ss | element CMP {CMP.attribs &amp; CMP.model})
+</programlisting><para>In this situation, we only had to replace the content and attribute model of the
+<emphasis role="ital">tnt:skeleton</emphasis> element<footnote><para>which allowed arbitrary
+elements that contain <emphasis role="ital">tnt:xqinclude</emphasis> queries</para></footnote> with the
+OMDoc document model, which is upgraded to allow an
+<emphasis role="ital">tnt:xqinclude</emphasis> element in place of all
+“<emphasis role="ital">ss</emphasis>-replaceable” elements. The content model of the
+<emphasis role="ital">tnt:return</emphasis> element is instantiated to the model of OMDoc “<emphasis role="ital">ss</emphasis>-replaceable” fragments, updated to allow
+<emphasis role="ital">tnt:result</emphasis> element in place of
+“<emphasis role="ital">ss</emphasis>-replaceable” elements.  When VDoc format-aware schema is ready, we can
+associate it with a VDoc Spec via <emphasis role="ital">tntbase:validate</emphasis> xSVN property (details
+in [<xref linkend="zhokohrab.tntbasef10"/>]), and thus ensure that TNTBase allows committing only
+those VDoc Specs which would always produce content that is valid against our format schema.</para></section><section xml:id="LABEL.sec.vds.implementation"><title>Implementation Details</title><para>VDocs are realized<footnote><para>Due to some problems in DB XML concerning multiple imported
+modules or support of XQuery external functions written in different languages, VDoc
+functionality cannot yet be fully integrated, we expect to have a fix for this by the
+conference.</para></footnote> in XQuery with help of XQuery external functions written in Java. External
+function are used, for instance, for dynamic query execution from another XQuery (for
+expansion of a VDoc Spec), getting the revision information from a repository (to control that
+no other revisions have been committed while editing a VDoc) or committing changes under
+certain path (to propagate changes to original files one edited VDoc has been submitted
+back).  In order to support VDoc editing workflow, there is a simple XQuery implementation
+of XML differencing, that</para><itemizedlist><listitem><para>controls that VDoc static parts were not modified,</para></listitem><listitem><para>controls that <emphasis role="ital">tnt:doc</emphasis> and
+<emphasis role="ital">tnt:path</emphasis> attributes of editable parts were not modified,</para></listitem><listitem><para>aggregates information about changed editable parts and groups them by source file,</para></listitem><listitem><para>checks that there are no more than one editable part that corresponds to the same
+node in the same XML document.
+</para></listitem></itemizedlist></section></section><section xml:id="LABEL.sec.usecases"><title>Use Cases</title><para>In this section we discuss four real-world use cases of the VDoc technology. The discussion
+here is complemented with an evolving<footnote><para>At the time of the submission, the sandbox
+is not fully operational yet, but we expect it to be the base of our system demos at
+the conference</para></footnote> TNTBase sandbox installation [<xref linkend="tntvdusecases.url"/>] that supplies
+Relax NG schemas and shows VDoc queries and VDoc Specs of our use cases in action.</para><section xml:id="LABEL.sec.usecases.exams"><title>Automated Exam Generation</title><para>This is a dogfood use case from our academic practice, and is (partially) used in
+day-to-day operation: The second author teaches a first-year, two-semester Introduction to
+Computer Science a Jacobs university and – over the last six years – has accumulated a
+collection of about 1000 homework, quiz, and exam problems encoded into the XML-based
+OMDoc format [<xref linkend="url.omdocspec"/>]. For the courses we need to prepare regular four
+exams, four “grand tutorial test exams” and two make-up exams per year. While the
+homework problems are typically new (and add to the corpus of well-tested problems), we
+assemble the exams from it semi-automatically with a VDoc Spec that generates random exam sheet
+based on the input list of topics we intend to cover throughout an exam.</para><para>There are two kind of proper exams: midterms and finals. Midterms usually are meant to be
+for 1 hour, although sometimes it takes 75 minutes or so, whereas finals are designed for
+2 hours. Thus we also provide an exam duration as an input parameter for our <emphasis role="ital">exam
+VDoc</emphasis>. Changing only this parameter together with the topic list allows us to get
+different exam sheets that do not exceed the certain time and cover desired topics. All
+necessary information is encoded into the problems as RDFa metadata annotations. Our
+XQuery for a VDoc Spec takes care about adjusting the timing closely to the provided
+limit. When VDoc content is generated, it can be rendered by utilizing XSLTs and developed
+in our group JOMDoc library [<xref linkend="jomdoc.web"/>] for rendering
+MathML[<xref linkend="w3c.web.mathml3"/>]. Everything is embedded into TNTBase, and once an exam VDoc
+is installed it is a matter of one click in the TNTBase web interface to get the unique
+human-readable exam sheet for the students.</para><para>VDoc Editing facilities also find an application in our use case. Before giving generated
+exam to students we test it on our teaching assistants that may express some of the
+comments or suggestions how to improve particular problems. Then we edit the contents of
+an exam VDoc and commit it back – all modifications are automatically patched into original
+XML sources: easily and painlessly. If one does not like a particular problem to be
+included into exam, we can adjust a VDoc parameter that excludes them from the exam.</para><para>The biggest advantage of current exam generation approach is that we write a VDoc Spec once and
+reuse it next semester by simply adjusting few parameters to a VDoc. When one is satisfied
+with the exam presented, it can be materialized and saved in a repository as a normal file
+that can be referenced in future to keep track how students performed on different
+assignment and figure out what their weaknesses are.</para><para>Although a presented approach already meets our requirements, there are some issues that
+could be improved. For instance, we might want to take total exam difficulty into account
+to generate exams that do not exceed a certain duration and that have difficulty in a
+certain range (again difficulty information is embedded into problems XML). That will lead
+to a more complicated queries for a VDoc Spec, but is still feasible. Apart from generating
+exams, this use cases might be used by students that are willing to sharpen their
+knowledge: they could generate practice sheets starting from easy tasks and end up with
+the complex ones. Some parameters in e.g. cookies may keep track of what exercises already
+appeared in the practice sheet, and a VDoc will never show them again. It could easily be
+done by providing dynamic parameters to a VDoc retrieval method as was described in the
+previous section.</para></section><section xml:id="LABEL.sec.usecases.branches"><title>Multiple Versions of Documents</title><para>In most scenarios with long-lived documents, we encounter the problem of document
+versions. Let us consider the case of W3C specifications like XQuery 1.0/1.1, XPath 1/2,
+XML 1.0/1.1., or even MathML1.0/1.0.1/2.0/2.0(2e)/3.0. They are encoded in XML format
+XMLSpec [<xref linkend="xmlspec.url"/>], so TNTBase and VDocs apply. Usually some parts of specification
+remained the same, while other parts change between the versions, and it is an important
+task to track the differences. For this use case we are experimenting with XML 1.0 and 1.1
+specifications to supply the user with a view that will show only the relevant changes in
+the formal parts of specification branches.  It is rather simple to provide an <emphasis role="ital">Diff
+VDoc</emphasis> via an XQuery that summarize changes in formal parts (the rules of the XML grammar
+are marked up by special elements in XMLSpec), ignores document order (grammars are sets,
+not lists of rules), and presents them as a document XMLSpec documents upgraded with
+difference alternatives. Note that our XQuery-based XML-diff comes in handy here.  This VDoc
+gives a user better understanding in which direction the development is going and what
+changes are intended ones and which are made by mistake. Our Diff VDoc is also editable that
+allows a user to fix obvious bugs right on spot, without navigating to the source
+files. Once Diff VDoc is settled in TNTBase it can be reused to filter only relevant
+differences as well as transparently editing them, all in one place.  Currently W3C stores
+specifications in a CVS repository, but does not make use of its differencing facilities
+for version tracking as diff is text-based and outputs even less and least relevant
+differences.</para><para>Note that the Diff VDoc encapsulates a particular notion of relevance in the filtering part,
+which may need to be explained in a document preamble. Thus the representational form of a
+VDoc which mixes document parts and queries is beneficial. Moreover, there can be multiple
+Diff VDocs for tracking (and editing) various aspects of the differences in the
+specifications. Such Diff VDocs may even take over the role of conflict editors we currently
+have in version control aware IDEs.</para></section><section xml:id="LABEL.sec.usecases.writing"><title>Managing Document Collections</title><para>The exam generation use case described above can be seen as a special case of managing
+(here extracting custom documents from) a collection of primary (<emphasis role="ital">content</emphasis>)
+documents and creating secondary documents from them that aggregate parts of the
+content. These secondary documents can either be used for communication to the outside
+(<emphasis role="ital">payload</emphasis> documents) or for management of the document collections. In this
+terminology, the exams above can be seen as the payload documents derived from the content
+documents in the problem collection. That is where VDocs may naturally come into play as we
+have seen above.
+</para><para>A very simple application of VDocs in payload documents are queries for a table of contents
+(collecting all sectioning elements in a narrative document), the references (collecting
+all citations, sorting them, and completing them with information from a bibliographic
+database), or an index. In DocBook [<xref linkend="walmue.dtdg2008"/>] these aggregated document parts
+generated by XSLT stylesheets in the presentation phase, which may incur performance
+bottlenecks in practice, since this is not supported by indexing and caching. Moreover,
+VDocs make separate conceptually the issue of auto-aggregation and presentation, which
+allows to support workflows like previews/editing of aggregated document parts and
+materialization (e.g. of branches and tags) for archiving.</para><para>Another simple application of VDocs in technical payload documents is in XML-based literate
+programming [<xref linkend="dk.lp"/>], where program text is intermingled with its documentation and
+explanation in a single document. Here a VDoc can be used to extract the program text (with
+comments that cross-link to) from the literate source. As a concrete XML-based example
+take the XMLSpec-based source of the MathML3 Recommendation [<xref linkend="carlisleed.mathml3"/>] from
+which we generate the MathML3 RelaxNG Schema. A VDoc would have considerably simplified this
+process.</para><para>We have already seen Diff VDocs as examples of management VDocs for version management in the
+last section. But VDocs can also support proofreading, a very important task in the document
+life cycle. Often one wants to proofread special aspects of a document, e.g. whether
+certain technical terms are used consistently. For this we can quickly specify these terms
+as parameter to an XQuery that assembles all paragraphs that contain them. Then we can
+proofread (and edit) the text passages, commit them back to the collection, and move on to
+other proofreading tasks.</para></section><section xml:id="LABEL.sec.usecases.ontologies"><title>Refactoring Ontologies</title><para>Finally, VDocs can be used for refactoring OWL [<xref linkend="w3c04.owl-guide"/>] Ontologies that are
+written in XML Syntax, e.g. OWL 2 XML [<xref linkend="w3c.owl2-xml"/>]. VDocs become very handy when
+making changes to a small subsets of multiple large ontologies. In the first phase we can
+preview ontologies changes in a VDoc using XQuery transform functions. In the second phase,
+when we are satisfied with results we can materialize a VDoc thus obtaining a refactored
+ontology as a usual document in a repository. Refactorings that can be done using VDocs
+include renaming entities, factoring out or merging modules, rewriting axioms, lowering
+expressivity or stripping axiom annotations. For more detailed information concerning
+ontology refactoring using VDocs refer to [<xref linkend="lz.owlchangerefactorxmldb10"/>].</para></section></section><section xml:id="LABEL.sec.concl"><title>Conclusion &amp; Further Work</title><para>In this paper, we have presented the concept of Virtual Documents and their prototypical
+realization in our TNTBase system. VDocs integrate computational facilities into
+documents like JSP/PHP or TeX/LaTeX, only that VDocs use the versatile and XML-optimized
+XQuery processing as a computational process instead of relational database lookup (PHP)
+or general macro expansion in the latter case. We view the integration of computation in
+documents as an <emphasis role="ital">enabling technology</emphasis> that explains much of the success and
+usefulness of the respective approaches, and contend that our VDocs are one way of
+introducing this to the XML world. We feel that we have just skimmed the practical
+possibilities induced by VDocs in the use cases discussed in Section <xref linkend="LABEL.sec.usecases"/>.</para><para>For instance, we envision that VDocs can serve as a basis for news generation that are
+tailored to a particular user and keep track of the news that have been read already. Thus
+a reader would receive only those topics that are interested for him and has not been
+explored so far. The targeted VDoc would contain an XQuery that takes specific to a
+particular user parameters like interested sections or ids of read items. The only part
+still missing to realize this is a user model for preferences and explored news, but it is
+a separate problem. The important thing that a single VDoc can satisfy needs of multiple
+users at the same time. Consider for instance the following situation: If the content
+collection contains information conceptual dependencies, then we can use VDocs to generate
+<emphasis role="ital">guided tours</emphasis> [<xref linkend="mu-01-a"/>], i.e. self-contained sub-documents introduce the
+necessary prerequisites of a concept. As VDocs allow to re-use the parametric XQueries that
+operationalize e.g. the topological sorting of concept descriptions, populating a file
+system with guided tours over a content collection becomes a mechanical exercise. In fact,
+we surmise that much of the functionality of advanced e-learning systems like
+ActiveMath [<xref linkend="activemathaima03"/>] can be externalized into VDocs.</para><para>Note that the viability of virtual documents is intertwined with the targeted document
+formats in an interesting way as our discussion of validation in
+Section <xref linkend="LABEL.sec.vds.schema"/> shows. In [<xref linkend="zhokohrab.tntbasef10"/>] we have begun an
+exploration on a theoretical level; from our practical work reported in this paper it
+seems that more theoretical investigations are necessary. Note furthermore that our
+realization of VDocs is not tied to the TNTBase system – even though version management
+can profit from VDocs, it is not a prerequisite; instead of an SVN commit we could just as
+well write to an XML database.  In particular, as our implementation is based on XQuery in
+its core, it should be possible to port it to other XML databases if they supply a notion
+of a file system interface.</para><para>In our use cases, the ability to re-use XQueries<footnote><para>which require specialized
+expertise and therefore constitute a significant investment</para></footnote> for different situations
+and over time has been a crucial ingredient for practical use of VDocs. We therefore
+anticipate that common XQueries will be rolled into extensions<footnote><para>Think e.g. of
+<emphasis role="ital">tableofcontents</emphasis>, <emphasis role="ital">references</emphasis>, or <emphasis role="ital">index</emphasis> elements that
+abbreviate respective XQueries.</para></footnote> for document formats much like macro packages in
+TeX/LaTeX and thus will create an avenue for user-driven format extensions that may
+well drive evolution of XML-based formats in the future.
+</para><para>An enabling technology must of course also have <emphasis role="ital">enabling tools</emphasis>, which we
+want to develop on top of our TNTBase system. One such tool is an editing framework for
+VDocs. Note that this is non-trivial, since — like their underlying XML formats — VDocs
+need to be presented to a user in a human-oriented format for reading <emphasis role="ital">and
+editing</emphasis>. Let us consider XHTML as a presentation format. JavaScript frameworks like
+JOBAD [<xref linkend="jobad.web"/>] could be extended in order to inject JavaScript into XHTML that
+marks up the editable parts of a transformed VDoc with help of auxiliary TNTBase
+attributes (like <emphasis role="ital">tnt:doc</emphasis> and
+<emphasis role="ital">tnt:xpath</emphasis>). Special markup will allow that framework to
+figure out what parts of a presentational document correspond to what parts of the sources
+from which VDoc content was comprised. The result could be that every “editable” part of
+rendered XHTML contains a small button or a link for editing pressing which results in
+some popup that shows an editable fragment of an XML document. Pressing submit button
+will modify the original content of a VDoc and commit it back to TNTBase. XML sources
+will be transparently patched that will lead to an updated XHTML version of a considered
+VDoc. Such an approach will allow a typical user to understand better the meaning of a VDoc
+(with help of human-oriented presentations) as well as provide interactive means for
+utilizing the concept of VDoc editing.</para></section><bibliography><title>References</title><bibliomixed xml:id="carlisleed.mathml3" xreflabel="ABC+09">
+Ron Ausbrooks, Stephen Buswell, David Carlisle, Giorgi Chavchanidze,
+Stéphane Dalmas, Stan Devitt, Angel Diaz, Sam Dooley, Roger Hunter,
+Patrick Ion, Michael Kohlhase, Azzeddine Lazrek, Paul Libbrecht, Bruce
+Miller, Robert Miner, Murray Sargent, Bruce Smith, Neil Soiffer, Robert
+Sutor, and Stephen Watt.
+Mathematical Markup Language (MathML) version 3.0.
+W3C Candidate Recommendation of 15 December 2009, World Wide Web
+Consortium, 2009.
+</bibliomixed><bibliomixed xml:id="w3c.xquery10" xreflabel="BCF+07">
+Scott Boag, Don Chamberlin, Mary F. Fernández, Daniela Florescu, Jonathan
+Robie, and Jérôme Siméon.
+XQuery: An XML Query Language.
+W3C recommendation, World Wide Web Consortium (W3C), January
+2007.
+available at <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/xquery/</link>.
+</bibliomixed><bibliomixed xml:id="berkeleydb.web" xreflabel="Ber09a">Berkeley DB.
+available at
+<link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.oracle.com/technology/products/berkeley-db/index.html</link>, seen
+January 2009.
+</bibliomixed><bibliomixed xml:id="berkeleydbxml.web" xreflabel="Ber09b">
+Berkeley DB XML.
+available at
+<link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.oracle.com/database/berkeley-db/xml/index.html</link>, seen January
+2009.
+</bibliomixed><bibliomixed xml:id="w3c.xquery-update" xreflabel="CDF+08">
+Don Chamberlin, Michael Dyck, Daniela Florescu, Jim Melton, Jonathan Robie, and
+Jérôme Siméon.
+XQUpdate: XQuery Update Facility 1.0.
+W3C Candidate Recommendation, World Wide Web Consortium (W3C),
+seen February 2008.
+</bibliomixed><bibliomixed xml:id="dklrz.pubmathlectnotlinkeddata10" xreflabel="DKL+10">
+Catalin David, Michael Kohlhase, Christoph Lange, Florian Rabe, Nikita
+Zhiltsov, and Vyacheslav Zholudev.
+Publishing math lecture notes as linked data.
+In Lora Aroyo, Grigoris Antoniou, Eero Hyvönen, Annette ten
+Teije, Heiner Stuckenschmidt, Liliana Cabral, and Tania Tudorache, editors,
+<emphasis role="ital">ESWC</emphasis>, number 6089 in Lecture Notes in Computer Science, pages 370–375.
+Springer, June 2010. doi: <biblioid class="doi">10.1007/978-3-642-13489-0_26</biblioid>.
+</bibliomixed><bibliomixed xml:id="jobad.web" xreflabel="JOB08">
+JOBAD framework – JavaScript API for OMDoc-based active documents.
+<link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://jomdoc.omdoc.org/wiki/JOBAD</link>, 2008.
+</bibliomixed><bibliomixed xml:id="jomdoc.web" xreflabel="JOM10">
+JOMDoc project — Java library for OMDoc documents.
+<link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://jomdoc.omdoc.org</link>, 2010.
+seen Feb.
+</bibliomixed><bibliomixed xml:id="jsr311.web" xreflabel="JSR09">
+JSR 311: JAX-RS: The Java API for RESTful Web Services, seen April 2009.
+available at
+<link xlink:type="simple" xlink:href="https://jsr311.dev.java.net/nonav/releases/1.0/index.html" xlink:show="new" xlink:actuate="onRequest">https://jsr311.dev.java.net/nonav/releases/1.0/index.html</link>.
+</bibliomixed><bibliomixed xml:id="dk.lp" xreflabel="Knu92">
+Donald E. Knuth.
+<emphasis role="ital">Literate Programming</emphasis>.
+The University of Chicago Press, 1992.
+</bibliomixed><bibliomixed xml:id="url.omdocspec" xreflabel="Koh">
+Michael Kohlhase.
+OMDoc: An open markup format for mathematical documents
+(latest released version).
+Specification, <link xlink:type="simple" xlink:href="http://www.omdoc.org/pubs/spec.pdf" xlink:show="new" xlink:actuate="onRequest">http://www.omdoc.org/pubs/spec.pdf</link>.
+</bibliomixed><bibliomixed xml:id="kohlhase.omdoc1.6spec" xreflabel="Koh10">
+Michael Kohlhase.
+An open markup format for mathematical documents OMDoc [version
+1.6 (pre-2.0)].
+Draft Specification, 2010.
+</bibliomixed><bibliomixed xml:id="latin.url" xreflabel="LAT">
+Latin: Logic atlas and integrator.
+<link xlink:type="simple" xlink:href="http://trac.omdoc.org/latin/" xlink:show="new" xlink:actuate="onRequest">http://trac.omdoc.org/latin/</link>.
+</bibliomixed><bibliomixed xml:id="lz.owlchangerefactorxmldb10" xreflabel="LZ10">
+Christoph Lange and Vyacheslav Zholudev.
+Previewing OWL changes and refactorings using a flexible XML
+database.
+In Mathieu d’Aquin, Alexander García Castro, Christoph Lange, and
+Kim Viljanen, editors, <emphasis role="ital">1st Workshop on Ontology
+Repositories and Editors</emphasis>, number 596 in CEUR Workshop Proceedings,
+Hersonissos, Greece, May 2010.
+</bibliomixed><bibliomixed xml:id="activemathaima03" xreflabel="MAF+03">
+E. Melis, J. Buedenbender E. Andres, A. Frischauf, G. Goguadse, P. Libbrecht,
+M. Pollet, and C. Ullrich.
+Knowledge representation and management in activemath.
+<emphasis role="ital">International Journal on Artificial Intelligence and
+Mathematics, Special Issue on Management of Mathematical Knowledge</emphasis>,
+38(1–3):47–64, 2003. doi: <biblioid class="doi">10.1023/A:1022959613174</biblioid>.
+</bibliomixed><bibliomixed xml:id="miller.latexml" xreflabel="Mil10">
+Bruce Miller.
+LaTeXML: A LaTeX to XML converter.
+Web Manual at <link xlink:type="simple" xlink:href="http://dlmf.nist.gov/LaTeXML/" xlink:show="new" xlink:actuate="onRequest">http://dlmf.nist.gov/LaTeXML/</link>, seen May  2010.
+</bibliomixed><bibliomixed xml:id="misev.sumo2omdoc" xreflabel="Mis10">
+Dimitar Misev.
+Integrating SUMO and OMDoc.
+Bachelor’s thesis, Computer Science, Jacobs University, Bremen, 2010.
+</bibliomixed><bibliomixed xml:id="w3c.owl2-xml" xreflabel="MPPS09">
+Boris Motik, Bijan Parsia, and Peter F. Patel-Schneider.
+OWL 2 web ontology language: XML serialization.
+W3C recommendation, World Wide Web Consortium (W3C), 10 2009.
+</bibliomixed><bibliomixed xml:id="mu-01-a" xreflabel="MU01">
+Erica Melis and Carsten Ullrich.
+How to teach it – polya-inspired scenarios in activemath.
+<emphasis role="ital">AI in Education (AIED-2003), IOS Press</emphasis>, pages 141–147, 2001.
+</bibliomixed><bibliomixed xml:id="openlinkvirtuoso.web" xreflabel="Ope">OpenLink Software.
+OpenLink universal integration middleware – Virtuoso product
+family.
+web page at <link xlink:type="simple" xlink:href="http://virtuoso.openlinksw.com" xlink:show="new" xlink:actuate="onRequest">http://virtuoso.openlinksw.com</link>.
+</bibliomixed><bibliomixed xml:id="relaxngweb" xreflabel="Rel">
+A schema language for XML.
+available at <link xlink:type="simple" xlink:href="http://www.relaxng.org/" xlink:show="new" xlink:actuate="onRequest">http://www.relaxng.org/</link>.
+</bibliomixed><bibliomixed xml:id="svn.web" xreflabel="SVN08">
+Subversion, seen June 2008.
+available at <link xlink:type="simple" xlink:href="http://subversion.tigris.org/" xlink:show="new" xlink:actuate="onRequest">http://subversion.tigris.org/</link>.
+</bibliomixed><bibliomixed xml:id="w3c04.owl-guide" xreflabel="SWM04">
+Michael K. Smith, Chris Welty, and Deborah L. McGuinness.
+OWL web ontology language guide.
+W3C Recommendation, World Wide Web Consortium (W3C), February
+2004.
+</bibliomixed><bibliomixed xml:id="w3c.web.mathml3" xreflabel="W3C07">
+W3C.
+Mathematical Markup Language (MathML) Version 3.0 (Third Edition).
+<link xlink:type="simple" xlink:href="http://www.w3.org/TR/MathML3/" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/MathML3/</link>, 2007.
+Seen November 2007.
+</bibliomixed><bibliomixed xml:id="walmue.dtdg2008" xreflabel="WM08">
+Norman Walsh and Leonard Muellner.
+<emphasis role="ital">DocBook 5.0: The Definitive Guide</emphasis>.
+O’Reilly, 2008.
+</bibliomixed><bibliomixed xml:id="xmlspec.url" xreflabel="XML09">
+The XML Spec schema and stylesheets.
+<link xlink:type="simple" xlink:href="http://www.w3.org/2002/xmlspec/" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/2002/xmlspec/</link>, seen March 2009.
+</bibliomixed><bibliomixed xml:id="zholudev.tntbaserestful.web" xreflabel="Z+10">
+Vyacheslav Zholudev et al.
+TNTBase – restful api.
+<link xlink:type="simple" xlink:href="http://tntbase.org/wiki/restful" xlink:show="new" xlink:actuate="onRequest">http://tntbase.org/wiki/restful</link>, 2010.
+</bibliomixed><bibliomixed xml:id="tntvdusecases.url" xreflabel="Zho">
+Vyacheslav Zholudev.
+Sandbox for Balisage 2010 – Virtual Documents.
+<link xlink:type="simple" xlink:href="http://tntbase.org/wiki/balisage2010" xlink:show="new" xlink:actuate="onRequest">http://tntbase.org/wiki/balisage2010</link>.
+</bibliomixed><bibliomixed xml:id="tntvdskel.url" xreflabel="ZK">
+Vyacheslav Zholudev and Michael Kohlhase.
+The RelaxNG schema for vd skeletons.
+<link xlink:type="simple" xlink:href="https://svn.tntbase.org/repos/tntbase/trunk/DbXmlAccessLib/resources/tnt-vd-spec.rnc" xlink:show="new" xlink:actuate="onRequest">https://svn.tntbase.org/repos/tntbase/trunk/DbXmlAccessLib/resources/tnt-vd-spec.rnc</link>.
+</bibliomixed><bibliomixed xml:id="zhokoh.tvsx09.biblatex" xreflabel="ZK09">
+Vyacheslav Zholudev and Michael Kohlhase.
+TNTBase: a versioned storage for XML.
+In <emphasis role="ital">Proceedings of Balisage: The Markup Conference 2009</emphasis>,
+volume 3 of <emphasis role="ital">Balisage Series on Markup Technologies</emphasis>. Mulberry
+Technologies, Inc., 2009. doi: <biblioid class="doi">10.4242/BalisageVol3.Zholudev01</biblioid>.
+</bibliomixed><bibliomixed xml:id="zhokohrab.tntbasef10" xreflabel="ZKR10">
+Vyacheslav Zholudev, Michael Kohlhase, and Florian Rabe.
+A [insert xml format] database for [insert cool application].
+In <emphasis role="ital">Proceedings of XML Prague 2010</emphasis>, 2010.
+</bibliomixed></bibliography></article>

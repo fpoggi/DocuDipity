@@ -1,0 +1,1437 @@
+<?xml version="1.0" encoding="UTF-8"?><article xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink" version="5.0-subset Balisage-1.3" xml:id="HR-23632987-8973"><title>XDML - an extensible markup language and processor for XDM</title><info><confgroup><conftitle>Balisage: The Markup Conference 2011</conftitle><confdates>August 2 - 5, 2011</confdates></confgroup><abstract><para>
+        XDML is a set of rules how XDM values can be built which are more 
+        useful entities as compared to ordinary XDM values. The key idea is to insert
+        into the XDM values control information which guides the interpretation and
+        processing of the data. In particular, it structures the XDM value into
+        named parts and associates these parts with metadata. The control
+        information is evaluated by an XDML processor, which reports and processes
+        the data accordingly. The processing of a part is organized as the execution
+        of operations which the control data bind to the part, but whose actual
+        invocation depends on API calls of the XDML user. The bindings are 
+        represented by request messages which encode the actual input to operations 
+        selected from an extensible library of available "XDML operations".
+        The operation bindings of a part can be regarded as a specific interface 
+        dynamically attached to the data of the part. The net result
+        of this approach is to enable the creation of self-describing XDM values: they encode
+        the way how they are presented to applications, as well as how they
+        should or might be processed. This means that the
+        XDM producer - e.g. XQuery programs - can emit "rich" data whose downstream 
+        processing is significantly simplified. 
+      </para></abstract><author><personname><firstname>Hans-Jürgen</firstname><othername/><surname>Rennau</surname></personname><personblurb><para>Hans-Jürgen Rennau works as a software developer for bits GmbH (Büro für Informations-Technologie und Software). He takes a keen interest in the integration of object-oriented and “item-oriented” (XML) components of behavior and components of information. Hans-Jürgen's background as a biologist partly accounts for his belief that the naturalness of a thought is important to its potential. A natural integration of two natural approaches — OO and XML — is what he strives for in theory and practice.</para></personblurb><affiliation><jobtitle>Senior programmer</jobtitle><orgname>bits - Büro für Informations-Technologie und Software GmbH</orgname></affiliation><email>hrennau@yahoo.de</email></author><author><personname><firstname>David</firstname><othername/><surname>Lee</surname></personname><personblurb><para>David Lee has over 25 years experience in the software industry responsible for many major projects in small and large companies including Sun Microsystems, IBM, Centura Software (formerly Gupta), Premenos, Epiphany (formerly RightPoint), WebGain, Nexstra, Epocrates. As senior principal software engineer at Epocrates, Inc., Mr Lee is responsible for managing data integration, storage, retrieval, and processing of clinical knowledge databases for the leading clinical information provider.</para><para>Key career contributions include Real-time AIX OS extensions for optimizing transmission of real-time streaming video (IBM), secure encrypted EDI over internet email (Premenos), porting the Centura Team Desktop system to Solaris (Gupta, Centura), optimizations of large Enterprise CRM systems (Epiphany), author of xmlsh (http://www.xmlsh.org) an open source scripting language for XML.</para></personblurb><affiliation><jobtitle>Senior Principal Software Engineer</jobtitle><orgname>Epocrates, Inc.</orgname></affiliation><email>dlee@epocrates.com </email></author><legalnotice><para>Copyright © 2011 by the authors. Used with permission.</para></legalnotice><keywordset role="author"><keyword>XDML</keyword><keyword>XDM</keyword><keyword>XProc</keyword><keyword>XQuery</keyword><keyword>XSLT</keyword></keywordset></info><section xml:id="introduction"><title>Introduction</title><para>
+      XDM [<xref linkend="W3C-XDM"/>] is the data model of the major XML processing languages – XPath, XQuery 
+      and XSLT. The model is marked by a bold simplicity: (a) every value is a sequence of items, 
+      (b) an item is either an XML node or an atomic value, (c) there are seven kinds of XML 
+      nodes and  (d) a few dozens atomic types. This means that the size and complexity of an 
+      XDM value is virtually unlimited, and at the same time that any value can be decomposed 
+      into a linear sequence of building blocks, the items. "XDM item" is an abstraction enabling 
+      us to regard a single byte and a huge XML document as just two instances of the same building block.
+    </para><para>
+      One can look at the XDM from three different perspectives. The first one regards XDM as a 
+      component of those processing languages, concerning only writers of XPath expressions, 
+      XQuery scripts or XSLT stylesheets. We suspect that the majority of software developers 
+      and architects would subscribe to this view.
+    </para><para>
+      The second perspective takes into account that input and output of those languages is 
+      also XDM and accepts the XDM as a player in the game of process integration. This 
+      perspective pays attention to the issue of translating information back and forth 
+      between XDM values and other data models, for example the data models of general 
+      purpose programming languages. It should also take an interest in the 
+      serialization of XDM values.
+    </para><para>
+      A third perspective makes a step from looking at the XDM as either a local affair 
+      of specialized languages or a challenge for data mapping. This new perspective regards 
+      the XDM as the foundation for building a new kind of resource, offering some particular 
+      advantages in comparison to other resource types – e.g. XML documents, relational tables 
+      or CSV files. At the same time it gives a boost to XQuery, as XQuery 
+      is the XDM producer par excellence. Increased importance of XDM means increased importance 
+      of XQuery.
+    </para><para>
+      Ironically, the key step toward a new appreciation of the XDM is awareness of its 
+      fundamental limitation: there is no structure – only a flat sequence of items; there 
+      is no meta information – only items and nothing else. An XDM value has something in 
+      common with a string – no limitation of size and complexity, but unless a creative 
+      step is taken there is no general way how to impose and detect a structure (above the level
+      of its building blocks, that is). 
+      Concerning strings, the creative step was the invention of markup: divide the sequence 
+      of atoms (characters) into sections of primary information and those of meta information, 
+      the latter also known as markup. One might consider doing something equivalent with XDM 
+      values, where the atoms are XDM items, rather than characters. We want to explore the 
+      potential of such an approach. Based on prior experimental work, we propose 
+      a simple markup language and an infrastructure evaluating it.
+      A prototypic reference implementation is a work in 
+      progress, and our main intent is to open a discussion.
+    </para></section><section xml:id="why-ask-for-xdm"><title>Why ask for XDM (if we have XML)?</title><para>
+      Let us assume a consumer’s perspective. Scenario: some processing 
+      yields a result. This might be an XML document, a sequence of XML documents, 
+      or an XDM value. The last alternative is clearly the most general one, as 
+      any sequence of XML documents is an XDM value. But do we really need this 
+      alternative, if we consider the expressiveness of XML?
+    </para><para>
+      From a theoretical point of view, the answer is "no": whatever you can encode as an XDM value you 
+      can translate 1:1 into an equivalent representation consisting of a single 
+      XML document. For example, the following rules would suffice: (a) 
+      the XDM items are represented by children of the document element; (b) 
+      a dedicated type attribute on these children encodes the item type. 
+      Clearly - XDM values cannot express more than a 
+      single XML document, if some simple conventions are accepted. 
+      We turn to the practical side and consider the <emphasis role="ital">
+      usage</emphasis> of the results. 
+      Can XDM under certain circumstances provide more convenient access to the 
+      units we need, or can it deliver units which are a closer fit to
+      what is actually needed?
+    </para><para>
+       <emphasis role="ital"><emphasis role="bold">Atomic values</emphasis></emphasis>
+    </para><para>
+      A striking difference between XML and XDM is that the latter supports 
+      atomic values. This is a concrete advantage: if the desired result 
+      is one or several atomic values, then XDM can explicitly deliver 
+      them as such, whereas in the case of an XML result they must be 
+      extracted. Extraction requires knowledge about the result document
+      structure and involves non-trivial instruments like 
+      an XPath or DOM API. A further drawback of the XML variant is 
+      computational overhead. Conclusion: in cases where the result 
+      consists wholly of atomic values, XDM is probably the more 
+      suitable format.
+    </para><para>
+       <emphasis role="ital"><emphasis role="bold">Collection-like data</emphasis></emphasis>
+    </para><para>
+      The second difference between XML documents and XDM values is that documents are 
+      logical <emphasis role="ital">trees</emphasis> within which everything is 
+      related to everything; whereas an XDM 
+      value is a <emphasis role="ital">collection</emphasis> of independent entities. 
+      What if the result is just that, 
+      conceptually, a collection? Then the main concern is fast and convenient access 
+      to the individual parts, as well as the possibility to process them – e.g. 
+      update them – in safe isolation. Typical examples for collection-like results are:
+      <itemizedlist><listitem><para>a heterogeneous result, the parts of which are used in different ways</para></listitem><listitem><para>a large result, only selected parts of which are used</para></listitem></itemizedlist>
+      So the need for differential or selective processing calls for a collection-like 
+      result. Arrays and maps come to mind, supporting index or name based access to 
+      self-contained units. As we have seen, it is easy to mimic 
+      collections with XML documents. This amounts to an "XML-as-a-container" approach. 
+      Under many circumstances, this may be a perfect solution. But there are issues 
+      that may become important:
+      <itemizedlist><listitem><para>the access to parts is XPath-based, rather than name- or index-based</para></listitem><listitem><para>the whole result tree must be constructed in memory (unless streaming processing is used)</para></listitem><listitem><para>local modification of the result means updating a large document</para></listitem></itemizedlist>
+    </para><para>
+      XPath-based access is inconvenient, compared to name- or index-based access. It may 
+      also be less efficient. The need to construct the whole result tree is a real drawback 
+      <emphasis>if</emphasis> such a construction is not required for other reasons 
+      anyway. This must not be the case. If the result is available in serialized form, 
+      then it makes a big difference if the whole result must be turned into an 
+      in-memory tree, or if small, independent parts can be located and selectively 
+      expanded. And the required parsing may be extremely fast if the parser is 
+      able to locate the desired parts without parsing the details of the preceding parts.
+    </para><para>
+      Is XDM a good alternative? Not or not yet. The lack of structure and metadata turn 
+      XDM into an awkward format: it resembles a Java array of type <code>Object[]</code>. 
+      And there 
+      is not yet a serialization format available, let alone a parser to read such a 
+      format. If XDM is to excel as a collection-like format, these problems – no 
+      structure, no metadata, no serialization – would have to be solved.
+    </para><para>
+       <emphasis role="ital"><emphasis role="bold">Updatable result</emphasis></emphasis>
+    </para><para>
+      In pipelined processing, it is a common requirement to receive the result of a 
+      preceding step, modify it locally and pass it on to the next step. If the result 
+      is a collection of self-contained parts, such local updating is easier in several 
+      aspects, compared to the updating of a monolithic document. XDM looks promising 
+      for such purposes, but the difficulty of selective access – no structure, no 
+      metadata – reduces the attractiveness.
+    </para><para>
+       <emphasis role="ital"><emphasis role="bold">Continuous result</emphasis></emphasis>
+    </para><para>
+      Some resources grow continuously by appending more data. Log data are the classical 
+      example. Such data, as any other data, may be desired to be XML, so as to enable 
+      XML processing. But continuous resources must not be an XML document, as it is impossible to 
+      append data to a document, they must be inserted, which is much more difficult. 
+      In this case, XDM (a lossless serialization provided) is an obvious solution, 
+      as you can append items to an XDM value without difficulty.
+    </para><para>
+       <emphasis role="ital"><emphasis role="bold">Result as an XDM provider</emphasis></emphasis>
+    </para><para>
+      XDM is the input format for XPath, XQuery and XSLT. In pipelined processing, one 
+      step might produce a result which provides XDM input for another step – either 
+      the value as a whole is used, or one or more subsequences of it. In this scenario, 
+      an XDM result is convenient and natural. Dependent on the type of the required 
+      input XDM , an XDM result may be a better alternative than an XML result.
+    </para><para>
+      We draw a conclusion: 
+      XML documents should not be the only option for encoding the result of XML 
+      processing. No native representation of atomic values, the tight coupling implied 
+      by overall tree structure and the inability for plain appending must not be ignored. 
+      XDM is an interesting alternative, as it is a superset of XML and 
+      addresses those issues. But XDM is, as we said, an awkward format due to lack 
+      of structure and metadata. Thus we came to explore the possibility of 
+      <emphasis role="ital">augmenting</emphasis> XDM: add to it control information 
+      which imparts structure and enriches the data with metadata. The goal is to 
+      combine XDM’s built-in advantages – support for atomic values, collection-like 
+      nature, being appendable and being a natural XDM provider – with structure and 
+      metadata enabling convenient and guided access to the contents, as well as 
+      simplified processing. 
+    </para></section><section xml:id="xdm-structure"><title>XDM structure</title><section xml:id="partitioning-an-xdm-value"><title>Partitioning an XDM value</title><para>
+      Consider the situation that an XDM value should convey two code lists, each one 
+      represented by a sequence of string items. XDM offers no way to tell where one 
+      list ends and the other begins. Similar example: the XDM value is a sequence of 
+      XML documents which represent the log data gathered during one hour - how to 
+      identify the subsequence corresponding to one day of operation?
+      A quick and simple solution is to insert into the XDM 
+      value additional items which delimit subsequences. These items can be regarded 
+      as <emphasis role="ital">control items</emphasis>, to be distinguished from the 
+      original data items. The subsequences are parts of the XDM value which have been 
+      turned into new units of information. In order to give names to these parts,
+      we add a "name" attribute to the respective control item. Example:
+    </para><para>
+      <programlisting xml:space="preserve">
+&lt;xm:part xmlns:xm=”http://www.xdml.org/ns” name=”alpha-codes”/&gt;,
+a001,
+a005,
+a012,
+
+&lt;xm:part xmlns:xm=”http://www.xdml.org/ns” name=”beta-codes”/&gt;,
+b002,
+b003
+</programlisting>
+    </para><para>
+      And if the uniqueness of part names is not guaranteed, an optional "partID"
+      attribute may accompany the mandatory "name" attribute.
+    </para></section><section xml:id="Imposing-tree-structure"><title>Imposing tree structure</title><para>
+      The shown use of control items defines parts of an XDM value in an intuitive way: 
+      the contents of a part is simply all items following the part definition and 
+      preceding the next part definition, or all following items, if this was the last
+      part definition. But we might also allow "complex parts" - parts containing
+      parts, to be distinguished from simple parts which contain only data items. To
+      encode this structural model, we choose a simple rule: the contents of a complex part 
+      ends before an item explicitly "closing" the part, whereas the contents of a 
+      simple part is delimited implicitly: it ends before the next control
+      item defining a new part (simple or complex) or closing the surrounding complex 
+      part. Note that these parts - simple or complex - are defined in a "streaming" 
+      fashion - contents are not children, but a subsequence of items delimited by 
+      an item recognized as start point and another item explicitly or implicitly 
+      meaning an end point (or the end of the XDM value, as a special case). 
+    </para><para>
+      In order to keep things simple, we constrain the definition of complex parts: 
+      they must not contain data items outside of contained parts. In other words: 
+      parts must not be mixed, their content is either a sequence of data items, 
+      or a sequence of parts which may be simple or complex. An example using
+      complex parts:
+    </para><para>
+      <note><title>Leaving out namespace declarations</title><para>
+          For brevity, all further examples will leave out the namespace declaration  xmlns:xm=”http://www.xdml.org/ns".
+        </para></note>
+      <programlisting xml:space="preserve">
+&lt;xm:complexPart name="code-lists"/&gt;,
+&lt;xm:part name="alpha-codes"/&gt;,
+a001,
+a005,
+a012,
+&lt;xm:part name="beta-codes"/&gt;,
+b002,
+b003,
+&lt;xm:complexPartEnd/&gt;,
+
+&lt;xm:complexPart name="logs"/&gt;,
+&lt;xm:part name="log0800" /&gt;,
+&lt;log&gt;...&lt;/log&gt;,
+&lt;xm:part name="log0900" /&gt;,
+&lt;log&gt;...&lt;/log&gt;,
+&lt;xm:complexPartEnd/&gt; 
+</programlisting>
+    </para></section><section xml:id="concept-information-units"><title>Concept: Information units</title><para>
+       We have seen how the insertion of control items can partition an XDM value 
+       into parts. To denote the concept of such parts we introduce the term 
+       <emphasis role="ital">information unit</emphasis>. An information unit
+       is encoded by a sequence of XDM items. According to whether whose items
+       represent nested units, two kinds of information units
+       are distinguished. A
+       <emphasis role="ital">simple</emphasis> information unit contains only data 
+       items, but not any nested information units. A <emphasis role="ital">
+       complex</emphasis> information unit, on the other hand, contains other 
+       information units, but no data items outside of nested units.
+     </para><para>
+       An information unit has the following properties:
+       <itemizedlist><listitem><para>a name</para></listitem><listitem><para>a part ID (optional)</para></listitem><listitem><para>metadata (optional)</para></listitem><listitem><para>value</para></listitem></itemizedlist>
+       Name and part ID we constrain to be a QName and NCName, respectively; 
+       metadata are introduced in the next section. The value is 
+       <itemizedlist><listitem><para>a sequence of data items - in the case of a simple unit</para></listitem><listitem><para>an unordered collection of information units - in the case of a complex unit</para></listitem></itemizedlist>
+     </para><para>
+       Note that this definition renders the sequence of nested information units irrelevant, as these
+       units are associated with names. This corresponds to the modeling practice of XML 
+       attributes or JSON members.
+     </para></section></section><section xml:id="xdm-metadata"><title>XDM metadata</title><section xml:id="adding-metadata"><title>Why and how add metadata?</title><para>
+      We saw that control items may structure XDM values 
+      into information units, which are groups of items or of other information units. 
+      These units are entities 
+      which do not exist in XDM values without control items. Often they will
+      serve as units of processing, and it is reasonable to
+      expect that different units may be subjected to different processing.
+      Such considerations suggest the usefulness of metadata.
+    </para><para>
+      In fact, it is very simple to associate the units with as many metadata 
+      as one would like. Every unit is preceded by a control item which amounts to
+      a convenient container where to place those metadata, either as attributes 
+      or as child elements. Come to think of it, the control item can be regarded 
+      as a full-scale XML document which is still hardly constrained in its 
+      contents: only the name of the root element and the use of a "name" and a
+      "partID" attribute are specified, so far. This document is dedicated to defining
+      a unit, and it is ready to be filled with metadata describing the unit.
+    </para><para>
+      Returning to the example given above, the units containing a single document of 
+      log data may be associated with metadata "startTime" and "devices". 
+      To accommodate such data, we can use attributes and child elements of the markup 
+      item, like so:
+    </para><para>
+      <programlisting xml:space="preserve">
+&lt;xm:complexPart name="logs"/&gt;,
+
+&lt;xm:part name="log0800" xmlns:e=”e.com” e:startTime="2010-12-30T08:00:00" xmlns:e="http://example.com"&gt;
+   &lt;e:devices&gt;…&lt;/e:devices&gt;
+&lt;/xm:part&gt;,
+&lt;log&gt;...&lt;/log&gt;, 
+
+&lt;xm:part name="log0900" xmlns:e=”e.com” e:startTime="2010-12-30T09:00:00" xmlns:e="http://example.com"&gt; 
+   &lt;e:devices&gt;…&lt;/e:devices&gt;
+&lt;/xm:part&gt;,
+&lt;log&gt;...&lt;/log&gt;,
+
+&lt;xm:complexPartEnd/&gt;
+</programlisting>
+    </para></section><section xml:id="a-component-model-of-metadata"><title>A model of metadata</title><para>
+        We have arrived at a very simple method how to impose structure on XDM 
+        values, and we have found a slot into which one might throw any amount of 
+        metadata pertaining to the emerging units. Now 
+        we face two alternatives.
+        We might stop here and regard the semantics of metadata as the 
+        realm of proprietary extensions of our simple, general model, in the 
+        same way as XML Schema allows annotation attributes. We might, for example, 
+        say that any additional attributes and child elements of control items are 
+        meta information, to be evaluated in a proprietary way. 
+      </para><para>
+        But we can also take a different path and attempt to arrive at a generic 
+        model of XDM metadata and its processing by a responsive infrastructure. 
+        This approach does not remove the option of proprietary extensions, but factors 
+        them out and constrains them in a way which allows a generic "XDM parser" to 
+        report them in a structured way.
+        The basic principle of such a model is to distinguish metadata meant to
+        control a specific processing from other metadata. The latter might be 
+        called "descriptive metadata" 
+        and is available for variable uses. The former – "control metadata" – has
+        a defined impact on a defined processing.
+      </para><para>
+        Why should one associate data with information which controls their 
+        processing? We note an interesting analogy. A key concept of object orientation
+        is to associate data sets with behavior. This is similar to what we
+        try to do. The behavior of objects is implemented by methods; the
+        "behavior" of information units resides in control metadata which define a processing.
+        Control metadata is behavior encoded as data, as opposed to methods which 
+        are behavior encoded as code. To get a more practical motivation, imagine 
+        writing an XQuery program and regretting the limitations of XQuery. For 
+        example, one cannot call XSLT to accomplish some finalization, 
+        one cannot trigger actions with side effects (like the execution of the SQL 
+        just composed), and one cannot create a map object which the calling application 
+        would really like to receive. In this situation there is a way out: let the query 
+        code rely on a postprocessing of the query result which is <emphasis role="ital">
+        defined</emphasis> by the query and 
+        <emphasis role="ital">executed</emphasis> by infrastructure. Our model of 
+        XDM metadata amounts to a framework for this approach.
+      </para><para>
+        Obviously, control metadata and the responsive infrastructure must be modeled
+        as a coherent whole. We assume that control metadata can be further grouped
+        into a set of metadata components, and that a general processing model
+        yet to be defined determines how actual processing depends on those
+        components. But at this point of our 
+        argument we want to separate the general idea from our elaboration of it, 
+        as we want to protect the value of the idea from the possible weaknesses of our attempts 
+        to refine it. For the time being, we remain abstract. We assume a standard
+        infrastructure governed by a set of standard metadata components.
+      </para></section></section><section xml:id="xdml-the-concept"><title>XDML - the concept</title><para>
+        By now we have collected a set of ideas which can be assembled into 
+        a comprehensive concept how XDM is turned into a 
+        <emphasis role="ital">language</emphasis> designed to encode 
+        information content as well as information processing. 
+        XDM is turned into a language by defining 
+        and constraining the way how control items can be used within an XDM value. 
+        To denote this language we use the acronym "XDML" (short for: 
+        "XDM markup language"). An XDML value is then an XDM value which uses control 
+        items in a way consistent with the rules of the language. 
+      </para><para>
+        We distinguish between the <emphasis role="ital">concept</emphasis> of an 
+        XDML language and a concrete specification of the language. While we 
+        offer a first proposal for such a specification, we attempt to factor 
+        out basic principles. These principles should be simple and 
+        intuitive to a degree which a concrete elaboration cannot attain.
+        <note><title>Informal style</title><para>
+            For the sake of readability, we do not embark 
+            on any formal definition. Rather, we want to convey the definition in a 
+            natural style which concentrates on ideas and intent at the expense of formal 
+            exactness and completeness.
+          </para></note>
+      </para><section xml:id="goals"><title>Goals</title><para>
+          XDML is a set of rules how XDM values can be designed in order to become more 
+          useful entities as compared to ordinary XDM values. The key idea is to insert
+          into the XDM values control information which guides the interpretation and
+          processing of the data. An XDM value thus augmented is called an XDML value.
+          Its usefulness is provided by an XDML processor, which
+          is a generic program evaluating the control information.
+          XDML addresses the 
+          following major goals:
+          <itemizedlist><listitem><para>to structure XDM values into nestable parts</para></listitem><listitem><para>to enable name-based access to XDM parts</para></listitem><listitem><para>to associate XDM parts with metadata</para></listitem><listitem><para>to process XDM parts as guided by their metadata</para></listitem></itemizedlist>
+        </para></section><section xml:id="structure-model"><title>Structure model</title><para>
+          XDML structures XDM values by <emphasis role="ital">grouping</emphasis> 
+          the XDM items. The resulting groups are units of usage in a broad sense: conceptual units of 
+          information, units of data retrieval and units of data processing. 
+          Item groups are called <emphasis role="ital">information units</emphasis>. 
+          The grouping approach distinguishes:
+          <itemizedlist><listitem><para>simple information units – do not contain other units</para></listitem><listitem><para>complex information units – contain other units</para></listitem></itemizedlist>
+          and introduces the following constraints:
+          <itemizedlist><listitem><para>complex units do not contain data 
+              items which are not contained by nested units</para></listitem><listitem><para>the information content of a complex unit is regarded as unordered 
+              collection of units</para></listitem></itemizedlist>
+        </para></section><section xml:id="metadata-model"><title>Metadata model</title><para>
+          Information units can be associated with metadata. XDML uses a simple metadata model which
+          <itemizedlist><listitem><para>distinguishes between descriptive data and control data</para></listitem><listitem><para>distributes control data into distinct sets, called metadata components</para></listitem><listitem><para>defines how metadata components control the processing</para></listitem></itemizedlist>
+        </para></section><section xml:id="processing-model"><title>Processing model</title><para>
+          XDML values are submitted to an XDML processor
+          which evaluates the control information and is responsible for reporting
+          and processing the data
+          accordingly. The processor is viewed as the sum of two components:
+          <itemizedlist><listitem><para>an XDML parser</para></listitem><listitem><para>XDML engine</para></listitem></itemizedlist>
+          An XDML parser delivers the information encoded as 
+          XDML value in a structured way. The engine enables other kinds of
+          processing. A concrete specification of XDML must define a
+          processing model governing the engine and its control by
+          metadata and user actions (API calls).
+        </para></section><section xml:id="encoding-principles"><title>Encoding principles</title><para>
+          XDML defines the syntax and semantics of control information embedded in
+          XDM values. We propose four general encoding principles:
+          <itemizedlist><listitem><para>control information is encoded by control items, to be 
+              distinguished from data items</para></listitem><listitem><para>a control item is an XDM item which is an element information
+              item in a particular namespace</para></listitem><listitem><para>each information unit is associated with a control item defining
+                the unit in terms of metadata</para></listitem><listitem><para>metadata components are not mixed - each component is encoded 
+                by a distinct (possibly empty) set of elements</para></listitem></itemizedlist>
+        </para><para>
+          A concrete specification of XDML must elaborate these principles into a
+          concrete encoding model. This model must define the names and structure
+          of control items, and it must define the mapping of control 
+          items onto content items ("where does the unit begin and end?").
+        </para></section></section><section xml:id="xdml-concrete-proposal"><title>XDML - concrete proposal</title><para>
+        The step from XDML as a concept to a concrete specification requires:
+        <itemizedlist><listitem><para>A concrete encoding model</para></listitem><listitem><para>Specification of an XDML parser</para></listitem><listitem><para>Specification of a processing model</para></listitem></itemizedlist>      
+      </para><para>
+        <note><title>On language binding</title><para>
+            The XDML user communicates with the XDML processor via an API. 
+            A processor implementation is therefore 
+            bound to a programming language, whereas the concept of an XDML processor
+            is language neutral. Our ongoing implementation work uses Java, 
+            and API code snippets in this paper use Java as well. This representation 
+            is chosen for convenience sake and does not mandate Java in 
+            preference to other languages.
+          </para></note>
+      </para><para>      
+        <emphasis role="ital"><emphasis role="bold">Encoding model</emphasis></emphasis>
+      </para><para>
+        We adopt the rules applied in our illustrative examples:
+        <itemizedlist><listitem><para>Control items contain elements in the XDML namespace: 
+              http://www.xdml.org/ns</para></listitem><listitem><para>Simple information units are preceded by an <code>&lt;xm:part&gt;</code> item</para></listitem><listitem><para>Complex information units are delimited by <code>&lt;xm:complexPart&gt;</code> and 
+            <code>&lt;xm:complexPartEnd&gt;</code> items</para></listitem><listitem><para>Name and partID of an information unit are given by the 
+            "name" and "partID" attribute of an <code>&lt;xm:part&gt;</code> or 
+            <code>&lt;xm:complexPart&gt;</code> item</para></listitem><listitem><para>Descriptive metadata are encoded as attributes or child 
+            elements of an <code>&lt;xm:part&gt;</code> or 
+            <code>&lt;xm:complexPart&gt;</code> item; they 
+            must be in a namespace but must not be in the XDML namespace</para></listitem></itemizedlist>
+        We extend the model of <code>&lt;xm:part&gt;</code> items by three further
+        standard attributes. Attribute "private", if containing the value "true",
+        indicates that the unit is used to assist in the processing of other units
+        and should be ignored by the XDML user. Two other attributes convey type information and
+        thus facilitate the translation of XDM values into the data model of the processor
+        language:
+        <itemizedlist><listitem><para>"type" - represents the data type of the information unit</para></listitem><listitem><para>
+              "finalType" - represents the data type of the information unit 
+              after <emphasis role="ital">finalization</emphasis>
+            </para></listitem></itemizedlist>
+        Finalization is a processing which is part of the proposed
+        processing model and which may change the data type of the unit (see 
+        <xref linkend="execution-context-finalize"/> for
+        details). The following example shows two information units containing 
+        a sequence of nodes and a string, respectively, as indicated by the type attributes:
+      <programlisting xml:space="preserve">
+&lt;xm:part name="logs" type="nodes"/&gt;,
+&lt;log&gt;...&lt;/log&gt;,
+&lt;log&gt;...&lt;/log&gt;,
+&lt;log&gt;...&lt;/log&gt;,
+
+&lt;xm:part name="query_getSummary" type="string" private="true"/&gt;,
+xquery version="1.0"
+...
+</programlisting>
+      </para><para>      
+        <emphasis role="ital"><emphasis role="bold">XDML parser</emphasis></emphasis>
+      </para><para>
+        The parser has to report data in accordance to a data model which in turn
+        depends on the processing model. Therefore the parser will be dealt with later,
+        after explaining the 
+        processing model and in the context of describing the various APIs of the XDML processor. 
+      </para><para>      
+        <emphasis role="ital"><emphasis role="bold">Processing model</emphasis></emphasis>
+      </para><para>
+        The processing model is based on three concepts which the following 
+        sections will explain in detail:
+        <itemizedlist><listitem><para>Operation - any processing can be decomposed into distinct operations</para></listitem><listitem><para>Method - unit of processing composed of one or more operations</para></listitem><listitem><para>Execution context - it specifies when to invoke a method and what to do with
+            the return value</para></listitem></itemizedlist>
+      </para><section xml:id="xdml-operations"><title>XDML operations</title><para>
+        Data processing provided by the XDML processor is modeled as the execution of discrete operations, 
+        collectively called XDML operations. XDML operations thus serve as basic unit of data processing: 
+        an operation is either executed as a whole or not at all; and any processing can be decomposed 
+        into the execution of one or more operations. An operation is supplied with input information, 
+        it may produce output information and it may have side-effects. Output information is the return 
+        value of the operation. Input information comprises a data context and a request message. 
+      </para><para>
+        The <emphasis role="ital">data context</emphasis> can be regarded as the main input, 
+        comparable to the context item of XQuery, the context node of XSLT or the 
+        primary input port of XProc. The data context of an XDML operation is (usually) the value 
+        of an information unit (as represented by the implementation language of the XDML 
+        processor). Therefore one might say that an XDML operation is applied to an information 
+        unit, or that an information unit is processed by an XDML operation. 
+      </para><para>
+        The <emphasis role="ital">request message</emphasis> consists of named parameters, 
+        comparable to the external variables of XQuery and the global parameters of XSLT.  
+        In the case of XProc, the corresponding input sources would be non-primary input ports, 
+        options and parameters. 
+      </para><para>
+        The <emphasis role="ital">return value</emphasis> of an operation may be an 
+        instance of any type supported by the implementation language of the XDML 
+        processor. Note that this value may or may not have a default mapping to 
+        an XDM value. In other words: operations may produce a result which is not 
+        related to the XDM model, e.g. an object of a custom class.
+      </para><para>
+        The XDML provider defines the processing of an information unit by 
+        associating it with methods. A method is a processing defined
+        as the sequential execution of one or several operations. It is
+        therefore encoded as one or more request messages and 
+        the choice of a so-called 
+        execution context. The context determines when to invoke the method and 
+        what to do with the return value. Method definition is described in 
+        <xref linkend="method-definitions"/>. 
+        The current section describes XDML operations in general terms, independently of 
+        their use in a particular execution context. Main aspects are the data model 
+        of input and output, the encoding of input by request messages, the standard 
+        library of XDML operations and the extensibility by user-defined operations.
+      </para><section xml:id="data-model-of-input-and-output"><title>Data model of input and output</title><para>
+          An XDML operation consumes input information, which comprises:
+          <itemizedlist><listitem><para>data context</para></listitem><listitem><para>request message</para></listitem></itemizedlist>
+        </para><para>
+          The <emphasis role="ital">data context</emphasis> of an XDML operation 
+          is (usually) the value of an information unit. The present version of XDML 
+          constrains XDML operations to process simple information units only. 
+          The data context is therefore usually an XDM value, or more precisely: the 
+          implementation language’s representation of an XDM value. But there are
+          two exceptions to the rules. First, the data context may also be the
+          return value of another XDML operation (preceding it within a method, see
+          <xref linkend="methods"/>). Second, the value of a simple information
+          unit may be an instance of a data type without default mapping to XDM 
+          (resulting
+          from unit translation, see <xref linkend="execution-context-translate"/>).
+        </para><para>
+          The <emphasis role="ital">request message</emphasis> is modeled as follows:
+          <itemizedlist><listitem><para>
+                the message comprises two parameter sets: statically known 
+                parameters and dynamic parameters
+              </para></listitem><listitem><para>each set contains zero or more named parameters</para></listitem><listitem><para>a parameter name is a QName</para></listitem><listitem><para>
+                a parameter value has one of these types: string, node, or a 
+                sequence of nodes
+              </para></listitem></itemizedlist>
+          The model is easily recognized when looking at the API representation of a request 
+          message:
+          <programlisting xml:space="preserve">
+interface OperationRequest {
+   QName   operationName();
+   String  resultType();
+
+   String  getStringParam(QName name);
+   Node    getNodeParam(QName name);
+   Node[]  getNodesParam(QName name);
+
+   String  getDynamicStringParam(QName name);
+   Node    getDynamicNodeParam(QName name);
+   Node[]  getDynamicNodesParam(QName name);
+
+   QName[] getParamNames();
+   QName[] getDynamicParamNames();
+}
+</programlisting>
+          Note that this model follows the approach taken by the XProc 
+          language rather closely: the set of statically known parameters 
+          corresponds to the non-primary input ports and options of XProc 
+          steps, while the set of dynamic parameters corresponds to XProc’s 
+          parameter port. Dynamic parameters are required, for example, to 
+          enable operations which execute arbitrary stylesheets: 
+          the names of stylesheet parameters cannot be anticipated and may 
+          collide with the names of statically known parameters.
+        </para><para>
+          Output information is the <emphasis role="ital">return value</emphasis>
+          of the operation. An operation may or may not produce a return value. 
+          The return value can be an instance of any data type supported 
+          by the implementation language: it is not constrained to have a default 
+          mapping to an XDM value. It may, for example, be an object of a custom class.
+        </para></section><section xml:id="request-messages"><title>Request messages</title><para>
+          The XDML provider encodes the input information of an operation by an
+          element information item representing a request message. This message 
+          is implicitly accompanied by a data context, which is either the value 
+          of the surrounding information unit or the return value of a
+          preceding operation.
+        </para><para>
+          The request message has the following parts:
+          <itemizedlist><listitem><para>the root element representing the message as a whole</para></listitem><listitem><para>attributes encoding statically known parameters of type “string”</para></listitem><listitem><para>
+                child elements encoding statically known parameters of type “node” 
+                or “node sequence”
+              </para></listitem><listitem><para>
+                an optional child element <code>&lt;xm:params&gt;</code> 
+                representing the dynamic parameters
+              </para></listitem><listitem><para>
+                the attributes of <code>&lt;xm:params&gt;</code> encoding dynamic 
+                parameters of type “string”
+              </para></listitem><listitem><para>
+                child elements of <code>&lt;xm:params&gt;</code> encoding dynamic parameters 
+                of type “node” or “node sequence”
+              </para></listitem></itemizedlist>
+          The name of the root element equals the operation name, and the names of 
+          attributes and elements representing parameters correspond to the parameter 
+          names. Consider this example:
+          <programlisting xml:space="preserve">
+&lt;submitToXSLT serialize=”true”&gt;
+   &lt;stylesheet&gt;
+      &lt;xsl:transform …&gt;…&lt;/xsl:transform&gt;
+   &lt;/stylesheet&gt;
+   &lt;xm:params verbosity=”1”&gt;
+      &lt;weatherData&gt;&lt;weather&gt;…&lt;/weather&gt;&lt;/weatherData&gt;
+   &lt;/xm:params&gt;
+&lt;/submitToXSLT&gt;
+</programlisting>
+          The operation "submitToXSLT" is invoked with two statically 
+          known parameters (“serialize” and “stylesheet”) and two dynamic 
+          parameters (“verbosity” and “weatherData”). In both 
+          parameter groups there is a string parameter as well as a node parameter. 
+          The operation executes the stylesheet supplied as parameter “stylesheet” 
+          and passes to it two stylesheet parameters, one with name “verbosity” and 
+          type <code>xs:string</code>, the other with name “weatherData”  and 
+          type <code>node()</code>. The 
+          operation also passes to the stylesheet the value of the 
+          surrounding information unit as context node.
+        </para></section><section xml:id="special-parameter-values"><title>Special parameter values</title><para>
+          A request message may reference
+          <itemizedlist><listitem><para>values supplied by the XDML user</para></listitem><listitem><para>values provided by other information units</para></listitem></itemizedlist>
+        </para><section xml:id="parameter-values-supplied-by-the-xdml-user"><title>Parameter values supplied by the XDML user</title><para>
+            A request message may reference values supplied by the XDML user. Values 
+            can be supplied as the execution of XDML operations is always triggered 
+            by an API call of the XDML user (see 
+            <xref linkend="xdml-user-perspective"/>). A reference to a 
+            supplied value is encoded by the expression
+          </para><para>
+            $arg{argName}
+          </para><para>
+            which is resolved to the value of an invocation argument with name 
+            “argName”. For example, the following request message binds two 
+            dynamic parameters, “verbosity” and “weatherData” to values supplied 
+            by the XDML user:
+            <programlisting xml:space="preserve">
+&lt;submitToXSLT serialize=”true”&gt;
+   &lt;stylesheet&gt;
+      &lt;xsl:transform …&gt;…&lt;/xsl:transform&gt;
+   &lt;/stylesheet&gt;
+   &lt;xm:params verbosity=”$arg{v}”&gt;
+      &lt;weatherData&gt;$arg{weatherData}&lt;/weatherData&gt;
+   &lt;/xm:params&gt;
+&lt;/submitToXSLT&gt;
+</programlisting>
+            Note that the parameter name used by the request message and the 
+            argument name expected from the XDML user need not be the same: 
+            in the example, the request parameter “verbosity” is bound to 
+            invocation argument “v”. The XDML provider’s choice of referenced 
+            argument names (in the example – “v” and “weatherData”) defines 
+            the “signature” of the operation from the XDML user’s perspective.
+          </para></section><section xml:id="parameter-values-provided-by-other-information-units"><title>Parameter values provided by other information units</title><para>
+            A request parameter may reference the value of another information 
+            unit. Such references are encoded by the expression
+          </para><para>
+            $part{partId}
+          </para><para>
+            which is resolved to the value of the information unit with part ID
+            “partId”. In the following example, parameter “stylesheet” is set 
+            to the value of an information unit with the part ID “toHTML”:
+            <programlisting xml:space="preserve">
+&lt;submitToXSLT serialize=”true”&gt;
+   &lt;stylesheet&gt;$part{toHTML}&lt;/stylesheet&gt;
+   …
+&lt;/submitToXSLT&gt;
+</programlisting>
+          </para></section></section><section xml:id="library-of-standard-operations"><title>Library of standard operations</title><para>
+          The XDML processor offers a library of available XDML operations. 
+          The library comprises 
+          <itemizedlist><listitem><para>standard operations which are built-in</para></listitem><listitem><para>proprietary operations which have been registered at runtime</para></listitem></itemizedlist>
+          See <xref linkend="extensibility"/> for details about the registration facility. Some examples of 
+          standard operations are:
+        </para><para>
+          <table><caption><para>
+                <emphasis role="bold"><emphasis role="ital">Some standard XDML operations.</emphasis></emphasis>
+              </para></caption><col align="left" valign="top" span="1"/><col align="left" valign="top" span="1"/><thead><tr valign="top"><th align="left" valign="top">Operation name</th><th align="left" valign="top">Description</th></tr></thead><tbody><tr valign="top"><td>createMapFromStrings</td><td>
+                  Creates a map object, using as input a sequence of strings read from the data context.
+                </td></tr><tr valign="top"><td>createPropertiesFromStrings</td><td>
+                  Creates a <code>Properties</code> object, using as input a sequence of strings read from the data context.
+                </td></tr><tr valign="top"><td>execAsSQL</td><td>
+                  Regards the data context as a sequence of SQL expressions and executes them.
+                </td></tr><tr valign="top"><td>execAsPerl</td><td>
+                  Regards the data context as a Perl script and executes it.
+                </td></tr><tr valign="top"><td>execAsXQuery</td><td>
+                  Regards the data context as an XQuery program and executes it.
+                </td></tr><tr valign="top"><td>execAsXSLT</td><td>
+                  Regards the data context as an XSLT stylesheet and executes it.
+                </td></tr><tr valign="top"><td>execAsXProc</td><td>
+                  Regards the data context as an XProc pipeline and executes it.
+                </td></tr><tr valign="top"><td>readDocument</td><td>Reads a document into a node object, reading the document URI from the data context.</td></tr><tr valign="top"><td>readTextFile</td><td>Reads a text file into a string, reading the file URI from the data context.</td></tr><tr valign="top"><td>sendFTP</td><td>Sends the data context per ftp.</td></tr><tr valign="top"><td>sendSOAP</td><td>Regards the data context as the payload of a SOAP request, sends it
+                  and returns the payload of the response.</td></tr><tr valign="top"><td>submitToXQuery</td><td>
+                  Executes an XQuery program and passes the data context to it
+                  as context item.
+                </td></tr><tr valign="top"><td>submitToXSLT</td><td>
+                  Executes an XSLT stylesheet and passes the data context to it
+                  as context node.
+                </td></tr><tr valign="top"><td>submitToXProc</td><td>
+                  Executes an XProc  pipeline and passes the data context to it
+                  as primary input.
+                </td></tr><tr valign="top"><td>validate</td><td>Validates the data context with an XML Schema.</td></tr><tr valign="top"><td>writeDocument</td><td>Stores the data context as an XML document.</td></tr><tr valign="top"><td>writeTextFile</td><td>Stores the data context as a text file.</td></tr></tbody></table>
+        </para></section><section xml:id="extensibility"><title>Extensibility</title><para>
+          The XMDL processor offers a generic mechanism for extending the library 
+          of XDML operations at runtime. This is achieved by an interface for 
+          registering proprietary operations:
+          <programlisting xml:space="preserve">
+interface XDMLRegistry {
+   void registerXDMLOperations(XDMLOperations impls);
+}
+</programlisting>
+          On registration, an implementation must be supplied as an implementation 
+          of the interface <code>XDMLOperations</code>. It represents the 
+          invocation of an operation as a method with a generic signature: 
+          <programlisting xml:space="preserve">
+interface XDMLOperations {
+   QName[] getOperationNames();
+   void    execute(OperationRequest requestMsg,
+                   DataUnit         dataContext,
+                   DataUnit         returnValue) 
+                      throws XDMLException;
+}
+</programlisting>
+          Implementing proprietary operations is a straightforward task:
+          interfaces <code>OperationRequest</code> and <code>DataUnit</code>
+          provide access to
+          operation name, request parameters and data context, respectively.
+          The return value is inserted into an instance of interface <code>DataUnit</code> 
+          which is either supplied from without or instantiated within the
+          implementation.
+        </para></section></section><section xml:id="methods"><title>Methods</title><para>
+        In most cases, a desired processing can be provided by a single operation, in
+        other words: the unit of intended processing matches the basic unit of
+        implemented functionality. Sometimes, however, a processing may
+        require two or more operations to be executed. As a generalization, our 
+        processing model defines the unit of intended processing as a sequence 
+        of one or more operations. This unit we call a <emphasis role="ital">method</emphasis>. 
+        Assuming sequential execution of the operations,
+        one may wish for flexibility concerning the data context: shall the second
+        operation use, like the first one, the value of the information unit, or
+        shall it use the return value of the preceding operation? This flexibility
+        is easy to implement, and it is easy to encode:
+        <itemizedlist><listitem><para>
+              represent the method by a sequence of request messages
+            </para></listitem><listitem><para>
+              add to request messages an optional attribute indicating any non-default use of the data context
+            </para></listitem></itemizedlist>
+        We introduce an attribute "dataContext" which may be attached to a request message in order
+        to encode where the actual data context is found. Rules:
+        <itemizedlist><listitem><para>
+              attribute missing =&gt; first operation uses the value of the information unit, 
+              later operations use the return value of the preceding operation
+            </para></listitem><listitem><para>
+              attribute value is "." =&gt; use the value of the information unit
+            </para></listitem><listitem><para>
+              attribute value is an NCName =&gt; use the return value of the preceding operation with that operation ID (attribute "opID")
+            </para></listitem></itemizedlist>
+        Note that the value of the information unit is always the data context for the method "as a whole" (for
+        its first operation), but not necessarily for each of its operations. Every method is therefore
+        bound to a particular information unit, as in object oriented programs every instance method
+        is bound to a particular object.
+      </para><para>
+        The return value of a method is the return value of its last (or only) operation,
+        unless another operation has been marked with a special 
+        attribute ("methodReturnValue") to yield the return value.
+      </para></section><section xml:id="execution-context"><title>Execution context</title><para>
+        When defining a method, the control data provide 
+        <itemizedlist><listitem><para>one or more request messages</para></listitem><listitem><para>the execution context</para></listitem></itemizedlist>
+        The execution context specifies (a) when to execute the method and 
+        (b) what to do with the return value (if any). Note the necessity of 
+        specifying such an execution context, as the method will be invoked 
+        after the XDML value is delivered to the XDML user.
+      </para><para>
+        We distinguish four types of execution context, which, taken together, 
+        define the processing model of XDML. Future versions of XDML may add 
+        further execution contexts. Each context may be viewed as the intent 
+        with which the XDML provider defines the method. He may want to 
+        <itemizedlist><listitem><para>finalize the value of the information unit</para></listitem><listitem><para>execute actions</para></listitem><listitem><para>enable evaluations</para></listitem><listitem><para>define non-standard representations</para></listitem></itemizedlist>
+      </para><section xml:id="execution-context-finalize"><title>Execution context "finalize"</title><para>
+          Sometimes the XDML provider may want to supply intermediary data and 
+          leave the finalization to postprocessing. There are three main reasons 
+          for this pattern: (a) the finalization requires some processing resource 
+          not available to the XDML provider, but available to an XDML operation; 
+          (b) the finalization is deferred as it may turn out to be unnecessary; 
+          (c) the finalization requires parameter values to be supplied by the 
+          XDML user at invocation time.
+        </para><para>
+          For example, the data which an information unit should ultimately 
+          supply may be obtained by submitting intermediary data to an XSLT 
+          stylesheet. However, if the XDML provider is an XQuery program, it 
+          cannot execute the XSLT processing. In this case, the XDML provider 
+          may provide the intermediate data and bind the information unit to 
+          the stylesheet execution. The execution context “finalize” ensures 
+          that the finalization takes place as soon as the XDML user confirms 
+          that finalizations are to be executed. The confirmation may be global 
+          or restricted to a particular information unit. The code
+          <programlisting xml:space="preserve">
+XDMLProcessor xp = XDMLProcessorFactory.newXDMLProcessor();
+XQSequence xdm = ...;
+XDML xdml = xp.newXDML(xdm);
+xdml.finalize();
+</programlisting>
+          loads an XDML value and triggers any finalizations, whereas
+          <programlisting xml:space="preserve">
+…
+xdml.finalize(“conferenceProgram”);
+</programlisting>
+          triggers the finalization of information unit "conferenceProgram" 
+          only. In general, finalization is achieved by executing a method
+          (one or more operations) defined for that purpose and replacing the value 
+          of the unit by the return value of the method.
+        </para><para>
+          To give a second example, the intermediary submitted to finalization 
+          may be the payload of a SOAP request. The finalization may then be 
+          achieved by operation “sendSOAP”, which wraps the unit data in a 
+          SOAP envelope, sends the request, receives the response and returns 
+          its payload. Using this operation in the execution context “finalize” 
+          will ensure that the information unit supplies the response payload,
+          rather than the request payload.
+        </para></section><section xml:id="execution-context-execute"><title>Execution context "execute"</title><para>
+          To create data may be less than what the XDML provider wants to do: 
+          his intent may be to execute actions related to the data. In some 
+          cases, the data are only a means to an end which is such an action: 
+          the data may represent, for example, a sequence of SQL statements, and the 
+          action consist of their execution. In other cases, the data may be valuable as 
+          such, but additional action is mandatory – for example, storage in 
+          a file or in a database. In both situations, overall processing may 
+          be simplified if the XDML provider may define the actions to be 
+          executed, specifying all details, rather than rely on the XDML user 
+          to know which actions to trigger and which details to specify.
+        </para><para>
+          The execution context “execute” takes care of this scenario. The 
+          XDML user does not have to know which operations are executed. 
+          He has to confirm, however, that any defined actions shall indeed 
+          be executed. His responsibility is restricted to giving or refusing 
+          “green light” to the actions defined by the XDML provider. The 
+          confirmation may be global:
+          <programlisting xml:space="preserve">
+…
+xdml.execute();
+</programlisting>
+          or restricted to a particular information unit:
+          <programlisting xml:space="preserve">
+…
+xdml.execute(“cleanupScript”);
+</programlisting>
+          The XDML user does not receive a return value. Therefore, the 
+          operations commanded by the XDM provider are always actions, 
+          rather than evaluations: operations motivated by their side 
+          effects, not by the production of a result value.
+        </para></section><section xml:id="execution-context-enable"><title>Execution context "enable"</title><para>
+          A different intent of the XDML provider might be to make 
+          certain evaluations or actions available, but leave it to the XDML 
+          user if the processing is actually performed. An example 
+          might be an evaluation which extracts some values from an
+          XML document, which might or might not be desired. The 
+          execution context “enable” supports such intent: the evaluation 
+          is only executed if the XDML user demands it explicitly, 
+          identifying it by a name which the XDML provider has assigned 
+          to it. In this example code:
+          <programlisting xml:space="preserve">
+String[] locations = (String[]) xdml.invoke(“waterReport”, “getLocations”);
+</programlisting>
+          the XDML user invokes an evaluation which is labeled "getLocations" 
+          and bound to information unit "waterReport". 
+          The name identifies a method (one or more operations) defined
+          for this unit and associated with the execution context "enable". 
+          The method has 
+          a signature, as implied by the use of $arg{argName} 
+          references in the operation requests. The following
+          method definitions create two XDML methods, one without parameters
+          and the other with a string parameter "location". The methods
+          are implemented by one and two operations, respectively:
+          <programlisting xml:space="preserve">
+&lt;xm:part name="waterReport" type="node"&gt;
+   &lt;xm:interface&gt;
+      &lt;xm:method name="getLocations" returnType="strings"&gt;
+         &lt;submitToXQuery&gt;
+            &lt;query&gt;distinct-values(//location/@name)&lt;/query&gt;
+         &lt;/submitToXQuery&gt;
+      &lt;/xm:method&gt;
+      &lt;xm:method name="getResultTable" returnType="map_string_to_string"&gt;
+         &lt;submitToXQuery&gt;
+            &lt;query&gt;
+               declare variable $location external; 
+               //location[@name eq $location]//substance/(@name, @quantity)
+            &lt;/query&gt;
+            &lt;xm:params location="$arg{location}"/&gt;
+         &lt;/submitToXQuery&gt;         
+         &lt;createMapFromStrings/&gt;
+      &lt;/xm:method&gt;
+    &lt;/xm:interface&gt;
+&lt;/xm:part&gt;
+</programlisting>
+         These method definitions impart to the information unit
+         an interface of possible method invocations, which might be represented 
+         in pseudo-code like so:
+          <programlisting xml:space="preserve">
+   informationUnitInterface {
+      String[] getLocations();
+      Map&lt;String,String&gt; getResultTable(String location)
+   }
+</programlisting>
+        </para></section><section xml:id="execution-context-translate"><title>Execution context "translate"</title><para>
+          The XDML provider might desire the XDML parser to deliver data 
+          which are not a standard representation of XDM data. For example, 
+          he might intend to deliver a map object, whereas the information 
+          unit contains an XML fragment encoding the map entries. To achieve 
+          this, the metadata specify the transformation of the unit data 
+          into the desired representation. Conceptually, this may be viewed 
+          as executing a method which produces the non-standard 
+          representation and replaces the value of the unit with this 
+          representation – which is essentially the same processing as provided 
+          by a method in context “finalize”. We prefer, however, to 
+          distinguish finalization in the sense described above from the 
+          translation of the unit data into a specific data type. Such
+          translation we regard as processing associated with an
+          execution context "translate". Contrary 
+          to the handling of finalization, the XDML user does not confirm 
+          translation - translation is built into the XDML parser which 
+          always delivers values in accordance to a defined translation. For example, this code:
+          <programlisting xml:space="preserve">
+Map&lt;String,String&gt; map = xdml.getPart("foo").getMapString2String()
+</programlisting>
+          retrieves the unit data as a map, rather than as an XML element 
+          which is the XDM source format consumed by the XDML processor. 
+          The XDML user can only retrieve the unit data as a map.
+        </para></section></section><section xml:id="method-definitions"><title>Method definitions</title><para>
+        The processing of an information unit is organized as the execution of
+        methods. A method consists of one or several operations. The definition of a method
+        consists of the request message(s) launching its operation(s). 
+        The definitions are associated with an execution context, where
+        execution contexts and method definitions are related as follows:
+      </para><para>
+        <table><caption><para>
+              <emphasis role="bold"><emphasis role="ital">Execution contexts and method definitions.</emphasis></emphasis>
+            </para></caption><col align="left" valign="top" span="1"/><col align="left" valign="top" span="1"/><thead><tr valign="top"><th align="left" valign="top">Execution context</th><th align="left" valign="top">Content</th></tr></thead><tbody><tr valign="top"><td>finalize</td><td>
+                a single anonymous method (or empty)
+              </td></tr><tr valign="top"><td>execute</td><td>
+                a single anonymous method (or empty)
+              </td></tr><tr valign="top"><td>enable</td><td>
+                a set of named methods (possibly empty)
+              </td></tr><tr valign="top"><td>translate</td><td>
+                a single operation per target language (possibly none)
+              </td></tr></tbody></table>
+      </para><para>
+        The encoding of method definitions reflects these relationships:
+      </para><para>
+        <table><caption><para>
+              <emphasis role="bold"><emphasis role="ital">Execution contexts and their encoding.</emphasis></emphasis>
+            </para></caption><col align="left" valign="top" span="1"/><col align="left" valign="top" span="1"/><thead><tr valign="top"><th align="left" valign="top">Execution context</th><th align="left" valign="top">Encoding</th></tr></thead><tbody><tr valign="top"><td>finalize</td><td>
+                optional <code>&lt;xm:finalize&gt;</code> element, child elements are request messages
+              </td></tr><tr valign="top"><td>execute</td><td>
+                optional <code>&lt;xm:execute&gt;</code> element, child elements are request messages
+              </td></tr><tr valign="top"><td>enable</td><td>
+                optional <code>&lt;xm:interface&gt;</code> element, child elements are <code>&lt;xm:method&gt;</code>
+                elements representing named methods, whose child elements are request messages
+              </td></tr><tr valign="top"><td>translate</td><td>
+                zero or more <code>&lt;xm:translate&gt;</code> elements, each one representing a target language
+                and encoding the data type and translation parameters as attributes
+              </td></tr></tbody></table>
+        The following listing presents a schematic example:
+        <programlisting xml:space="preserve">
+&lt;xm:part name="foo" type="bar"&gt;
+   &lt;xm:finalize&gt;
+      &lt;op1&gt;...&lt;/op1&gt;
+      &lt;op2&gt;...&lt;/op2&gt;
+   &lt;/xm:finalize&gt;
+   &lt;xm:execute&gt;
+      &lt;op3&gt;...&lt;/op3&gt;
+      &lt;op4&gt;...&lt;/op4&gt;
+   &lt;/xm:execute&gt;
+   &lt;xm:interface&gt;
+      &lt;xm:method name="m1" returnType="t1"&gt;
+         &lt;op5&gt;...&lt;/op5&gt;
+         &lt;op6&gt;...&lt;/op6&gt;
+      &lt;/xm:method&gt;
+      &lt;xm:method name="m2" returnType="t2"&gt;
+         &lt;op7&gt;...&lt;/op7&gt;
+         &lt;op8&gt;...&lt;/op8&gt;
+      &lt;/xm:method&gt;
+   &lt;/xm:interface&gt;
+   &lt;xm:translate target="java" type="t3" att1="..." att2="..."/&gt;
+&lt;/xm:part&gt;
+</programlisting>
+      </para><para>
+        And here comes a realistic example using three execution contexts, “finalize”, "execute" and "enable".
+        It shows an information unit which is finalized into a Perl script to be executed in context "execute"
+        and besides offering a little interface of methods to be invoked explicitly ("writeLog", "save"):
+        <programlisting xml:space="preserve">
+&lt;xm:part name="cleanupScript" type="node" finalType="string"&gt;
+   &lt;xm:finalize&gt;
+      &lt;execAsXSLT serialize="true"/&gt;
+   &lt;/xm:finalize&gt;
+   &lt;xm:execute&gt;
+      &lt;execAsPerl&gt;
+         &lt;xm:params options="-m cleanup"/&gt;        
+      &lt;/execAsPerl&gt;
+   &lt;/xm:execute&gt;
+   &lt;xm:interface&gt;
+      &lt;xm:method name="writeLog"&gt;
+         &lt;execAsPerl&gt;
+            &lt;xm:params options="-m writeLog -f $arg{fileName}"/&gt;
+         &lt;/execAsPerl&gt;
+      &lt;/xm:method&gt;
+      &lt;xm:method name="save"&gt;
+         &lt;execAsPerl&gt;
+            &lt;xm:params options="-m save"/&gt;
+         &lt;/execAsPerl&gt;
+      &lt;/xm:method&gt;
+   &lt;/xm:interface&gt;
+&lt;/xm:part&gt;
+</programlisting>
+      </para></section><section xml:id="xdml-user-perspective"><title>XDML user perspective</title><para>
+        An XDML value is a set of information units which may be 
+        retrieved and – depending on the method definitions – processed 
+        in a simplified way. An XDML value is represented by an object 
+        whose interfaces provide for retrieval 
+        (interface <code>XMDLParser</code>) and processing 
+        (<code>XDMLProcessing</code>).
+        The following sections give a brief overview of these and further
+        interfaces which taken together amount to the user perspective 
+        of XDML.
+      </para><section xml:id="obtaining-an-xdml-processor"><title>Obtaining and extending the XDML processor</title><para>
+          The instantiation of XDML values requires an instance
+          of the XDML processor. 
+          The processor object represents the engine responsible for
+          executing XDML operations. It implements interface
+          <code>XDMLRegistry</code> which enables the XDML user
+          to register proprietary operations:
+          <programlisting xml:space="preserve">
+XDMLProcessor xp = XDMLProcessorFactory.newXDMLProcessor();
+xp.registerXDMLOperations(new WaterOperations());
+xp.registerXDMLOperations(new WeatherOperations());
+</programlisting>
+          Now we are ready to begin working with XDML values.
+        </para></section><section xml:id="obtaining-an-xdml-value"><title>Obtaining an XDML value</title><para>
+          An XDML value is represented by an instance of class
+          <code>XDML</code>. The XDML processor offers a
+          generic method for instantiating XDML values:
+          <programlisting xml:space="preserve">
+void newXDML(Object dataSource) throws XDMLException;
+</programlisting>
+          Note that the signature does not constrain the data type of the data source.
+          Which type(s) are supported depends on the actual implementation of the 
+          processor. Our prototypic implementation expects an
+          <code>XQSequence</code> object, which is the XQJ representation
+          [<xref linkend="JSR-XQJ"/>] of an XDM value. Typical code snippet:
+          <programlisting xml:space="preserve">
+XQSequence xdm = …;            // procure XDM value
+XDML xdml = xp.newXDML(xdm);   // create XDML value
+</programlisting>
+        </para></section><section xml:id="parsing-an-xdml-value"><title>Parsing an XDML value</title><para>
+          Class <code>XDML</code> implements a parser API which 
+          supports iteration over the units as well as 
+          random access:
+          <programlisting xml:space="preserve">
+interface XDMLParser {
+   InformationUnit next();
+   boolean hasNext();
+   void rewind();
+
+   InformationUnit getPart(QName partName);
+   InformationUnit getPart(QName[] partNames);  // access nested part
+   InformationUnit getPartByID(String partID);
+
+   …   
+}
+</programlisting>
+          If the information unit is complex, it is represented by an
+          <code>XDML</code> object delivered by the <code>InformationUnit</code>
+          object:
+          <programlisting xml:space="preserve">
+class InformationUnit implements DataUnit, MetadataUnit {
+   XDML getComplexValue();
+   boolean isValueComplex();
+   ...
+</programlisting>           
+          Class <code>InformationUnit</code> implements two interfaces for accessing
+          the data value (interface <code>DataUnit</code>) and metadata
+          (<code>MetadataUnit</code>) of a simple unit. 
+          The <emphasis role="ital">data value</emphasis> is always retrieved 
+          as a single object (which may 
+          be an array object) – never by iterating over the items of the 
+          value. There are many possible types and for each 
+          one there is a specific retrieval method. The range of data types 
+          includes several types which have no default mapping to an XDM
+          value, as the interface must also handle values which result
+          from a value translation (via <code>&lt;xm:translate&gt;</code> metadata)
+          or which are the return value of an XDML operation -
+          e.g. several map types:
+          <programlisting xml:space="preserve">
+interface DataUnit {
+   // *** read value
+   Node         getNode();
+   Node[]       getNodes();
+   int          getInteger();
+   int[]        getIntegers();
+   String       getString();
+   String[]     getStrings();
+   Duration     getDuration();
+   Duration[]   getDurations();   
+   …
+   Object       getObject();    // allows for a DataUnit to contain ANY type
+
+   // *** write value
+   void         setNode(Node value);
+   void         setNodes(Node[] value);
+   ...
+   void         setObject(Object value, String typeName);
+}
+</programlisting>
+          The retrieval of <emphasis role="ital">metadata</emphasis> is different 
+          dependent on the metadata component. Descriptive metadata and translation 
+          metadata are delivered as a metadata set:
+          <programlisting xml:space="preserve">
+interface MetadataUnit {
+   MetadataSet getDescriptiveMetadata(String topic);
+   MetadataSet getTranslationMetadata(String targetLanguage);
+   String[] getDescriptiveTopics();
+   String[] getTranslationTargetLanguages();
+   ...
+}
+</programlisting>
+          A metadata set is a set of named properties; similar to the 
+          parameters of request messages, property names are QNames 
+          and values are either a string, or a node, or a sequence of nodes:
+          <programlisting xml:space="preserve">
+interface MetadataSet {
+   QName[] getPropertyNames();
+   String  getStringProperty(QName name);
+   Node    getNodeProperty(QName name);
+   Node[]  getNodesProperty(QName name);
+   …
+}
+</programlisting>
+          Other metadata – that is, metadata components corresponding to 
+          execution contexts (other than “translate”) – are delivered as 
+          <emphasis role="ital">methods</emphasis> or a map of named methods:
+          <programlisting xml:space="preserve">
+interface MetadataUnit {
+   …
+   Method getFinalizationMethod();
+   Method getExecutionMethod();
+   Map&lt;QName, Method&gt; getInterfaceMethods();
+}
+</programlisting>
+          A <code>Method</code> is a sequence of operation requests:
+          <programlisting xml:space="preserve">
+interface Method {
+   int              getOperationCount();
+   OperationRequest getOperationRequest(int index);
+   Integer          getDataContext(int index);
+      // data context is the return value of a preceding operation (&gt;0), or the unit value (0), or null
+}
+</programlisting>
+
+          See <xref linkend="data-model-of-input-and-output"/> for details 
+          about interface OperationRequest.
+        </para></section><section xml:id="processing-an-xdml-value"><title>Processing an XDML value</title><para>
+          Any processing happens in response to an API call of the XDML user (<code>finalize</code>, <code>execute</code>,
+          <code>invoke</code>). Here comes the processing interface implemented by class <code>XDML</code>:
+          <programlisting xml:space="preserve">
+interface XDMLProcessing {
+   void finalize();
+   void finalize(Arguments args);
+   void finalize(QName part);
+   void finalize(QName part, Arguments args);
+
+   void execute();
+   void execute(Arguments args);
+   void execute(QName part);
+   void execute(QName part, Arguments args);
+
+   Object invoke(QName part, QName methodName);
+   Object invoke(QName part, QName methodName, Arguments args);
+
+   boolean isFinalized();
+   boolean isFinalized(QName part);
+   boolean isExecuted();
+   boolean isExecuted(QName part);
+}
+</programlisting>
+          If arguments are passed to the processing, they will be used in the respective request messages
+          for resolving argument references of the syntax <code>$arg(argName)</code> (see
+          <xref linkend="parameter-values-supplied-by-the-xdml-user"/>). Setting arguments is straightforward:
+          <programlisting xml:space="preserve">
+Document weatherData = ...;
+String location = "NY";
+
+Arguments args = xdml.newArguments();
+args.set(new QName("location"), location);
+args.set(new QName("weatherData"), weatherData); 
+</programlisting>
+        </para></section><section xml:id="example"><title>Example</title><para>
+          An example handles the following scenario. Two datasets – one representing 
+          hydrological measurements, the other meteorological data – are the input 
+          for an evaluation yielding an XML report. Some value extraction, as
+          well as HTML and CVS representations of 
+          the report should be available on demand. Before creating the report, the 
+          input datasets must be procured: weather data are obtained from a SOAP 
+          service, water data are downloaded from a relational database. The 
+          following code snippet demonstrates XDML user code:
+        <programlisting xml:space="preserve">
+// *** obtain XDML value
+XDMLProcessor xp = XDMLProcessorFactory.newXDMLProcessor();
+XQSequence xdm = …;   // procure source data (e.g. exec XQuery) 
+XDML xdml = xp.newXDML(xdm);
+
+// *** use XDML value
+xdml.finalize();
+Map&lt;String,String&gt; results = (Map&lt;String,String&gt;) xdml.invoke("report", "getResultTable");
+String html = (String) xdml.invoke("report", "getHTML");
+String[] cvs = (String[])  xdml.invoke("report", "getCVS");
+</programlisting>
+          Although the processing requires the use of various technologies 
+          (XQuery, XSLT, SOAP, SQL), the client code is very simple and 
+          unawares of the complexity involved:
+          <itemizedlist><listitem><para>
+                Calling <code>finalize</code> accomplishes ...
+                <itemizedlist><listitem><para>retrieval of a dataset via SOAP</para></listitem><listitem><para>retrieval of a dataset via SQL</para></listitem><listitem><para>execution of an XQuery script producing the XML report</para></listitem></itemizedlist>
+              </para></listitem><listitem><para>
+                Calling <code>invoke(..., "getResultTable")</code> creates a value extraction
+              </para></listitem><listitem><para>
+                Calling <code>invoke(..., "getHtml")</code> creates an HTML representation
+              </para></listitem><listitem><para>
+                Calling <code>invoke(..., "getCVS")</code> creates a CVS representation
+              </para></listitem></itemizedlist>
+          The following table summarizes the structure of the XDML value enabling 
+          this simplicity:
+          <table><caption><para>
+                <emphasis role="bold"><emphasis role="ital">Example: information units providing simplified processing.</emphasis></emphasis>
+              </para></caption><col align="left" valign="top" span="1"/><col align="left" valign="top" span="1"/><thead><tr valign="top"><th align="left" valign="top">Unit name</th><th align="left" valign="top">Semantics</th><th align="left" valign="top">(Initial) unit value</th><th align="left" valign="top">Context : used operations</th></tr></thead><tbody><tr valign="top"><td>toHTML</td><td>tool for transforming the report to HTML</td><td>an XSLT stylesheet</td><td>-</td></tr><tr valign="top"><td>toCVS</td><td>tool for transforming the report to CVS</td><td>an XQuery program</td><td>-</td></tr><tr valign="top"><td>weatherData</td><td>weather data</td><td>payload of a SOAP request</td><td>finalize:sendSOAP</td></tr><tr valign="top"><td>waterData</td><td>water data</td><td>text of a SQL SELECT statement</td><td>finalize:execAsSQL</td></tr><tr valign="top"><td>report</td><td>
+                  an XML report with an interface
+                </td><td>an XQuery program</td><td>
+                  <para>finalize:execAsXQuery</para>
+                  <para>invoke:createMapFromStrings</para>
+                  <para>invoke:submitToXQuery</para>
+                  <para>invoke:submitToXSLT</para>
+                </td></tr></tbody></table>
+        </para><para>
+          An abbreviated representation of the XDM value follows:
+        <programlisting xml:space="preserve">
+&lt;xm:part name="toHTML" partID="toHTML" type="node" private="true"/&gt;,
+&lt;xsl:transform…&gt;…&lt;/xsl:transform&gt;
+,
+
+&lt;xm:part name="toCVS" partID="toCVS" type="string" private="true"&gt;,
+xquery 1.0 …
+…
+,
+
+&lt;xm:part name="weatherData" partID="we" type="node" finalType="node"&gt;
+   &lt;xm:finalize&gt;
+      &lt;sendSOAP href="…" /&gt;
+   &lt;/xm:finalize&gt;
+&lt;/xm:part&gt;,
+&lt;getWeatherData&gt;…&lt;/getWeatherData&gt;
+,
+
+&lt;xm:part name="waterData" partID="wa" type="string" finalType="node"&gt;
+   &lt;xm:finalize&gt;
+      &lt;execAsSQL driver="…" host="…" db="…" user="…" password="…" format="xml"/&gt;
+   &lt;/xm:finalize&gt;
+&lt;/xm:part&gt;,
+SELECT …
+,
+
+&lt;xm:part name="report" type="string" finalType="node"&gt;
+   &lt;xm:finalize requiredParts="we wa"&gt;
+      &lt;execAsXQuery resultType="node"&gt;
+         &lt;xm:params&gt;
+            &lt;weatherData&gt;$part{we}&lt;/weatherData&gt;
+            &lt;waterData&gt;$part{wa}&lt;/waterData&gt;
+         &lt;/xm:params&gt;
+      &lt;/execAsXQuery&gt;
+   &lt;/xm:finalize&gt;
+
+   &lt;xm:interface&gt;
+      &lt;xm:method name="getResultTable" returnType="map_string_to_string"&gt;
+         &lt;submitToXQuery resultType="strings"&gt;
+            &lt;query&gt;...&lt;/query&gt;
+         &lt;/submitToXQuery&gt;
+         &lt;createMapFromStrings/&gt;
+      &lt;/xm:method&gt;
+      &lt;xm:method name="toHTML" returnType="string"&gt;
+         &lt;submitToXSLT serialize="true"&gt;
+            &lt;stylesheet&gt;$part{toHTML}&lt;/stylesheet&gt;
+         &lt;/submitToXSLT&gt;
+      &lt;/xm:method&gt;
+      &lt;xm:method name="toCVS" returnType="strings"&gt;
+         &lt;submitToXQuery resultType="strings"&gt;
+            &lt;query&gt;$part{toCVS}&lt;/query&gt;
+         &lt;/submitToXQuery&gt;
+      &lt;/xm:method&gt;
+   &lt;/xm:interface&gt;
+&lt;/xm:part&gt;,
+xquery 1.0
+declare variable $weatherData as node() external;
+declare variable $waterData as node() external;
+&lt;waterReport&gt;{
+   …
+}&lt;/waterReport&gt;
+</programlisting>
+        </para></section></section><section xml:id="generalization-xdml-as-an-information-model"><title>Generalization: XDML as an information model</title><para>
+        The concept of XDML can be generalized by distinguishing the 
+        encoding of XDML values from their information model.
+      </para><section xml:id="encoding-xdml-with-map-items"><title>Encoding XDML with map items</title><para>
+          This paper describes a technique how to create XDML values by 
+          augmenting an XDM value with control items. The use of control 
+          items amounts to encoding an information model which is based 
+          on the concept of information units. It is important to note 
+          that the XDML API does not reflect this encoding. Therefore 
+          XDML user code does not depend on how the XDML value is encoded. 
+          It is possible that a future version of XDML supports additional 
+          encodings which do not rely on control items. 
+        </para><para>
+          In this context, recent work of W3C working groups on the XDM model 
+          promises an interesting alternative. The current working draft of the 
+          XDM specification version 3.0 [<xref linkend="W3C-XDM-3.0"/>] 
+          introduces as new item type a “map item” 
+          which uses atomic values as keys and sequences of XDM items as values. 
+          It is easy to encode XDML values as defined in this paper using map 
+          items instead of inserting control items between data items. 
+          The change amounts to shifting control items and data items
+          from their linear arrangement into a couple of map items,
+          one receiving the control items and the other receiving the data items.
+          This is shown in two steps. First assume 
+          an XDML value which does not contain any metadata – which only structures 
+          the overall XDM value into named units. The information content can be 
+          represented by an XDM value obeying the following rules:
+          <itemizedlist><listitem><para>
+                the value consists of a single map item which uses QNames as keys
+              </para></listitem><listitem><para>
+                the map values are XDM values which either do not contain map items 
+                or consist of a single map item
+              </para></listitem><listitem><para>
+                any nested maps are constrained in the same way as the top-level map: 
+                keys are QNames, values are XDM values which either do not contain 
+                map items or consist of a single map item
+              </para></listitem></itemizedlist>
+          In order to reestablish our full XDML model which associates information 
+          units with metadata, the above rules are modified by replacing each map item 
+          with a sequence of two map items, the first one representing the
+          data of the information units, the second one representing the
+          associated metadata and the map keys encoding the names of the units.
+          The metadata of a unit can again be represented by a single 
+          <code>&lt;xm:part&gt;</code> or <code>&lt;xm:complexPart&gt;</code>
+          element item. The net result is a lossless encoding of 
+          the XDML information model using map items rather than inserting control items
+          between data items.
+        </para><para>
+          The relationship between the XDML data model and the new map items can 
+          be further elucidated by regarding XDML values as 
+          <emphasis role="ital">dual maps</emphasis>: the keys are 
+          associated with two entities, one representing the data, the other representing 
+          associated metadata.
+        </para></section><section xml:id="encoding-xdm-as-xml"><title>Encoding XDM as XML</title><para>
+          The XDML data model is based on the XDM model: the XDML value as a 
+          whole is an XDM value, and the value of any (simple) information unit 
+          is a sequence of XDM items, in other words – an XDM value. This 
+          dependence on XDM does not preclude the option to encode the underlying 
+          XDM value as a single XML document. This possibility is important, as 
+          XSLT and XProc do not export XDM values, but export XML documents. A 
+          generic XML encoding of XDM values can be easily defined. It might, for 
+          example, represent each XDM item by a child node of a root element 
+          representing the XDM value as a whole. The following listing provides an 
+          illustrative example:
+          <programlisting xml:space="preserve">
+&lt;x:xdm xmlns:x="http://www.xdml.org/ns/xdm"&gt;
+   &lt;x:item type="document"&gt;
+      &lt;foo/&gt;
+   &lt;/x:item&gt;
+   &lt;x:item type="element"&gt;
+      &lt;bar/&gt;
+   &lt;/x:item&gt;
+   &lt;x:item type="attribute" name="a" value="v"/&gt;
+   &lt;x:item type="processing-instruction" value="foo a=x b=y"/&gt;
+   &lt;x:item type="xs:string"&gt;hello&lt;/x:item&gt;
+   &lt;x:item type="xs:integer"&gt;123&lt;/x:item&gt;
+&lt;/x:xdm&gt;
+</programlisting>
+          Therefore, the factory method constructing an 
+          XDML value might easily be extended 
+          to load the XDML value from an XML document conforming to
+	  an agreed upon “XDM schema”. 
+        </para></section></section></section><section xml:id="discussion"><title>Discussion</title><para>
+        The languages XQuery and XSLT enable a very efficient and elegant processing 
+        of XML resources. Their integration into programs written in general purpose
+        languages - like Java - is therefore highly desirable. The potential
+        contribution is 
+        however limited by three major issues. First, XQuery and XSLT are designed
+        to create information, rather than execute actions with side effects.
+        Second, these languages are rather closed systems, 
+        without a concept of embedding other technologies and domain-specific
+        functionality. Third,
+        the information delivered (XML and/or atomic values) is pure information without 
+        behaviour, rather than objects associating information with
+        specific behaviour, which means that downstream usage of the information
+        may be a relatively complex and challenging task. These limitations of effect -
+        "no actions, closed functionality, no behaviour" - is at odds with the 
+        enormous power of the means which the X-languages offer. 
+      </para><para>
+        XProc [<xref linkend="W3C-XPROC"/>] addresses the first two limitations: it integrates
+        the major XML technologies (XSLT, XQuery, XML Schema, ...) into a single
+        script language, provides openness
+        to other technologies (HTTP, system commands, ...) and enables to
+        combine side-effect free processing with actions in a well-controlled
+        way (based on distinct steps). XProc is a powerful approach
+        to accomplish complex XML processing.
+      </para><para>
+        XDML has a different emphasis: it concentrates on integrating
+        XML technology into general purpose languages. 
+        XDML strives to broaden the
+        scope of what the X-developer can achieve as a
+        contributor to a non-XML environment - rather than as the author
+        of a standalone processing. He is enabled to
+        define a complex postprocessing and its control by API client actions.
+        This creates a novel
+        possibility of leveraging XML technology to generate
+        information associated with behaviour: 
+        <emphasis role="ital">information with an interface</emphasis>. 
+        The usefulness of the behaviour hinges critically upon the functional
+        wealth offered by the available XDML operations. Therefore we believe
+        that the easy extensibility of the XDML processor by proprietary,
+        domain specific XDML operations may be of key importance for
+        the value which XDML has to offer.
+      </para></section><bibliography><title>Bibliography</title><bibliomixed xml:id="RENNAU2010" xreflabel="Rennau 2010">Hans-Juergen Rennau. 
+      Java Integration of XQuery - an Information-Unit Oriented Approach.
+      Presented at Balisage: The Markup Conference 2010, Montréal, Canada, August 3 - 6, 
+      2010. In Proceedings of Balisage: The Markup Conference 2010. Balisage 
+      Series on Markup Technologies, vol. 5 (2010). doi:10.4242/BalisageVol5.Rennau01.
+      <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.balisage.net/Proceedings/vol5/html/Rennau01/BalisageVol5-Rennau01.html</link>.</bibliomixed><bibliomixed xml:id="JSR-XQJ" xreflabel="XQJ Spec">Jim Melton et al, eds. 
+      JSR 225: XQuery API for JavaTM (XQJ) 1.0 Specfication.
+      <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://jcp.org/en/jsr/detail?id=225</link>.</bibliomixed><bibliomixed xml:id="W3C-XDM" xreflabel="W3C XDM">Mary Fernandez et al, eds. 
+      XQuery 1.0 and XPath 2.0 Data Model (XDM) W3C Recommendation 23 January 2007.
+      <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/xpath-datamodel/</link>.</bibliomixed><bibliomixed xml:id="W3C-XDM-3.0" xreflabel="W3C XDM 3.0">Norman Walsh et al, eds. 
+      XQuery and XPath Data Model 3.0 W3C Working Draft 14 June 2011.
+      <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/xpath-datamodel-30/</link>.</bibliomixed><bibliomixed xml:id="W3C-XPROC" xreflabel="W3C XPROC">Norman Walsh et al, eds. 
+      XProc: An XML Pipeline Language W3C Recommendation 11 May 2010.
+      <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/xproc/</link>.</bibliomixed></bibliography></article>

@@ -1,0 +1,679 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?><classedDocument><article xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink" class="po-hcontainer e0 e0" version="5.0-subset Balisage-1.2"><title class="po-block e1 e1"><textual class="po-textual">Scripting Documents with XQuery: Virtual Documents in TNTBase</textual></title><info class="po-record e2 e2"><confgroup class="po-record e3 e3"><conftitle class="po-field e4 e4"><textual class="po-textual">Balisage: The Markup Conference 2010</textual></conftitle><confdates class="po-field e5 e5"><textual class="po-textual">August 3 - 6, 2010</textual></confdates></confgroup><abstract class="po-container e6 e6"><para class="po-block e7 e7"><textual class="po-textual">This paper introduces the concept of Virtual Documents and its prototypical realization
+in our TNTBase system, a versioned XML database. Virtual Documents integrate XQuery-based
+computational facilities into documents like JSP/PHP do for relational queries. We view
+the integration of computation in documents as an </textual><emphasis class="po-inline e8 e8" role="ital"><textual class="po-textual">enabling technology</textual></emphasis><textual class="po-textual"> and
+evaluate it on a handful of real-world use cases.
+</textual></para></abstract><author class="po-record e9 e9"><personname class="po-record e10 e10"><firstname class="po-field e11 e11"><textual class="po-textual">Vyacheslav</textual></firstname><surname class="po-field e12 e12"><textual class="po-textual">Zholudev</textual></surname></personname><personblurb class="po-container e13 e13"><para class="po-block e14 e14"><textual class="po-textual">Vyacheslav Zholudev has graduated in May, 2007 from Saint-Petersburg State University, Russia with a Master degree in Computer Science. 
+          He is continuing his studies at Jacobs University Bremen as a Ph.D student. 
+          Starting from September of 2007 he is working in the KWARC research group under the supervision of Prof. Michael Kohlhase.</textual></para></personblurb><affiliation class="po-record e15 e15"><jobtitle class="po-field e16 e16"><textual class="po-textual">PhD Student</textual></jobtitle><orgname class="po-block e17 e17"><textual class="po-textual">Jacobs University Bremen</textual></orgname></affiliation><email class="po-field e18 e18"><textual class="po-textual">vyacheslav.zholudev@gmail.com</textual></email></author><author class="po-record e19 e19"><personname class="po-record e20 e20"><firstname class="po-field e21 e21"><textual class="po-textual">Michael</textual></firstname><surname class="po-field e22 e22"><textual class="po-textual">Kohlhase</textual></surname></personname><personblurb class="po-container e23 e23"><para class="po-block e24 e24"><textual class="po-textual">Dr. Michael Kohlhase (born 1964 in Erlangen) is a 
+          German computer scientist and professor at Jacobs University, Bremen, Germany, 
+          where he is head of the KWARC research group (Knowledge Adaptation and Reasoning for Content) at the School of Engineering and Science.</textual></para></personblurb><affiliation class="po-record e25 e25"><jobtitle class="po-field e26 e26"><textual class="po-textual">Professor</textual></jobtitle><orgname class="po-block e27 e27"><textual class="po-textual">Jacobs University Bremen</textual></orgname></affiliation><email class="po-field e28 e28"><textual class="po-textual">m.kohlhase@jacobs-university.de</textual></email></author><legalnotice class="po-container e29 e29"><para class="po-block e30 e30"><textual class="po-textual">Copyright © 2010 Vyacheslav Zholudev, Michael Kohlhase. Licensed under the Creative Commons License </textual><link class="po-inline e31 e31" xlink:actuate="onRequest" xlink:href="http://creativecommons.org/licenses/by-sa/3.0/" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://creativecommons.org/licenses/by-sa/3.0/</textual></link><textual class="po-textual">.</textual></para></legalnotice></info><section class="po-hcontainer e32 e32" xml:id="LABEL.intro"><title class="po-block e33 e33"><textual class="po-textual">Introduction</textual></title><para class="po-block e34 e34"><textual class="po-textual">One of the big promises of XML as a representation paradigm is that documents become uniformly
+machine-processable. Indeed XSLT is widely used for pre/postprocessing XML-encoded documents, and
+XQuery is poised to become for semi-structured data what SQL is for relational data.  But in both
+cases, traditional workflows have important features that are largely missing from XML workflows.
+(i)  Document authoring and management systems</textual><footnote class="po-popup e35 e35"><para class="po-block e36 e36"><textual class="po-textual">We take TeX/LaTeX as the most prominent
+example from which we take our intuitions. Wikis usually also allow in-text macros and arguably
+the VB/VBA extensions of Office suites also allow macros, even if they are less extensively
+used.</textual></para></footnote><textual class="po-textual"> allow user-definable, </textual><emphasis class="po-inline e37 e37" role="ital"><textual class="po-textual">in-document macros</textual></emphasis><textual class="po-textual"> that allow the computation repetitive
+writing tasks or processing of outside data.
+(ii)  Relational databases support </textual><emphasis class="po-inline e38 e38" role="ital"><textual class="po-textual">database views as first-class citizens</textual></emphasis><textual class="po-textual">,
+i.e. computational devices that look like tables to the user, but internally are embedded queries.
+
+Both in-text macros and views could in principle be externalized from production workflows at the
+cost of losing locality and ease-of-use. And indeed their integrated nature has brought levels of
+customization and functionality that have not been achieved in practice without.</textual></para><para class="po-block e39 e39"><textual class="po-textual">In this paper, we present </textual><emphasis class="po-inline e40 e40" role="ital"><textual class="po-textual">Virtual Documents</textual></emphasis><textual class="po-textual"> (VDocs), a general framework for
+</textual><emphasis class="po-inline e41 e41" role="ital"><textual class="po-textual">integrating XQueries into XML documents as computational devices</textual></emphasis><textual class="po-textual"> and processing them
+efficiently. As a rough approximation, VDocs are “XML database views”
+analogous to views in relational databases;
+these are tables that are virtual in the sense that they are the results of SQL queries computed on
+demand from the explicitly represented database tables. Similarly, TNTBase Virtual Documents
+are the results of XQueries computed on demand from the XML files explicitly represented in TNTBase,
+presented to the user as entities (files) in the TNTBase file system.  Like views in relational
+databases TNTBase VDocs are editable, and the TNTBase system transparently patches the differences
+into the original files in its underlying versioning system. Thus a user does not have to know about
+the original source of document parts which allows him to focus only on relevant pieces of
+information.  Again, like relational database views, VDocs become very useful abstractions in the
+interaction with versioned XML storage.</textual></para><para class="po-block e42 e42"><textual class="po-textual">We have already discussed VDocs [</textual><xref class="po-milestone e43 e43" linkend="zhokohrab.tntbasef10"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">], concentrating on theoretical issues such
+as when XML-based document formats admit virtual documents. Since
+then, our VDocs implementation has been extended and has
+matured considerably, and we will concentrate on features and real word use cases and practical issues. In the
+next section we recap the basics of our TNTBase system, before we introduce the functionality of VDocs
+in Section </textual><xref class="po-milestone e44 e44" linkend="LABEL.sec.vds"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">. Section </textual><xref class="po-milestone e45 e45" linkend="LABEL.sec.usecases"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual"> discusses some high-profile use cases of VDocs
+and Section </textual><xref class="po-milestone e46 e46" linkend="LABEL.sec.concl"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual"> concludes the paper.
+</textual></para></section><section class="po-hcontainer e47 e47" xml:id="LABEL.sec.tntbase"><title class="po-block e48 e48"><textual class="po-textual">TNTBase, a Short Recap</textual></title><para class="po-block e49 e49"><textual class="po-textual">The TNTBase system is a versioned XML-database with a client-server
+architecture. Essentially, it consists of two parts: the core and the application-specific
+layer. Let us briefly discuss them.</textual></para><section class="po-hcontainer e50 e50" xml:id="LABEL.sec.tntbase-core"><title class="po-block e51 e51"><textual class="po-textual">The Core</textual></title><para class="po-block e52 e52"><textual class="po-textual">The core of TNTBase consists of the xSVN module, which integrates Berkeley DB
+XML [</textual><xref class="po-milestone e53 e53" linkend="berkeleydbxml.web"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">] into a Subversion server [</textual><xref class="po-milestone e54 e54" linkend="svn.web"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">]. DB XML stores HEAD
+revisions of XML files; non-XML content like PDF, images or LaTeX source files,
+differences between revisions, directory entry lists and other repository information are
+retained in a usual SVN back-end storage (Berkeley DB [</textual><xref class="po-milestone e55 e55" linkend="berkeleydb.web"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">] in our
+case). It is worth mentioning here that TNTBase also supports </textual><emphasis class="po-inline e56 e56" role="ital"><textual class="po-textual">branching</textual></emphasis><textual class="po-textual">
+as SVN does (see also Section </textual><xref class="po-milestone e57 e57" linkend="LABEL.sec.usecases.branches"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual"> for a use-case of virtual
+documents with on this).  Keeping XML documents in DB XML allows us to access those files
+not only via any SVN client, but also through the DB XML API that supports efficient
+querying of XML content via XQuery [</textual><xref class="po-milestone e58 e58" linkend="w3c.xquery10"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">] and modifying that content via
+XQuery Update [</textual><xref class="po-milestone e59 e59" linkend="w3c.xquery-update"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">]. As with many XML-native databases, DB XML (and hence
+TNTBase) supports </textual><emphasis class="po-inline e60 e60" role="ital"><textual class="po-textual">indexing</textual></emphasis><textual class="po-textual">, which improves performance of certain
+queries. TNTBase also adopted </textual><emphasis class="po-inline e61 e61" role="ital"><textual class="po-textual">transactional support</textual></emphasis><textual class="po-textual"> (atomicity,
+consistency, isolation, durability) from DB XML.</textual></para><para class="po-block e62 e62"><textual class="po-textual">The TNTBase system is realized as a web-application that provides two different interfaces
+to communicate with: an xSVN interface and a RESTful interface (for
+details refer to [</textual><xref class="po-milestone e63 e63" linkend="zholudev.tntbaserestful.web"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">]) for XML-related tasks. The
+xSVN interface behaves like the normal SVN interface — the mod_dav_svn Apache module
+serves requests from remote SVN clients — with one exception: If one of the committed XML
+files is ill-formed, then xSVN will abort the whole transaction. The RESTful [</textual><xref class="po-milestone e64 e64" linkend="jsr311.web"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">] interface
+provides XML fragment access to the versioned collection of documents:</textual></para><variablelist class="po-table e65 e65"><varlistentry class="po-record e66 e66"><term class="po-block e67 e67"><textual class="po-textual">Querying:</textual></term><listitem class="po-container e68 e68"><para class="po-block e69 e69"><textual class="po-textual">As every XML-native database, TNTBase supports XQuery, but extends the DB XML
+syntax by a notion of file system path and revision to address different versions of path-based
+collections of documents.</textual></para></listitem></varlistentry><varlistentry class="po-record e70 e70"><term class="po-block e71 e71"><textual class="po-textual">Modifying:</textual></term><listitem class="po-container e72 e72"><para class="po-block e73 e73"><textual class="po-textual">Apart from modifying any kinds of documents via any SVN client, TNTBase takes
+advantage of XQuery Update facilities, and, in contrast to pure DB XML, modified documents are
+versioned, i.e., a new revision is committed to xSVN whenever some changed are made to the
+documents stored in a TNTBase repository .</textual></para></listitem></varlistentry><varlistentry class="po-record e74 e74"><term class="po-block e75 e75"><textual class="po-textual">Querying of previous revisions:</textual></term><listitem class="po-container e76 e76"><para class="po-block e77 e77"><textual class="po-textual">Although xSVN’s DB XML back-end by default holds only HEAD
+(the last) revisions of XML documents, and others are stored as reverse deltas against HEAD
+revisions, it is also possible to access and query previous versions by additionally providing a
+revision number to the TNTBase XQuery extension functions. It is necessary to note that
+previous versions cannot be modified because once a revision is committed to an xSVN repository it
+becomes persistent.</textual></para></listitem></varlistentry><varlistentry class="po-record e78 e78"><term class="po-block e79 e79"><textual class="po-textual">Virtual Files:</textual></term><listitem class="po-container e80 e80"><para class="po-block e81 e81"><textual class="po-textual">This is a precursor technology to the Virtual Documents discussed in this
+paper. It has been described in detail in [</textual><xref class="po-milestone e82 e82" linkend="zhokoh.tvsx09.biblatex"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">]: a Virtual File is a
+TNTBase file system entity whose content is defined by a single XQuery expression. For the end
+user they are like normal files whose contents are the wrapped results of an associated query. Virtual
+Files also can be queried and modified.</textual></para></listitem></varlistentry></variablelist><para class="po-block e83 e83"><textual class="po-textual">For more information about the TNTBase core refer
+to [</textual><xref class="po-milestone e84 e84" linkend="zhokoh.tvsx09.biblatex"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">]. Since then we have significantly increased stability and
+performance that can be proved that TNTBase is being used for the LATIN
+Project [</textual><xref class="po-milestone e85 e85" linkend="latin.url"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">], for General Computer Science lectures repository (that counts
+more than 2000 XML documents with over 2500 revisions) and Translation SUMO to OMDoc
+Project [</textual><xref class="po-milestone e86 e86" linkend="misev.sumo2omdoc"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">]. Moreover, we are mirroring some of TNTBase
+repositories to normal SVN repositories by replication functionality adopted from
+Subversion. This possibility once more justifies the decision of combining the two
+systems. If something went wrong with a TNTBase repository and the data got corrupted
+(actually, it never happened to us), then we can easily restore them from a replicated SVN
+repository with all history preservation.</textual></para></section><section class="po-hcontainer e87 e87" xml:id="LABEL.sub.vd"><title class="po-block e88 e88"><textual class="po-textual">Application Layer of TNTBase</textual></title><figure class="po-container e89 e89" xml:id="LABEL.tntf" xreflabel="TNTBase"><title class="po-block e90 e90"><textual class="po-textual">
+          TNTBase
+        </textual></title><mediaobject class="po-container e91 e91"><imageobject class="po-container e92 e92"><imagedata class="po-meta e93 e93" fileref="../../../vol5/graphics/Zholudev01/Zholudev01-001.png"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></imagedata></imageobject></mediaobject></figure><para class="po-block e94 e94"><textual class="po-textual">In our experiments it turned out that many tasks specific to particular XML formats can be done by
+TNTBase. This was a reason to derive a separate layer on top of the TNTBase core and
+augment this layer with format-specific functionalities (see Figure </textual><xref class="po-milestone e95 e95" linkend="LABEL.tntf"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">). Although the detailed information can be
+found in [</textual><xref class="po-milestone e96 e96" linkend="zhokohrab.tntbasef10"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">], let us briefly describe the major features:</textual></para><section class="po-hcontainer e97 e97"><title class="po-block e98 e98"><textual class="po-textual">Validation, Presentation, Interface Extraction, Plugin Architecture</textual></title><para class="po-block e99 e99"><textual class="po-textual">TNTBase
+provides facilities to integrate format-specific validation (e.g. for RelaxNG schemas) and
+presentation (e.g. via XSL transformations). But sometimes a format requires more specific
+functionality, e.g. extraction and caching RDF information upon commit or retrieval of
+rendered MathML. Such functionality can be supplied as additional modules and injected
+into the application layer via the TNTBase plugin API. Configuration files are also
+stored in a TNTBase repository, so a user do not have to have an access to a server:
+for instance, commit-time behavior is defined by an SVN </textual><emphasis class="po-inline e100 e100" role="ital"><textual class="po-textual">tntbase:validate</textual></emphasis><textual class="po-textual"> property
+that can be assigned to files as well as to whole directories. Pre-commit or post-commit
+hooks that are automatically generated take care of processing committed information based
+on the configuration files. In case of pre-commit processing a corresponding plugin has
+access to the documents that are about to be committed, and may reject a transaction if
+the collection of committed documents is format-inconsistent, or clashes with existing
+documents in the repository.  Last but not least, TNTBase RESTful URLs that are used to perform validation
+or presentation are dynamically changed once configuration files are modified.</textual></para></section><section class="po-hcontainer e101 e101"><title class="po-block e102 e102"><textual class="po-textual">Custom XQuery modules</textual></title><para class="po-block e103 e103"><textual class="po-textual">A user can write his own XQuery extensions and store
+them in the repository. Thus it is not necessary to have modules located in the server’s
+file system or remotely. XQuery modules can be referenced inside repository itself, which
+might happen to be useful if the development of XQuery modules is still in progress.</textual></para></section><section class="po-hcontainer e104 e104"><title class="po-block e105 e105"><textual class="po-textual">Virtual Documents</textual></title><para class="po-block e106 e106"><textual class="po-textual">Virtual Documents are also a part of an application layer,
+but we will focus on them in the next sections.</textual></para><para class="po-block e107 e107"><textual class="po-textual">TNTBase also gained number of features that have been requested by TNTBase users. To
+name just a few of them: integration with JOBAD framework [</textual><xref class="po-milestone e108 e108" linkend="jobad.web"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">], extracting RDF
+from OMDoc [</textual><xref class="po-milestone e109 e109" linkend="kohlhase.omdoc1.6spec"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">] documents upon commit and storing it in
+TNTBase, integration with LaTeXML [</textual><xref class="po-milestone e110 e110" linkend="miller.latexml"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">] and
+Virtuoso [</textual><xref class="po-milestone e111 e111" linkend="openlinkvirtuoso.web"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">] (for more details refer
+to [</textual><xref class="po-milestone e112 e112" linkend="dklrz.pubmathlectnotlinkeddata10"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">]). Those features are pluggable, so a new
+TNTBase installation does not have to include them.</textual></para></section></section></section><section class="po-hcontainer e113 e113" xml:id="LABEL.sec.vds"><title class="po-block e114 e114"><textual class="po-textual">Virtual Documents</textual></title><para class="po-block e115 e115"><textual class="po-textual">This section introduces practical aspects and technical details of Virtual Documents (for
+the theory we refer to [</textual><xref class="po-milestone e116 e116" linkend="zhokohrab.tntbasef10"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">]) using a simple running example to
+fortify our intuitions. Section </textual><xref class="po-milestone e117 e117" linkend="LABEL.sec.usecases"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual"> will tackle the real-world scenarios
+and justify VDocs in TNTBase.</textual></para><figure class="po-container e118 e118" xml:id="LABEL.vd_wf" xreflabel="VDoc Workflow"><title class="po-block e119 e119"><textual class="po-textual">VDoc Workflow</textual></title><mediaobject class="po-container e120 e120"><imageobject class="po-container e121 e121"><imagedata class="po-meta e122 e122" fileref="../../../vol5/graphics/Zholudev01/Zholudev01-002.png"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></imagedata></imageobject></mediaobject></figure><para class="po-block e123 e123"><textual class="po-textual">VDocs are the first class citizens in the TNTBase file system. Whereas internally they
+are quite different from usual documents in the repository, for a user they look like
+normal files: one can browse them, validate, apply stylesheets, query and even modify. VDocs
+are essentially a tight mix of static XML parts with XQuery queries and instructions in
+XML form that prompt TNTBase how to organize the XQuery results inside a VDoc. Let us
+start with a simple example. Assume that we want to have a joined list of mathematical
+exercises together with authors contributed to them. We might want to have the root
+element and the elements that embrace authors and exercises (we will refer to
+Figure </textual><xref class="po-milestone e124 e124" linkend="LABEL.vd_wf"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual"> throughout this section). XQueries that select necessary data will
+augment our document. The way we describe the VDoc is the subject of the next subsection.</textual></para><section class="po-hcontainer e125 e125" xml:id="LABEL.sec.vds.spec"><title class="po-block e126 e126"><textual class="po-textual">VDoc Specifications and Skeletons</textual></title><para class="po-block e127 e127"><emphasis class="po-inline e128 e128" role="ital"><textual class="po-textual">VDoc Specification (VDoc Spec)</textual></emphasis><textual class="po-textual"> is the most important part of any VDoc. Basically, it is a
+document template with XQuery inclusions and some other auxiliary elements helping
+TNTBase to figure out how to execute a particular XQuery and how to populate query
+results. It must be XML. In Listing </textual><xref class="po-milestone e129 e129" linkend="LABEL.lst.vd_spec"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual"> one can see a simple example of a
+VDoc Spec that is supposed to define a VDoc that would contain thematic lecture exercises
+together with their authors. For the complete RelaxNG [</textual><xref class="po-milestone e130 e130" linkend="relaxngweb"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">] schema refer
+to [</textual><xref class="po-milestone e131 e131" linkend="tntvdskel.url"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">].</textual></para><figure class="po-container e132 e132" xml:id="LABEL.lst.vd_spec" xreflabel="Example of  a VDoc Spec"><title class="po-block e133 e133"><textual class="po-textual">Example of  a VDoc Spec</textual></title><programlisting class="po-block e134 e134" xml:space="preserve"><textual class="po-textual">&lt;tnt:virtualdocument xmlns:tnt=”http://tntbase.mathweb.org/ns”&gt;
+  &lt;tnt:skeleton xml:id=”exercises”&gt;
+    &lt;omdoc xmlns:dc=”http://purl.org/dc/elements/1.1/”&gt;
+      &lt;dc:title&gt;Exercises for Computer Science lectures&lt;/dc:title&gt;
+      &lt;dc:creator&gt;Michael Kohlhase&lt;/dc:creator&gt;
+      &lt;omdoc&gt;
+        &lt;dc:title&gt;Acknowledgements&lt;/dc:title&gt;
+        &lt;omtext&gt;
+          The following individuals have contributed material to this document:
+          &lt;tnt:xqinclude query=”tnt:collection(’/exercises//*.omdoc’)//dc:creator”&gt;
+            &lt;tnt:return&gt;&lt;tnt:result/&gt;&lt;/tnt:return&gt;
+          &lt;/tnt:xqinclude&gt;
+        &lt;/omtext&gt;
+      &lt;/omdoc&gt;
+      &lt;omdoc&gt;
+        &lt;dc:title&gt;Exercises&lt;/dc:title&gt;
+        &lt;tnt:xqinclude&gt;
+          &lt;tnt:query name=”exercises.xq”/&gt;
+          &lt;tnt:return&gt;&lt;tnt:result/&gt;&lt;/tnt:return&gt;
+        &lt;/tnt:xqinclude&gt;
+      &lt;/omdoc&gt;
+    &lt;/omdoc&gt;
+  &lt;/tnt:skeleton&gt;
+
+  &lt;tnt:query name=”exercises.xq”&gt;
+    for $t in $topics return
+      tnt:collection(concat(’/exercises/’, $t, ’/*.omdoc’))//exercise[position() le $max]
+  &lt;/tnt:query&gt;
+
+  &lt;tnt:params&gt;
+    &lt;tnt:param name=”max”&gt;
+      &lt;tnt:value&gt;10&lt;/tnt:value&gt;
+    &lt;/tnt:param&gt;
+    &lt;tnt:param name = ”topics”&gt;
+      &lt;tnt:value&gt;search&lt;/tnt:value&gt;
+      &lt;tnt:value&gt;graphs&lt;/tnt:value&gt;
+    &lt;/tnt:param&gt;
+  &lt;/tnt:params&gt;
+&lt;/tnt:virtualdocument&gt;
+</textual></programlisting></figure><para class="po-block e135 e135"><textual class="po-textual">A VDoc Spec consists of a </textual><emphasis class="po-inline e136 e136" role="ital"><textual class="po-textual">VDoc Skeleton (VDoc Skel)</textual></emphasis><textual class="po-textual">, number of named queries that are
+referenced from VDoc Skel and arbitrary parameters that are used in XQueries.  Let us consider
+these elements in order:</textual></para><section class="po-hcontainer e137 e137"><title class="po-block e138 e138"><textual class="po-textual">VDoc Skeletons</textual></title><para class="po-block e139 e139"><textual class="po-textual">contain a mixture between any XML nodes and
+</textual><emphasis class="po-inline e140 e140" role="ital"><textual class="po-textual">tnt:xqinclude</textual></emphasis><textual class="po-textual"> elements. The latter ones specify a single
+XQuery query and “the rules” how results of that query will be mixed with other elements
+in a VDoc. The rules are enclosed into a single </textual><emphasis class="po-inline e141 e141" role="ital"><textual class="po-textual">tnt:return</textual></emphasis><textual class="po-textual">
+child element that, in turn, contains a mixture of any XML elements with empty
+</textual><emphasis class="po-inline e142 e142" role="ital"><textual class="po-textual">tnt:result</textual></emphasis><textual class="po-textual"> elements. In order to understand how VDoc content
+is produced let us consider the following sequence of actions:</textual></para><itemizedlist class="po-table e143 e143"><listitem class="po-container e144 e144"><para class="po-block e145 e145"><textual class="po-textual">We take a </textual><emphasis class="po-inline e146 e146" role="ital"><textual class="po-textual">tnt:xqinclude</textual></emphasis><textual class="po-textual"> element and obtain an XQuery
+associated with it</textual></para></listitem><listitem class="po-container e147 e147"><para class="po-block e148 e148"><textual class="po-textual">We get the results of that query and iterate over them
+</textual></para></listitem><listitem class="po-container e149 e149"><para class="po-block e150 e150"><textual class="po-textual">For every result we get children of the </textual><emphasis class="po-inline e151 e151" role="ital"><textual class="po-textual">tnt:return</textual></emphasis><textual class="po-textual">
+element and substitute any </textual><emphasis class="po-inline e152 e152" role="ital"><textual class="po-textual">tnt:result</textual></emphasis><textual class="po-textual"> element with a
+considered query result</textual></para></listitem><listitem class="po-container e153 e153"><para class="po-block e154 e154"><textual class="po-textual">We concatenate all children obtained from step 3) in order</textual></para></listitem><listitem class="po-container e155 e155"><para class="po-block e156 e156"><textual class="po-textual">The result of concatenation replaces the considered
+</textual><emphasis class="po-inline e157 e157" role="ital"><textual class="po-textual">tnt:xqinclude</textual></emphasis><textual class="po-textual"> element</textual></para></listitem><listitem class="po-container e158 e158"><para class="po-block e159 e159"><textual class="po-textual">Repeat steps 1)-5) for all </textual><emphasis class="po-inline e160 e160" role="ital"><textual class="po-textual">tnt:xqinclude</textual></emphasis><textual class="po-textual"> elements in a
+VDoc Spec</textual></para></listitem></itemizedlist><para class="po-block e161 e161"><textual class="po-textual">Although this workflow might seem complicated, the logics behind it are quite intuitive,
+which is observed in the following example. The part of a VDoc:</textual></para><programlisting class="po-block e162 e162" xml:space="preserve"><textual class="po-textual">&lt;tnt:xqinclude query=”tnt:collection(’/exercises//*.omdoc’)//dc:creator/text()”&gt;
+  &lt;tnt:return&gt;&lt;omtext&gt;&lt;tnt:result/&gt;&lt;/omtext&gt;&lt;/tnt:return&gt;
+&lt;/tnt:xqinclude&gt;
+</textual></programlisting><para class="po-block e163 e163"><textual class="po-textual">assuming for the sake of simplicity that results of the query</textual></para><programlisting class="po-block e164 e164" xml:space="preserve"><textual class="po-textual">tnt:collection(’/exercises//*.omdoc’)//dc:creator/text()
+</textual></programlisting><para class="po-block e165 e165"><textual class="po-textual">are “Paul” and “John”, will be substituted by:</textual></para><programlisting class="po-block e166 e166" xml:space="preserve"><textual class="po-textual">&lt;omtext&gt;Paul&lt;/omtext&gt;
+&lt;omtext&gt;John&lt;/omtext&gt;
+</textual></programlisting><para class="po-block e167 e167"><textual class="po-textual">VDocs allow an arbitrary number of </textual><emphasis class="po-inline e168 e168" role="ital"><textual class="po-textual">tnt:xqinclude</textual></emphasis><textual class="po-textual"> elements in
+the VDoc Skel (not nested, though) with different XQueries. XQueries can be defined in 4
+ways: in the attribute, in the child element as text, as a reference to outside defined
+queries (see next bullet) and as a reference to another file in a TNTBase repository
+that contains the implied query.  It is worth mentioning that VDoc Specs may contain only
+references to skeletons in other VDoc Specs and differ just in queries or parameters. This
+approach becomes very handy when we want to leverage from the same skeleton but tweak
+another parts of a VDoc Spec, i.e. queries or parameters (see below for examples).</textual></para></section><section class="po-hcontainer e169 e169"><title class="po-block e170 e170"><textual class="po-textual">Queries</textual></title><para class="po-block e171 e171"><textual class="po-textual">Apart from being defined in
+</textual><emphasis class="po-inline e172 e172" role="ital"><textual class="po-textual">tnt:xqinclude</textual></emphasis><textual class="po-textual"> elements, XQueries can also be described in
+            separate </textual><emphasis class="po-inline e173 e173" role="ital"><textual class="po-textual">tnt:query</textual></emphasis><textual class="po-textual"> elements, again as a text or as a
+reference to another file in the repository. Query should contain a name that serves as
+a link point from a VDoc Skel. There are no constraints on a query: it may reference
+</textual><emphasis class="po-inline e174 e174" role="ital"><textual class="po-textual">older</textual></emphasis><textual class="po-textual"> revisions of documents (that justifies a temporal aspect of TNTBase),
+</textual><emphasis class="po-inline e175 e175" role="ital"><textual class="po-textual">other VDocs</textual></emphasis><textual class="po-textual"> or </textual><emphasis class="po-inline e176 e176" role="ital"><textual class="po-textual">auxiliary information</textual></emphasis><textual class="po-textual"> associated with documents, e.g. RDF
+(see [</textual><xref class="po-milestone e177 e177" linkend="zhokohrab.tntbasef10"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">] for more details).  Such “external” query definition
+may be handy when we want to </textual><emphasis class="po-inline e178 e178" role="ital"><textual class="po-textual">override</textual></emphasis><textual class="po-textual"> the queries for a particular VDoc Skel. Getting
+back to our example, assume that we want to embed only statements of assignments in our
+VDoc preserving the common structure. We do not need to modify a VDoc Skel. Instead we create
+a new VDoc Spec that references the existing one with an overriding XQuery:</textual></para><programlisting class="po-block e179 e179" xml:space="preserve"><textual class="po-textual">&lt;tnt:virtualdocument xmlns:tnt=”http://tntbase.mathweb.org/ns”&gt;
+  &lt;tnt:skeleton href=”/basic-spec.xml”/&gt;
+  &lt;tnt:query name=”exercises.xq”&gt;
+    for $t in $topics return
+      tnt:collection(concat(’/exercises/’, $t, ’/*.omdoc’))//exercise/statement
+  &lt;/tnt:query&gt;
+&lt;/tnt:virtualdocument&gt;
+</textual></programlisting><para class="po-block e180 e180"><textual class="po-textual">Here we assume that the full-fledged VDoc Skel can be found in the VDoc Spec under the path
+</textual><emphasis class="po-inline e181 e181" role="ital"><textual class="po-textual">/basic-spec.xml</textual></emphasis><textual class="po-textual">. Thus we can </textual><emphasis class="po-inline e182 e182" role="ital"><textual class="po-textual">”inherit”</textual></emphasis><textual class="po-textual"> VDoc Skels recursively and override
+XQueries in any combination that comprised quite a flexible mechanism to reuse existing
+VDoc Skels and queries and override only parts when needed. Also it is possible to create
+VDoc Specs whose skeletons reference queries that are not present in the same VDoc Spec. This
+feature is comparable to e.g. Java abstract classes, i.e. such a VDoc Spec cannot be used as such,
+but can be referenced from another VDoc Specs that defines the missing queries.</textual></para></section><section class="po-hcontainer e183 e183"><title class="po-block e184 e184"><textual class="po-textual">Parameters</textual></title><para class="po-block e185 e185"><textual class="po-textual">XQueries can reference variables that are not defined in the
+current context. Those can be externally defined in the
+</textual><emphasis class="po-inline e186 e186" role="ital"><textual class="po-textual">tnt:param</textual></emphasis><textual class="po-textual"> elements outside the
+query. This approach separates logics
+from the input. Similarly to queries, parameters can also be overridden or be absent in a
+particular VDoc Spec. In the latter case, VDoc Specs that inherit the current VDoc Spec should define
+absent parameters. In our example in Listing </textual><xref class="po-milestone e187 e187" linkend="LABEL.lst.vd_spec"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual"> we are using two
+parameters: a list of topics for which we retrieve exercises
+(</textual><emphasis class="po-inline e188 e188" role="ital"><textual class="po-textual">$topics</textual></emphasis><textual class="po-textual">) and a maximum number of returned exercises for
+each topic (</textual><emphasis class="po-inline e189 e189" role="ital"><textual class="po-textual">$max</textual></emphasis><textual class="po-textual">). Such a mechanism considerably improves
+reusability and flexibility of VDocs.</textual></para><para class="po-block e190 e190"><textual class="po-textual">In this subsection we described the </textual><emphasis class="po-inline e191 e191" role="ital"><textual class="po-textual">VDoc Specs</textual></emphasis><textual class="po-textual"> — means to define the structure of
+VDocs. In Figure </textual><xref class="po-milestone e192 e192" linkend="LABEL.vd_wf"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual"> a VDoc Spec is denoted as the left bottom picture in the life cycle
+of VDocs. But how do we </textual><emphasis class="po-inline e193 e193" role="ital"><textual class="po-textual">handle</textual></emphasis><textual class="po-textual"> and </textual><emphasis class="po-inline e194 e194" role="ital"><textual class="po-textual">consume</textual></emphasis><textual class="po-textual"> VDoc content?</textual></para></section></section><section class="po-hcontainer e195 e195" xml:id="LABEL.sec.vds.wrappers"><title class="po-block e196 e196"><textual class="po-textual">VDocs as TNTBase FS Entities and Their Materializing</textual></title><para class="po-block e197 e197"><textual class="po-textual">In order to make VDocs as a part of a TNTBase file system and expose them to users, one has
+to utilize the RESTful API of TNTBase [</textual><xref class="po-milestone e198 e198" linkend="zholudev.tntbaserestful.web"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">]. When creating
+a VDoc, a user has to provide a path and a name of a VDoc, a VDoc Spec and its
+revision which a VDoc will be
+linked to and, optionally, a set of parameters, analogously to those that a VDoc Spec has
+(thus, one can override VDoc Spec parameters or define new ones). Note that it is possible to
+associate a VDoc with a VDoc Spec of a </textual><emphasis class="po-inline e199 e199" role="ital"><textual class="po-textual">particular revision</textual></emphasis><textual class="po-textual">, not only with the </textual><emphasis class="po-inline e200 e200" role="ital"><textual class="po-textual">HEAD</textual></emphasis><textual class="po-textual">
+revision. Parameters associated with VDoc file system entities make VDoc Spec even more
+reusable. When retrieving content of a VDoc (i.e. the expanded version of a VDoc Spec), a user
+might also provide parameters that will override those defined in a
+VDoc Spec and in a VDoc
+itself. It might be very useful for dynamic alternation of a VDoc or during debugging. In
+Figure </textual><xref class="po-milestone e201 e201" linkend="LABEL.vd_wf"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual"> the content of a VDoc is presented in the second picture at the
+bottom. We see how data are aggregated and mashed up with the static
+parts of a VDoc Spec.</textual></para><para class="po-block e202 e202"><textual class="po-textual">Currently every time VDoc content is requested, TNTBase executes every query included into a VDoc Spec and aggregates the results. 
+          For certain VDoc Specs it may be time-consuming. Furthermore, generated on the fly VDoc content is not accessible via xSVN working copy. Therefore a user may want to 
+          </textual><emphasis class="po-inline e203 e203" role="ital"><textual class="po-textual">fix</textual></emphasis><textual class="po-textual"> the content and make it versioned. In our example when a user is satisfied with exercises
+          list he got through a VDoc, he may desire to make it persistent by putting it into a
+          repository file under a certain path. To satisfy these demands TNTBase RESTful interface provides a VDoc feature that turns
+ the content of a VDoc into a regular file in a repository. We call such a process
+as </textual><emphasis class="po-inline e204 e204" role="ital"><textual class="po-textual">VDoc materializing</textual></emphasis><textual class="po-textual">. If there is already a document
+under a provided path, the materializing process results in a new revision of that file. Thus we make VDocs content accessible via SVN client and track the revision history.</textual></para></section><section class="po-hcontainer e205 e205" xml:id="LABEL.sec.vds.query"><title class="po-block e206 e206"><textual class="po-textual">Querying VDocs</textual></title><para class="po-block e207 e207"><textual class="po-textual">The contents of a VDoc can be addressed in a query via the TNTBase XQuery extension
+function </textual><emphasis class="po-inline e208 e208" role="ital"><textual class="po-textual">tnt:vdoc($path as xs:string)</textual></emphasis><textual class="po-textual">, where
+</textual><emphasis class="po-inline e209 e209" role="ital"><textual class="po-textual">$path</textual></emphasis><textual class="po-textual"> is a path of a VDoc in a TNTBase repository. Thus
+one may combine querying of usual repository files together with multiple VDocs. It is
+also possible to retrieve just the expanded version of a VDoc Spec (not the content of a VDoc
+which might be different due to additionally defined parameters). The XQuery extension
+function looks similar - </textual><emphasis class="po-inline e210 e210" role="ital"><textual class="po-textual">tnt:vd-spec($path as xs:string)</textual></emphasis><textual class="po-textual">,
+but instead of a VDoc path, we provide a path to a VDoc Spec. As an example, assume that we
+want to get a number of authors that contributed to exercises in a VDoc. The query will be
+simple:</textual></para><programlisting class="po-block e211 e211" xml:space="preserve"><textual class="po-textual">count(tnt:vdoc(’/path/to/vd’)//dc:author)
+</textual></programlisting></section><section class="po-hcontainer e212 e212" xml:id="LABEL.sec.vds.edit"><title class="po-block e213 e213"><textual class="po-textual">VDoc Editing</textual></title><para class="po-block e214 e214"><textual class="po-textual">One of the strongest features of VDocs is that they can be edited and </textual><emphasis class="po-inline e215 e215" role="ital"><textual class="po-textual">committed</textual></emphasis><textual class="po-textual"> to
+TNTBase via the RESTful interface. Changed parts of a VDoc that came from files in a
+repository will be transparently propagated back to the sources with repository history
+preservation, i.e. a new revision will appear in TNTBase.  In Figure </textual><xref class="po-milestone e216 e216" linkend="LABEL.vd_wf"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual"> on the
+bottom right picture we can see the final phase of a VDoc workflow: editing and submitting
+it back -- the modified parts (marked with red) are populated back to their “home”. All
+changes are performed in a single xSVN transaction and only those files will be part of it
+that were implicitly affected by VDoc editing.</textual></para><para class="po-block e217 e217"><textual class="po-textual">In a VDoc we distinguish </textual><emphasis class="po-inline e218 e218" role="ital"><textual class="po-textual">static</textual></emphasis><textual class="po-textual"> parts (i.e. those that come from the VDoc Spec) from
+</textual><emphasis class="po-inline e219 e219" role="ital"><textual class="po-textual">generated</textual></emphasis><textual class="po-textual"> ones (i.e. those parts that are results of a particular VDoc Spec query). Currently, static parts are not editable in a VDoc – TNTBase will abort a commit,
+if they have been changed. However, static parts can be modified by changing VDoc Spec file
+directly in a repository.  From the generated part, only the XML elements that come from the
+repository are </textual><emphasis class="po-inline e220 e220" role="ital"><textual class="po-textual">editable</textual></emphasis><textual class="po-textual">; TNTBase annotates them with
+</textual><emphasis class="po-inline e221 e221" role="ital"><textual class="po-textual">tnt:doc</textual></emphasis><textual class="po-textual"> and </textual><emphasis class="po-inline e222 e222" role="ital"><textual class="po-textual">tnt:xpath</textual></emphasis><textual class="po-textual">
+attributes that cache information about the element source needed for the commit.  In our
+exercise example an editable part might look like:</textual></para><programlisting class="po-block e223 e223" xml:space="preserve"><textual class="po-textual">&lt;exercise topic=”algebra” tnt:xpath=”/omdoc[1]/theory[3]/exercise[2]”
+                           tnt:doc=”/exercises/algebra/isomorphic-sets.omdoc”&gt;
+          ...                
+&lt;/exercise&gt;
+          ...
+&lt;exercise topic=”algebra” tnt:xpath=”/omdoc[1]/theory[2]/exercise[1]”
+                           tnt:doc=”/exercises/algebra/relations.omdoc”&gt;                   
+          ...
+&lt;/exercise&gt;
+</textual></programlisting><para class="po-block e224 e224"><textual class="po-textual">A user may add attributes, text, comments, new elements or delete the old ones, but he is
+</textual><emphasis class="po-inline e225 e225" role="ital"><textual class="po-textual">not</textual></emphasis><textual class="po-textual"> allowed to modify </textual><emphasis class="po-inline e226 e226" role="ital"><textual class="po-textual">tnt:doc</textual></emphasis><textual class="po-textual"> and
+</textual><emphasis class="po-inline e227 e227" role="ital"><textual class="po-textual">tnt:xpath</textual></emphasis><textual class="po-textual"> attributes, otherwise TNTBase will abort
+committing.</textual></para><para class="po-block e228 e228"><textual class="po-textual">So far we have considered only </textual><emphasis class="po-inline e229 e229" role="ital"><textual class="po-textual">editable</textual></emphasis><textual class="po-textual"> parts of the generated part.
+There could be, however, non-editable, generated nodes (e.g. dates or
+average of some values), which we
+call </textual><emphasis class="po-inline e230 e230" role="ital"><textual class="po-textual">constructed</textual></emphasis><textual class="po-textual">. In some cases, we can even partially modify these and
+propagate changes back to a repository: If XQueries
+wrap some of DB XML elements into some other elements, making these
+constructed. For example, the query associated with some
+</textual><emphasis class="po-inline e231 e231" role="ital"><textual class="po-textual">tnt:xqinclude</textual></emphasis><textual class="po-textual"> element could be:</textual></para><programlisting class="po-block e232 e232" xml:space="preserve"><textual class="po-textual">&lt;author&gt;{tnt:collection(’/exercises//*.omdoc’)//dc:creator}&lt;/author&gt;
+</textual></programlisting><para class="po-block e233 e233"><textual class="po-textual">So the results might be:</textual></para><programlisting class="po-block e234 e234" xml:space="preserve"><textual class="po-textual">&lt;author&gt;
+ &lt;dc:creator&gt;Paul&lt;/dc:creator&gt;
+ &lt;dc:creator&gt;John&lt;/dc:creator&gt;
+&lt;/author&gt;
+</textual></programlisting><para class="po-block e235 e235"><textual class="po-textual">In such cases we can make these elements editable via the XQuery </textual><emphasis class="po-inline e236 e236" role="ital"><textual class="po-textual">wrapper</textual></emphasis><textual class="po-textual"> function
+</textual><emphasis class="po-inline e237 e237" role="ital"><textual class="po-textual">tnt:make-editable</textual></emphasis><textual class="po-textual"> supplied by TNTBase for this purpose. This function adds
+</textual><emphasis class="po-inline e238 e238" role="ital"><textual class="po-textual">tnt:doc</textual></emphasis><textual class="po-textual"> and </textual><emphasis class="po-inline e239 e239" role="ital"><textual class="po-textual">tnt:xpath</textual></emphasis><textual class="po-textual">
+attributes to the wrapped elements if possible (i.e. if the input sequence of elements are
+nodes in DB XML) to mark them as editable. So in our example the query should really be:</textual></para><programlisting class="po-block e240 e240" xml:space="preserve"><textual class="po-textual">&lt;author&gt;{tnt:make-editable(tnt:collection(’/exercises//*.omdoc’)//dc:creator)}&lt;/author&gt;
+</textual></programlisting><para class="po-block e241 e241"><textual class="po-textual">This leads to the following result which parts are editable:</textual></para><programlisting class="po-block e242 e242" xml:space="preserve"><textual class="po-textual">&lt;author&gt;
+ &lt;dc:creator tnt:doc=’…’ tnt:xpath=’…’&gt;Paul&lt;/dc:creator&gt;
+ &lt;dc:creator tnt:doc=’…’ tnt:xpath=’…’&gt;John&lt;/dc:creator&gt;
+&lt;/author&gt;
+</textual></programlisting><para class="po-block e243 e243"><textual class="po-textual">The editing approach has a number of natural limitations:</textual></para><itemizedlist class="po-table e244 e244"><listitem class="po-container e245 e245"><para class="po-block e246 e246"><textual class="po-textual">If VDoc content contains multiple results that are the same document node in a
+repository, then TNTBase will not allow committing this VDoc either because in this case
+it is not clear which of modified nodes should be propagated to a source document. In
+future, this behavior might be changed so that e.g. the first or the last change of the
+same node wins and is sent to a repository.</textual></para></listitem><listitem class="po-container e247 e247"><para class="po-block e248 e248"><textual class="po-textual">If VDoc dynamic parts came from older revisions of repository files, then such parts
+can not be editable as well because once revision is committed to a repository it becomes
+unchangeable.</textual></para></listitem><listitem class="po-container e249 e249"><para class="po-block e250 e250"><textual class="po-textual">From a dynamic part only XML elements</textual><footnote class="po-popup e251 e251"><para class="po-block e252 e252"><textual class="po-textual">i.e. that are of
+XML Schema type </textual><emphasis class="po-inline e253 e253" role="ital"><textual class="po-textual">xs:element</textual></emphasis></para></footnote><textual class="po-textual"> are editable.  This limitation stems from the
+fact that e.g. text may be produced by concatenation of multiple strings inside some
+element and TNTBase will not be able to determine how to propagate
+changes back and there is no place to put source
+information inside a VDoc (the latter holds for all remained types of XML nodes
+as well). However, it
+is possible to work around this limitation by embedding XQueries
+that
+return those nodes together with their parent element.</textual></para></listitem></itemizedlist><para class="po-block e254 e254"><textual class="po-textual">Last but not least, TNTBase follows the “update-modify-commit-merge” cycle from the
+underlying version control system in this process, so if another user modified repository
+contents while we were editing a VDoc, submitting of the latter will fail, since our VDoc is
+“out-of-date” and we have to get the VDoc content again and merge our changes. This
+mechanism guarantees that we will not overwrite somebody else’s changes.</textual></para></section><section class="po-hcontainer e255 e255" xml:id="LABEL.sec.vds.schema"><title class="po-block e256 e256"><textual class="po-textual">VDoc Schema Validation</textual></title><para class="po-block e257 e257"><textual class="po-textual">The obvious well-formedness constraints for a VDoc Spec can easily be expressed in a RelaxNG
+schema, which we supply as [</textual><xref class="po-milestone e258 e258" linkend="tntvdskel.url"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">].  But schema-validity of the VDoc Spec does not
+ensure validity of the resulting VDoc because it
+does not take the constraints of the target format into account. Fortunately, we can
+easily integrate the VDoc Spec schema with the target schema, if the latter meets (or is
+extended to meet) some modularity requirements. As an example we provide such a
+combination for OMDoc language in Listing </textual><xref class="po-milestone e259 e259" linkend="LABEL.lst.ovd.rnc"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">.</textual></para><figure class="po-container e260 e260" xml:id="LABEL.lst.ovd.rnc" xreflabel="A RelaxNG Schema for Virtual OMDoc Specifications"><title class="po-block e261 e261"><textual class="po-textual">A RelaxNG Schema for Virtual OMDoc Specifications</textual></title><programlisting class="po-block e262 e262" xml:space="preserve"><textual class="po-textual">include ”tnt-vd-spec.rnc” {
+        skeleton.model  = grammar {include ”omdoc/omdoc.rnc”
+                                                         {ss |= parent xq?}}
+        return.internal.el = grammar {include ”omdoc/omdoc.rnc”
+                                                         {start= omdoc.class|CMP|FMP
+                                                          ss |= parent result.el}}}
+
+</textual></programlisting></figure><para class="po-block e263 e263"><textual class="po-textual">Here we made use of the fact that the OMDoc schema has a hook (the </textual><emphasis class="po-inline e264 e264" role="ital"><textual class="po-textual">ss</textual></emphasis><textual class="po-textual">
+schema macro) that allows replacement of elements in the declarations: all element
+declarations are of the form</textual></para><programlisting class="po-block e265 e265" xml:space="preserve"><textual class="po-textual">CMP = (ss | element CMP {CMP.attribs &amp; CMP.model})
+</textual></programlisting><para class="po-block e266 e266"><textual class="po-textual">In this situation, we only had to replace the content and attribute model of the
+</textual><emphasis class="po-inline e267 e267" role="ital"><textual class="po-textual">tnt:skeleton</textual></emphasis><textual class="po-textual"> element</textual><footnote class="po-popup e268 e268"><para class="po-block e269 e269"><textual class="po-textual">which allowed arbitrary
+elements that contain </textual><emphasis class="po-inline e270 e270" role="ital"><textual class="po-textual">tnt:xqinclude</textual></emphasis><textual class="po-textual"> queries</textual></para></footnote><textual class="po-textual"> with the
+OMDoc document model, which is upgraded to allow an
+</textual><emphasis class="po-inline e271 e271" role="ital"><textual class="po-textual">tnt:xqinclude</textual></emphasis><textual class="po-textual"> element in place of all
+“</textual><emphasis class="po-inline e272 e272" role="ital"><textual class="po-textual">ss</textual></emphasis><textual class="po-textual">-replaceable” elements. The content model of the
+</textual><emphasis class="po-inline e273 e273" role="ital"><textual class="po-textual">tnt:return</textual></emphasis><textual class="po-textual"> element is instantiated to the model of OMDoc “</textual><emphasis class="po-inline e274 e274" role="ital"><textual class="po-textual">ss</textual></emphasis><textual class="po-textual">-replaceable” fragments, updated to allow
+</textual><emphasis class="po-inline e275 e275" role="ital"><textual class="po-textual">tnt:result</textual></emphasis><textual class="po-textual"> element in place of
+“</textual><emphasis class="po-inline e276 e276" role="ital"><textual class="po-textual">ss</textual></emphasis><textual class="po-textual">-replaceable” elements.  When VDoc format-aware schema is ready, we can
+associate it with a VDoc Spec via </textual><emphasis class="po-inline e277 e277" role="ital"><textual class="po-textual">tntbase:validate</textual></emphasis><textual class="po-textual"> xSVN property (details
+in [</textual><xref class="po-milestone e278 e278" linkend="zhokohrab.tntbasef10"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">]), and thus ensure that TNTBase allows committing only
+those VDoc Specs which would always produce content that is valid against our format schema.</textual></para></section><section class="po-hcontainer e279 e279" xml:id="LABEL.sec.vds.implementation"><title class="po-block e280 e280"><textual class="po-textual">Implementation Details</textual></title><para class="po-block e281 e281"><textual class="po-textual">VDocs are realized</textual><footnote class="po-popup e282 e282"><para class="po-block e283 e283"><textual class="po-textual">Due to some problems in DB XML concerning multiple imported
+modules or support of XQuery external functions written in different languages, VDoc
+functionality cannot yet be fully integrated, we expect to have a fix for this by the
+conference.</textual></para></footnote><textual class="po-textual"> in XQuery with help of XQuery external functions written in Java. External
+function are used, for instance, for dynamic query execution from another XQuery (for
+expansion of a VDoc Spec), getting the revision information from a repository (to control that
+no other revisions have been committed while editing a VDoc) or committing changes under
+certain path (to propagate changes to original files one edited VDoc has been submitted
+back).  In order to support VDoc editing workflow, there is a simple XQuery implementation
+of XML differencing, that</textual></para><itemizedlist class="po-table e284 e284"><listitem class="po-container e285 e285"><para class="po-block e286 e286"><textual class="po-textual">controls that VDoc static parts were not modified,</textual></para></listitem><listitem class="po-container e287 e287"><para class="po-block e288 e288"><textual class="po-textual">controls that </textual><emphasis class="po-inline e289 e289" role="ital"><textual class="po-textual">tnt:doc</textual></emphasis><textual class="po-textual"> and
+</textual><emphasis class="po-inline e290 e290" role="ital"><textual class="po-textual">tnt:path</textual></emphasis><textual class="po-textual"> attributes of editable parts were not modified,</textual></para></listitem><listitem class="po-container e291 e291"><para class="po-block e292 e292"><textual class="po-textual">aggregates information about changed editable parts and groups them by source file,</textual></para></listitem><listitem class="po-container e293 e293"><para class="po-block e294 e294"><textual class="po-textual">checks that there are no more than one editable part that corresponds to the same
+node in the same XML document.
+</textual></para></listitem></itemizedlist></section></section><section class="po-hcontainer e295 e295" xml:id="LABEL.sec.usecases"><title class="po-block e296 e296"><textual class="po-textual">Use Cases</textual></title><para class="po-block e297 e297"><textual class="po-textual">In this section we discuss four real-world use cases of the VDoc technology. The discussion
+here is complemented with an evolving</textual><footnote class="po-popup e298 e298"><para class="po-block e299 e299"><textual class="po-textual">At the time of the submission, the sandbox
+is not fully operational yet, but we expect it to be the base of our system demos at
+the conference</textual></para></footnote><textual class="po-textual"> TNTBase sandbox installation [</textual><xref class="po-milestone e300 e300" linkend="tntvdusecases.url"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">] that supplies
+Relax NG schemas and shows VDoc queries and VDoc Specs of our use cases in action.</textual></para><section class="po-hcontainer e301 e301" xml:id="LABEL.sec.usecases.exams"><title class="po-block e302 e302"><textual class="po-textual">Automated Exam Generation</textual></title><para class="po-block e303 e303"><textual class="po-textual">This is a dogfood use case from our academic practice, and is (partially) used in
+day-to-day operation: The second author teaches a first-year, two-semester Introduction to
+Computer Science a Jacobs university and – over the last six years – has accumulated a
+collection of about 1000 homework, quiz, and exam problems encoded into the XML-based
+OMDoc format [</textual><xref class="po-milestone e304 e304" linkend="url.omdocspec"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">]. For the courses we need to prepare regular four
+exams, four “grand tutorial test exams” and two make-up exams per year. While the
+homework problems are typically new (and add to the corpus of well-tested problems), we
+assemble the exams from it semi-automatically with a VDoc Spec that generates random exam sheet
+based on the input list of topics we intend to cover throughout an exam.</textual></para><para class="po-block e305 e305"><textual class="po-textual">There are two kind of proper exams: midterms and finals. Midterms usually are meant to be
+for 1 hour, although sometimes it takes 75 minutes or so, whereas finals are designed for
+2 hours. Thus we also provide an exam duration as an input parameter for our </textual><emphasis class="po-inline e306 e306" role="ital"><textual class="po-textual">exam
+VDoc</textual></emphasis><textual class="po-textual">. Changing only this parameter together with the topic list allows us to get
+different exam sheets that do not exceed the certain time and cover desired topics. All
+necessary information is encoded into the problems as RDFa metadata annotations. Our
+XQuery for a VDoc Spec takes care about adjusting the timing closely to the provided
+limit. When VDoc content is generated, it can be rendered by utilizing XSLTs and developed
+in our group JOMDoc library [</textual><xref class="po-milestone e307 e307" linkend="jomdoc.web"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">] for rendering
+MathML[</textual><xref class="po-milestone e308 e308" linkend="w3c.web.mathml3"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">]. Everything is embedded into TNTBase, and once an exam VDoc
+is installed it is a matter of one click in the TNTBase web interface to get the unique
+human-readable exam sheet for the students.</textual></para><para class="po-block e309 e309"><textual class="po-textual">VDoc Editing facilities also find an application in our use case. Before giving generated
+exam to students we test it on our teaching assistants that may express some of the
+comments or suggestions how to improve particular problems. Then we edit the contents of
+an exam VDoc and commit it back – all modifications are automatically patched into original
+XML sources: easily and painlessly. If one does not like a particular problem to be
+included into exam, we can adjust a VDoc parameter that excludes them from the exam.</textual></para><para class="po-block e310 e310"><textual class="po-textual">The biggest advantage of current exam generation approach is that we write a VDoc Spec once and
+reuse it next semester by simply adjusting few parameters to a VDoc. When one is satisfied
+with the exam presented, it can be materialized and saved in a repository as a normal file
+that can be referenced in future to keep track how students performed on different
+assignment and figure out what their weaknesses are.</textual></para><para class="po-block e311 e311"><textual class="po-textual">Although a presented approach already meets our requirements, there are some issues that
+could be improved. For instance, we might want to take total exam difficulty into account
+to generate exams that do not exceed a certain duration and that have difficulty in a
+certain range (again difficulty information is embedded into problems XML). That will lead
+to a more complicated queries for a VDoc Spec, but is still feasible. Apart from generating
+exams, this use cases might be used by students that are willing to sharpen their
+knowledge: they could generate practice sheets starting from easy tasks and end up with
+the complex ones. Some parameters in e.g. cookies may keep track of what exercises already
+appeared in the practice sheet, and a VDoc will never show them again. It could easily be
+done by providing dynamic parameters to a VDoc retrieval method as was described in the
+previous section.</textual></para></section><section class="po-hcontainer e312 e312" xml:id="LABEL.sec.usecases.branches"><title class="po-block e313 e313"><textual class="po-textual">Multiple Versions of Documents</textual></title><para class="po-block e314 e314"><textual class="po-textual">In most scenarios with long-lived documents, we encounter the problem of document
+versions. Let us consider the case of W3C specifications like XQuery 1.0/1.1, XPath 1/2,
+XML 1.0/1.1., or even MathML1.0/1.0.1/2.0/2.0(2e)/3.0. They are encoded in XML format
+XMLSpec [</textual><xref class="po-milestone e315 e315" linkend="xmlspec.url"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">], so TNTBase and VDocs apply. Usually some parts of specification
+remained the same, while other parts change between the versions, and it is an important
+task to track the differences. For this use case we are experimenting with XML 1.0 and 1.1
+specifications to supply the user with a view that will show only the relevant changes in
+the formal parts of specification branches.  It is rather simple to provide an </textual><emphasis class="po-inline e316 e316" role="ital"><textual class="po-textual">Diff
+VDoc</textual></emphasis><textual class="po-textual"> via an XQuery that summarize changes in formal parts (the rules of the XML grammar
+are marked up by special elements in XMLSpec), ignores document order (grammars are sets,
+not lists of rules), and presents them as a document XMLSpec documents upgraded with
+difference alternatives. Note that our XQuery-based XML-diff comes in handy here.  This VDoc
+gives a user better understanding in which direction the development is going and what
+changes are intended ones and which are made by mistake. Our Diff VDoc is also editable that
+allows a user to fix obvious bugs right on spot, without navigating to the source
+files. Once Diff VDoc is settled in TNTBase it can be reused to filter only relevant
+differences as well as transparently editing them, all in one place.  Currently W3C stores
+specifications in a CVS repository, but does not make use of its differencing facilities
+for version tracking as diff is text-based and outputs even less and least relevant
+differences.</textual></para><para class="po-block e317 e317"><textual class="po-textual">Note that the Diff VDoc encapsulates a particular notion of relevance in the filtering part,
+which may need to be explained in a document preamble. Thus the representational form of a
+VDoc which mixes document parts and queries is beneficial. Moreover, there can be multiple
+Diff VDocs for tracking (and editing) various aspects of the differences in the
+specifications. Such Diff VDocs may even take over the role of conflict editors we currently
+have in version control aware IDEs.</textual></para></section><section class="po-hcontainer e318 e318" xml:id="LABEL.sec.usecases.writing"><title class="po-block e319 e319"><textual class="po-textual">Managing Document Collections</textual></title><para class="po-block e320 e320"><textual class="po-textual">The exam generation use case described above can be seen as a special case of managing
+(here extracting custom documents from) a collection of primary (</textual><emphasis class="po-inline e321 e321" role="ital"><textual class="po-textual">content</textual></emphasis><textual class="po-textual">)
+documents and creating secondary documents from them that aggregate parts of the
+content. These secondary documents can either be used for communication to the outside
+(</textual><emphasis class="po-inline e322 e322" role="ital"><textual class="po-textual">payload</textual></emphasis><textual class="po-textual"> documents) or for management of the document collections. In this
+terminology, the exams above can be seen as the payload documents derived from the content
+documents in the problem collection. That is where VDocs may naturally come into play as we
+have seen above.
+</textual></para><para class="po-block e323 e323"><textual class="po-textual">A very simple application of VDocs in payload documents are queries for a table of contents
+(collecting all sectioning elements in a narrative document), the references (collecting
+all citations, sorting them, and completing them with information from a bibliographic
+database), or an index. In DocBook [</textual><xref class="po-milestone e324 e324" linkend="walmue.dtdg2008"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">] these aggregated document parts
+generated by XSLT stylesheets in the presentation phase, which may incur performance
+bottlenecks in practice, since this is not supported by indexing and caching. Moreover,
+VDocs make separate conceptually the issue of auto-aggregation and presentation, which
+allows to support workflows like previews/editing of aggregated document parts and
+materialization (e.g. of branches and tags) for archiving.</textual></para><para class="po-block e325 e325"><textual class="po-textual">Another simple application of VDocs in technical payload documents is in XML-based literate
+programming [</textual><xref class="po-milestone e326 e326" linkend="dk.lp"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">], where program text is intermingled with its documentation and
+explanation in a single document. Here a VDoc can be used to extract the program text (with
+comments that cross-link to) from the literate source. As a concrete XML-based example
+take the XMLSpec-based source of the MathML3 Recommendation [</textual><xref class="po-milestone e327 e327" linkend="carlisleed.mathml3"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">] from
+which we generate the MathML3 RelaxNG Schema. A VDoc would have considerably simplified this
+process.</textual></para><para class="po-block e328 e328"><textual class="po-textual">We have already seen Diff VDocs as examples of management VDocs for version management in the
+last section. But VDocs can also support proofreading, a very important task in the document
+life cycle. Often one wants to proofread special aspects of a document, e.g. whether
+certain technical terms are used consistently. For this we can quickly specify these terms
+as parameter to an XQuery that assembles all paragraphs that contain them. Then we can
+proofread (and edit) the text passages, commit them back to the collection, and move on to
+other proofreading tasks.</textual></para></section><section class="po-hcontainer e329 e329" xml:id="LABEL.sec.usecases.ontologies"><title class="po-block e330 e330"><textual class="po-textual">Refactoring Ontologies</textual></title><para class="po-block e331 e331"><textual class="po-textual">Finally, VDocs can be used for refactoring OWL [</textual><xref class="po-milestone e332 e332" linkend="w3c04.owl-guide"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">] Ontologies that are
+written in XML Syntax, e.g. OWL 2 XML [</textual><xref class="po-milestone e333 e333" linkend="w3c.owl2-xml"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">]. VDocs become very handy when
+making changes to a small subsets of multiple large ontologies. In the first phase we can
+preview ontologies changes in a VDoc using XQuery transform functions. In the second phase,
+when we are satisfied with results we can materialize a VDoc thus obtaining a refactored
+ontology as a usual document in a repository. Refactorings that can be done using VDocs
+include renaming entities, factoring out or merging modules, rewriting axioms, lowering
+expressivity or stripping axiom annotations. For more detailed information concerning
+ontology refactoring using VDocs refer to [</textual><xref class="po-milestone e334 e334" linkend="lz.owlchangerefactorxmldb10"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">].</textual></para></section></section><section class="po-hcontainer e335 e335" xml:id="LABEL.sec.concl"><title class="po-block e336 e336"><textual class="po-textual">Conclusion &amp; Further Work</textual></title><para class="po-block e337 e337"><textual class="po-textual">In this paper, we have presented the concept of Virtual Documents and their prototypical
+realization in our TNTBase system. VDocs integrate computational facilities into
+documents like JSP/PHP or TeX/LaTeX, only that VDocs use the versatile and XML-optimized
+XQuery processing as a computational process instead of relational database lookup (PHP)
+or general macro expansion in the latter case. We view the integration of computation in
+documents as an </textual><emphasis class="po-inline e338 e338" role="ital"><textual class="po-textual">enabling technology</textual></emphasis><textual class="po-textual"> that explains much of the success and
+usefulness of the respective approaches, and contend that our VDocs are one way of
+introducing this to the XML world. We feel that we have just skimmed the practical
+possibilities induced by VDocs in the use cases discussed in Section </textual><xref class="po-milestone e339 e339" linkend="LABEL.sec.usecases"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">.</textual></para><para class="po-block e340 e340"><textual class="po-textual">For instance, we envision that VDocs can serve as a basis for news generation that are
+tailored to a particular user and keep track of the news that have been read already. Thus
+a reader would receive only those topics that are interested for him and has not been
+explored so far. The targeted VDoc would contain an XQuery that takes specific to a
+particular user parameters like interested sections or ids of read items. The only part
+still missing to realize this is a user model for preferences and explored news, but it is
+a separate problem. The important thing that a single VDoc can satisfy needs of multiple
+users at the same time. Consider for instance the following situation: If the content
+collection contains information conceptual dependencies, then we can use VDocs to generate
+</textual><emphasis class="po-inline e341 e341" role="ital"><textual class="po-textual">guided tours</textual></emphasis><textual class="po-textual"> [</textual><xref class="po-milestone e342 e342" linkend="mu-01-a"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">], i.e. self-contained sub-documents introduce the
+necessary prerequisites of a concept. As VDocs allow to re-use the parametric XQueries that
+operationalize e.g. the topological sorting of concept descriptions, populating a file
+system with guided tours over a content collection becomes a mechanical exercise. In fact,
+we surmise that much of the functionality of advanced e-learning systems like
+ActiveMath [</textual><xref class="po-milestone e343 e343" linkend="activemathaima03"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">] can be externalized into VDocs.</textual></para><para class="po-block e344 e344"><textual class="po-textual">Note that the viability of virtual documents is intertwined with the targeted document
+formats in an interesting way as our discussion of validation in
+Section </textual><xref class="po-milestone e345 e345" linkend="LABEL.sec.vds.schema"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual"> shows. In [</textual><xref class="po-milestone e346 e346" linkend="zhokohrab.tntbasef10"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">] we have begun an
+exploration on a theoretical level; from our practical work reported in this paper it
+seems that more theoretical investigations are necessary. Note furthermore that our
+realization of VDocs is not tied to the TNTBase system – even though version management
+can profit from VDocs, it is not a prerequisite; instead of an SVN commit we could just as
+well write to an XML database.  In particular, as our implementation is based on XQuery in
+its core, it should be possible to port it to other XML databases if they supply a notion
+of a file system interface.</textual></para><para class="po-block e347 e347"><textual class="po-textual">In our use cases, the ability to re-use XQueries</textual><footnote class="po-popup e348 e348"><para class="po-block e349 e349"><textual class="po-textual">which require specialized
+expertise and therefore constitute a significant investment</textual></para></footnote><textual class="po-textual"> for different situations
+and over time has been a crucial ingredient for practical use of VDocs. We therefore
+anticipate that common XQueries will be rolled into extensions</textual><footnote class="po-popup e350 e350"><para class="po-block e351 e351"><textual class="po-textual">Think e.g. of
+</textual><emphasis class="po-inline e352 e352" role="ital"><textual class="po-textual">tableofcontents</textual></emphasis><textual class="po-textual">, </textual><emphasis class="po-inline e353 e353" role="ital"><textual class="po-textual">references</textual></emphasis><textual class="po-textual">, or </textual><emphasis class="po-inline e354 e354" role="ital"><textual class="po-textual">index</textual></emphasis><textual class="po-textual"> elements that
+abbreviate respective XQueries.</textual></para></footnote><textual class="po-textual"> for document formats much like macro packages in
+TeX/LaTeX and thus will create an avenue for user-driven format extensions that may
+well drive evolution of XML-based formats in the future.
+</textual></para><para class="po-block e355 e355"><textual class="po-textual">An enabling technology must of course also have </textual><emphasis class="po-inline e356 e356" role="ital"><textual class="po-textual">enabling tools</textual></emphasis><textual class="po-textual">, which we
+want to develop on top of our TNTBase system. One such tool is an editing framework for
+VDocs. Note that this is non-trivial, since — like their underlying XML formats — VDocs
+need to be presented to a user in a human-oriented format for reading </textual><emphasis class="po-inline e357 e357" role="ital"><textual class="po-textual">and
+editing</textual></emphasis><textual class="po-textual">. Let us consider XHTML as a presentation format. JavaScript frameworks like
+JOBAD [</textual><xref class="po-milestone e358 e358" linkend="jobad.web"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">] could be extended in order to inject JavaScript into XHTML that
+marks up the editable parts of a transformed VDoc with help of auxiliary TNTBase
+attributes (like </textual><emphasis class="po-inline e359 e359" role="ital"><textual class="po-textual">tnt:doc</textual></emphasis><textual class="po-textual"> and
+</textual><emphasis class="po-inline e360 e360" role="ital"><textual class="po-textual">tnt:xpath</textual></emphasis><textual class="po-textual">). Special markup will allow that framework to
+figure out what parts of a presentational document correspond to what parts of the sources
+from which VDoc content was comprised. The result could be that every “editable” part of
+rendered XHTML contains a small button or a link for editing pressing which results in
+some popup that shows an editable fragment of an XML document. Pressing submit button
+will modify the original content of a VDoc and commit it back to TNTBase. XML sources
+will be transparently patched that will lead to an updated XHTML version of a considered
+VDoc. Such an approach will allow a typical user to understand better the meaning of a VDoc
+(with help of human-oriented presentations) as well as provide interactive means for
+utilizing the concept of VDoc editing.</textual></para></section><bibliography class="po-hcontainer e361 e361"><title class="po-block e362 e362"><textual class="po-textual">References</textual></title><bibliomixed class="po-block e363 e363" xml:id="carlisleed.mathml3" xreflabel="ABC+09"><textual class="po-textual">
+Ron Ausbrooks, Stephen Buswell, David Carlisle, Giorgi Chavchanidze,
+Stéphane Dalmas, Stan Devitt, Angel Diaz, Sam Dooley, Roger Hunter,
+Patrick Ion, Michael Kohlhase, Azzeddine Lazrek, Paul Libbrecht, Bruce
+Miller, Robert Miner, Murray Sargent, Bruce Smith, Neil Soiffer, Robert
+Sutor, and Stephen Watt.
+Mathematical Markup Language (MathML) version 3.0.
+W3C Candidate Recommendation of 15 December 2009, World Wide Web
+Consortium, 2009.
+</textual></bibliomixed><bibliomixed class="po-block e364 e364" xml:id="w3c.xquery10" xreflabel="BCF+07"><textual class="po-textual">
+Scott Boag, Don Chamberlin, Mary F. Fernández, Daniela Florescu, Jonathan
+Robie, and Jérôme Siméon.
+XQuery: An XML Query Language.
+W3C recommendation, World Wide Web Consortium (W3C), January
+2007.
+available at </textual><link class="po-inline e365 e365" xlink:actuate="onRequest" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://www.w3.org/TR/xquery/</textual></link><textual class="po-textual">.
+</textual></bibliomixed><bibliomixed class="po-block e366 e366" xml:id="berkeleydb.web" xreflabel="Ber09a"><textual class="po-textual">Berkeley DB.
+available at
+</textual><link class="po-inline e367 e367" xlink:actuate="onRequest" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://www.oracle.com/technology/products/berkeley-db/index.html</textual></link><textual class="po-textual">, seen
+January 2009.
+</textual></bibliomixed><bibliomixed class="po-block e368 e368" xml:id="berkeleydbxml.web" xreflabel="Ber09b"><textual class="po-textual">
+Berkeley DB XML.
+available at
+</textual><link class="po-inline e369 e369" xlink:actuate="onRequest" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://www.oracle.com/database/berkeley-db/xml/index.html</textual></link><textual class="po-textual">, seen January
+2009.
+</textual></bibliomixed><bibliomixed class="po-block e370 e370" xml:id="w3c.xquery-update" xreflabel="CDF+08"><textual class="po-textual">
+Don Chamberlin, Michael Dyck, Daniela Florescu, Jim Melton, Jonathan Robie, and
+Jérôme Siméon.
+XQUpdate: XQuery Update Facility 1.0.
+W3C Candidate Recommendation, World Wide Web Consortium (W3C),
+seen February 2008.
+</textual></bibliomixed><bibliomixed class="po-block e371 e371" xml:id="dklrz.pubmathlectnotlinkeddata10" xreflabel="DKL+10"><textual class="po-textual">
+Catalin David, Michael Kohlhase, Christoph Lange, Florian Rabe, Nikita
+Zhiltsov, and Vyacheslav Zholudev.
+Publishing math lecture notes as linked data.
+In Lora Aroyo, Grigoris Antoniou, Eero Hyvönen, Annette ten
+Teije, Heiner Stuckenschmidt, Liliana Cabral, and Tania Tudorache, editors,
+</textual><emphasis class="po-inline e372 e372" role="ital"><textual class="po-textual">ESWC</textual></emphasis><textual class="po-textual">, number 6089 in Lecture Notes in Computer Science, pages 370–375.
+Springer, June 2010. doi: </textual><biblioid class="po-atom e373 doi e373"><textual class="po-textual">10.1007/978-3-642-13489-0_26</textual></biblioid><textual class="po-textual">.
+</textual></bibliomixed><bibliomixed class="po-block e374 e374" xml:id="jobad.web" xreflabel="JOB08"><textual class="po-textual">
+JOBAD framework – JavaScript API for OMDoc-based active documents.
+</textual><link class="po-inline e375 e375" xlink:actuate="onRequest" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://jomdoc.omdoc.org/wiki/JOBAD</textual></link><textual class="po-textual">, 2008.
+</textual></bibliomixed><bibliomixed class="po-block e376 e376" xml:id="jomdoc.web" xreflabel="JOM10"><textual class="po-textual">
+JOMDoc project — Java library for OMDoc documents.
+</textual><link class="po-inline e377 e377" xlink:actuate="onRequest" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://jomdoc.omdoc.org</textual></link><textual class="po-textual">, 2010.
+seen Feb.
+</textual></bibliomixed><bibliomixed class="po-block e378 e378" xml:id="jsr311.web" xreflabel="JSR09"><textual class="po-textual">
+JSR 311: JAX-RS: The Java API for RESTful Web Services, seen April 2009.
+available at
+</textual><link class="po-inline e379 e379" xlink:actuate="onRequest" xlink:href="https://jsr311.dev.java.net/nonav/releases/1.0/index.html" xlink:show="new" xlink:type="simple"><textual class="po-textual">https://jsr311.dev.java.net/nonav/releases/1.0/index.html</textual></link><textual class="po-textual">.
+</textual></bibliomixed><bibliomixed class="po-block e380 e380" xml:id="dk.lp" xreflabel="Knu92"><textual class="po-textual">
+Donald E. Knuth.
+</textual><emphasis class="po-inline e381 e381" role="ital"><textual class="po-textual">Literate Programming</textual></emphasis><textual class="po-textual">.
+The University of Chicago Press, 1992.
+</textual></bibliomixed><bibliomixed class="po-block e382 e382" xml:id="url.omdocspec" xreflabel="Koh"><textual class="po-textual">
+Michael Kohlhase.
+OMDoc: An open markup format for mathematical documents
+(latest released version).
+Specification, </textual><link class="po-inline e383 e383" xlink:actuate="onRequest" xlink:href="http://www.omdoc.org/pubs/spec.pdf" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://www.omdoc.org/pubs/spec.pdf</textual></link><textual class="po-textual">.
+</textual></bibliomixed><bibliomixed class="po-block e384 e384" xml:id="kohlhase.omdoc1.6spec" xreflabel="Koh10"><textual class="po-textual">
+Michael Kohlhase.
+An open markup format for mathematical documents OMDoc [version
+1.6 (pre-2.0)].
+Draft Specification, 2010.
+</textual></bibliomixed><bibliomixed class="po-block e385 e385" xml:id="latin.url" xreflabel="LAT"><textual class="po-textual">
+Latin: Logic atlas and integrator.
+</textual><link class="po-inline e386 e386" xlink:actuate="onRequest" xlink:href="http://trac.omdoc.org/latin/" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://trac.omdoc.org/latin/</textual></link><textual class="po-textual">.
+</textual></bibliomixed><bibliomixed class="po-block e387 e387" xml:id="lz.owlchangerefactorxmldb10" xreflabel="LZ10"><textual class="po-textual">
+Christoph Lange and Vyacheslav Zholudev.
+Previewing OWL changes and refactorings using a flexible XML
+database.
+In Mathieu d’Aquin, Alexander García Castro, Christoph Lange, and
+Kim Viljanen, editors, </textual><emphasis class="po-inline e388 e388" role="ital"><textual class="po-textual">1st Workshop on Ontology
+Repositories and Editors</textual></emphasis><textual class="po-textual">, number 596 in CEUR Workshop Proceedings,
+Hersonissos, Greece, May 2010.
+</textual></bibliomixed><bibliomixed class="po-block e389 e389" xml:id="activemathaima03" xreflabel="MAF+03"><textual class="po-textual">
+E. Melis, J. Buedenbender E. Andres, A. Frischauf, G. Goguadse, P. Libbrecht,
+M. Pollet, and C. Ullrich.
+Knowledge representation and management in activemath.
+</textual><emphasis class="po-inline e390 e390" role="ital"><textual class="po-textual">International Journal on Artificial Intelligence and
+Mathematics, Special Issue on Management of Mathematical Knowledge</textual></emphasis><textual class="po-textual">,
+38(1–3):47–64, 2003. doi: </textual><biblioid class="po-atom e391 doi e391"><textual class="po-textual">10.1023/A:1022959613174</textual></biblioid><textual class="po-textual">.
+</textual></bibliomixed><bibliomixed class="po-block e392 e392" xml:id="miller.latexml" xreflabel="Mil10"><textual class="po-textual">
+Bruce Miller.
+LaTeXML: A LaTeX to XML converter.
+Web Manual at </textual><link class="po-inline e393 e393" xlink:actuate="onRequest" xlink:href="http://dlmf.nist.gov/LaTeXML/" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://dlmf.nist.gov/LaTeXML/</textual></link><textual class="po-textual">, seen May  2010.
+</textual></bibliomixed><bibliomixed class="po-block e394 e394" xml:id="misev.sumo2omdoc" xreflabel="Mis10"><textual class="po-textual">
+Dimitar Misev.
+Integrating SUMO and OMDoc.
+Bachelor’s thesis, Computer Science, Jacobs University, Bremen, 2010.
+</textual></bibliomixed><bibliomixed class="po-block e395 e395" xml:id="w3c.owl2-xml" xreflabel="MPPS09"><textual class="po-textual">
+Boris Motik, Bijan Parsia, and Peter F. Patel-Schneider.
+OWL 2 web ontology language: XML serialization.
+W3C recommendation, World Wide Web Consortium (W3C), 10 2009.
+</textual></bibliomixed><bibliomixed class="po-block e396 e396" xml:id="mu-01-a" xreflabel="MU01"><textual class="po-textual">
+Erica Melis and Carsten Ullrich.
+How to teach it – polya-inspired scenarios in activemath.
+</textual><emphasis class="po-inline e397 e397" role="ital"><textual class="po-textual">AI in Education (AIED-2003), IOS Press</textual></emphasis><textual class="po-textual">, pages 141–147, 2001.
+</textual></bibliomixed><bibliomixed class="po-block e398 e398" xml:id="openlinkvirtuoso.web" xreflabel="Ope"><textual class="po-textual">OpenLink Software.
+OpenLink universal integration middleware – Virtuoso product
+family.
+web page at </textual><link class="po-inline e399 e399" xlink:actuate="onRequest" xlink:href="http://virtuoso.openlinksw.com" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://virtuoso.openlinksw.com</textual></link><textual class="po-textual">.
+</textual></bibliomixed><bibliomixed class="po-block e400 e400" xml:id="relaxngweb" xreflabel="Rel"><textual class="po-textual">
+A schema language for XML.
+available at </textual><link class="po-inline e401 e401" xlink:actuate="onRequest" xlink:href="http://www.relaxng.org/" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://www.relaxng.org/</textual></link><textual class="po-textual">.
+</textual></bibliomixed><bibliomixed class="po-block e402 e402" xml:id="svn.web" xreflabel="SVN08"><textual class="po-textual">
+Subversion, seen June 2008.
+available at </textual><link class="po-inline e403 e403" xlink:actuate="onRequest" xlink:href="http://subversion.tigris.org/" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://subversion.tigris.org/</textual></link><textual class="po-textual">.
+</textual></bibliomixed><bibliomixed class="po-block e404 e404" xml:id="w3c04.owl-guide" xreflabel="SWM04"><textual class="po-textual">
+Michael K. Smith, Chris Welty, and Deborah L. McGuinness.
+OWL web ontology language guide.
+W3C Recommendation, World Wide Web Consortium (W3C), February
+2004.
+</textual></bibliomixed><bibliomixed class="po-block e405 e405" xml:id="w3c.web.mathml3" xreflabel="W3C07"><textual class="po-textual">
+W3C.
+Mathematical Markup Language (MathML) Version 3.0 (Third Edition).
+</textual><link class="po-inline e406 e406" xlink:actuate="onRequest" xlink:href="http://www.w3.org/TR/MathML3/" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://www.w3.org/TR/MathML3/</textual></link><textual class="po-textual">, 2007.
+Seen November 2007.
+</textual></bibliomixed><bibliomixed class="po-block e407 e407" xml:id="walmue.dtdg2008" xreflabel="WM08"><textual class="po-textual">
+Norman Walsh and Leonard Muellner.
+</textual><emphasis class="po-inline e408 e408" role="ital"><textual class="po-textual">DocBook 5.0: The Definitive Guide</textual></emphasis><textual class="po-textual">.
+O’Reilly, 2008.
+</textual></bibliomixed><bibliomixed class="po-block e409 e409" xml:id="xmlspec.url" xreflabel="XML09"><textual class="po-textual">
+The XML Spec schema and stylesheets.
+</textual><link class="po-inline e410 e410" xlink:actuate="onRequest" xlink:href="http://www.w3.org/2002/xmlspec/" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://www.w3.org/2002/xmlspec/</textual></link><textual class="po-textual">, seen March 2009.
+</textual></bibliomixed><bibliomixed class="po-block e411 e411" xml:id="zholudev.tntbaserestful.web" xreflabel="Z+10"><textual class="po-textual">
+Vyacheslav Zholudev et al.
+TNTBase – restful api.
+</textual><link class="po-inline e412 e412" xlink:actuate="onRequest" xlink:href="http://tntbase.org/wiki/restful" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://tntbase.org/wiki/restful</textual></link><textual class="po-textual">, 2010.
+</textual></bibliomixed><bibliomixed class="po-block e413 e413" xml:id="tntvdusecases.url" xreflabel="Zho"><textual class="po-textual">
+Vyacheslav Zholudev.
+Sandbox for Balisage 2010 – Virtual Documents.
+</textual><link class="po-inline e414 e414" xlink:actuate="onRequest" xlink:href="http://tntbase.org/wiki/balisage2010" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://tntbase.org/wiki/balisage2010</textual></link><textual class="po-textual">.
+</textual></bibliomixed><bibliomixed class="po-block e415 e415" xml:id="tntvdskel.url" xreflabel="ZK"><textual class="po-textual">
+Vyacheslav Zholudev and Michael Kohlhase.
+The RelaxNG schema for vd skeletons.
+</textual><link class="po-inline e416 e416" xlink:actuate="onRequest" xlink:href="https://svn.tntbase.org/repos/tntbase/trunk/DbXmlAccessLib/resources/tnt-vd-spec.rnc" xlink:show="new" xlink:type="simple"><textual class="po-textual">https://svn.tntbase.org/repos/tntbase/trunk/DbXmlAccessLib/resources/tnt-vd-spec.rnc</textual></link><textual class="po-textual">.
+</textual></bibliomixed><bibliomixed class="po-block e417 e417" xml:id="zhokoh.tvsx09.biblatex" xreflabel="ZK09"><textual class="po-textual">
+Vyacheslav Zholudev and Michael Kohlhase.
+TNTBase: a versioned storage for XML.
+In </textual><emphasis class="po-inline e418 e418" role="ital"><textual class="po-textual">Proceedings of Balisage: The Markup Conference 2009</textual></emphasis><textual class="po-textual">,
+volume 3 of </textual><emphasis class="po-inline e419 e419" role="ital"><textual class="po-textual">Balisage Series on Markup Technologies</textual></emphasis><textual class="po-textual">. Mulberry
+Technologies, Inc., 2009. doi: </textual><biblioid class="po-atom e420 doi e420"><textual class="po-textual">10.4242/BalisageVol3.Zholudev01</textual></biblioid><textual class="po-textual">.
+</textual></bibliomixed><bibliomixed class="po-block e421 e421" xml:id="zhokohrab.tntbasef10" xreflabel="ZKR10"><textual class="po-textual">
+Vyacheslav Zholudev, Michael Kohlhase, and Florian Rabe.
+A [insert xml format] database for [insert cool application].
+In </textual><emphasis class="po-inline e422 e422" role="ital"><textual class="po-textual">Proceedings of XML Prague 2010</textual></emphasis><textual class="po-textual">, 2010.
+</textual></bibliomixed></bibliography></article></classedDocument>

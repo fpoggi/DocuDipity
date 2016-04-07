@@ -1,0 +1,1550 @@
+<?xml version="1.0" encoding="UTF-8"?><article xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink" version="5.0-subset Balisage-1.3" xml:id="wadl-balisage"><title>Using XProc, XSLT 2.0, and XSD 1.1 to validate RESTful services</title><info><confgroup><conftitle>Balisage: The Markup Conference 2012</conftitle><confdates>August 7 - 10, 2012</confdates></confgroup><abstract><para>
+                Documentation of RESTful services must be accurate and
+                detailed. As a REST service is being developed, the
+                documentation must be kept up to date and its accuracy
+                constantly validated. Once the REST service is
+                released the documentation becomes a contract; clients
+                may break if an implementation drifts from the
+                documented rules. Also, third-party implementations
+                must adhere to the rules in order for clients to
+                interact with multiple implementations without
+                issue. Ensuring conformance to the documentation is
+                complicated, tedious, and error prone. We use our
+                existing XML documentation pipeline to generate highly
+                efficient validators which can check a RESTful service
+                (and it's clients) for conformance to the
+                documentation at runtime. We validate all aspects of
+                the HTTP request including message content, URI
+                templates, query parameters, headers, etc. We describe
+                the transformation process and some of the
+                optimizations that enable real time optimization and
+                discuss challenges including testing the documentation
+                pipeline and the validators themselves.
+            </para></abstract><author><personname><firstname>Jorge</firstname><othername>Luis</othername><surname>Williams</surname></personname><personblurb><para>Jorge Williams is a principal architect on the
+                    Cloud Integration Team at Rackspace Hosting where
+                    he develops tools and services to solve
+                    integration problems. He has aided in the design
+                    and development of the Repose HTTP proxy, the
+                    Cloud Servers API, the OpenStack Compute and
+                    Identity APIs, and the OpenStack extension
+                    mechanism. He holds a PhD in computer science.
+                </para></personblurb><affiliation><orgname>Rackspace Hosting</orgname></affiliation><email>jorge.williams@rackspace.com</email></author><author><personname><firstname>David</firstname><surname>Cramer</surname></personname><personblurb><para>David Cramer is a Documentation Build Developer
+                    on the Cloud Doc Tools team at Rackspace Hosting
+                    where he helps maintain the XML-based tool chain
+                    used to produce Rackspace and OpenStack API
+                    documentation. He has also been involved with the
+                    DocBook project for several years.</para></personblurb><affiliation><orgname>Rackspace Hosting</orgname></affiliation><email>david.cramer@rackspace.com</email></author><legalnotice><para>Copyright © 2012 Rackspace US, Inc.</para></legalnotice><keywordset role="author"><keyword>WADL</keyword><keyword>REST</keyword><keyword>APIs</keyword><keyword>validation</keyword><keyword>documentation</keyword><keyword>DocBook</keyword><keyword>automata</keyword></keywordset></info><section xml:id="Introduction"><title>Introduction</title><para> REST is fast becoming the standard method by which
+            different software systems interact with one another. As
+            such, Rackspace produces a large number of RESTful
+            services both for both internal and public consumption.
+            Because these RESTful services act as integration points,
+            they must be documented accurately and at a very high
+            level of detail. As a REST service is being developed, the
+            documentation must be kept up to date, and the accuracy of
+            the documentation as it relates to the actual
+            implementation of the service must be constantly
+            validated. That said, once the REST service is released
+            the documentation becomes a fixed contract. At this time,
+            there exists the possibility that an implementation my
+            inadvertently drift from what is described in the
+            documentation and this may cause clients to break. Also,
+            when dealing with open source services, other
+            implementations of the same service may be developed by
+            third parties, and it's important for these implementation
+            to behave according to the rules specified by the
+            documentation as well in order for clients to interact
+            with multiple implementations without issue. The process
+            of ensuring conformance to the documentation is
+            complicated, tedious, and error prone. </para><para> To automate the process, we had the idea to use our
+            existing XML documentation pipeline based on XProc, XSLT
+            2.0, DocBook and WADL, which already produced HTML and PDF
+            documentation artifacts, to generate highly efficient
+            validators as well. These validators can be used to check
+            a RESTful service (and its clients) for conformance to the
+            documentation at runtime in a very efficient manner. The
+            validators are capable of using an XSD 1.1 implementation
+            (either Xerces or Saxon) to validate not just the content
+            of a request, but also to perform checks on URI templates
+            and query parameters. The process illustrates the power of
+            single sourcing, in that the same source that is used to
+            produce human readable artifacts is also used to produce
+            machine readable validation instructions. As a result,
+            from the same artifact, we are able to:<itemizedlist><listitem><para> document APIs consistently and efficiently.
+                    </para></listitem><listitem><para> produce different documentation artifacts
+                        such as user guides, specifications, and quick
+                        reference web pages. </para></listitem><listitem><para> validate the accuracy of our API
+                        implementations and their clients. </para></listitem><listitem><para> help describe the calls a particular user
+                        is authorized to make in an API. </para></listitem></itemizedlist></para><para> The purpose of this paper is to describe our REST
+            documentation pipeline and discuss how it was adapted to
+            produce REST validators. We give a detailed overview of
+            the transformation process, including a description of
+            some of the optimizations performed to achieve efficient
+            real time validation. We also describe some of the
+            challenges we've encountered -- including testing the
+            documentation pipeline.
+        </para></section><section xml:id="Background"><title>Background</title><section xml:id="REST"><title>About REST</title><para> REST (REpresentational State Transfer) is an
+                "architectural style" described by Roy Fielding in his
+                PhD dissertation <xref linkend="Fielding2000"/>. REST
+                seeks to adapt the architecture of the Web, along with
+                its scalability, performance, and other advantages, as
+                a platform for any kind of application. In REST, as on
+                the Web, a <emphasis>resource</emphasis> is an item of
+                interest. Each resource has an address (URI) and one
+                or more <emphasis>representations</emphasis> (a file
+                with a given media type). A client can interact with a
+                resource through a URL and these interactions in turn
+                act as the engine of application state because the
+                representations provide hypermedia links offering
+                alternative directions the client can take to proceed
+                through the workflow. The RESTful ideal is that just
+                as you interact with a Web site and choose which step
+                to take next, without being frustrated that the layout
+                of the page and links offered have changed since the
+                last time you visited the site, so a client using a
+                RESTful API can pick its way through a workflow
+                without demanding a fixed, brittle contract. Likewise,
+                the Web's mature and well-understood caching
+                mechanisms can improve the performance and scalability
+                of your application, protecting the server from spikes
+                in traffic and the client from brief interruptions in
+                the server's availability.  </para><para>While many APIs describe themselves as RESTful, some
+                RESTful APIs are more RESTful than others. At the most
+                rudimentary level, APIs may employ one or more URIs,
+                but still use only one method (GET, POST) to tunnel
+                their requests over HTTP and do not represent a
+                radical break from WS-* services. APIs that embrace
+                the RESTful architecture more fully offer a larger
+                number of resources, each with a URI, and map a
+                variety of HTTP verbs to the Create Read Update Delete
+                (CRUD) operations found in most applications. In these
+                services, parameters are passed in with requests
+                either as elements of the URI or as query parameters
+                appended to the URI. The Web's caching infrastructure
+                also comes into play. Finally, in an ideal more often
+                discussed than achieved, services that fully embrace
+                the idea of hypermedia as the engine of application
+                state (HATEOS), relying on the client to navigate
+                through the workflow in the same way an end-user at an
+                e-commerce site would, by inspecting the available
+                links and picking the appropriate one. </para></section><section xml:id="Pipeline"><title>About Rackspace and OpenStack Developer
+                Documentation</title><!-- Overview and technoliges used, where we started --><para><link xlink:href="http://www.rackspace.com" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Rackspace</link> is a hosting company that found
+                itself well positioned to play a significant role in
+                the sea change from traditional hosting to cloud
+                computing started by Amazon Web Services. The
+                Rackspace strategy involves creating an open source
+                alternative to the closed, proprietary world of vendor
+                lock-in that AWS represents. To that end, Rackspace
+                partnered with NASA to create a collection of open
+                source cloud software, called <link xlink:href="http://www.openstack.org" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">OpenStack</link>. Since its launch in 2010,
+                OpenStack has enjoyed rapid growth as an open source
+                project with hundreds of companies and individuals
+                participating. Since much of the code that we develop
+                is contributed to OpenStack, we needed an approach to
+                documentation that facilitated interchange and
+                collaboration. DocBook and the XSLT stylesheets from
+                the <link xlink:href="http://docbook.sourceforge.net/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">DocBook Open Repository</link> provide the basis
+                for our documentation tool chain. </para><para>Our documentation pipeline contains the typical
+                components: a schema, authoring environment, source
+                control system, build system, and hosted artifacts. In
+                particular, we use:<itemizedlist><listitem><para>A variant of the DocBook 5.0 schema,
+                            called RackBook. </para></listitem><listitem><para>A Java Web Start version of the <link xlink:href="http://www.oxygenxml.com/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">oXygen XML editor</link> with a
+                            custom framework to support RackBook and
+                            our specific needs. Contributors are free
+                            to use any text editor, but the <link xlink:href="http://docs.rackspace.com/oxygen" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">customized version of oXygen</link>
+                            provides many convenience features.
+                        </para></listitem><listitem><para>Customizations on top of the DocBook
+                            XSLT stylesheets to produce pdf and HTML
+                            output branded for Rackspace, OpenStack,
+                            or other partners as necessary. </para></listitem><listitem><para>An extended version of the <link xlink:href="http://docbkx-tools.sourceforge.net/docbkx-maven-plugin/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Docbkx</link>
+                            <link xlink:href="https://maven.apache.org/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Maven</link> plugin to manage
+                            build-time dependencies and perform the
+                            build logic to generate artifacts. We've
+                            extended Docbkx to incorporate <link xlink:href="http://xmlcalabash.com/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Calabash</link> so that we can
+                            preprocess our source code with XProc
+                            pipelines. Because OpenStack also relies
+                            on this tool, we have open sourced our
+                            version of the Maven plugin (<link xlink:href="https://github.com/rackspace/clouddocs-maven-plugin" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">clouddocs-maven-plugin</link>).</para></listitem><listitem><para>We store our source code in a internal
+                            git repositories and schedule builds using
+                            Jenkins jobs.</para></listitem></itemizedlist></para></section><section xml:id="WhyWADL"><title>Why WADL?</title><para> We evaluated frameworks that provide test consoles
+                and some level of documentation for RESTful APIs like
+                    <link xlink:href="http://www.apigee.com" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Apigee</link>, <link xlink:href="http://mashery.com/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Mashery</link>,
+                and <link xlink:href="http://swagger.wordnik.com/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Swagger</link>, but found each lacking one or
+                another important feature. We ultimately decided to
+                leverage our DocBook-based tool chain to create human
+                and machine readable descriptions of the APIs from the
+                same source. The human readable artifacts are the
+                documentation, and the machine readable WADL would
+                facilitate the run-time validation of API calls in the
+                via Open Repose, our open source RESTful proxy. There
+                are a number of reasons why we chose WADL over using
+                an existing alternative description languages or
+                designing our DSL: <itemizedlist><listitem><para>The WADL vocabulary includes a number of
+                            features that facilitate authoring and
+                            content reuse. </para></listitem><listitem><para>Since WADL is XML, it fit easily into
+                            our existing DocBook pipeline. </para></listitem><listitem><para>The format is extensible and thus it is
+                            simple to add support for new features and
+                            niche use-cases. </para></listitem><listitem><para>The format is grammar agnostic. This
+                            means that a grammar can be specified in
+                            XML Schema for XML media types and JSON
+                            Schema for JSON media types. </para></listitem><listitem><para>Additionally, grammars can be used not
+                            just to make assertions about the content
+                            of HTTP payloads as a whole, but also to
+                            make assertions about a particular subset
+                            of it. </para></listitem><listitem><para>Grammars can also be used to make
+                            assertions over all aspects of an HTTP
+                            request or response: template parameters,
+                            matrix parameters, query parameters and
+                            headers. </para></listitem><listitem><para>WADL is specific to the HTTP protocol
+                            and captures all of that protocol's
+                            features. As such, it's a perfect markup
+                            language for semantically describing
+                            RESTful services. </para></listitem></itemizedlist> We elaborate on some of the more
+                important features in detail in the following
+                sections. </para><section xml:id="flexability"><title>Flexibility</title><para>One of the nice features of WADL is that it has
+                    a very flexible schema especially when associating
+                    URI paths to resources. For example, suppose we
+                    have a very sparse API that allows a
+                        <code>GET</code> and <code>DELETE</code>
+                    operation to occur only at the URI
+                        <code>https://test.api.openstack.com/path/to/my/resource</code>.
+                    This can be represented in a WADL in the following
+                    manner: </para><figure xml:id="WADLTree" xreflabel="Example 1"><title>WADL in Tree Form</title><programlisting xml:space="preserve">&lt;application xmlns="http://wadl.dev.java.net/2009/02"&gt;
+    &lt;grammars/&gt;
+    &lt;resources base="https://test.api.openstack.com"&gt;
+        &lt;resource path="path"&gt;
+            &lt;resource path="to"&gt;
+                &lt;resource path="my"&gt;
+                    &lt;resource path="resource"&gt;
+                        &lt;method name="GET"&gt;
+                            &lt;response status="200 203"/&gt;
+                        &lt;/method&gt;
+                        &lt;method name="DELETE"&gt;
+                            &lt;response status="200"/&gt;
+                        &lt;/method&gt;
+                    &lt;/resource&gt;
+                &lt;/resource&gt;
+            &lt;/resource&gt;
+        &lt;/resource&gt;
+    &lt;/resources&gt;
+&lt;/application&gt;
+</programlisting></figure><para>Note that each individual path segment in the
+                    URI is represented by a
+                        <code>&lt;resource&gt;</code> element. While
+                    the approach would work well in cases where the
+                    API has a complex structure with many resources,
+                    it's overkill for this example. Instead, we can
+                    represent the API like this: </para><figure xml:id="WADLFlat" xreflabel="Example 2"><title>WADL in Flat Form</title><programlisting xml:space="preserve">&lt;application xmlns="http://wadl.dev.java.net/2009/02"&gt;
+    &lt;grammars/&gt;
+    &lt;resources base="https://test.api.openstack.com"&gt;
+        &lt;resource path="path/to/my/resource"&gt;
+            &lt;method name="GET"&gt;
+                &lt;response status="200 203"/&gt;
+            &lt;/method&gt;
+            &lt;method name="DELETE"&gt;
+                &lt;response status="200"/&gt;
+            &lt;/method&gt;
+        &lt;/resource&gt;
+    &lt;/resources&gt;
+&lt;/application&gt;
+</programlisting></figure><para> Here, a <code>&lt;resource&gt;</code> element
+                    covers multiple segments in the path all at once,
+                    in this case <code>path/to/my/resource</code>.
+                    Given the sparse API, this is far more convenient.
+                    The WADL need not be entirely written in the form
+                    illustrated in <xref linkend="WADLTree"/> (tree
+                    form) or in the form in <xref linkend="WADLFlat"/>
+                    (flat form). A WADL can contain resources that are
+                    simultaneously in both forms (mixed form) as
+                    illustrated here: </para><figure xml:id="WADLMix" xreflabel="Example 3"><title>WADL in Mix Form</title><programlisting xml:space="preserve">&lt;application xmlns="http://wadl.dev.java.net/2009/02"&gt;
+    &lt;grammars/&gt;
+    &lt;resources base="https://test.api.openstack.com"&gt;
+        &lt;resource path="path/to/my"&gt;
+            &lt;resource path="resource"&gt;
+                &lt;method name="GET"&gt;
+                    &lt;response status="200 203"/&gt;
+                &lt;/method&gt;
+                &lt;method name="DELETE"&gt;
+                    &lt;response status="200"/&gt;
+                &lt;/method&gt;
+            &lt;/resource&gt;
+        &lt;/resource&gt;
+    &lt;/resources&gt;
+&lt;/application&gt;
+</programlisting></figure><para> In <xref linkend="WADLMix"/> we have two
+                        <code>&lt;resource&gt;</code> elements, one
+                    for <code>path/to/my</code> and another for
+                        <code>resource</code>. The ability to intermix
+                    flat and tree forms, allows the WADL author the
+                    flexibility to start with a simple API description
+                    and expand on it as the API grows in complexity.
+                </para></section><section xml:id="content_reuse"><title>Content Reuse</title><para>WADL contains a number of features that
+                    encourages content reuse. First,
+                        <code>&lt;method&gt;</code>,
+                        <code>&lt;representation&gt;</code>, and
+                        <code>&lt;param&gt;</code> elements can be
+                    specified separately from individual resources and
+                    therefore can be shared between them. For example
+                    suppose that you have two resources
+                        <code>widgets</code> and <code>gadgets</code>
+                    both of these resources contain a method to access
+                    metadata. You can repeat the method definition in
+                    both resources as illustrated in <xref linkend="wg-one"/>. </para><figure xml:id="wg-one" xreflabel="Example 4"><title>Two resources with a common method</title><programlisting xml:space="preserve">&lt;application xmlns="http://wadl.dev.java.net/2009/02"
+             xmlns:wapi="http://widget/api/v1"&gt;
+    &lt;grammars&gt;
+        &lt;include href="xsd/widget.xsd"/&gt;
+    &lt;/grammars&gt;
+    &lt;resources base="https://test.api.openstack.com"&gt;
+        &lt;resource path="widgets"&gt;
+            &lt;method name="GET"&gt;
+                &lt;response status="200 203"&gt;
+                    &lt;representation mediaType="application/xml" element="wapi:metadata"/&gt;
+                &lt;/response&gt;
+            &lt;/method&gt;
+        &lt;/resource&gt;
+        &lt;resource path="gadgets"&gt;
+            &lt;method name="GET"&gt;
+                &lt;response status="200 203"&gt;
+                    &lt;representation mediaType="application/xml" element="wapi:metadata"/&gt;
+                &lt;/response&gt;
+            &lt;/method&gt;
+        &lt;/resource&gt;
+    &lt;/resources&gt;
+&lt;/application&gt;
+</programlisting></figure><para>Repeating the method however can be error prone
+                    and tedious. Instead, the method can be written
+                    once and referenced from the individual resource
+                    as illustrated in <xref linkend="wg-two"/>. </para><figure xml:id="wg-two" xreflabel="Example 5"><title>Two resources with a common shared
+                        method</title><programlisting xml:space="preserve">&lt;application xmlns="http://wadl.dev.java.net/2009/02"
+             xmlns:wapi="http://widget/api/v1"&gt;
+    &lt;grammars&gt;
+        &lt;include href="xsd/widget.xsd"/&gt;
+    &lt;/grammars&gt;
+    &lt;resources base="https://test.api.openstack.com"&gt;
+        &lt;resource path="widgets"&gt;
+            &lt;method href="#getMetadata"/&gt;
+        &lt;/resource&gt;
+        &lt;resource path="gadgets"&gt;
+            &lt;method href="#getMetadata"/&gt;
+        &lt;/resource&gt;
+    &lt;/resources&gt;
+    &lt;method name="GET" id="getMetadata"&gt;
+        &lt;response status="200 203"&gt;
+            &lt;representation mediaType="application/xml" element="wapi:metadata"/&gt;
+        &lt;/response&gt;
+    &lt;/method&gt;
+&lt;/application&gt;
+</programlisting></figure><para>Note that the method is referred to by its
+                        <code>id</code> and the hash (#) is used to
+                    denote the internal link. It's possible that
+                    multiple related methods can be shared between
+                    resources. One can express multiple methods
+                    together, as in <xref linkend="wg-three"/>,
+                    however this too can get tedious an error prone. </para><figure xml:id="wg-three" xreflabel="Example 6"><title>Two resources with a common shared
+                        methods</title><programlisting xml:space="preserve">&lt;application xmlns="http://wadl.dev.java.net/2009/02"
+             xmlns:wapi="http://widget/api/v1"&gt;
+    &lt;grammars&gt;
+        &lt;include href="xsd/widget.xsd"/&gt;
+    &lt;/grammars&gt;
+    &lt;resources base="https://test.api.openstack.com"&gt;
+        &lt;resource path="widgets"&gt;
+            &lt;method href="#getMetadata"/&gt;
+            &lt;method href="#setMetadata"/&gt;
+        &lt;/resource&gt;
+        &lt;resource path="gadgets"&gt;
+            &lt;method href="#getMetadata"/&gt;
+            &lt;method href="#setMetadata"/&gt;
+        &lt;/resource&gt;
+    &lt;/resources&gt;
+    &lt;method name="GET" id="getMetadata"&gt;
+        &lt;response status="200 203"&gt;
+            &lt;representation mediaType="application/xml" element="wapi:metadata"/&gt;
+        &lt;/response&gt;
+    &lt;/method&gt;
+    &lt;method name="POST" id="setMetadata"&gt;
+        &lt;request&gt;
+            &lt;representation mediaType="application/xml" element="wapi:metadata"/&gt;
+        &lt;/request&gt;
+        &lt;response status="200"&gt;
+            &lt;representation mediaType="application/xml" element="wapi:metadata"/&gt;
+        &lt;/response&gt;
+    &lt;/method&gt;
+&lt;/application&gt;
+</programlisting></figure><para>To alleviate this issue, WADL defines the
+                    concept of a <code>resource_type</code>. A
+                        <code>resource_type</code> contains common
+                    behavior that can be shared between multiple
+                    resources. This is illustrated in <xref linkend="wg-four"/>. </para><figure xml:id="wg-four" xreflabel="Example 7"><title>Two resources with a common resource
+                        type</title><programlisting xml:space="preserve">&lt;application xmlns="http://wadl.dev.java.net/2009/02"
+             xmlns:wapi="http://widget/api/v1"&gt;
+    &lt;grammars&gt;
+        &lt;include href="xsd/widget.xsd"/&gt;
+    &lt;/grammars&gt;
+    &lt;resources base="https://test.api.openstack.com"&gt;
+        &lt;resource path="widgets" type="#containsMetadata"/&gt;
+        &lt;resource path="gadgets" type="#containsMetadata"/&gt;
+    &lt;/resources&gt;
+    &lt;resource_type id="containsMetadata"&gt;
+        &lt;method name="GET" id="getMetadata"&gt;
+            &lt;response status="200 203"&gt;
+                &lt;representation mediaType="application/xml" element="wapi:metadata"/&gt;
+            &lt;/response&gt;
+        &lt;/method&gt;
+        &lt;method name="POST" id="setMetadata"&gt;
+            &lt;request&gt;
+                &lt;representation mediaType="application/xml" element="wapi:metadata"/&gt;
+            &lt;/request&gt;
+            &lt;response status="200"&gt;
+                &lt;representation mediaType="application/xml" element="wapi:metadata"/&gt;
+            &lt;/response&gt;
+        &lt;/method&gt;
+    &lt;/resource_type&gt;
+&lt;/application&gt;
+</programlisting></figure><para> Realistically, <code>resource_type</code>s may
+                    capture many different methods. They may also
+                    introduce common sub-resources as illustrated in
+                        <xref linkend="wg-five"/>. </para><figure xml:id="wg-five" xreflabel="Example 8"><title>Two resources with a common complex
+                        resource type</title><programlisting xml:space="preserve">&lt;application xmlns="http://wadl.dev.java.net/2009/02"
+             xmlns:wapi="http://widget/api/v1"&gt;
+    &lt;grammars&gt;
+        &lt;include href="xsd/widget.xsd"/&gt;
+    &lt;/grammars&gt;
+    &lt;resources base="https://test.api.openstack.com"&gt;
+        &lt;resource path="widgets" type="#containsMetadata"/&gt;
+        &lt;resource path="gadgets" type="#containsMetadata"/&gt;
+    &lt;/resources&gt;
+    &lt;resource_type id="containsMetadata"&gt;
+        &lt;method href="#getMetadata"/&gt;
+        &lt;method href="#setMetadata"/&gt;
+        &lt;resource id="MetadataKey" path="{key}"&gt;
+            &lt;param name="key" style="template" type="wapi:MetadataKey"/&gt;
+            &lt;method href="#getMetadataItem"/&gt;
+            &lt;method href="#setMetadataItem"/&gt;
+            &lt;method href="#deleteMetadataItem"/&gt;
+        &lt;/resource&gt;
+    &lt;/resource_type&gt;
+&lt;/application&gt;
+</programlisting></figure><para>Note that <code>&lt;method&gt;</code>,
+                        <code>&lt;representation&gt;</code>,
+                        <code>&lt;param&gt;</code>, and
+                        <code>&lt;resource_type&gt;</code> elements
+                    need not appear in the same WADL, they may be
+                    linked in from an external WADL as illustrated
+                    below. </para><figure xml:id="wg-six" xreflabel="Example 9"><title>Two resources with a common external
+                        resource type</title><programlisting xml:space="preserve">&lt;application xmlns="http://wadl.dev.java.net/2009/02"
+             xmlns:wapi="http://widget/api/v1"&gt;
+    &lt;grammars&gt;
+        &lt;include href="xsd/widget.xsd"/&gt;
+    &lt;/grammars&gt;
+    &lt;resources base="https://test.api.openstack.com"&gt;
+        &lt;resource path="widgets" type="common.wadl#containsMetadata"&gt;
+            &lt;!-- widget specific subresources / methods --&gt;
+        &lt;/resource&gt;
+        &lt;resource path="gadgets" type="common.wadl#containsMetadata"&gt;
+            &lt;!-- gadget specific subresources / methods --&gt;
+        &lt;/resource&gt;
+    &lt;/resources&gt;
+&lt;/application&gt;
+</programlisting></figure><para> Finally, note that multiple
+                        <code>resource_type</code>s may be associated
+                    with a single resource. </para><figure xml:id="wg-seven" xreflabel="Example 10"><title>Two resources inheriting from multiple
+                        resource types</title><programlisting xml:space="preserve">&lt;application xmlns="http://wadl.dev.java.net/2009/02"
+             xmlns:wapi="http://widget/api/v1"&gt;
+    &lt;grammars&gt;
+        &lt;include href="xsd/widget.xsd"/&gt;
+    &lt;/grammars&gt;
+    &lt;resources base="https://test.api.openstack.com"&gt;
+        &lt;resource path="widgets" type="common.wadl#containsMetadata common.wadl#commonMethods"&gt;
+            &lt;!-- widget specific subresources / methods --&gt;
+        &lt;/resource&gt;
+        &lt;resource path="gadgets" type="common.wadl#containsMetadata common.wadl#commonMethods"&gt;
+            &lt;!-- gadget specific subresources / methods --&gt;
+        &lt;/resource&gt;
+    &lt;/resources&gt;
+&lt;/application&gt;
+</programlisting></figure></section><section xml:id="inline_docs"><title>Inline Documentation</title><para>All elements defined by the WADL specification
+                    can be associated with inline documentation via
+                    the <code>&lt;doc&gt;</code> element. A simple
+                    illustration of this is shown in the example
+                    below. </para><figure xml:id="doc" xreflabel="Example 11"><title>Resource type with doc element</title><programlisting xml:space="preserve">&lt;resource_type id="BackupList"&gt;
+    &lt;doc xml:lang="EN" title="Backup List"&gt;
+        &lt;p xmlns="http://www.w3.org/1999/xhtml"&gt;
+            A list of backups. Each backup contains IDs, names, and
+            links -- other attributes are omitted.
+        &lt;/p&gt;
+    &lt;/doc&gt;
+    &lt;method href="#listBackups"/&gt;
+&lt;/resource_type&gt;
+</programlisting></figure><para>Note that <xref linkend="doc"/> uses the XHTML
+                    grammar for narrative text. This is not a
+                    requirement, different narrative text grammars can
+                    be used. Also note the used of the
+                        <code>xml:lang</code> attribute, multiple
+                        <code>&lt;doc&gt;</code> elements can be used
+                    each in a different language to aid in the
+                    internationalization of the WADL. The
+                        <code>title</code> element can be used to give
+                    an overview of the documentation text. </para></section><section xml:id="grammar_aug"><title>Grammar Agnostic Assertions</title><para>WADLs contain a <code>&lt;grammars&gt;</code>
+                    element that allows the association of grammars
+                    such as XML Schema with a REST API. Grammars may
+                    be included by means of the
+                        <code>&lt;include&gt;</code> element as
+                    illustrated in <xref linkend="wg-seven"/> or they
+                    may be written inline as shown in <xref linkend="inline"/>. </para><para>The WADL specification does not encourage the
+                    use of a specific schema grammar over another, but
+                    allows the usage of multiple grammars within the
+                    same WADL. This enables support for APIs where
+                    resources are exposed via multiple mediatypes such
+                    as XML and JSON.
+                </para><para>Besides using grammars to make assertions about
+                    a particular media types, they can also be used to
+                    make assertions about other aspects of the HTTP
+                    request and response. This is illustrated in <xref linkend="inline"/>. </para><figure xml:id="inline" xreflabel="Example 12"><title>WADL with inline grammar</title><programlisting xml:space="preserve">&lt;application xmlns="http://wadl.dev.java.net/2009/02"
+             xmlns:csapi="http://docs.openstack.org/compute/api/v1.1"&gt;
+    &lt;grammars&gt;
+        &lt;schema elementFormDefault="qualified"
+                attributeFormDefault="unqualified"
+                xmlns="http://www.w3.org/2001/XMLSchema"
+                xmlns:csapi="http://docs.openstack.org/compute/api/v1.1"
+                xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+                targetNamespace="http://docs.openstack.org/compute/api/v1.1"&gt;
+            &lt;simpleType name="Progress"&gt;
+                &lt;restriction base="xsd:int"&gt;
+                    &lt;minInclusive value="0"/&gt;
+                    &lt;maxInclusive value="100" /&gt;
+                &lt;/restriction&gt;
+            &lt;/simpleType&gt;
+            &lt;simpleType name="UUID"&gt;
+                &lt;restriction base="xsd:string"&gt;
+                    &lt;length value="36" fixed="true"/&gt;
+                    &lt;pattern value="[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}"/&gt;
+                &lt;/restriction&gt;
+            &lt;/simpleType&gt;
+        &lt;/schema&gt;
+    &lt;/grammars&gt;
+    &lt;resources base="https://test.api.openstack.com"&gt;
+        &lt;resource id="uuid" path="path/to/my/resource/{uuid}"&gt;
+            &lt;param name="uuid" style="template" type="csapi:UUID"/&gt;
+            &lt;method href="#getMethod" /&gt;
+        &lt;/resource&gt;
+        &lt;resource id="progress" path="path/to/{progress}"&gt;
+            &lt;param name="progress" style="template" type="csapi:Progress"/&gt;
+            &lt;method href="#getMethod" /&gt;
+        &lt;/resource&gt;
+    &lt;/resources&gt;
+    &lt;method id="getMethod" name="GET"&gt;
+        &lt;response status="200 203"/&gt;
+    &lt;/method&gt;
+&lt;/application&gt;
+</programlisting></figure><para> Here, we define two simple types: <variablelist><varlistentry><term><code>Progress</code></term><listitem><para> An int with a value between 0
+                                   and 100 inclusive. </para></listitem></varlistentry><varlistentry><term><code>UUID</code></term><listitem><para> A 36 character long string that
+                                   represents five groups of
+                                   hexadecimal digits separated by
+                                   hyphens. </para></listitem></varlistentry></variablelist>We associate these simple types
+                    with path elements in the URI by means of template
+                    parameters. Thus, we are denoting that the URI
+                    paths:
+                        <code>path/to/my/resource/3bba8e68-8af5-11e1-ac65-17a552dd2535</code>
+                    and <code>path/to/98</code> are valid according to
+                    the WADL, but URI paths such as
+                        <code>path/to/my/resource/xyz</code> and
+                        <code>path/to/101</code> are not. </para><para>Finally, we can use grammars to make assertions
+                    about individual sections of the mediatype by
+                    means of <code>plain</code> parameters. This is
+                    illustrated in method in <xref linkend="plain"/>. </para><figure xml:id="plain" xreflabel="Example 13"><title>Method with a plain parameter and a
+                        link</title><programlisting xml:space="preserve">&lt;method name="GET" id="versionDetails"&gt;
+    &lt;response status="200 203"&gt;
+        &lt;representation mediaType="application/xml" element="common:version"&gt;
+            &lt;param name="location" style="plain" type="xsd:anyURI"
+                   required="true"
+                   path="/common:version/atom:link[@rel='self']/@href"&gt;
+                &lt;link resource_type="#VersionDetails" rel="self"/&gt;
+            &lt;/param&gt;
+        &lt;/representation&gt;
+    &lt;/response&gt;
+&lt;/method&gt;
+</programlisting></figure><para>Here we define that the response to the
+                        <code>versionDetails</code> method should
+                    contain an XML payload that validates against the
+                    element defined by the QName
+                        <code>common:version</code>. Additionally, we
+                    make an assertion that at the XPath
+                        <code>/common:version/atom:link[@rel='self']/@href</code>
+                    there should be a value that validates against the
+                    type <code>xsd:anyURI</code>. Furthermore, this
+                    URI should provide a link to a resource with a
+                        <code>resource_type</code> of
+                        <code>VersionDetails</code>. </para><para>Note that plain parameters can also be used by
+                mediatypes that are not XML based. <link xlink:href="https://launchpad.net/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Launchpad</link>
+                uses JSONPath to make similar assertions on its JSON
+                based API. This is illustrated in <xref linkend="jsonpath"/>. </para><figure xml:id="jsonpath" xreflabel="Example 14"><title>Excerpt from Launchpad WADL</title><programlisting xml:space="preserve">&lt;representation mediaType="application/json" id="wiki_name-page"&gt;
+    &lt;param style="plain" name="total_size" path="$['total_size']" required="true"/&gt;
+    &lt;param style="plain" name="start" path="$['start']" required="true"/&gt;
+    &lt;param style="plain" name="entries" path="$['entries']" required="true"/&gt;
+    &lt;param style="plain" name="resource_type_link" path="$['resource_type_link']"&gt;
+        &lt;link/&gt;
+    &lt;/param&gt;
+    &lt;param style="plain" name="next_collection_link" path="$['next_collection_link']"&gt;
+        &lt;link resource_type="#wiki_name-page-resource"/&gt;
+    &lt;/param&gt;
+    &lt;param style="plain" name="prev_collection_link" path="$['prev_collection_link']"&gt;
+        &lt;link resource_type="#wiki_name-page-resource"/&gt;
+    &lt;/param&gt;
+    &lt;param style="plain" name="entry_links" path="$['entries'][*]['self_link']"&gt;
+        &lt;link resource_type="https://api.staging.launchpad.net/1.0/#wiki_name"/&gt;
+    &lt;/param&gt;
+  &lt;/representation&gt;
+</programlisting></figure><para>Here we state that there should exist JSON
+                    attributes at the JSONPaths given by
+                        <code>$['total_size']</code>,
+                        <code>$['start']</code>, and
+                        <code>$['entries']</code>. Additionally the
+                    fields at <code>$['resource_type_link']</code>,
+                        <code>$['next_collection_link']</code>,
+                        <code>$['prev_collection_link']</code>, and
+                        <code>$['entries'][*]['self_link']</code>
+                    should contain links to other resources. </para><para>Note that Launchpad uses plain parameters to
+                    make assertions about various aspects of the JSON
+                        <code>representation</code> without having to
+                    rely directly on JSON schema. </para><para>This ability to reference elements from external
+                    WADLs allows for common behavior to be shared
+                    between different APIs and has the potential to
+                    significantly accelerate the definition of APIs
+                    with common attributes and behaviors. </para></section><section xml:id="extensibility"><title>Extensibility</title><para>The WADL specification defines a fairly standard
+                    extensibility model of allowing elements and
+                    attributes in foreign namespaces. The example
+                    below illustrates a number of Apigee extensions,
+                    including one which indicates that authentication
+                    credentials are not required in this particular
+                    method call. </para><figure xml:id="apigeeext" xreflabel="Example 15"><title>Method with Apigee Extensions</title><programlisting xml:space="preserve">&lt;method id="statusespublic_timeline" name="GET" xmlns:apigee="http://api.apigee.com/wadl/2010/07/"&gt;
+    &lt;apigee:tags&gt;
+        &lt;apigee:tag primary="true"&gt;Timeline&lt;/apigee:tag&gt;
+        &lt;apigee:tag&gt;Status&lt;/apigee:tag&gt;
+    &lt;/apigee:tags&gt;
+    &lt;apigee:authentication required="false"/&gt;
+    &lt;apigee:example url="/statuses/public_timeline.{format}"/&gt;
+    &lt;doc title=""
+         apigee:url="http://dev.twitter.com/doc/get/statuses/public_timeline"&gt;Returns
+    the 20 most recent statuses, including retweets if they exist,
+    from non-protected users.&lt;/doc&gt;
+&lt;/method&gt;
+</programlisting></figure><para> The ability to support extensions means that
+                    niche capabilities can be inserted into the WADL
+                    in a compatible manner. </para></section></section><!-- Where we ended up and how it works --><section xml:id="WADL2Docs"><title>Documentation from WADL</title><para>A WADL describes a RESTful API in a machine readable
+                format. There is often a need, however, for humans to
+                study and understand the available methods,
+                parameters, and representations the API offers. Rather
+                than manually reproducing that information in a
+                documentation format and trying to keep these
+                synchronized, clearly a literate programming approach
+                is called for. </para><para>In pursuing our literate program approach, we
+                considered extending DocBook with custom markup that
+                we could then use to generate WADL. This approach was
+                attractive in that it would allow us to make the
+                contract author's experience like writing
+                documentation. However, we worried that we would be
+                reinventing the wheel and would spend too much time
+                creating a content model that could be turned into
+                WADL. We also felt that we would need to support
+                round-tripping between our extended-DocBook and the
+                generated WADL. Ultimately, we decided to allow
+                authors to embed WADL markup directly in the DocBook.
+                To allow for this we: <itemizedlist><listitem><para>Added support for certain elements from
+                            the WADL namespace in our customization of
+                            DocBook.</para></listitem><listitem><para>Added steps to our processing pipeline
+                            to turn the WADL elements into
+                            DocBook.</para></listitem></itemizedlist>In writing the narrative description of
+                the API, you can include either pointers to an
+                external WADL or literal WADL. The following example
+                shows a fragment of our DocBook-variant with a pointer
+                to resource/method combination in an external WADL: </para><figure xml:id="docbookWADL" xreflabel="Example 16"><title>DocBook With WADL Elements</title><programlisting xml:space="preserve">&lt;section&gt;
+    &lt;title&gt;Volume Lists&lt;/title&gt;
+    &lt;para&gt;
+        These operations provide a list of volumes associated
+        with a particular tenant. Volumes contain a status
+        attribute that can be used as an indication of the
+        current volume state.  Volumes with an
+        &lt;code&gt;AVAILABLE&lt;/code&gt; status are available for
+        use.  A volume with an &lt;code&gt;ATTACHED&lt;/code&gt; is
+        currently attached to a server.  Other possible values
+        for the status attribute include:
+        &lt;code&gt;CREATING&lt;/code&gt;,
+        &lt;code&gt;ATTACHING&lt;/code&gt;,
+        &lt;code&gt;DETACHING&lt;/code&gt;,
+        &lt;code&gt;DELETING&lt;/code&gt;,
+        &lt;code&gt;DELETED&lt;/code&gt;,
+        &lt;code&gt;UNKNOWN&lt;/code&gt;, and
+        &lt;code&gt;ERROR&lt;/code&gt;.
+    &lt;/para&gt;
+    &lt;para&gt;
+        The list of volumes may be filtered by type, backup,
+        name, and status via the respective query parameters.
+        When retrieving a list of volumes via the
+        changes-since parameter, the list will contain volumes
+        that have been deleted since the changes-since time
+        (see Section 3.5, in the OpenStack Compute Dev Guide
+        for a description of Changes-Since).
+    &lt;/para&gt;
+    &lt;resources xmlns="http://wadl.dev.java.net/2009/02"&gt;
+        &lt;resource href="os-block-storage-1.0.wadl#Volumes"&gt;
+            &lt;method href="listVolumes"/&gt;
+        &lt;/resource&gt;
+    &lt;/resources&gt;
+&lt;/section&gt;
+
+</programlisting></figure><para>
+                <itemizedlist><listitem><para>The <code>wadl:resources</code> element
+                            wraps one or more resources, as it would
+                            in a normal wadl. </para></listitem><listitem><para>The <code>wadl:resource</code> element
+                            wraps one or more methods and defines the
+                            location of the wadl and the
+                                <code>id</code> of the resource for
+                            the methods. </para></listitem><listitem><para>The <code>wadl:method</code> element
+                            points to a method defined in the WADL.
+                            Each method becomes a <code>section</code>
+                            in the resulting DocBook. All of the
+                            methods with a common DocBook
+                                <code>section</code> ancestor become
+                                <code>section</code>s within that
+                                <code>section</code>. Alternatively,
+                            you can omit the <code>wadl:method</code>
+                            and the system will create sections for
+                            all of the methods that are children of
+                            the resource in the target wadl. </para></listitem></itemizedlist>
+            </para><para>To ease the burden on authors, we have created
+                schematron rule in a custom framework for the <link xlink:href="http://www.oxygenxml.com/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">oXygen
+                    editor</link> to validate that the references to
+                the WADL point to ids in the WADL. </para><para>In addition to pointing to resource and method
+                combinations, it is also possible to point to a
+                resource and have all the methods within that resource
+                pulled into the document or to point to the WADL and
+                have all of the resources and methods from the WADL
+                pulled in. </para><para>Finally, instead of pointing to an external WADL,
+                the author can simply include the entire
+                    <code>wadl:resource</code> and
+                    <code>wadl:method</code>(s) in the DocBook
+                document directly. </para><para> The following is an image of the section produced
+                in PDF result after processing [<xref linkend="docbookWADL"/>]: </para><figure><title>Resulting WADL PDF Section</title><mediaobject><imageobject><imagedata format="png" fileref="../../../vol8/graphics/Williams01/Williams01-001.png" width="75%"/></imageobject></mediaobject></figure><para> The following is the WADL method that is being
+                imported into the DocBook: </para><figure xml:id="WADLDocMethod" xreflabel="Example 18"><title>WADL Method</title><programlisting xml:space="preserve">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;!-- Volume Methods --&gt;
+&lt;method name="GET" id="listVolumes"&gt;
+    &lt;doc xml:lang="EN" title="List Volumes"&gt;
+        &lt;db:para role="shortdesc"&gt;
+            List all volumes (IDs, names, links).
+        &lt;/db:para&gt;
+        &lt;db:para&gt;
+            A list of volumes. Each volume contains IDs, names, and
+            links -- other attributes are omitted.
+        &lt;/db:para&gt;
+    &lt;/doc&gt;
+    &lt;request&gt;
+        &lt;param name="changes-since" style="query" required="false" type="xsd:dateTime"/&gt;
+        &lt;param name="type" style="query" required="false" type="osapi:UUID"/&gt;
+        &lt;param name="backup" style="query" required="false" type="osapi:UUID"/&gt;
+        &lt;param name="name"   style="query" required="false" type="xsd:string"/&gt;
+        &lt;param name="marker" style="query" required="false" type="osapi:UUID"/&gt;
+        &lt;param name="limit"  style="query" required="false" type="xsd:int"/&gt;
+    &lt;/request&gt;
+    &lt;response status="200 203"&gt;
+        &lt;representation mediaType="application/xml" element="bs:volumes"&gt;
+            &lt;doc xml:lang="EN"&gt;
+                &lt;xsdxt:code href="samples/core/volumes-sparse.xml" /&gt;
+            &lt;/doc&gt;
+        &lt;/representation&gt;
+        &lt;representation mediaType="application/json"&gt;
+            &lt;doc xml:lang="EN"&gt;
+                &lt;xsdxt:code href="samples/core/volumes-sparse.json" /&gt;
+            &lt;/doc&gt;
+        &lt;/representation&gt;
+    &lt;/response&gt;
+    &lt;!-- Common Faults --&gt;
+    &lt;response&gt;
+        &lt;representation mediaType="application/xml" element="bs:blockstorageFault"/&gt;
+        &lt;representation mediaType="application/json"/&gt;
+    &lt;/response&gt;
+    &lt;response status="503"&gt;
+        &lt;representation mediaType="application/xml" element="bs:serviceUnavailable"/&gt;
+        &lt;representation mediaType="application/json"/&gt;
+    &lt;/response&gt;
+    &lt;response status="401"&gt;
+        &lt;representation mediaType="application/xml" element="bs:unauthorized"/&gt;
+        &lt;representation mediaType="application/json"/&gt;
+    &lt;/response&gt;
+    &lt;response status="403"&gt;
+        &lt;representation mediaType="application/xml" element="bs:forbidden"/&gt;
+        &lt;representation mediaType="application/json"/&gt;
+    &lt;/response&gt;
+&lt;/method&gt;</programlisting></figure><para> Note that while many of the attributes and elements
+                map directly from the WADL representation to the PDF
+                rendering, there exist some subtleties: </para><itemizedlist><listitem><para>Query parameters are rendered in two
+                        different ways: Inline with the URI and in the
+                        Request Parameters table </para></listitem><listitem><para>Section, Table, and Example titles are
+                        automatically generated based on context. For
+                        example, the example title "List Volumes
+                        Response: XML" is generated because there is a
+                        representation example of mediaType
+                        application/xml that is contained within
+                        method called "List Volumes". </para></listitem><listitem><para>Parameter descriptions are also generated
+                        based on context. </para></listitem><listitem><para>Other parameters such as the
+                            <code>tenantId</code> parameter are
+                        implied simply because of the URI the method
+                        is associated with. </para></listitem><listitem><para>Note the use of the <code>xsdxt:code</code>
+                        extension to associate an example document
+                        with the API response. </para></listitem></itemizedlist></section><section xml:id="WADLNorm"><title>WADL Normalization</title><para>As described in <xref linkend="content_reuse"/>, the
+                WADL format includes a number of features that
+                facilitate WADL authoring and content reuse. For
+                example, when creating a WADL, it is typical to put
+                all of the <emphasis role="bold">method</emphasis>
+                elements at the end of the document and refer to them
+                indirectly from the <emphasis role="bold">resource</emphasis>s where they are used. You can
+                link to methods in a separate WADL. Likewise, you can
+                define <emphasis role="bold">resource_type</emphasis>
+                elements containing various methods and parameters.
+                Each <emphasis role="bold">resource</emphasis> can
+                then be declared to be of one or more resource types
+                to avoid repeated information. Finally, WADLs can
+                refer to XSD files to define data types used in the
+                WADL. The XSD files in turn often have a modular
+                design. While these features facilitate information
+                reuse and support "single point of truth" practices, a
+                side effect of the indirection is that WADLs can be
+                difficult to process. To address this issue, we
+                created a <link xlink:href="https://github.com/rackspace/wadl-tools/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">WADL normalizer</link> which uses XSLT to flatten
+                out the WADL and associated XSDs. In the WADL, for
+                example, all references to <code>method</code>s and
+                    <code>resource_type</code>s are resolved. Further
+                processing is therefore greatly simplified. We have
+                made this tool available as open source software. </para><para>Use cases for the WADL normalizer include:<itemizedlist><listitem><para>Preparing the WADL for use with tools
+                            like <link xlink:href="http://www.soapui.org/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">SoapUI</link>. Limitations and bugs
+                            in SoapUI cause it to fail if certain
+                            features of the WADL are used. For example
+                            if you use <code>resource_types</code> or
+                            refer to a method in an external WADL,
+                            SoapUI cannot load the WADL and throws and
+                            exception. </para></listitem><listitem><para>Preparing the WADL before using it to
+                            generate human-readable documentation, as
+                            described in <xref linkend="WADL2Docs"/>.</para></listitem><listitem><para><link xlink:href="http://www.openrepose.org/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Open
+                        Repose</link> uses the WADL normalizer as a
+                        preprocessing step before using the WADL for
+                        validation is discussed in <xref linkend="validationPipeline"/>.</para></listitem></itemizedlist>The WADL normalizer is implemented as
+                XSLT 2.0 stylesheets. In their current form, the
+                stylesheets use modes to take several passes at the
+                WADL, but they would benefit from being implemented as
+                an <link xlink:href="http://xproc.org/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">XProc</link>
+                pipeline. </para><para>The WADL normalizer offers a number of options to
+                control the formatting of the normalized wadl file,
+                summarized by the usage
+                below:<programlisting xml:space="preserve">dcramer@anatine ~/rax/wadl-tools/src/test/scala (scalaCLI)
+        $ normalizeWadl.sh -?
+
+        Usage: normalizeWadl.sh [-?fvx] -w wadlFile
+
+        OPTIONS:
+        -w wadlFile: The wadl file to normalize.
+        -f Wadl format. path or tree
+        path: Format resources in path format, 
+        e.g. &lt;resource path='foo/bar'/&gt;
+        tree: Format resources in tree format, 
+        e.g. &lt;resource path='foo'&gt;&lt;resource path='bar'&gt;...
+        If you omit the -f switch, the script makes no 
+        changes to the structure of the resources.
+        -v XSD Version (1.0 and 1.1 supported, 1.1 is the default)
+        -x true or false. Flatten xsds (true by default).
+        -r keep or omit. Omit resource_type elements (keep by default).</programlisting></para><para>One of the most important options is the format of
+                the resource paths. By default, the normalizer leaves
+                the path attributes on the resource elements
+                unchanged. So if the source wadl contains a mixture of
+                hierarchical and flat path attribute values, these are
+                left untouched. In the following code listing, notice
+                that some of the resource elements are nested and
+                others have multiple items in the path
+                attribute:<programlisting xml:space="preserve">&lt;application xmlns="http://wadl.dev.java.net/2009/02"
+	     xmlns:xsd="http://www.w3.org/2001/XMLSchema"&gt;
+  &lt;resources base="https://test.api.openstack.com"&gt;
+    &lt;resource path="a/b"&gt;
+      &lt;resource path="c"&gt;
+        &lt;method href="#foo"/&gt;
+      &lt;/resource&gt;
+    &lt;/resource&gt;
+    &lt;resource path="d"&gt;
+      &lt;resource path="e/f"/&gt;
+    &lt;/resource&gt;
+    &lt;resource path="g"/&gt;
+    &lt;resource path="h/i/{j}/k"&gt;
+      &lt;param name="j" style="template" type="xsd:string" required="true"/&gt;
+      &lt;method href="#foo"/&gt;
+    &lt;/resource&gt;
+    &lt;resource path="h/i/{j}/k/l"&gt;
+      &lt;method href="#foo"/&gt;		
+    &lt;/resource&gt;
+  &lt;/resources&gt;
+  &lt;method id="foo"/&gt;
+&lt;/application&gt;</programlisting>However,
+                you can also flatten out these paths or expand them so
+                that all the resources are nested. Here's the same
+                wadl in the <quote>path</quote>
+                format:<programlisting xml:space="preserve">&lt;application xmlns="http://wadl.dev.java.net/2009/02"
+	     xmlns:xsd="http://www.w3.org/2001/XMLSchema"&gt;
+  &lt;resources base="https://test.api.openstack.com"&gt;
+    &lt;resource path="a/b/c" id="d12e4"&gt;
+      &lt;method xmlns:rax="http://docs.rackspace.com/api" rax:id="foo"/&gt;
+    &lt;/resource&gt;
+    &lt;resource path="h/i/{j}/k" id="d12e9"&gt;
+      &lt;param xmlns:rax="http://docs.rackspace.com/api" name="j" style="template"
+	     type="xsd:string"
+	     required="true"
+	     rax:id=""/&gt;
+      &lt;method xmlns:rax="http://docs.rackspace.com/api" rax:id="foo"/&gt;
+    &lt;/resource&gt;
+    &lt;resource path="h/i/{j}/k/l" id="d12e12"&gt;
+      &lt;method xmlns:rax="http://docs.rackspace.com/api" rax:id="foo"/&gt;
+    &lt;/resource&gt;
+  &lt;/resources&gt;
+  &lt;method id="foo"/&gt;
+&lt;/application&gt;</programlisting>The
+                    <code>rax:id</code> attributes have been added to
+                preserve the original ids that could not be duplicated
+                in the normalized wadl without making the wadl
+                invalid. These are required for down-stream processing
+                when we generate documentation from the normalized
+                wadl. </para><para>You can also expand the flat paths into a fully
+                hierarchical tree format. The following example shows
+                the same wadl expanded into the tree
+                format:<programlisting xml:space="preserve">&lt;application xmlns="http://wadl.dev.java.net/2009/02"
+	     xmlns:xsd="http://www.w3.org/2001/XMLSchema"&gt;
+  &lt;resources base="https://test.api.openstack.com"&gt;
+    &lt;resource path="a"&gt;
+      &lt;resource path="b"&gt;
+        &lt;resource path="c"&gt;
+          &lt;method xmlns:rax="http://docs.rackspace.com/api" rax:id="foo"/&gt;
+        &lt;/resource&gt;
+      &lt;/resource&gt;
+    &lt;/resource&gt;
+    &lt;resource path="d"&gt;
+      &lt;resource path="e"&gt;
+        &lt;resource path="f"/&gt;
+      &lt;/resource&gt;
+    &lt;/resource&gt;
+    &lt;resource path="g"/&gt;
+    &lt;resource path="h"&gt;
+      &lt;resource path="i"&gt;
+        &lt;resource path="{j}"&gt;
+          &lt;param name="j" style="template" type="xsd:string" required="true"/&gt;
+          &lt;resource path="k"&gt;
+            &lt;method xmlns:rax="http://docs.rackspace.com/api" rax:id="foo"/&gt;
+            &lt;resource path="l"&gt;
+              &lt;method xmlns:rax="http://docs.rackspace.com/api" rax:id="foo"/&gt;
+            &lt;/resource&gt;
+          &lt;/resource&gt;
+        &lt;/resource&gt;
+      &lt;/resource&gt;
+    &lt;/resource&gt;
+  &lt;/resources&gt;
+  &lt;method id="foo"/&gt;
+&lt;/application&gt;</programlisting></para><para>In addition, the normalizer can optionally flatten
+                out XSDs by pulling in included XSDs and filtering
+                based on the <code>vc:minVersion</code> and
+                    <code>vc:maxVersion</code> attributes. </para><para>Finally, you can optionally filter out
+                    <code>resource_type</code> elements from the
+                normalized wadls. In some cases, it is useful to
+                preserve these element, but they can cause problems
+                for certain tools. Therefore a parameter is provided
+                filter out the <code>resource_types</code>. </para></section></section><section xml:id="validation"><title>The Validation Problem</title><para>
+            As a REST service is being developed, the goal is to
+            ensure that the documentation accurately matches the
+            implementation. Once a REST service reaches a mature
+            state, or is released publicly, the documentation becomes
+            a contract; both clients and alternate implementations use
+            this contract to guide their development. Iteroperability
+            between all parties requires that both the documentation
+            and the implementation remain stable, even in the face of
+            bug fixes, upgrades, enhancements, and the introduction of
+            new features via extensions.
+        </para><para>
+            In the presence of these changes, there always exist the
+            possibility that either the implementation or its docs may
+            inadvertently drift from one another.  This drift often
+            introduces incompatibilities that can cause clients to
+            fail. Thus, it's important to constantly test that the
+            implementation and its documentation conform to one
+            another. Unfortunately, our quality engineering teams are
+            often not focused on document conformance, or on the
+            intricate details of the REST/HTTP aspects of the
+            service. Instead, these teams are focused on the
+            functionality of the service itself.  It's been our
+            experience that a number of incompatibilities often slip
+            through the cracks as a result. What's more, because this
+            focus on functional testing has little to no regard to
+            documentation of the service, we've found cases where both
+            the implementation and its tests drift away from the docs
+            simultaneously.  Adding to the complexity is the fact that
+            service developers tend to allow their implementations to
+            be flexible and loose when accepting messages from clients
+            — this means that conformance and functional tests
+            themselves may inadvertently drift from the service
+            contract without notice.
+        </para><para>
+            One of our main goals is to better incorporate the
+            documentation in the testing process in an automated
+            way. The idea is to use the documentation pipeline to
+            generate validation rules that can be checked in a layer
+            between the function tests and the service itself. This is
+            illustrated in <xref linkend="valid"/>.
+        </para><figure xml:id="valid"><title>A REST validator</title><mediaobject><imageobject><imagedata format="png" fileref="../../../vol8/graphics/Williams01/Williams01-002.png"/></imageobject></mediaobject></figure><para>
+            Here, the validator intercepts requests from the
+            functional tests before they reach the service and check
+            them for strict conformance to the documentation.
+            Likewise, the validator intercepts the response for the REST
+            service and also validates them. There are several
+            advantages to taking this approach:
+            <itemizedlist><listitem><para>
+                        Because the validation rules are generated
+                        directly from the documentation, we can ensure
+                        that the validator is strictly accurate with
+                        conformance to the docs.
+                    </para></listitem><listitem><para>
+                        Because the validator sits between the
+                        functional tests and the service itself, it
+                        can be used to check for drift by both parties
+                        simultaneously.
+                    </para></listitem><listitem><para>
+                        The technique can be easily incorporated into
+                        existing services — it does not require
+                        changes to existing functional tests.                  
+                    </para></listitem></itemizedlist>
+        </para></section><section xml:id="language"><title>Validating REST with Automata</title><para>
+            Given any possible HTTP message, the validator in <xref linkend="valid"/> needs to be able to tell the difference
+            between an HTTP message that meets all of the criteria
+            defined in the documentation, from an HTTP message that
+            does not.  In other words, the validator must accept the
+            subset of all HTTP messages that are valid according to
+            the description in the source document. The validator also
+            needs to categorize those messages that are not valid
+            according to the error code that should be generated by
+            the underlying REST service, so that the error code that
+            the REST service produces can also be verified.
+        </para><para>
+            Accepting messages that meet some criteria is a common
+            problem in computer science. One technique for solving the
+            problem is to utilize an automaton. An automaton is a
+            state machine that transitions from an initial
+            <emphasis>start</emphasis> state to other states based on
+            the current input. If after the message is read the
+            machine is in an <emphasis>accept</emphasis> state, then
+            the message is accepted, otherwise the message does not
+            meet the required criteria.
+        </para><para>
+            The idea behind our validators is to translate
+            documentation in the form of a WADL (either stand-alone or
+            extracted from the contents of a RackBook document), into a
+            representation of an automaton that can be used to
+            validate messages as they are intercepted between
+            functional tests and the REST service.
+        </para><para>
+            An example automata is illustrated in <xref linkend="automaton"/>.
+        </para><figure xml:id="automaton"><title>A REST Automaton</title><mediaobject><imageobject><imagedata format="png" width="70%" fileref="../../../vol8/graphics/Williams01/Williams01-003.png"/></imageobject></mediaobject></figure><para>
+           For simplicity, the automaton above is only checking for
+           conformance to the URL path and the HTTP method.  In this
+           particular API, the only allowed operation is a GET on the
+           path /path/to/record/{date}, where {date} is an xs:date as
+           defined by W3C XML Schema <xref linkend="W3CSchema2010"/>. The start state is S0. There are
+           three accept states:
+           <orderedlist><listitem><para>
+                       SA: accepts HTTP messages that follow the
+                       constraints defined by the API.
+                   </para></listitem><listitem><para>
+                       d30U: accepts HTTP messages for which a 404
+                       (Not Found) response should be expected from
+                       the REST service.
+                   </para></listitem><listitem><para>
+                       d30M: accepts HTTP messages for which a 405
+                       (Method Not Allowed) should be expected.
+                   </para></listitem></orderedlist>
+        </para><para>
+            Starting at state S0, the process examines the URL path,
+            one path segment at a time. The HTTP method is not
+            accessible until the path has been completely parsed. The
+            transition from one state to another is based on input
+            matches, except in the case of an ε transition,
+            where a state is advanced without regard to the current
+            input.  In the machine above, U(x) matches the current URL
+            path segment to x, where x may be a regular expression or
+            a QName representing an XML Schema simple type. U!(x),
+            matches an URL segment that is <emphasis>not</emphasis>
+            accepted by x. On a successful match the URL path is
+            advanced to the next path element.  After the URL path is
+            completely read, the machine proceeds to read the HTTP
+            Method. Here, M(x) and M!(x), work the same as U(x) and
+            U!(x), except they match against the HTTP method instead
+            of the URL path segment. Because the automaton is only
+            checking for URL paths and Methods the process ends after
+            the HTTP method has been read.
+        </para><para>
+            <xref linkend="inputTable"/> illustrates the states that are
+            transitioned based on an example set of inputs.
+        </para><table xml:id="inputTable"><caption><para> Sample input to the automaton on <xref linkend="automaton"/></para></caption><thead><tr><td>Input</td><td>States Traveled</td><td>Result</td></tr></thead><tbody><tr><td>GET /path/to/record/2001-01-02</td><td>S0, d18e4, d18e5, d18e6, d18e7, d18e9, SA</td><td>200 Okay</td></tr><tr><td>GET /my/path/</td><td>S0, d30U, d30U, d30U</td><td>404 Not Found</td></tr><tr><td>PUT /path/to/record/2001-01-02</td><td>S0, d18e4, d18e5, d18e6, d18e7, d30M</td><td>405 Bad Method</td></tr></tbody></table></section><section xml:id="checker"><title>The Checker Format</title><para>
+            REST Automata are internally represented by an XML format,
+            which we call the <emphasis>checker format</emphasis>. An
+            instance document in this format is illustrated in <xref linkend="checkerFormat"/>.
+        </para><figure xml:id="checkerFormat"><title>A representation of the automaton from <xref linkend="automaton"/> in checker format.</title><programlisting xml:space="preserve">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;checker xmlns="http://www.rackspace.com/repose/wadl/checker"
+         xmlns:xs="http://www.w3.org/2001/XMLSchema"&gt;
+   &lt;step id="S0" type="START" next="d18e4 SE1 d21e2u"/&gt;
+   &lt;step type="URL_FAIL" id="d21e2u" notMatch="path"/&gt;
+   &lt;step type="URL" id="d18e4" match="path" next="d18e5 SE1 d21e3u"/&gt;
+   &lt;step type="URL_FAIL" id="d21e3u" notMatch="to"/&gt;
+   &lt;step type="URL" id="d18e5" match="to" next="d18e6 SE1 d21e4u"/&gt;
+   &lt;step type="URL_FAIL" id="d21e4u" notMatch="record"/&gt;
+   &lt;step type="URL" id="d18e6" match="record" next="d18e7 SE1 d21e5u"/&gt;
+   &lt;step type="URL_FAIL" id="d21e5u" notTypes="xs:date"/&gt;
+   &lt;step type="URLXSD"
+         id="d18e7"
+         match="xs:date"
+         label="date"
+         next="d18e9 d21e6m SE0"/&gt;
+   &lt;step type="METHOD_FAIL" id="d21e6m" notMatch="GET"/&gt;
+   &lt;step type="METHOD" id="d18e9" match="GET" next="SA"/&gt;
+   &lt;step id="SE0" type="URL_FAIL"/&gt;
+   &lt;step id="SE1" type="METHOD_FAIL"/&gt;
+   &lt;step id="SA" type="ACCEPT"/&gt;
+&lt;/checker&gt;
+</programlisting></figure><para>
+            This simple, terse, document type maps each state in the
+            state machine, along with the edges that it connects to,
+            into a single step element. All steps in the checker
+            format contain an id attribute of type xs:ID which
+            uniquely identifies the step in the machine and a type
+            attribute which indicates the type of check the step
+            performs. Note, that in <xref linkend="checkerFormat"/>,
+            there are two types of URL checks: the steps that check a
+            path segment against a regular expression are of type URL,
+            and those that check the segment against a simple XML
+            Schema type are of type URLXSD.  Connections between steps
+            are represented by a next attribute of type
+            xs:IDREFs. Additionally, most steps also contain a match
+            or notMatch attribute that provides the details of how the
+            a match is interpreted.
+        </para><para>
+            Currently there exist steps to match against all aspects
+            of the HTTP request, including steps that match against
+            request media types, that check the well formness of XML
+            and JSON content, that validate XML via an W3C XML Schema
+            (XSD) 1.1 validator and that check for the presence of
+            required elements by means of XPath expressions. Note that
+            this is particularly important because a REST service may
+            define many different types of elements, the element
+            attribute in a representation binds an element to a
+            particular operation — and this is enforced via an
+            XPath expression step in the machine.
+        </para><para>
+            Another important checker step is the XSLT step, which
+            performs a transformation of the request message before it
+            is validated by the XSD step.  It may seem odd to that an
+            XSLT transform may be required for validation, but the
+            requirement comes into play in cases where the type of the
+            request document needs to be restricted (or extended)
+            based on the operation being performed.  Let's say, for
+            example, that a REST API dealing with Widgets allows a
+            Widget to have all attributes when performing a PUT
+            operation, but restricts the POST operation to Widget
+            documents containing only a subset of the available
+            attributes — this is a common pattern in REST
+            services.  The restriction on POST is specified in the
+            WADL in <xref linkend="WidgetWADL"/>.
+        </para><figure xml:id="WidgetWADL"><title>Widget WADL</title><programlisting xml:space="preserve">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+
+&lt;application xmlns="http://wadl.dev.java.net/2009/02"
+    xmlns:widget="http://rackspace.com/sample/widget"
+    xmlns:xs="http://www.w3.org/2001/XMLSchema"&gt;
+    &lt;grammars&gt;
+        &lt;include href="widget.xsd"&gt;&lt;/include&gt;
+    &lt;/grammars&gt;
+    &lt;resources base="http://localhost/"&gt;
+        &lt;resource path="widget"&gt;
+            &lt;param style="template" type="xs:date" name="date"/&gt;
+            &lt;!-- The PUT operation allows all widgets as request
+                 representation. --&gt;
+            &lt;method name="PUT"&gt;
+                &lt;request&gt;
+                    &lt;representation mediaType="application/xml" element="widget:widget"/&gt;
+                &lt;/request&gt;
+                &lt;response&gt;
+                    &lt;representation mediaType="applicaiton/xml" element="widget:widget"/&gt;
+                &lt;/response&gt;
+            &lt;/method&gt;
+            &lt;!-- The POST operation allows only widgets of the restricted type WidgetForCreate --&gt;
+            &lt;method name="POST"&gt;
+                &lt;request&gt;
+                    &lt;representation mediaType="application/xml" element="widget:widget"&gt;
+                        &lt;param style="plain" path="/widget:widget" type="widget:WidgetForCreate"/&gt;
+                    &lt;/representation&gt;
+                &lt;/request&gt;
+                &lt;response&gt;
+                    &lt;representation mediaType="applicaiton/xml" element="widget:widget"/&gt;
+                &lt;/response&gt;
+            &lt;/method&gt;
+        &lt;/resource&gt;
+    &lt;/resources&gt;
+&lt;/application&gt;
+</programlisting></figure><para>
+            Note that we use a WADL plain parameter (described in
+            <xref linkend="grammar_aug"/>) to connect a restricted
+            type (which prohibits a number of attributes) of the
+            Widget to the POST operation, by specifying the
+            WidgetForCreate type and an XPath of where the type should
+            apply. In the automaton, this is translated into an XSLT
+            step that modifies the request document by adding an
+            xsi:type parameter, thus informing the validator to
+            validate the contents of the Widget message as an instance
+            of the restricted type. In this case, the restriction is
+            made in the root document, but these types of restrictions
+            can be placed on any element in an XML document.
+        </para><figure xml:id="WidgetBefore"><title>Widget Request (before XSLT step)</title><programlisting xml:space="preserve">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+
+&lt;widget xmlns="http://rackspace.com/sample/widget"
+        name="MyWidget"/&gt;
+</programlisting></figure><figure xml:id="WidgetAfter"><title>Widget Request (after XSLT step)</title><programlisting xml:space="preserve">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+
+&lt;widget xmlns="http://rackspace.com/sample/widget"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    name="MyWidget"  xsi:type="WidgetForCreate"/&gt;
+</programlisting></figure></section><section xml:id="optimization"><title>Optimization</title><para>
+            The automata created to validate REST services may be
+            quite complex, often involving many states and
+            connections. As an example, <xref linkend="compute"/>
+            illustrates the automaton for validating the OpenStack
+            Compute API (excluding extensions).
+        </para><figure xml:id="compute"><title>OpenStack compute API Automaton</title><mediaobject><imageobject><imagedata format="png" fileref="../../../vol8/graphics/Williams01/Williams01-004.png"/></imageobject></mediaobject></figure><para>
+            Optimization stages may be introduced into the
+            transformation process to try to reduce the number of
+            states in the automaton. Each optimization stage is simply
+            an XSLT that takes a checker document as input and creates
+            a checker document with less states as output.
+            Optimization stages can therefore be chained together.
+            With each stage, the checker document produced should
+            perform the exact same function as the original
+            unoptimized one.
+        </para><para>
+            Currently, optimization stages work by compressing
+            redundant (or nondistinguishable) states into a single
+            state. Redundant states occur quite frequently because the
+            translation code that converts a WADL to a checker
+            document does so without regard to the number of states
+            produce in order to keep the translation code simple. <xref linkend="compute-nodups"/> illustrates the effect of
+            running these optimization stages on the compute API.
+            Note that the number of states is reduced dramatically.
+        </para><figure xml:id="compute-nodups"><title>OpenStack compute API Automaton (Optimized)</title><mediaobject><imageobject><imagedata format="png" fileref="../../../vol8/graphics/Williams01/Williams01-005.png"/></imageobject></mediaobject></figure><para>
+            Other optimization techniques are possible.  For example
+            an optimization stage may:
+            <itemizedlist><listitem><para>
+                        Convert the simple type checks in URLXSD steps
+                        into regular expression URL steps.
+                    </para></listitem><listitem><para>
+                        Compress multiple regular extension checks
+                        into a single check.
+                    </para></listitem><listitem><para>
+                        Compress multiple boolean XPath expressions
+                        into a single expression.
+                    </para></listitem><listitem><para>
+                        Compress XPath expressions, XSLT
+                        transformations, and XSD schema validation
+                        into a single schema aware XSLT transform
+                        step.
+                    </para></listitem></itemizedlist>
+        </para></section><section xml:id="validationPipeline"><title>The Validation Pipeline</title><para>
+            The validation pipeline is responsible for producing REST
+            automata from WADLs. The pipeline is illustrated in
+            <xref linkend="pipeline"/>.
+        </para><figure xml:id="pipeline"><title>Validation Pipeline</title><mediaobject><imageobject><imagedata format="png" width="80%" fileref="../../../vol8/graphics/Williams01/Williams01-006.png"/></imageobject></mediaobject></figure><para>
+            The first three parts of the pipeline are shared with our
+            general documentation pipeline.  The stages utilize XProc,
+            XSLT2, and XSD 1.1 to generate the final checker document.
+            The final stage, creates an immutable data structure from
+            this document that is used by the Repose WADL proxy
+            component to process and validate API requests within the
+            Repose HTTP proxy. This stage is implemented by means of a
+            specialized <link xlink:href="http://www.saxproject.org/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">SAX</link>
+            handler. The data structure the handler produces is
+            essentially a model of the automaton that can be executed
+            by the Repose component when validating request. The
+            process for validating HTTP request with the data
+            structure avoids the use of global state, meaning that
+            most context is passed via the call stack. Because of
+            this, and because the internal data structure is
+            immutable, the entire process is thread safe, meaning that
+            it can validate multiple HTTP request simultaneously in
+            different threads of execution.
+        </para><para>
+            It's important to note that the validation pipeline above
+            is a prepossessing step.  Once the immutable data
+            structure is create it can be used to handle many HTTP
+            request simultaneously, at run-time, and in an efficient
+            manner.
+        </para><para>
+            Another note is that the stages in the validation pipeline
+            are configurable. There are configuration options that
+            dictate:
+            <itemizedlist><listitem><para>
+                        The strictness of the validation — which
+                        itself is determined by which validation steps
+                        should be added to the final checker.
+                    </para></listitem><listitem><para>
+                        Specialized options for each individual
+                        steps. For example, should an XPath version 2
+                        implementation be used in an XPath step?
+                        Should Saxon EE or Xerces be used for XSD 1.1
+                        validation in the XSD step?
+                    </para></listitem><listitem><para>
+                        The optimization stages to use.
+                    </para></listitem></itemizedlist>
+        </para></section><section xml:id="usecases"><title>Other Use Cases</title><para> The initial goal for creating validators from REST
+            documentation is described in <xref linkend="validation"/>, however, once an implementation of the validation
+            pipeline was created, it became evident that the pipeline
+            can be used to solve other problems. Some of these
+            additional use cases are described below. </para><section xml:id="filtering"><title>Filtering and Error Reporting</title><para>
+                REST services receive many millions of HTTP requests a
+                day. Many of these requests are malformed — the
+                result of user errors. Because a validator can detect
+                malformed requests, it can filter these from the
+                underlying REST implementation. What's more, the
+                validator has enough context to respond with an
+                appropriate error message.  For example, rather than
+                responding with simply a 404 (Not Found), the
+                validator can respond with:
+                404 /path/to/widget not found, expecting "server |
+                image" instead of "widget".
+            </para><para>
+                Our implementation has added support to this
+                capability and it has proved useful.
+            </para></section><section xml:id="authz"><title>Authorization</title><para>
+                Often different sets of users can access different
+                parts of the API. For example, administrators may have
+                the capability to reboot a server, but regular users
+                may not.  The idea here is to build on the filtering
+                capabilities in the previous section and assign
+                different sets of users different validators, so that
+                administrators have a validator that accepts the
+                reboot operation, and regular users have a validator
+                that does not.  The interesting thing about this
+                use case is that the WADL becomes an authorization
+                policy file.
+            </para></section><section xml:id="coverage"><title>API Coverage</title><para>
+                Validators are capable of logging what the stages in
+                the automaton have been visited. This information can
+                be used to compute test coverage. If there are states
+                in the automaton that are not visited by functional
+                tests, then the functional tests are obviously missing
+                something. Also, in production, the information can be
+                used to gain insight into what parts of an API are
+                frequently accessed by users.
+            </para></section></section><section xml:id="Conclusions"><title>Conclusions</title><para>
+            In this paper, we described the process by which we used
+            an existing documentation pipeline for documenting REST
+            APIs and extend it to support the creation of validators
+            that can help confirm that the documentation accurately
+            reflects reality or that an implementation does not drift
+            from what's stated in the docs.
+        </para><para>
+            We took an intermediary approach for performing validation,
+            where messages are intercepted between client and server
+            applications and an automata-based programming approach
+            that enabled the efficient validation of messages at
+            run-time.  The technique opened up other use cases such as
+            filtering, accurate error reporting, authorization, and
+            API coverage. We feel that a main key to the success of
+            the project was in choosing a tag set that semantically
+            described all aspects of a RESTful service and contained
+            author friendly features.
+        </para><para>
+            In the next sections we describe some of the challenges we
+            encountered while developing the validation pipeline and
+            discuss some possible future extensions to the pipeline.
+        </para><section xml:id="Challenges"><title>Challenges</title><section xml:id="XSD11"><title>XSD 1.1, early adoption</title><para>
+                    Because OpenStack APIs are extensible, describing the
+                    XML media types with XSD 1.0 was not an option, we
+                    need the new open content features that are now
+                    offered by the XSD 1.1 standard. Since OpenStack is an
+                    open and free platform, we have the goal of ensuring
+                    that everything that we develop remains open and
+                    accessible to the community, while still remaining
+                    friendly to enterprise customers. To that end we
+                    decided that our validators should support both the
+                    Xerces (open source) and the Saxon EE (proprietary)
+                    XSD 1.1 implementations.
+                </para><para>
+                    We've had great success in ensuring that our
+                    validators interoperate with both implementations
+                    seamlessly, however, during the development of the
+                    pipeline we have encountered a number of errors with
+                    the Xerces implementation.  In fairness, the Xerces
+                    implementation is still labeled BETA, and the Xerces
+                    team has done a great job of resolving most of the
+                    issues we've discovered thus far. The major challenge,
+                    for us however, is we've come to rely on XSD 1.1
+                    features when there is yet a full, production ready,
+                    and free open source XSD 1.1 implementation.
+                </para></section><section xml:id="XPath"><title>Parsing XPaths in XSLT 2</title><para>
+                    WADL makes references to XPaths when describing plain
+                    parameters. These XPaths need to be successfully
+                    copied as they proceed along the validation
+                    pipeline. Ensuring that the XPaths remain in tact
+                    under all circumstances has proved difficult given
+                    that there may be conflicts with namespace prefixes,
+                    or worst, contention for the default namespace.
+                </para><para>
+                    Our implementation makes a best effort to keep XPath
+                    valid, but there are still some edge cases that trip
+                    it up. We are debating whether to create an XSLT
+                    extension that will enable us to leverage an XPath 2
+                    parser, or to write our own XPath 2 parser in XSLT to
+                    resolve the issue.
+                </para></section><section xml:id="testing"><title>Testing The Validation Pipeline</title><para>
+                    An early challenge that we encountered was that we
+                    needed to develop a method of testing the
+                    validation pipeline. Because validation and our
+                    documentation pipeline both rely on the WADL
+                    normalizer, it is important to ensure that the
+                    output of the normalizer accurately reflects the
+                    intent of the original WADL author. To avoid
+                    regressions as we add new features, we implemented
+                    a functional testing framework that takes
+                    advantage of the xml features of Scala to perform
+                    transformations on simple WADLs and WADL+XSD
+                    combinations and compare those with the expected
+                    result. The following code sample shows one of
+                    these tests.
+                </para><figure xml:id="WADLTest"><title>A WADL normalizer test</title><programlisting xml:space="preserve">scenario ("The original WADL is in mixed path/tree format"){
+	given("a WADL with resources in mixed path/tree format")
+	val inWADL =
+&lt;application xmlns="http://wadl.dev.java.net/2009/02"
+    xmlns:xsd="http://www.w3.org/2001/XMLSchema"&gt;
+  &lt;resources base="https://test.api.openstack.com"&gt;
+    &lt;resource path="a/b"&gt;
+      &lt;resource path="c"&gt;
+	&lt;method href="#foo"/&gt;
+      &lt;/resource&gt;
+    &lt;/resource&gt;
+    &lt;resource path="d"&gt;
+      &lt;resource path="e/f"/&gt;
+    &lt;/resource&gt;
+    &lt;resource path="g"/&gt;
+    &lt;resource path="h/i/{j}/k"&gt;
+      &lt;param name="j" style="template" type="xsd:string" required="true"/&gt;
+      &lt;method href="#foo"/&gt;
+    &lt;/resource&gt;
+    &lt;resource path="h/i/{j}/k/l"&gt;
+      &lt;method href="#foo"/&gt;		
+    &lt;/resource&gt;
+  &lt;/resources&gt;
+  &lt;method id="foo"/&gt;
+&lt;/application&gt;
+	val treeWADL = 
+&lt;application xmlns="http://wadl.dev.java.net/2009/02"
+      xmlns:xsd="http://www.w3.org/2001/XMLSchema"&gt;
+   &lt;resources base="https://test.api.openstack.com"&gt;
+      &lt;resource queryType="application/x-www-form-urlencoded" path="a"&gt;
+         &lt;resource queryType="application/x-www-form-urlencoded" path="b"&gt;
+            &lt;resource queryType="application/x-www-form-urlencoded" path="c"&gt;
+               &lt;method xmlns:rax="http://docs.rackspace.com/api" rax:id="foo"/&gt;
+            &lt;/resource&gt;
+         &lt;/resource&gt;
+      &lt;/resource&gt;
+      &lt;resource queryType="application/x-www-form-urlencoded" path="d"&gt;
+         &lt;resource queryType="application/x-www-form-urlencoded" path="e"&gt;
+            &lt;resource queryType="application/x-www-form-urlencoded" path="f"/&gt;
+         &lt;/resource&gt;
+      &lt;/resource&gt;
+      &lt;resource queryType="application/x-www-form-urlencoded" path="g"/&gt;
+      &lt;resource queryType="application/x-www-form-urlencoded" path="h"&gt;
+         &lt;resource queryType="application/x-www-form-urlencoded" path="i"&gt;
+            &lt;resource queryType="application/x-www-form-urlencoded" path="{j}"&gt;
+               &lt;param name="j" style="template" type="xsd:string" required="true" 
+                     repeating="false"/&gt;
+               &lt;resource queryType="application/x-www-form-urlencoded" path="k"&gt;
+                  &lt;method xmlns:rax="http://docs.rackspace.com/api" rax:id="foo"/&gt;
+                  &lt;resource queryType="application/x-www-form-urlencoded" path="l"&gt;
+                     &lt;method xmlns:rax="http://docs.rackspace.com/api" rax:id="foo"/&gt;
+                  &lt;/resource&gt;
+               &lt;/resource&gt;
+            &lt;/resource&gt;
+         &lt;/resource&gt;
+      &lt;/resource&gt;
+   &lt;/resources&gt;
+   &lt;method id="foo"/&gt;
+&lt;/application&gt;
+      when("the WADL is normalized")
+      val normWADL = wadl.normalize(inWADL, TREE)
+      then("the resources should now be in tree format")
+      canon(treeWADL) should equal (canon(normWADL))
+    }</programlisting></figure><para>
+                    Notice that the test infrastructure supports the
+                    scenario/given/when/then format of behavioral driven
+                    development.
+                </para></section></section><section xml:id="FutureWork"><title>Future Work</title><para>
+                The goal described in <xref linkend="validation"/> is
+                not entirely complete because we are still missing
+                considerable checks on the HTTP response generated by
+                the REST service. We plan on extending the automata to
+                account for this.  Additionally, we plan on adding
+                JSONPath and JSON Schema stages as only JSON
+                well formness is currently tested. We also plan on
+                adding support for other validation languages in XML
+                such as RelaxNG and Schematron.  Finally, we plan to
+                pursue some of the extended use cases we discussed in
+                <xref linkend="usecases"/> such as authorization and
+                API coverage.
+            </para></section></section><bibliography><title>Bibliography</title><bibliomixed xml:id="ApigeeWADL2012" xreflabel="ApigeeWADL2012">
+        Apigee. <emphasis role="ital">The Apigee WADL Library</emphasis>
+        <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">https://github.com/apigee/wadl-library</link>
+    </bibliomixed><bibliomixed xml:id="Fielding2000" xreflabel="Fielding2000">
+        Fielding, Roy Thomas.  <emphasis role="ital">Architectural
+        Styles and the Design of Network-based Software
+        Architectures.</emphasis> 2000. <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.ics.uci.edu/~fielding/pubs/dissertation/top.htm.</link>
+    </bibliomixed><bibliomixed xml:id="Steiner2007" xreflabel="Steiner2007">
+        T. Steiner. <emphasis role="ital">Automatic Multi Language
+        Program Library Generation for REST APIs</emphasis> Master
+        Thesis, Institute for Algorithms and Cognitive Systems
+        University of Karlsruhe. <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.lsi.upc.edu/~tsteiner/papers/2007/automatic-multi-language-program-library-generation-for-rest-apis-masters-thesis-2007.pdf</link>
+    </bibliomixed><bibliomixed xml:id="hREST2008" xreflabel="hREST2008">
+        Kopecky, J., Gomadam, K., Vitvar, T.: <emphasis role="ital">hRESTS: an HTML Microformat for Describing RESTful Web Services</emphasis>. In: The 2008 IEEE/WIC/ACM International Conference on Web Intelligence (WI2008), Sydney, Australia, IEEE CS Press
+        (November 2008)
+    </bibliomixed><bibliomixed xml:id="JSONPath2008" xreflabel="JSONPath2008">
+        Goessner S. <emphasis role="ital">JSONPath - XPath for
+        JSON</emphasis> <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://goessner.net/articles/JsonPath/</link>
+    </bibliomixed><bibliomixed xml:id="Jaxrs2009" xreflabel="Jaxrs2009">
+        M. Hadley and P. Sandoz, <emphasis role="ital">JAX-RS:
+        Java API for RESTful Web Services</emphasis>, Java
+        Specification Request (JSR), vol. 311, 2009. <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://jcp.org/en/jsr/detail?id=311.</link>
+    </bibliomixed><bibliomixed xml:id="Launchpad2012" xreflabel="Launchpad2012">
+        Launchpad.  <emphasis role="ital">Hacking the Launchpad
+        web service</emphasis> <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">https://help.launchpad.net/API/Hacking</link>
+    </bibliomixed><bibliomixed xml:id="Mashery2009" xreflabel="Mashery2009">
+        Mashery.; <emphasis role="ital">Mashery: Untold Secrets
+        Behind Managing an API </emphasis><link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.readwriteweb.com/archives/mashery_secrets_behind_managing_an_api.php</link>
+    </bibliomixed><bibliomixed xml:id="O2007" xreflabel="O2007">
+        L. Richardson and S. Ruby. <emphasis role="ital">RESTful Web Services</emphasis>. O’Reilly Media, Inc., May 2007.
+    </bibliomixed><bibliomixed xml:id="O2010" xreflabel="O2010">
+        Allamaraju, S., and Amudsen, M. <emphasis role="ital">RESTful Web Services
+        Cookbook.</emphasis> O’Reilly. 2010.
+    </bibliomixed><bibliomixed xml:id="O2011" xreflabel="O2011">
+        Webber, J., Parastatidis, S., Robinson, I.: <emphasis role="ital">REST in Practice: Hypermedia and
+        Systems Architecture.</emphasis> O’Reilly &amp; Associates, Sebastopol (2010).
+    </bibliomixed><bibliomixed xml:id="Maleshkova2009" xreflabel="Maleshkova2009">
+        Maria Maleshkova, Jacek Kopecky, and Carlos Pedrinaci. <emphasis role="ital">Adapting SAWSDL for Semantic Annotations of RESTful Services.</emphasis> In Workshop: Beyond SAWSDL at OnTheMove Federated Conferences &amp; Workshops, 2009.
+    </bibliomixed><bibliomixed xml:id="Swager2011" xreflabel="Swager2011">
+        Swagger.  <emphasis role="ital">Swagger Specification.</emphasis> <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://swagger.wordnik.com/spec</link>
+    </bibliomixed><bibliomixed xml:id="Takase2008" xreflabel="Takase2008">
+        T. Takase, S. Makino, S. Kawanaka, K. Ueno, C. Ferris, and A. Ryman, <emphasis role="ital">Definition Languages for RESTful Web Services: WADL vs. WSDL 2.0</emphasis>, IBM Reasearch, 2008
+    </bibliomixed><bibliomixed xml:id="WADL2Java2008" xreflabel="WADL2Java2008">
+        WADL2Java.  wadl2java Tool Documentation. http://wadl.java.net/wadl2java.html
+    </bibliomixed><bibliomixed xml:id="WSDL2007" xreflabel="WSDL2007">
+        Chinnici R., Moreau J., Ryan A., and  Weerawarana S. <emphasis role="ital">Web
+        Services Description Language (WSDL) Version 2.0.</emphasis> June
+        2007. <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/wsdl20/</link>
+    </bibliomixed><bibliomixed xml:id="W3CSchema2010" xreflabel="W3CSchema2010">
+        Gao S., Sperberg-McQueen C. M, and Thompson H. <emphasis role="ital">W3C XML
+        Schema Definition Language (XSD)</emphasis>. <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/xmlschema11-1/</link>
+    </bibliomixed><bibliomixed xml:id="Hadley2009" xreflabel="Hadley2009">
+        M. Hadley.; <emphasis role="ital">Web Application Description Language</emphasis>
+        W3C Member Submission. August 2009
+        <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/Submission/wadl/</link>
+    </bibliomixed></bibliography></article>

@@ -1,0 +1,212 @@
+<?xml version="1.0" encoding="UTF-8"?><article xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink" version="5.0-subset Balisage-1.3"><title>Transforming schemas</title><subtitle>Architectural Forms for the 21st Century</subtitle><info><confgroup><conftitle>Balisage: The Markup Conference 2013</conftitle><confdates>August 6 - 9, 2013</confdates></confgroup><abstract><para>The traditional approach to transforming XML documents is a three-step pipeline: validate, transform, validate.  The SGML feature called architectural forms combined enhancements to DTDs with annotations in source documents to allow a valid SGML document to be automatically transformed into another SGML document valid against a different DTD.  This permitted document creators to conform to a general document architecture without having to constrain their own documents to every detail of a specific schema.  In the XML world, however, the emphasis has been on the creation of comprehensive schemas rather than easy transformation, and the ideas behind architectural forms have mostly been lost.  This paper attempts to explain how to restore those ideas to XML practice.</para></abstract><author><personname><firstname>John</firstname><surname>Cowan</surname></personname><personblurb><para>John Cowan works for LexisNexis, which he likes to call "$EMPLOYER". On his 2011 tax returns, he listed his occupation as "ontologist" . He pushed both XML 1.1 and XML 1.0 Fifth Edition through the W3C XML Core Working Group, of which he somehow remains a member. He also hangs out on numerous mailing lists and blogs, masquerading on the A forum as the expert on B and and on the B forum as the expert on A. His friends say that he knows at least something about almost everything; his enemies, that he knows far too much about far too much.</para></personblurb><affiliation><jobtitle>Senior Content Architect</jobtitle><orgname>LexisNexis</orgname></affiliation><email>cowan@ccil.org</email></author><legalnotice><para>Copyright © 2013 by John Cowan</para></legalnotice><keywordset role="author"><keyword>Architectural forms</keyword><keyword>Examplotron</keyword><keyword>Schema-driven transformation</keyword></keywordset></info><section><title>1. Introduction</title><para>The traditional approach to transforming XML documents is a three-step pipeline: validate, transform, validate.  (Sometimes, of course, one or both of the validation steps is omitted.)  <emphasis role="ital">Architectural forms</emphasis>, a feature first of the SGML-based hypermedia standard HyTime and then of SGML itself, made use of a combination of enhancements to DTDs and annotations in source documents to allow a two-step pipeline for certain simple transformations.  In this pipeline, a valid SGML document could be automatically transformed using a specialized SGML parser, called an <emphasis role="ital">architectural engine</emphasis> (AE), into another SGML document valid against a more general DTD known as the meta-DTD.  This permitted document creators to conform to a general document architecture without having to constrain their own documents to every detail of a specific schema.</para><para>However, DTDs have not seen wide uptake in the XML world, and the few XML architectural engines that have been built have conformed more to the letter than to the spirit of architectural forms.  The emphasis has been on the creation of comprehensive and complex schemas which attempt simultaneously to serve local needs and the needs of interchange.  Such schemas are usually arrived at by difficult, lengthy, and highly political negotiations between interested parties, with victory often going to the participants with the greatest weight of <emphasis role="ital">Sitzfleisch</emphasis> rather than the best ideas.</para><para>This paper describes an attempt to return to those thrilling days of yesteryear by providing a modern equivalent of SGML architectural engines. In principle any grammar-based schema language such as XML Schema or RELAX NG would be suitable for the methods outlined here.  However, the software development (still very much a work in progress as of this writing) is using the much simpler Examplotron schema language.  Examplotron is not well-known or much used in the XML environment, but I believe it to be extremely suitable to the stripped-down MicroXML environment in which I am now primarily interested.  Since most people don't know Examplotron, I have written the paper to be accessible to anyone who can read simple DTD declarations.</para><para>In this paper, I will speak of the <emphasis role="ital">source document</emphasis>, which is the input to a schema-based <emphasis role="ital">transformation engine</emphasis> (TE), and of the <emphasis role="ital">target document</emphasis>, which is a TE's output.  Additional inputs are the <emphasis role="ital">source schema</emphasis> and the <emphasis role="ital">target schema</emphasis>.  In this paper the schemas are expressed as DTD fragments, but in actual use they will be Examplotron 0.8 schemas.  In addition, we may supply the TE with the <emphasis role="ital">transformation name</emphasis> of the particular transformation to be performed on the source, possibly one of many such transformations.  For clarity's sake, I will speak as if the various transformations are made one by one, but except for attribute defaulting they are all made simultaneously.  For example, if all elements named <code>foo</code> are to be renamed <code>bar</code>, and all elements named <code>bar</code> are to be renamed <code>baz</code>, that does <emphasis role="ital">not</emphasis> mean that both <code>foo</code> and <code>bar</code> elements wind up being named <code>baz</code>.</para></section><section><title>2. Element Renaming and the Renaming Attribute</title><para>The first and simplest kind of transformation to be performed is <emphasis role="ital">element renaming</emphasis>.  A TE does this by looking at each element of the source document for an attribute whose name is the same as the transformation name supplied to the TE.  This attribute is called the <emphasis role="ital">renaming attribute</emphasis>.</para><para>For example, suppose we have the following source document:
+    <programlisting xml:space="preserve">
+      &lt;limerick&gt;
+        &lt;title&gt;Relativity&lt;/title&gt;
+        &lt;a&gt;There was a young lady named Bright&lt;/a&gt;
+        &lt;a&gt;Who could travel much faster than light.&lt;/a&gt;
+        &lt;b&gt;She set out one day&lt;/b&gt;
+        &lt;b&gt;In a relative way&lt;/b&gt;
+        &lt;a&gt;And returned the previous night.&lt;/a&gt;
+      &lt;/limerick&gt;
+    </programlisting>
+    If we wish to transform it from its limerick-specific schema to a more general stanza schema, we might add a renaming attribute named <code>stanza</code> to every element, like this:
+    <programlisting xml:space="preserve">
+      &lt;limerick stanza="stanza"&gt;
+        &lt;title stanza="title"&gt;Relativity&lt;/title&gt;
+        &lt;a stanza="line"&gt;There was a young lady named Bright&lt;/a&gt;
+        &lt;a stanza="line"&gt;Who could travel much faster than light.&lt;/a&gt;
+        &lt;b stanza="line"&gt;She set out one day&lt;/b&gt;
+        &lt;b stanza="line"&gt;In a relative way&lt;/b&gt;
+        &lt;a stanza="line"&gt;And returned the previous night.&lt;/a&gt;
+      &lt;/limerick&gt;
+    </programlisting>
+    Running a TE on the above document, specifying <code>stanza</code> as the transformation name, would produce the following target document:
+    <programlisting xml:space="preserve">
+      &lt;stanza&gt;
+        &lt;title&gt;Relativity&lt;/title&gt;
+        &lt;line&gt;There was a young lady named Bright&lt;/line&gt;
+        &lt;line&gt;Who could travel much faster than light.&lt;/line&gt;
+        &lt;line&gt;She set out one day&lt;/line&gt;
+        &lt;line&gt;In a relative way&lt;/line&gt;
+        &lt;line&gt;And returned the previous night.&lt;/line&gt;
+      &lt;/stanza&gt;
+    </programlisting>
+    Note that all occurrences of the renaming attribute have been removed from the target document.
+    </para><para>What happens if an element doesn't have a renaming attribute?  The answer is that the element is dropped in its entirety.  For example, suppose we did not have a <code>stanza</code> attribute on the source document's <code>title</code> element. In that case, the target document would contain only a <code>stanza</code> element with five <code>line</code> child elements.</para><para>If you don't provide a TE with a transformation name, there is no renaming attribute, and rather than dropping all the elements, none of them are renamed. However, the target document may still differ from the source document in other ways.</para><note><para>The concept of renaming attributes comes from AEs; however, AEs do not require the name of the renaming attribute to be the same as the transformation name, and have different and more flexible rules about processing elements without renaming attributes.</para></note></section><section><title>3. Attribute Defaulting</title><para>This business of adding renaming attributes directly to the source document is irritating, and may be impossible if we aren't able to change the source document.  Instead, we can take advantage of <emphasis role="ital">attribute defaulting</emphasis> by specifying a source schema.  Consider the following DTD fragment: 
+    <programlisting xml:space="preserve">
+      &lt;!ATTLIST limerick stanza "stanza"&gt;
+      &lt;!ATTLIST title stanza "title"&gt;
+      &lt;!ATTLIST a stanza "line"&gt;
+      &lt;!ATTLIST b stanza "line"&gt;
+    </programlisting>
+    This says that in the <code>limerick</code> element, if no <code>stanza</code> attribute is supplied, its value is assumed to be <code>stanza</code>.  Likewise, for the <code>title</code> element, the default value of the <code>stanza</code> attribute is <code>title</code>, and for the <code>a</code> and <code>b</code> elements, it is <code>line</code>.  Now we no longer have to alter our original limerick document when we want to transform it.  If we specify the transformation name as <code>stanza</code>, we will get the same target document that we saw in the previous section.</para><para>What is more, we can provide more than one renaming attribute in the same source schema.  Suppose we add the following declarations to the above source schema:
+    <programlisting xml:space="preserve">
+      &lt;!ATTLIST limerick estrofa "estrofa"&gt;
+      &lt;!ATTLIST title estrofa "título"
+      &lt;!ATTLIST a estrofa "línea"&gt;
+      &lt;!ATTLIST b estrofa "línea"&gt;
+    </programlisting>
+    If we specify the transformation name as <code>estrofa</code> rather than <code>stanza</code>, we will generate a target document whose element names are in Spanish rather than English.  However, the TE cannot automatically remove the defaulted <code>stanza</code> attribute when doing an <code>estrofa</code> transformation, nor vice versa, because it does not know which attributes might be used as renaming attributes in a different transformation run. In order to suppress them, we must provide the TE with a list of renaming attributes that are <emphasis role="ital">not</emphasis> being used for the current transformation, so that they can be suppressed from the target document.  In the rest of this paper we will assume that this list has been provided.</para><para>Attribute defaulting is not restricted to renaming attributes. If any attribute is given a default value by the source schema but does not appear in the source document, it will be created, and by default will appear in the target document.  Attribute defaulting is done in advance of all other transformations; a default attribute may have its name or value changed by a later transformation.</para><note><para>Attribute defaulting is inherent to DTD processing.  The version of Examplotron used by TEs, Examplotron 0.8, allows the specification of default values for attributes, and in fact for elements too.</para></note></section><section><title>4. Element Reordering</title><para>So far, we haven't had to deal with child elements appearing in a different order in the source and target documents.  However, this can often happen when the source document is data-oriented rather than content-oriented.  In order to know how to reorder child elements, we must provide the TE with  a target schema.  Here's a simple target schema specifying a document containing people's names:
+    <programlisting xml:space="preserve">
+      &lt;!ELEMENT people (person*)&gt;
+      &lt;!ELEMENT person (last, first)&gt;
+    </programlisting>
+    In this schema, we see that a <code>people</code> element contains zero or more <code>person</code> elements and nothing else, and that each <code>person</code> element contains <code>last</code> and <code>first</code> elements in that order. </para><para>Now here's a source document:
+    <programlisting xml:space="preserve">
+      &lt;people&gt;
+        &lt;person&gt;
+          &lt;first&gt;John&lt;/first&gt;
+          &lt;last&gt;Cowan&lt;/last&gt;
+        &lt;/person&gt;
+       &lt;person&gt;
+          &lt;first&gt;Dorian&lt;/first&gt;
+          &lt;last&gt;Cowan&lt;/last&gt;
+       &lt;/person&gt;
+      &lt;/people&gt;
+    </programlisting>
+    Suppose we pass this source document and the target schema to a TE without specifying a transformation name.  In that case, there is no renaming attribute, and so no element renaming is done.  However, since the order of child elements for the <code>person</code> element in the source document is not valid according to the target schema, they will be reordered so as to be valid in the target document, producing this:
+    <programlisting xml:space="preserve">
+      &lt;people&gt;
+        &lt;person&gt;
+          &lt;last&gt;Cowan&lt;/last&gt;
+          &lt;first&gt;John&lt;/first&gt;
+        &lt;/person&gt;
+       &lt;person&gt;
+          &lt;last&gt;Cowan&lt;/last&gt;
+          &lt;first&gt;Dorian&lt;/first&gt;
+       &lt;/person&gt;
+      &lt;/people&gt;
+    </programlisting>
+    </para><note><para>AEs do not perform element reordering.</para></note></section><section><title>5. Occurrences</title><para>Both source and target schemas can specify how many occurrences a child
+element can have within its parent element.  In DTDs, we can repeat the element name to specify a fixed number of occurrences, as in this source schema for our limerick document:
+  <programlisting xml:space="preserve">
+    &lt;!ELEMENT limerick (title, a, a, b, b, a)&gt;
+    &lt;!ATTLIST limerick index "poem"&gt;
+    &lt;!ATTLIST a index "firstline"&gt;
+  </programlisting></para><para>Now suppose we run a TE, passing it the transformation name <code>index</code>, our original limerick document, the above source schema, and the following target schema:
+  <programlisting xml:space="preserve">
+    &lt;!ELEMENT poem (firstline)&gt;
+  </programlisting>
+  The renaming attribute <code>index</code> will rename the <code>limerick</code> element to <code>poem</code> and the three <code>a</code> elements to <code>firstline</code>, dropping the <code>title</code> and <code>b</code> elements altogether.  But since the target schema permits only a single <code>firstline</code> element in each <code>poem</code> element, the second and third <code>firstline</code> elements will also be dropped, producing the following target document:
+  <programlisting xml:space="preserve">
+    &lt;poem&gt;
+      &lt;firstline&gt;There was a young lady named Bright&lt;/firstline&gt;
+    &lt;/poem&gt;
+  </programlisting> This is suitable for inclusion in an index of first lines.
+</para><para> On the other hand, if the target schema requires more occurrences
+of an element than the source schema provides, sufficient elements are
+created following the mapped elements. For an example of that process, consider this source document with explicit renaming attributes:
+  <programlisting xml:space="preserve">
+    &lt;couplet limerick="limerick"&gt;
+      &lt;line limerick="a"&gt;Go and tell the Spartans, passerby,&lt;/line&gt;
+      &lt;line limerick="b"&gt;That here, obedient to their laws, we lie.&lt;/line&gt;
+    &lt;/couplet&gt;
+  </programlisting>
+    What happens if we transform this into a limerick using the limerick schema as the target schema?  (There is nothing inherent in a schema that says whether it is a source or a target, only in how it is provided to a TE.)  Limericks have to have a title and five lines, but we have only two lines here, one mapped (for some unknown reason) to an <code>a</code> element and one to a <code>b</code> element.  Consequently, we get this target document:
+    <programlisting xml:space="preserve">
+      &lt;limerick&gt;
+        &lt;title/&gt;
+        &lt;a&gt;Go and tell the Spartans, passerby,&lt;/a&gt;
+        &lt;a/&gt;
+        &lt;b&gt;That here, obedient to their laws, we lie.&lt;/b&gt;
+        &lt;b/&gt;
+        &lt;a/&gt;
+      &lt;/limerick&gt;
+  </programlisting>Not very useful or pretty, perhaps, but certainly valid.</para><para>In this paper, newly created elements are shown as empty.  However, if the Examplotron schema provides a default value for them, it will be used.</para><para>When specifying the content model of an element in a source or target schema, we can follow the name of a child element with <code>*</code> to mean "zero or more occurrences", as shown in the declaration of the <code>people</code> element.  In the same way, <code>?</code> means "zero or one occurrences" and <code>+</code> means "one or more occurrences".  All these indicators are respected by a TE.  So if two <code>foo</code> child elements appear in the source document, but the target schema specifies <code>foo?</code>, then the second one will be dropped.  A TE cannot construct transformations based on more complex content models like <code>((a,b)+)</code>, in which the occurrence indicator follows a sequence of child element names, except as noted under the discussion of mixed content.</para><para>However, technically ambiguous content models like <code>(line, line?, line?)</code>, meaning from one to three <code>line</code> elements, which are illegal in DTDs, are supported in Examplotron schemas as well as by a TE.</para><note><para>AEs neither drop unwanted elements nor create new ones, but report validation errors instead.</para></note></section><section><title>6. Character Content</title><para>So far, the source and target schemas we have seen have been incomplete, because not all the elements used in the documents have been mentioned in the schemas.  In particular, declarations for the elements whose only permitted content is characters, such as <code>a</code>, <code>firstline</code>, and <code>title</code> have been left out.  Here's a complete version of the limerick source schema with all three renaming attributes provided:
+    <programlisting xml:space="preserve">
+      &lt;!ELEMENT limerick (title, a, a, b, b, a)&gt;
+      &lt;!ATTLIST limerick stanza "stanza"&gt;
+      &lt;!ATTLIST limerick estrofa "estrofa"&gt;
+      &lt;!ATTLIST limerick index "poem"&gt;
+      &lt;!ELEMENT title #PCDATA&gt;
+      &lt;!ATTLIST title stanza "title"&gt;
+      &lt;!ATTLIST title estrofa "título"
+      &lt;!ELEMENT a #PCDATA&gt;
+      &lt;!ATTLIST a stanza "line"&gt;
+      &lt;!ATTLIST a estrofa "línea"&gt;
+      &lt;!ATTLIST a index "firstline"&gt;
+      &lt;!ELEMENT b #PCDATA&gt;
+      &lt;!ATTLIST b stanza "line"&gt;
+      &lt;!ATTLIST b estrofa "línea"&gt;
+    </programlisting>
+    And here is an erroneous target schema for stanza documents:
+    <programlisting xml:space="preserve">
+      &lt;!ELEMENT stanza (title, line*)&gt;
+      &lt;!ELEMENT title #PCDATA&gt;
+      &lt;!ELEMENT line EMPTY&gt;
+    </programlisting></para><para>Let's see what happens if we do a <code>stanza</code> transformation using that target schema.  We get this target document:
+    <programlisting xml:space="preserve">
+      &lt;stanza&gt;
+        &lt;title&gt;Relativity&lt;/title&gt;
+        &lt;line/&gt;
+        &lt;line/&gt;
+        &lt;line/&gt;
+        &lt;line/&gt;
+        &lt;line/&gt;
+      &lt;/stanza&gt;
+    </programlisting>
+    Because the target schema specified the <code>line</code> element as empty (no child elements or character content), the TE threw away the character content.  Again, probably not very useful, but again certainly valid.</para><para>Reordering and occurrence control are really two aspects of the same thing, and they can both happen to the same children of an element at the same time.  Here is a not-very-realistic example.  Given the source document
+  <programlisting xml:space="preserve">
+    &lt;root&gt;
+      &lt;a id="a1"/&gt;
+      &lt;b id="b1"/&gt;
+      &lt;a id="a2"/&gt;
+      &lt;b id="b2"/&gt;
+      &lt;a id="a3"/&gt;
+    &lt;/root&gt;
+  </programlisting>
+  and the target schema
+  <programlisting xml:space="preserve">
+    &lt;!ELEMENT root (a, a, b, b, b&gt;)&gt;
+  </programlisting>
+  the target document will be
+  <programlisting xml:space="preserve">
+    &lt;root&gt;
+      &lt;a id="a1"/&gt;
+      &lt;a id="a2"/&gt;
+      &lt;b id="b1"/&gt;
+      &lt;b id="b2"/&gt;
+      &lt;b/&gt;
+    &lt;/root&gt;
+  </programlisting>
+  That is, the <code>a</code> elements have been reordered before the <code>b</code> elements, the third <code>a</code> element has been dropped as unwanted, and a third <code>b</code> element has been created.</para><note><para>AEs allow greater control of what happens to character content when an element containing it is dropped from the target document: it may be discarded or included as part of the parent element.  TEs always discard it unless the parent element's content model is specified as mixed content.</para></note></section><section><title>7. Mixed Content</title><para>An element has mixed content when its content includes both child elements and characters.  Consider this limerick:
+    <programlisting xml:space="preserve">
+      &lt;limerick&gt;
+        &lt;title&gt;Memory&lt;/title&gt;
+        &lt;a&gt;There was an old man of Khartoum&lt;/a&gt;
+        &lt;a&gt;Who kept two black sheep in his room.&lt;/a&gt;
+        &lt;b&gt;&lt;quote&gt;"They remind me,"&lt;/quote&gt; he said,&lt;/b&gt;
+        &lt;b&gt;&lt;quote&gt;"Of two friends who are dead,&lt;/quote&gt;&lt;/b&gt;
+        &lt;a&gt;&lt;quote&gt;But I &lt;em&gt;cannot&lt;/em&gt; remember of whom."&lt;/quote&gt;&lt;/a&gt;
+      &lt;/limerick&gt;
+    </programlisting>  Because of the <code>quote</code> and <code>em</code> elements, this document isn't valid against our latest limerick schema.  Let's add the following declarations to our limerick schema, replacing the existing declarations for the <code>a</code> and <code>b</code> elements:
+    <programlisting xml:space="preserve">
+      &lt;!ELEMENT emphasis (#PCDATA|quote|em)*&gt;
+      &lt;!ELEMENT quote (#PCDATA|quote|em)*&gt;
+      &lt;!ELEMENT a (#PCDATA|quote|em)*&gt;
+      &lt;!ELEMENT b (#PCDATA|quote|em)*&gt;
+    </programlisting>
+    The meaning of these element declarations is that the specified child elements (<code>quote</code> and <code>em</code> in this case) may appear in any order, any number of times, interleaved with the character content if any.  This is the only kind of mixed content that DTDs support.  Examplotron permits more restrictive sorts of mixed content, but a TE cannot handle them.  If we do a <code>stanza</code> transformation, then because the <code>a</code> and <code>b</code> elements are declared to have mixed content, instead of simply dropping the <code>quote</code> and <code>em</code> elements along with their content as you might expect, their content is preserved.  The result, then, is the same as if no quotation or emphasis markup had appeared in the source document.</para><para>What would happen if the target schema for stanzas allowed <code>em</code> elements but not <code>quote</code> elements?  Then the final line's content would become:
+    <programlisting xml:space="preserve">
+      &lt;line&gt;But I &lt;em&gt;cannot&lt;/em&gt; remember of whom.&lt;/line&gt;
+    </programlisting></para><para>By definition, reordering is never done on mixed content.  It is the presence of mixed content in the source schema, not in the target schema, that triggers this style of processing, although you usually want to specify mixed content in both schemas.</para><para>In summary, the content models that a TE supports are mixed content, character-only content, empty content, and element content consisting of a simple sequence of child element names, possibly decorated with occurrence indicators.  All other content models are unsupported for transformation, though they are permitted for validation.</para></section><section><title>8. Attribute Mapping</title><para>So far, the value of a renaming attribute has been a single token, an element name.  But if the renaming attribute contains multiple tokens separated by whitespace, the first token is the element name for element mapping, and the rest of the tokens are pairs of equivalent source and target attribute names.  For example, here's a <code>link</code> element that contains a renaming attribute to map it to an HTML <code>a</code> element:
+  <programlisting xml:space="preserve">
+    &lt;link target="http://examplotron.com"
+     html="a target href"&gt;
+      Examplotron
+    &lt;/link&gt;
+  </programlisting>
+  
+  Running a TE on this source document and providing <code>html</code> as the transformation name produces this target document:
+  <programlisting xml:space="preserve">
+    &lt;a href="http://examplotron.com"&gt;
+      Examplotron
+    &lt;/a&gt;
+  </programlisting></para><para>TEs support three special cases of attribute mapping.  If the target attribute name is replaced by <code>#NONE</code>, then the source attribute will be omitted from the target document.  If the source attribute is <code>#CONTENT</code>, then the target attribute's value does not come from any source attribute, but from the character content of the element; likewise, if the target attribute is <code>#CONTENT</code>, then the source attribute is removed and its value is used as character content of the target element.  Here's an example of all three special cases.  The source element
+  <programlisting xml:space="preserve">
+    &lt;url purpose="linkage" label="Examplotron"
+     html="a purpose #NONE label #CONTENT #CONTENT href"&gt;
+       http://examplotron.org
+    &lt;/url&gt;
+  </programlisting> is transformed by dropping the <code>purpose</code> attribute, putting the character content <code>http://examplotron.org</code> into the <code>href</code> attribute, and putting the value of the <code>label</code> attribute into the character content of the target element (an <code>a</code> element), thus producing the same result (modulo whitespace) as the transformation of the <code>link</code> element did.</para><para>As a further extension to attribute mapping, if a source/target attribute name pair is followed by the token #<code>MAPTOKEN</code>, it is then followed by a source token and a target token.  The source attribute value is then divided into tokens by whitespace, and if the source token appears in it, it is replaced by the target token.  There may be any number of such triples of <code>#MAPTOKEN</code>, source token, target token following a source/target attribute pair.</para><note><para>This mechanism is usable but crude, and should eventually be replaced by something less hacky.  In AEs the source/target attribute pairs and mapping-token triples are in a separate attribute from the renaming attribute.</para></note></section><bibliography><title>Bibliography</title><bibliomixed>International Organization for Standards.   <emphasis role="ital">SGML Extended Facilities</emphasis>, normative annex A to ISO/IEC 10744.  "A.3 Architectural Form Definition Requirements (AFDR)." [online]. © 1992, 1997 [cited 12 July 2013].  <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.pms.ifi.lmu.de/mitarbeiter/ohlbach/multimedia/HYTIME/ISO/clause-A.3.html</link>.</bibliomixed><bibliomixed>van der Vlist, Eric. "Examplotron" [online]. © 2003 [cited 12 July 2013].
+        <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.examplotron.org</link>.</bibliomixed></bibliography></article>

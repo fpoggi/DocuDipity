@@ -1,0 +1,345 @@
+<?xml version="1.0" encoding="UTF-8"?><article xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink" version="5.0-subset Balisage-1.3"><title>How to survive the coming namespace winter</title><info><confgroup><conftitle>Balisage: The Markup Conference 2014</conftitle><confdates>August 5 - 8, 2014</confdates></confgroup><abstract><para>Is XML condemned to be an orphaned syntax with a dimly lit future within the Web
+            browser? What can information providers with rich sources of XML do, other than
+            down-translate to HTML? The evolving Web Components environment may provide a solution!
+            With some simple translations, stylesheets and scripts, it will be possible to wrap
+            custom XML in a minimum amount of HTML and serve it over the Web. The browsers will
+            never know they’re being tricked into delivering XML.</para></abstract><author><personname><firstname>R. Alexander</firstname><surname>Miłowski</surname></personname><personblurb><para/></personblurb><affiliation><orgname>University of Edinburgh, School of Informatics</orgname></affiliation><email>alex@milowski.com</email></author><author><personname><firstname>Norman</firstname><surname>Walsh</surname></personname><personblurb><para/></personblurb><affiliation><orgname>MarkLogic Corporation</orgname></affiliation><email>norman.walsh@marklogic.com</email></author><legalnotice><para>Copyright © 2014 R. Alexander Miłowski and Norman Walsh</para></legalnotice></info><blockquote><para>It was a late night, again, at XML Prague, and Norm Walsh,
+         John Snelson, Charles Greer, and I were walking along attempting
+         to find dinner. We had been discussing the Web Components
+         session that had occurred earlier in the day. We expressed our
+         dismay and depression that we couldn't just have XML. Then it
+         occurred to us, like a light being turned on (or being
+         whacked on the back of the head with a ruler), Web Components
+         are just markup and pretty close to XML. All we needed to do was
+         use a hypen rather than a colon, and all was well. It is a
+         compromise and likely the best we will get anytime soon. We get
+         to put our own pointy brackets into the browser and give it
+         semantics—accept it and move on.</para><attribution>Alex Miłowski recounting XML Prague 2014</attribution></blockquote><section><title>Forward from Failure</title><para>A publisher that has a large amount of information in XML documents has little
+         recourse in today's world but to transform this information into HTML for delivery on the
+         Web or within EPUB ebooks. The ability for the common Web browser to load and process XML
+         information, with similar processing semantics to HTML, isn't available; links will not be
+         identified, styles and local transformations are fraught with problems, media will not be
+         loaded or rendered, and scripts will not execute to provide extensible behaviors.</para><para>At the 2009 Balisage Conference, in <emphasis role="ital">XML in the Browser: the Next
+            Decade</emphasis>
+         <citation>balisage-2009</citation>, Miłowski enumerated the issues with delivering XML to
+         the browser and many, if not all, of those issues remain unsolved in 2014. The various
+         browser vendors have since all but abandoned processing XML except as a legacy format. In
+         many ways, it only remains as a serialization format for HTML5 <citation>html5</citation>
+         and as a mechanism for receiving data within a Web application.</para><para>It was argued that there are intrinsic and non-intrinsic formats for the Web.  In terms
+         of markup languages, HTML, SVG, and MathML were identified as the triad of intrinsic markup
+         languages.  This assessment is somewhat validated by the integration of SVG and MathML into
+         the HTML5 specification.</para><para>This leaves generic XML as an orphaned syntax with dimly lit future within the Web
+         browser. If the writings on the walls of various mailing lists are any indication, there is
+         a strong desire for less or complete removal of the native XML processing that remains
+         within the browser. While current applications and backlash have prevented such removal,
+         the days of XML in the browser feel numbered.</para><para>Meanwhile, XML has served a purpose for many information publishers. Tag sets, both
+         custom and standardized, have been developed to encode enormous amounts of data. Within
+         enterprises, processing pipelines that produce, validate, manipulate, and otherwise consume
+         this data have had their benefits. It has become <emphasis>very normal</emphasis> to
+         transform these documents into the appropriate HTML markup for delivery to whatever
+         consumer is on the other end of that HTTP connection.</para><para>Yet, as Web developers and browser vendors seem to be moving away from custom markup,
+         they seem to realize they are missing something.  Making the <emphasis role="ital">Open Web
+            Platform</emphasis> extensible means that behaviors that need to accompany information
+         need to packaged as reusable components.  That is, information needs to have markup that
+         identifies it as a specific kind of information whose scripts, templates, and styling are
+         identifiable and loadable over the Web.</para></section><section><title>Hyphens to the Rescue</title><para>Once the desire for extensible markup, outside of the direct control of either the W3C
+         or browser vendors, was recognized, the concept of custom elements was introduced and
+         eventually formalized <citation>custom-elements</citation>. For HTML parsing purposes, the
+         essential distinction is that a custom element's name contains a hyphen—not a colon. This
+         allows custom element names to be distinguished from those within HTML itself and the only
+         notable exceptions are the handful of element names in SVG and MathML that contain a
+         hyphen.</para><para>In common usage, custom elements of the same origin share a common
+            <emphasis>prefix</emphasis> followed by a hyphen (see <xref linkend="custom-ex"/>). That
+         prefix currently has no registration or association with any URI. As such, it is unlike XML
+         namespace prefixes which must be declared before being used.</para><figure xml:id="custom-ex"><title>Custom Element Example</title><programlisting xml:space="preserve">&lt;html xmlns="http://www.w3.org/1999/xhtml"&gt;
+  &lt;head&gt;...&lt;/head&gt;
+  &lt;body&gt;
+    <emphasis role="bold">&lt;db-article version="5.0"&gt;</emphasis>
+    <emphasis role="bold">&lt;db-title&gt;</emphasis>Foreshadowing<emphasis role="bold">&lt;/db-title&gt;</emphasis>
+    <emphasis role="bold">&lt;db-section&gt;</emphasis>
+      <emphasis role="bold">&lt;db-title&gt;</emphasis>Wondering<emphasis role="bold">&lt;/db-title&gt;</emphasis>
+      <emphasis role="bold">&lt;db-para&gt;</emphasis>I wonder where is this paper is going?<emphasis role="bold">&lt;/db-para&gt;</emphasis>
+    <emphasis role="bold">&lt;/db-section&gt;</emphasis>
+    <emphasis role="bold">&lt;/db-article&gt;</emphasis>
+  &lt;/body&gt;
+&lt;/html&gt; </programlisting></figure><para>The use of custom elements goes beyond just syntax as it also provides an API for
+         registering behaviors with the browser for the markup. During parsing, the DOM construction
+         process assigns certain classes to recognized markup (e.g.
+            <code>HTMLParagraphElement</code> is used for the <code>p</code> element). When an
+         unrecognized element is encountered (i.e. a custom element), it is initially constructed as
+            <code>HTMLUnknownElement</code>.</para><para>A script can register with the document a prototype that defines a new behavior or
+         assigns an existing HTML behavior to a custom element. For example, the
+            <code>db-para</code> could simply be registered as an HTML paragraph as shown in <xref linkend="register-ex"/>. The DOM object for the element is subsequently replaced with a
+         new instance of the appropriate type and the behaviors of that element are now
+         accessible.</para><figure xml:id="register-ex"><title>Registering a Custom Element</title><programlisting xml:space="preserve">document.register("db-para",{ prototype: HTMLParagraphElement.prototype });
+document.register("db-title",{ prototype: HTMLHeadingElement.prototype });
+document.register("db-programlisting",{ prototype: HTMLPreElement.prototype });</programlisting></figure><para>In simple cases, an element registered as a custom element with one of the available
+         HTML prototypes inherits some of the custom behaviors. In testing, it is unlikely that
+         default styling will automatically be applied (e.g. using
+            <code>HTMLPreElement.prototype</code> doesn't guarantee <code>pre</code> element
+         styling). Yet, in some cases, styling does occur and so the behavior is inconsistent and
+         seems to be implementation defined.  One can imagine that a consistent, reliable behavior
+         is the goal and this will sort itself with time.</para><para>Moreover, registration can go far beyond such simple associations of name to pre-defined
+         prototypes. A script can register a custom prototype to provide specific behaviors. The
+         prototype provided must contain a function via a <code>createdCallback</code> property that
+         will perform any additional initialization of the element. Other similar mechanism are
+         available for maintaining the element throughout its life cycle.</para><para>For example, in <xref linkend="highlight-ex"/>, the callback applies a JavaScript-based
+         syntax highlighter (<emphasis role="ital">highlight.js</emphasis>
+         <citation>highlightjs</citation>) to the contents of the element. Once the element is
+         re-created within the DOM with this prototype, the callback function executes with the
+         value of <code>this</code> assigned to the element. In this particular example, this means
+         the <code>db-programlisting</code> element is constructed with the prototype and the
+         callback adds the syntax highlighting.</para><figure xml:id="highlight-ex"><title>Auto-highlighting Code</title><programlisting xml:space="preserve">document.registerElement(
+   "db-programlisting",
+   { prototype:  
+       Object.create(HTMLPreElement.prototype, {
+          createdCallback: {
+             value: function() {
+                hljs.highlightBlock(this);
+             }
+          }
+       })
+   }
+);</programlisting></figure><para>Often, the structured information of an element doesn't directly match the desired
+         rendering.  The use of HTML Templates (part of the HTML5 specification) provides the
+         ability to package and use structured layouts for the display of custom elements. A
+         template is a portion of markup that is wrapped by a <code>template</code> element that can
+         be used to construct new content programmatically. One main use for templating is to avoid
+         manual construction of elements by either parsing or direct DOM method calls.</para><para>For example, in <xref linkend="reordering-ex"/>, the template for a figure is listed.
+         The <code>content</code> element specifies where contained content should be placed. In
+         this example, the <code>select</code> attribute is used to specify which child elements
+         should be used. The result of this example is reordering the children of
+            <code>db-figure</code> so that the title is last.</para><figure xml:id="reordering-ex"><title>Reordering via Templates</title><programlisting xml:space="preserve">&lt;template id="db-figure"&gt;
+  &lt;content select="db-mediaobject"&gt;&lt;/content&gt;
+  &lt;content select="db-title"&gt;&lt;/content&gt;
+&lt;/template&gt;</programlisting></figure><para>The registered prototype must use the template and the <emphasis role="ital">Shadow DOM</emphasis>
+         <citation>shadowdom</citation> to affect the rendering of the element. The Shadow DOM
+         provides the ability to create a rendering based on elements not shown to the user. When
+         the user inspects the displayed element (or its source), they will only see the custom
+         element. Inside the browser, a "shadow element" is used to structure and render the same
+         information where the shadow element is only accessible via scripting or styling embedded
+         within the template.</para><para>An example of using a template for the <code>db-figure</code> element is shown in <xref linkend="using-templates"/>. The callback constructs a Shadow DOM for the current
+         element and appends content. The content is structured via the template shown in <xref linkend="reordering-ex"/>. The consequence is the current sub-tree for
+            <code>db-figure</code> is rendered using the newly constructed Shadow DOM.</para><figure xml:id="using-templates"><title>Using Templates</title><programlisting xml:space="preserve">var componentDocument = document.currentScript.ownerDocument;
+document.registerElement(
+   "db-figure",
+   { prototype:  
+       Object.create(HTMLDivElement.prototype, {
+          createdCallback: {
+             value: function() {
+                var t = componentDocument.getElementById("db-figure");
+                var clone = document.importNode(t.content, true);
+                this.createShadowRoot().appendChild(clone);
+             }
+          }
+      })
+   }
+);</programlisting></figure><para>Finally, we can package our script, templates, and any styling via <emphasis role="ital">HTML
+            Imports</emphasis>
+         <citation>html-imports</citation>.  The imported document is simply another HTML document
+         whose scripts, styles, and templates become available to the current document.  The import
+         is invoked by a simple <code>link</code> element with <code>rel</code> attribute value of
+               <quote><code>import</code></quote> in the importing document (see <xref linkend="import-ex"/>).</para><para>The imported document packages the Web Component by linking to the necessary scripts and
+         stylesheets while containing any templates that are used by those scripts. The example in
+            <xref linkend="packaged-ex"/> shows the structure used to package the previous examples.
+         The scripts and stylesheets for the highlighter are included using the same mechanism
+         already known to Web developers.</para><para>As a nuance, the script registering the custom elements and the templates are in
+         collusion within this imported document.  At the very start of the example in <xref linkend="using-templates"/>, the expression
+            <code>document.currentScript.ownerDocument</code> is used to obtain the correct document
+         for retrieving the templates.  If the component is packaged differently, retrieving the
+         template might be more difficult or impossible.</para><figure xml:id="import-ex"><title>Importing a Document</title><programlisting xml:space="preserve">&lt;html xmlns="http://www.w3.org/1999/xhtml"&gt;
+  &lt;head&gt;
+     &lt;link rel="import" href="db-component.xhtml"/&gt;
+  &lt;/head&gt;
+  &lt;body&gt;
+  ...
+  &lt;/body&gt;
+&lt;/html&gt;</programlisting></figure><figure xml:id="packaged-ex"><title>Packaged Component</title><programlisting xml:space="preserve">&lt;html xmlns="http://www.w3.org/1999/xhtml"&gt;
+  &lt;head&gt;
+    &lt;title&gt;DocBook Component&lt;/title&gt;
+    &lt;link rel="stylesheet" type="text/css" href="db-component.css"/&gt;
+    &lt;link rel="stylesheet" href="http://yandex.st/highlightjs/8.0/styles/default.min.css"/&gt;
+    &lt;script type="text/javascript" 
+            src="http://yandex.st/highlightjs/8.0/highlight.min.js"&gt;&lt;/script&gt;
+  &lt;/head&gt;
+  &lt;body&gt;
+     &lt;template id="db-article"&gt;
+     ...
+     &lt;/template&gt;
+     ...
+  &lt;/body&gt;
+&lt;/html&gt;</programlisting></figure><para>In summary, Web Components relies on four essential features:</para><orderedlist><listitem><para><emphasis role="ital">Custom Elements</emphasis> — a specification that is in <quote>Last
+                  Call</quote> and may enter CR in 2014.</para></listitem><listitem><para><emphasis role="ital">HTML Templates</emphasis> — part of HTML5 (see <link xlink:href="http://www.w3.org/TR/html/scripting-1.html#the-template-element" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">§4.12.3 The template element</link>) that is in CR as of February 04,
+               2014.</para></listitem><listitem><para><emphasis role="ital">Shadow DOM</emphasis> — a specification that is a working
+               draft.</para></listitem><listitem><para><emphasis role="ital">HTML Imports</emphasis> — a specification that is a working draft and
+               volatile.</para></listitem></orderedlist></section><section><title>Pandora's Box?</title><para>As the features of Web Components coalesce and become part of the commonly deployed
+         browser, there is little anyone can do to prevent their use. An author can simply import a
+         Web Component of their choice, custom or shared, and the browser can do little more than
+         execute the associated semantics within the bounds of the Open Web Platform. That allows
+         anyone to develop custom markup to encapsulate their information in much the same way was
+         hoped for with XML.</para><para>There are two notable differences between now (2014) and 1998:</para><orderedlist><listitem><para>The browser, as a component of the Open Web Platform, is much more stable,
+               technologically advanced, and well understood.</para></listitem><listitem><para>Web Components utilize the Open Web Platform to package semantics in a much more
+               extensive way that is compatible with <emphasis>how browsers actually
+               work</emphasis>.</para></listitem></orderedlist><para>An unscientific look at the current opinions of the use of Web Components indicates it
+         may become hugely popular. While only time will actually determine the outcome, the Shadow
+         DOM and HTML Templates are very useful. Accessing them within Custom Elements provides
+         needed encapsulation to Web applications and so their intended use in that context makes a
+         lot of sense.</para><para>Yet, we don't have to use Web Components to package semantics for custom markup that is
+         limited to specialized uses. That is, with relative ease, we can transliterate whole XML
+         documents into custom elements, wrap them with a few lines of HTML markup, and the browser
+         will load and process the custom elements as specified. Is this abuse, a practice that
+         isn't recommended, or should a thousand custom elements bloom?</para><para>Let's open Pandora's box and see whether what is inside is truly evil. We will take
+         DocBook, a known vocabulary for documents (books, articles, etc.), and turn the markup into
+         a set of Web Components. We will demonstrate how easy the transliteration is to perform and
+         show a few interesting results.</para></section><section><title>The DocBook Web Component</title><para>Turning any arbitrary XML document into an HTML document as a Web Component requires on
+         three essential steps:</para><orderedlist><listitem><para>Prefix every element with a constant prefix and hyphen that can be associated with
+               the element's namespace.</para></listitem><listitem><para>Develop stylesheets, templates, and scripts that encapsulate the desired
+               behavior.</para></listitem><listitem><para>Wrap the document in the minimum amount of HTML bootstrapping necessary to deliver
+               the Web Component to the browser.</para></listitem></orderedlist><figure xml:id="transform-xproc"><title>Transformation Pipeline</title><programlisting xml:space="preserve">&lt;p:declare-step xmlns:p="http://www.w3.org/ns/xproc"
+   xmlns:h="http://www.w3.org/1999/xhtml"
+   version="1.0"
+   name="top"&gt;
+
+   &lt;p:input port="source"/&gt;
+   &lt;p:output port="result"/&gt;
+
+   &lt;!-- directly process the wrapper and replace the content
+        element with the translated DocBook elements --&gt;
+   &lt;p:viewport <emphasis>match="h:content"</emphasis>&gt;
+      &lt;p:viewport-source&gt;
+         &lt;p:document <emphasis>href="wrapper.xhtml"</emphasis>/&gt;
+      &lt;/p:viewport-source&gt;
+
+      &lt;!-- transliterate the DocBook elements --&gt;
+      &lt;p:xslt&gt;
+         &lt;p:input port="source"&gt;
+            &lt;p:pipe port="source" step="top"/&gt;
+         &lt;/p:input&gt;
+         &lt;p:input port="parameters"&gt;&lt;p:empty/&gt;&lt;/p:input&gt;
+         &lt;p:input port="stylesheet"&gt;
+            &lt;p:document <emphasis>href="db-content.xsl"</emphasis>/&gt;
+         &lt;/p:input&gt;
+      &lt;/p:xslt&gt;
+
+   &lt;/p:viewport&gt;
+    
+&lt;/p:declare-step&gt;</programlisting></figure><para>For example, in the specific case of DocBook, we would do the follow:</para><orderedlist><listitem><para>Transform the document by changing every DocBook element name to a name with
+                     <quote><code>db-</code></quote> prefix with no namespace. Also, copy any MathML
+               or SVG to the output and pay specific attention to the serialization (HTML without a
+               namespace or XHTML with a namespace). </para></listitem><listitem><para>Implement Web Components for common constructions like xref,
+               mediaobject/imageobject/imagedata, link, etc. and develop CSS stylesheets for the
+               rest. Package this component as a single document (see <xref linkend="packaged-ex"/>).</para></listitem><listitem><para>Wrap the document in the minimum markup (see <xref linkend="import-ex"/>).</para></listitem></orderedlist><para>In addition, we'd like to retain some aspect of identity of the namespace from the
+         original XML. To do so, we will add an RDFa <citation>rdfa</citation>
+         <code>typeof</code> attribute on the root element whose value is the namespace URI. This
+         will allow a consuming application to identify the custom element by type rather than a
+         fixed prefix. Hence, on the root custom element for DocBook (e.g. <code>db-article</code>),
+         a <code>typeof</code> attribute will contain the value
+               <quote><code>http://docbook.org/ns/docbook</code></quote>.</para><para>This process was implemented using the simple XProc <citation>xproc</citation> pipeline
+         shown in <xref linkend="transform-xproc"/> where the transformed document is inserted in
+         the wrapper (see <xref linkend="wrapper"/>) as a replacement for the <code>content</code>
+         element. The transformation is simply a set of renaming rules with the main two rules shown
+         in <xref linkend="main-xslt"/>.</para><figure xml:id="wrapper"><title>Wrapper Document</title><programlisting xml:space="preserve">&lt;html xmlns="http://www.w3.org/1999/xhtml"&gt;
+  &lt;head&gt;
+     &lt;link rel="import" href="db-component.xhtml"/&gt;
+  &lt;/head&gt;
+  &lt;body&gt;
+    &lt;content/&gt;
+  &lt;/body&gt;
+&lt;/html&gt;</programlisting></figure><figure xml:id="main-xslt"><title>Main XSLT Rules</title><programlisting xml:space="preserve">&lt;xsl:template match="/db:*"&gt;
+   &lt;xsl:element name="db-{local-name()}" namespace="http://www.w3.org/1999/xhtml"&gt;
+      &lt;xsl:attribute name="typeof"&gt;&lt;xsl:value-of select="namespace-uri()"/&gt;&lt;/xsl:attribute&gt;
+      &lt;xsl:apply-templates select="@*|node()"/&gt;
+   &lt;/xsl:element&gt;
+&lt;/xsl:template&gt;
+   
+&lt;xsl:template match="db:*"&gt;
+   &lt;xsl:element name="db-{local-name()}" namespace="http://www.w3.org/1999/xhtml"&gt;
+      &lt;xsl:apply-templates select="@*|node()"/&gt;
+   &lt;/xsl:element&gt;
+&lt;/xsl:template&gt;</programlisting></figure><para>In terms of what these custom elements might provide to a user, some behaviors for
+         DocBook that require scripting are:</para><itemizedlist><listitem><para>Links (e.g. link or xref).</para></listitem><listitem><para>Auto-numbering of sections, figures, etc.</para></listitem><listitem><para>Display of media objects (e.g. imageobject/imagedata).</para></listitem><listitem><para>Generated text for cross references (e.g. turn xref into "Figure 2.1 ...").</para></listitem><listitem><para>Auto-generation of a table of contents and other navigation.</para></listitem><listitem><para>Syntax highlighting in programlistings and other code.</para></listitem></itemizedlist><para>These features were implemented<footnote xml:id="github-fn"><para>The implementation is available at <link xlink:href="https://github.com/alexmilowski/db-component" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">github / alexmilowski /
+                  db-component</link>.</para></footnote> and tested in Chrome (the only browser currently implementing Web
+            Components<footnote xml:id="flags-fn"><para>It is necessary to turn on experimental features in Chrome to use Web Components.
+               The flags that need to be enabled are: <itemizedlist><listitem><para><emphasis role="ital">Enable experimental Web Platform
+                           features</emphasis> - required for Custom Elements and the Shadow
+                        DOM.</para></listitem><listitem><para><emphasis role="ital">Enable HTML Imports</emphasis> - required to use
+                        imports for importing the component definitions and various code or
+                        stylesheets.</para></listitem></itemizedlist></para></footnote>). In total, the implementation was 235 lines of JavaScript, 76 lines of CSS,
+         and a 67 line HTML document with none of these resources having been compressed or
+         otherwise optimized. The implementation also includes <code>highlight.js</code> via the
+         HTML import and programmatically adds MathJax <citation>mathjax</citation> for rendering
+         MathML.</para><para>At present, there are some notable issues implementing a set of Web Components and using
+         HTML Imports:</para><itemizedlist><listitem><para>MathJax was not able to be included via the import. The method it uses to
+               determine the base URI cannot find the script reference in the imported document.
+               MathJax isn't <quote>HTML import aware</quote> at this point in time. As such,
+               MathJax added scripts and stylesheets aren't hidden in the imported document but,
+               instead, are programmatically added to the importing document.</para></listitem><listitem><para>Implementing links was harder than expected. Just associating the prototype
+                  <code>HTMLAnchorElement</code> with the element does not induce some minimal
+               linking behavior. Further, using a template that wraps the content with an HTML
+               anchor in the Shadow DOM is more complicate as there is no way to automatically copy
+               attributes (e.g. the URI in the <code>href</code> attribute) and some default
+               behaviors (e.g. a mouse pointer) aren't automatic. Further, clicking had no effect
+               and a custom event handler had to be added.</para></listitem><listitem><para>The division between the stylesheet within each template and the overall
+               stylesheet is a bit tricky.</para></listitem><listitem><para>There is a lot more to be done to handle the full life cycle of the elements. That
+               is, if other scripts manipulate the custom elements <emphasis role="ital">in
+                  situ</emphasis>, the components (e.g. the auto-generated navigation) may need
+               to update themselves.</para></listitem></itemizedlist><para>Web components can also be used within other browsers by using the Polymer Platform
+            <quote>polyfill</quote>
+         <citation>platform</citation>. This JavaScript library provides implementations of various
+         Web Components specifications for the Firefox, Safari, and IE browsers. Unfortunately, at
+         this time (July 2014), this library fails to work with the DocBook example:</para><itemizedlist><listitem><para>Firefox crashes almost immediately.  This seems to have something to do with the
+               generation of the table of contents navigation.</para></listitem><listitem><para>Safari fails with an JavaScript error.</para></listitem></itemizedlist></section><section><title>The Evolving Web</title><para>Web Components is a promising technology for delivering packaged semantics for general
+         markup.  It succeeds in many places where previous attempts with XML in the browser have
+         failed.  That it is somewhat of a reality today is ever more exciting.</para><para>Yet, the mechanisms for which a browser or resource consumer can recognize the use of a
+         particular set of custom elements is fraught with problems. The inability to identify the
+         prefix used in constructing the element names, associate that prefix with some URI, or to
+         protect content from collisions with other custom elements is going to be an immediately
+         painful experience. Authors and publishers will want to mix content from different sources
+         outside of their control and custom elements will make that increasingly harder.</para><para>XML has a partial solution for identifying and uniquely naming elements to avoid
+         collisions. Yet, that solution allows arbitrary complexity without sufficient gains in
+         functionality and was rejected by many in the various Web developer communities. Yet, one
+         can't help but feel like a colon was swapped for a hyphen and we lost something in the
+         exchange.</para><para>In the end, Web Components lets us deliver XML documents, transliterated, and packaged
+         with their semantics. The mechanisms of the Shadow DOM and scripting allow the markup used
+         for rendering to have a interactive and integrated mechanism for live manipulation within
+         the browser. HTML imports and templates enabling packaging of these semantics into a single
+         resource.</para><para>Even though Web Components, HTML5, and scripting isn't necessarily how we all may have
+         imagined XML on the Web in 1998, their combination is sufficient to accomplish real work
+         with markup within the Open Web Platform. The Web has evolved and XML may be evolving along
+         with it. It is a reality that we affectionately call the <quote>Prague
+         Compromise</quote>.</para><blockquote><para>He put on his skis, straightened himself up, and remained standing there for some
+            time; as he pulled on his mittens he took one glance homeward. He could just make out
+            the house in the dim distance. Then the whiteness all around it thickened—rose up in a
+            cloud—seemed to be piling in. ... Perhaps it wasn't so dangerous, after all. The wind
+            had been steady all day, had held in the same quarter, and would probably keep on ...
+            Oh, well—here goes!</para><para>...</para><para>On one of the hillsides stood an old haystack which a settler had left there when he
+            found out that the coarse bottom hay wasn't much good for fodder. One day during the
+            spring after Hans Olsa had died, a troop of young boys were ranging the prairies, in
+            search of some yearling cattle that had gone astray. They came upon the haystack, and
+            stood transfixed. On the west side of the stack sat a man, with his back to the
+            mouldering hay. This was in the middle of a warm day in May, yet the man had two pairs
+            of skis along with him; one pair lay beside him on the ground, the other was tied to his
+            back. He had a heavy stocking cap pulled well down over his forehead, and large mittens
+            on his hands; in each hand he clutched a staff ... To the boys, it looked as though the
+            man were sitting there resting while he waited for better skiing ... His face was ashen
+            and drawn. His eyes were set toward the west.</para><attribution>Giants in the Earth: A Saga of the Prairie, O. E. Rölvaag (1924)</attribution></blockquote></section><bibliography><title>Bibliography</title><bibliomixed xml:id="balisage-2009">
+         <quote>XML in the Browser: the Next Decade</quote>, R. Alexander Milowski, Balisage: The Markup Conference 2009, 2009-08; see also <link xlink:href="http://www.balisage.net/Proceedings/vol3/html/Milowski01/BalisageVol3-Milowski01.html" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.balisage.net/Proceedings/vol3/html/Milowski01/BalisageVol3-Milowski01.html</link>. doi:<biblioid class="doi">10.4242/BalisageVol3.Milowski01</biblioid>
+      </bibliomixed><bibliomixed xml:id="html5">
+         <quote>HTML5</quote>, W3C, 2013-09-06, Robin Berjon, Steve Faulkner, Travis Leithead, Erika Doyle Navara, Edward O'Connor, Silvia Pfeiffer, and Ian Hickson; see also <link xlink:href="http://www.w3.org/TR/html/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/html/</link>
+      </bibliomixed><bibliomixed xml:id="custom-elements">
+         <quote>Custom Elements</quote>, W3C, 2014-04-28, Dimitri Glazkov; see also <link xlink:href="http://www.w3.org/TR/custom-elements/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/custom-elements/</link>
+      </bibliomixed><bibliomixed xml:id="highlightjs">
+         <quote>highlight.js</quote>, Ivan Sagalaev, Jeremy Hull, Oleg Efimov; see also <link xlink:href="http://highlightjs.org" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://highlightjs.org</link>
+      </bibliomixed><bibliomixed xml:id="shadowdom">
+         <quote>Shadow DOM</quote>, W3C, 2014-04-25, Dimitri Glazkov; see also <link xlink:href="http://www.w3.org/TR/shadow-dom/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/shadow-dom/</link>
+      </bibliomixed><bibliomixed xml:id="html-imports">
+         <quote>HTML Imports</quote>, W3C, 2014-03-11, Dimitri Glazkov and Hajime Morrita; see also <link xlink:href="http://www.w3.org/TR/html-imports/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/html-imports/</link>
+      </bibliomixed><bibliomixed xml:id="rdfa">
+         <quote>RDFa Core 1.1</quote>, W3C, 2012-06-07, Ben Adida, Mark Birbeck, Shane McCarron, and Ivan Herman; see also <link xlink:href="http://www.w3.org/TR/rdfa-core/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/rdfa-core/</link>
+      </bibliomixed><bibliomixed xml:id="xproc">
+         <quote>XProc: An XML Pipeline Language</quote>, W3C, 2010-05-11, Norman Walsh, Alex Miłowski, and Henry S. Thompson; see also <link xlink:href="http://www.w3.org/TR/xproc/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/xproc/</link>
+      </bibliomixed><bibliomixed xml:id="mathjax">
+         <quote>MathJax</quote>, Davide Cervone, Christian Perfect, and Peter Krautzberger; see also <link xlink:href="http://www.mathjax.org/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.mathjax.org/</link>
+      </bibliomixed><bibliomixed xml:id="platform">
+         <quote>Polymer Project</quote>; see also <link xlink:href="https://github.com/polymer" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">https://github.com/polymer</link>
+      </bibliomixed></bibliography></article>

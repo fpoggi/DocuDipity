@@ -1,0 +1,1022 @@
+<?xml version="1.0" encoding="UTF-8"?><article xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink" version="5.0-subset Balisage-1.3" xml:id="HR-23632987-8973"><title>The FtanML Markup Language</title><info><confgroup><conftitle>Balisage: The Markup Conference 2013</conftitle><confdates>August 6 - 9, 2013</confdates></confgroup><abstract><para>This paper presents a new markup language called FtanML, together with an
+                associated schema language called FtanGram, and a query/transformation language
+                called FtanSkrit. FtanML was originally designed by a group of students taught by
+                the author, together with Stephanie Haupt, at a summer school held in the Swiss
+                village of Ftan in August 2012. It has since been taken forward by the author with
+                some further involvement by the students. The idea of FtanML is to rethink markup
+                from the ground up: to imagine what the world could be like if we didn't have to
+                carry forward the mistakes of the past; to take what works well in current
+                languages, and discard the features that do little more than add complexity. More
+                mundanely, FtanML can be seen as a blend of ideas from XML and JSON: neither the
+                union nor the intersection of the two, but a new language that combines the best
+                features of both.</para></abstract><author><personname><firstname>Michael</firstname><surname>Kay</surname></personname><personblurb><para>Michael Kay has been developing the Saxon product since 1998, initially as
+                        a spare-time activity at ICL and then Software AG, but since 2004 within the
+                        Saxonica company which he founded. He holds a Ph.D from the University of
+                        Cambridge where he studied databases under the late Maurice Wilkes, and
+                        spent 24 years with ICL, mainly working on the development of database
+                        software. He is the editor of the W3C XSLT specification. The FtanML project
+                        is totally separate from any W3C or Saxonica activities.</para></personblurb><affiliation><orgname>Saxonica</orgname></affiliation><!--<address><city>Reading</city> <country>UK</country></address>--><email>mike@saxonica.com</email></author><keywordset role="author"><keyword>Markup Languages</keyword><keyword>Schema Languages</keyword><keyword>Document Processing Languages</keyword></keywordset></info><section><title>Introduction</title><para>Whereas the computing community invents a new programming language almost every week,
+            and the best ideas from these many experiments find their way into perhaps one
+            programming language a year that sees the light of day outside the project that
+            conceived it, new markup languages are rather rare, and most attempts to create them
+            (such as the MicroXML project<xref linkend="ref1"/>) have self-imposed constraints of compatibility that
+            limit the freedom of the designers to find new ways of doing things, even in areas where
+            existing designs are universally acknowledged to be problematic.</para><para>Invited to run a course at a summer school in August 2012 for a high-achieving group
+            of German undergraduates, I decided to take the opportunity to remedy this. While
+            enjoying the thin air of the Swiss Alps in the Romansch-speaking village of Ftan at
+            1700m above sea level, the students spent the first week learning the technologies in
+            the XML stack, and the second week designing a replacement. The result was FtanML. <footnote><para>Ftan is a place name, not an acronym, and while words beginning "Ft" are
+                    uncommon in English, the pronunciation comes easily with practice.</para></footnote></para><section><title>FtanML Goals</title><para>Some of the design goals the students set themselves at the end of the first week
+            were:</para><para>
+            <itemizedlist><listitem><para>The language would be as good as JSON<xref linkend="ref3"/> in handling typed data, and as good
+                        as XML in handling documents.</para></listitem><listitem><para>The language would be more concise than XML, while still being
+                        human-readable.</para></listitem><listitem><para>Both a syntax and a data model would be defined; the data model must map
+                        readily to data structures available in most modern programming
+                        languages.</para></listitem></itemizedlist>
+        </para><para>Perhaps as important was a non-goal of which we had to remind ourselves frequently:
+            compatibility with the past was not an objective. We did not want to repeat other
+            people's mistakes for the sake of compatibility, whether at the level of documents,
+            parsers, APIs, editing tools, or simply user expectations. Associated with this goal was
+            the implicit decision that we would not compromise technical quality in the interests of
+            market acceptance. The aim was to do it right, and we would not measure success by the
+            level of adoption. Having said that, there was no point in being needlessly different
+            when there was nothing wrong with existing designs.</para><para>During the second week of the course we defined the FtanML markup language and object
+            model, and implemented a parser using JavaCC. In the weeks after the course, some of the
+            students rewrote the parser in Scala, and together we worked on extending the system
+            with a type/constraint language. Inevitably, with the students dispersed to their
+            various institutions, momentum was lost, but I decided that there were enough good ideas
+            that it was worth bringing the design to some kind of completion. This paper provides an
+            overview of the language rather than a complete specification (which remains as work to
+            be done). A Scala implementation covering a significant subset is available at
+            [2].</para></section><section><title>Requirements Background</title><para>XML has been remarkably successful and is widely used. It meets a wide variety of needs,
+                achieves a high level of interoperability, and is not expensive to implement. </para><para>Nevertheless, over a period of 15 years' use, the drawbacks and limitations of XML
+            have become well known, and are acknowledged by XML's critics and enthusiasts alike. Perhaps
+            the most notable limitations and frustrations are:</para><itemizedlist><listitem><para>XML has been widely adopted as a serialization format for structured data, but
+                    its data model has a poor fit to the type systems of most popular programming languages.
+                    Hence alternatives such as JSON and YAML<xref linkend="ref4"/>.</para></listitem><listitem><para>XML is over-complex. Many of its features are rarely used, or used only in very
+                        simple ways, but still make everything more complicated. Hence MicroXML.</para></listitem><listitem><para>XML cannot handle overlap or graph structures. Hence LMNL<xref linkend="ref5"/> and GODDAG<xref linkend="ref6"/>.</para></listitem><listitem><para>XML is verbose and inefficient. Hence the various Binary XML contenders,
+                        including Fast Infoset<xref linkend="ref7"/> and EXI<xref linkend="ref8"/>, as well as the adoption of custom non-XML syntax
+                    for various applications such as RelaxNG and RDF in direct competition with an
+                    XML syntax for the same information.</para></listitem><listitem><para>XML is syntax without an agreed data model. No-one knows, for example, whether
+                    CDATA sections should be treated as information-bearing or not. Similarly for comments.
+                    Hence the myriad XML data models such as DOM and XDM, all of them different.</para></listitem></itemizedlist><para>So there's clearly room for improvement. A standard, once entrenched, rarely gives way 
+                to a technically superior alternative: the
+                QWERTY keyboard is an oft-cited example, and XML will probably be no exception. However,
+                there's room for diversity, and the aim of this exercise is to explore
+            what is possible. It doesn't tackle all the problems noted above (for example, there's nothing
+            on overlap or graph structures); but it tries to address most of them.</para></section></section><section><title>FtanML: The Markup Language</title><para>This section presents the syntax of FtanML. We'll present the "data-only" core of the
+            language at this stage, but with some forwards references to how the language is
+            subsequently extended to enable active scripting of documents.</para><para>A document (the unit of input to the parser) is a sequence of Unicode characters
+            conforming to the grammar defined in this section. The encoding of characters as octets
+            (or as scratches on clay tablets) is out of scope — it belongs in a different layer of
+            the protocol stack. But if in doubt, UTF-8 is recommended.</para><para>The document must match the <code>value</code> production.</para><programlisting xml:space="preserve">
+value ::= null | boolean | number | string | list | element | richText
+        </programlisting><para>As this production shows, there are seven kinds of value, which we will present in
+            turn, starting with the simplest. The term "rich text" means text with interspersed
+            markup: what the markup community traditionally calls "mixed content".</para><para>Later we will introduce an eighth kind of value, namely functions. But first, let's
+            start with an example.</para><section><title>FtanML Example: the Purchase Order</title><para>This is what the purchase order from the XML Schema Primer<xref linkend="ref2"/> might look like in FtanML.</para><programlisting xml:space="preserve">&lt;purchaseOrder 
+   orderDate="1999-10-20" 
+   shipTo = &lt;country="US" [
+      &lt;name "Alice Smith"&gt;
+      &lt;street "123 Maple Street"&gt;
+      &lt;city "Mill Valley"&gt;
+      &lt;state "CA"&gt;
+      &lt;zip 90952&gt;
+   ]&gt;
+   billTo = &lt;country="US" [
+      &lt;name "Robert Smith"&gt;
+      &lt;street "8 Oak Avenue"&gt;
+      &lt;city "Old Town"&gt;
+      &lt;state "PA"&gt;
+      &lt;zip 95819&gt;
+   ]&gt;
+   comment = |&lt;emph |Hurry|&gt;, my lawn is going wild|
+   items = [
+      &lt;  partNum="872-AA"
+         productName="Lawnmower"
+         quantity=1
+         USPrice=148.95
+         comment=|Confirm this is &lt;strong |electric|&gt;|
+      &gt;
+      &lt;  partNum="926-AA"
+         productName="Baby Monitor"
+         quantity=1
+         USPrice=39.98
+         shipDate="1999-05-21"
+      &gt;
+   ]
+&gt;</programlisting><para>This example follows the example given in the XML Schema Primer very closely; I've
+                only made one change, which is to use rich text in the comment fields. Let's compare
+                it with the XML version:</para><itemizedlist><listitem><para>End tags reduce to a simple "&gt;".</para></listitem><listitem><para>The content of an element, and the content of an attribute, can be either
+                        a string (in single or double quotes), a number, a boolean (not used in this
+                        example), rich text (delimited with vertical bars), an element, or a list of
+                        elements (inter alia). When elements have element content, the child
+                        elements are enclosed in a list marked by square brackets.</para></listitem><listitem><para>Since an attribute
+                        can contain anything an element can contain, it's possible to use structured attributes, and I have
+                        taken advantage of this. 
+                        I have chosen to use attributes rather than child elements in cases where ordering does not
+                    matter, and where there is only one child of the parent element with a given name: specifically
+                    for the top-level properties of a purchase order, and for the properties of each item. Where
+                    there is some significance in the ordering, as with the components of an address, I chose
+                    to use child elements.</para></listitem><listitem><para>In the list of items, the original XML has an element named
+                            <code>items</code>, whose children are all elements named
+                            <code>item</code>. Since the name of the child element is always the
+                        same, it is redundant, so I chose to leave it out: the content of the
+                            <code>items</code> attribute is now a list of anonymous elements.</para></listitem><listitem><para>There's a difference between a singleton and a list of length one. Lists
+                        are always explicitly marked with square brackets. That might be a little
+                        inconvenient for authors, but it makes life a lot easier for the programmer
+                        at the receiving end. (You could choose to allow the <code>items</code>
+                        attribute to contain a single item rather than a list if only one item has
+                        been ordered, but the program reading the data would then have to cater for
+                        both possibilities.)</para></listitem><listitem><para>For the purpose of the example I have followed the XML Schema Primer in
+                        defining the ZIP code as a number, though in reality it should be a string
+                        of digits, which is not the same thing.</para></listitem><listitem><para>There's no ambiguity about where whitespace is and is not significant. It's only significant if it
+                    appears in a string, or in rich text.</para></listitem></itemizedlist><para>If we compare this with how it might have been done in JSON, there are two main
+                differences. Firstly, JSON provides no satisfactory way to handle the mixed content
+                comments. Secondly, with JSON we would have to make a choice how to represent the
+                addresses: either use an object (i.e. a map), in which case ordering information is
+                lost, or use an array in which case the components have no names. A minor difference
+                with JSON, or at least with official JSON, is that we don't need quotes around the
+                element and attribute names.</para><para>Now let's look at the individual constructs of FtanML.</para></section><section><title>The null value</title><programlisting xml:space="preserve">
+null ::= "null"
+            </programlisting><para>There is a single value in this class, denoted by the keyword "null". It is
+                borrowed directly from JSON, but plays a wider part in the data model.</para></section><section><title>Boolean values</title><programlisting xml:space="preserve">
+boolean ::= "true" | "false"
+            </programlisting><para>There are two boolean values, denoted by the keywords "true" and "false".</para></section><section><title>Numeric values</title><programlisting xml:space="preserve">
+number ::= "-"? digits ("." digits)? ([eE] [+-]? digits)?
+digits ::= [0-9]+
+            </programlisting><para>The production rule for numbers is a little different from both the
+                    <code>DoubleLiteral</code> of XPath 2.0 (it requires digits both before and
+                after the decimal point), and the equivalent in JSON (it allows leading zeros). The
+                value space is not binary floating point, but decimal. Specifically, it is the set
+                of values that can be represented in the form <code>N * 10^M</code> where
+                    <code>N</code> and <code>M</code> are integers, and <code>N</code> is not a
+                multiple of ten. Implementations may impose limits on this infinite set.</para><para>Why decimals? Because that's what most human beings on the planet use in their
+                everyday lives. Floating-point binary is designed for machines, not for humans.
+                Also, because it survives round-trip conversion to and from text without ambiguity
+                or loss of precision. However, the use of decimals gives a problem with the design
+                goal that it should be easy to program using conventional programming languages. We
+                take a hit here: in the case of programming languages with no decimal data type,
+                numbers may be converted to whatever number system that language uses. But the
+                native language for processing FtanML, namely FtanSkrit, treats the values as
+                decimals.</para></section><section><title>Strings</title><programlisting xml:space="preserve">
+string ::= ('"' (charRep - '"')* '"') | ("'" (charRep - "'")* "'")
+charRep ::= (char - "\") | escape
+char ::= (any Unicode character)
+escape ::= (see prose)
+            </programlisting><para>Strings are enclosed in either double or single quotes. The value space for
+                strings is the set of all sequences of Unicode characters. In the FtanML
+                representation of a string, these characters are represented as themselves, except
+                in the case of characters that have a special meaning, notably the string delimiter,
+                and the escape character "\".</para><para>Escape sequences fall into a number of categories:</para><para>
+                <itemizedlist><listitem><para>Whitespace escapes: <code>\n</code>, <code>\r</code>, <code>\t</code>,
+                                <code>\s</code>, and <code>\S</code> represent newline, carriage
+                            return, tab, space, and non-breaking space respectively.</para></listitem><listitem><para>Formatting escapes: <code>\</code> followed by a sequence of
+                            whitespace characters represents nothing. This means that a FtanML
+                            editor can reformat the text for display purposes by inserting or
+                            removing escaped newlines without changing the actual content.</para></listitem><listitem><para>Special character escapes: <code>\\</code> for backslash,
+                                <code>\"</code> for quotation mark, <code>\'</code> for apostrophe,
+                                <code>\|</code> for vertical bar, <code>\`</code> for backtick,
+                                <code>\&lt;</code> for a left angle bracket, <code>\[</code> for a
+                            left square bracket, <code>\{</code> for a left curly brace.</para></listitem><listitem><para>Unicode codepoint escapes: <code>\xHHHHH;</code> represents the
+                            Unicode codepoint whose hexadecimal value is <code>HHHHH</code>. This
+                            may be any number of digits, followed by a semicolon. (Unlike JSON,
+                            non-BMP characters are represented by the actual codepoint, not by a
+                            surrogate pair.)</para></listitem><listitem><para>Cells: <code>\[§....§]</code> where <code>§</code> is any character
+                            that does not appear in the string. This is analogous to XML's CDATA
+                            section, except that it can also be used in attributes: it allows a
+                            literal string to appear without escaping of special characters. For
+                            example a sequence of four backslashes might be written
+                                <code>\[⟡\\\\⟡]</code>. Cells are handy for things such as regular
+                            expressions and Windows filenames, and for authoring papers that
+                            describe new markup languages.<footnote><para>It's called a cell because escaping is not allowed.</para></footnote></para></listitem></itemizedlist>
+            </para><para>The only characters that must be escaped in strings are <code>\</code>,
+                    <code>{</code> , and the character used as the string delimiter (<code>"</code>
+                or  <code>'</code>).  We'll come on to the significance of curly braces
+                later.</para></section><section><title>Lists</title><para>A list is a sequence of values. The values may be of any of the seven kinds (null,
+                boolean, number, string, list, element, or rich text).</para><para>The unabbreviated syntax is the same as for arrays in JSON:</para><programlisting xml:space="preserve">
+list ::= "[" (value ("," value)* )? "]"
+            </programlisting><para>For example, <code>[1, 3, "London", null]</code></para><para>Two abbreviations are allowed:</para><para>
+                <itemizedlist><listitem><para> Commas may be omitted, so <code>[1 2 3]</code> is equivalent to
+                                <code>[1,2,3]</code> and
+                                <code>[&lt;first&gt;&lt;last&gt;]</code> is
+                            equivalent to <code>[&lt;first&gt;,&lt;last&gt;]</code>.
+                        </para></listitem><listitem><para>The value <code>null</code> is implicit if there is nothing between
+                            two commas, or before the first comma, or after the last. So
+                                <code>[,,]</code> is equivalent to
+                            <code>[null,null,null]</code></para></listitem></itemizedlist>
+            </para><para>The effect of these two rules is that the abbreviated syntax for lists
+                becomes:</para><programlisting xml:space="preserve">
+lists ::= "[" ( value | ",")* "]"
+            </programlisting><para>Whitespace is needed between two values only where necessary to terminate a token; specifically, when
+            one value ends with an alphanumeric character and the next starts with an alphanumeric character.</para></section><section><title>Elements</title><para>Elements serve the same purpose as objects (maps) in JSON and elements in
+                XML.</para><programlisting xml:space="preserve">
+element ::= "&lt;" name? (name "=" value)* content? "&gt;"
+content ::= value
+            </programlisting><para>Elements have three parts: an optional name, a set of name/value pairs called
+                attributes, and an optional value referred to as the element's content.</para><para>The values of attributes can be of any type: not just strings as in XML, but
+                numbers, booleans, lists, elements, rich text. An attribute with the value null is
+                deemed equivalent to omitting the attribute.<footnote><para>This decision means that JSON is not a pure subset of FtanML, because JSON
+                        distinguishes an absent entry in an object from an entry whose value is
+                        null. However, the decision makes programming simpler, and makes sense
+                        semantically.</para></footnote></para><para>Attribute names within an element must be distinct.</para><para>Like attributes, the content value can be of any type.</para><para>As with lists, whitespace is needed only where necessary to terminate a
+                token.</para><para>We'll have more to say on element and attribute names later. For the moment,
+                suffice it to say that the name can be any non-empty string. If the name contains
+                special characters it can be written within backticks (a convention borrowed from
+                the SQL world).</para><para>Here are some examples of elements. (We haven't explained rich text yet, so we
+                won't use it in any of our examples):</para><para>
+                <table><caption><para>Examples of Elements</para></caption><thead><tr><th>Example</th><th>Explanation</th></tr></thead><tbody><tr><td>&lt;&gt;</td><td>An empty element (no name, attributes, or content)</td></tr><tr><td>&lt;br&gt;</td><td>An empty element named <code>br</code></td></tr><tr><td>&lt;age 23&gt;</td><td>An element whose name is <code>age</code> and whose content
+                                    value is the number 23</td></tr><tr><td>&lt;colors ["red", "green", "blue"]&gt;</td><td>An element whose name is <code>colors</code> and whose
+                                    content value is a list of three strings</td></tr><tr><td>&lt;x=0.13 y=0.57&gt;</td><td>An unnamed element containing two attributes, both
+                                    numeric</td></tr><tr><td>&lt;polygon coords=[[1,1], [1,3], [3,2]]&gt;</td><td>An element named <code>polygon</code> with an attribute named
+                                        <code>coords</code> whose content value is a list; the list
+                                    contains three sublists, and each sublist contains two
+                                    numbers.</td></tr><tr><td>&lt;[&lt;i&gt;&lt;j&gt;&lt;k&gt;]&gt;</td><td>An unnamed element whose content value is a list of three
+                                    elements. Note the omission of the optional commas.</td></tr><tr><td>&lt;`Graduate Trainee` `date of birth`="1995-01-01"&gt;</td><td>An element where both the element name and attribute name contain spaces.</td></tr></tbody></table>
+            </para></section><section><title>Rich Text</title><para>Rich Text (known in the XML world as mixed content) consists of characters and markup, 
+                or more specifically a sequence whose members are either characters or elements.</para><programlisting xml:space="preserve">
+richText ::= "|" (charRep | element) "|"
+            </programlisting><para>Rich text is written between vertical bars.<footnote><para>This is a change from the original FtanML design. Originally rich text was
+                        introduced by a vertical bar, and ended with the "&gt;" delimiter marking the
+                        end of the element. This design prevented rich text appearing as the value
+                        of an attribute, or being used as a value in the scripting language. The
+                        revised design restores orthogonality by allowing rich text to appear where
+                        any value can appear. </para></footnote></para><para>For example: <code>|H&lt;sub|2|&gt;O|</code> represents text consisting of the
+                character "H", an element whose name is <code>sub</code> and whose content is the
+                rich text "2", and the character "O".</para><para>Escapes can be used in rich text just as they can in strings. Any recognized
+                escape sequence may be used; the only characters that must be escaped are "\", "|",
+                "{", and "&lt;".</para></section><section><title>Whitespace</title><para>FtanML (unlike XML) is explicit about the difference between significant and
+                insignificant whitespace.</para><para>Whitespace appearing directly within a string or within rich text is significant
+                and is retained in the data model — except that a sequence of whitespace characters
+                preceded by a backslash is ignored (this is formatting whitespace, used only to make
+                the text more easily readable on screen or paper). Whitespace between tokens in a
+                list or element is insignificant and is not retained. Whitespace is never required
+                between tokens unless necessary for disambiguation.</para><para>Note that because elements may be embedded in rich text, these rules apply
+                recursively. Whitespace characters appearing between the tokens of an element that
+                itself appears within rich text are not significant; it is the immediate container
+                that matters. Support for rich text means that unlike JSON, this is not a two-level
+                grammar where it makes sense to think of a tokenization phase followed by a syntax
+                analysis phase, with whitespace being discarded during tokenization.</para></section><section><title>Names and Namespaces</title><para>As stated earlier, the name of an element or attribute may be any string. Names without
+                special characters are called simple names; those containing special characters must be
+                written with enclosing backticks (grave accent, x60), and are called quoted names.</para><para>The rule for a simple name is that it must begin with a letter or underscore, and
+                continue with letters, digits, or underscore. The terms "letter" and "digit" are
+                defined by reference to Unicode character categories.</para><para>A quoted name may use escaped characters in the same way as a string literal. The only characters
+            that must be escaped are the backslash and backtick.</para><programlisting xml:space="preserve">
+name ::= simpleName | quotedName
+simpleName ::= [\p{L}_][\p{L}\p{D}_]*
+quotedName ::= "`" ((charRep - "`") | Escape)+ "`"
+             </programlisting><para>A name written in a FtanML document, with or without backticks, cannot be zero
+                length; in the data model, however, the content value is modelled as an attribute
+                with a zero-length name.</para><para>There are no namespaces in FtanML.</para><para>As a matter of convention, it is recommended that an element or attribute intended
+                to be used in an alien context, that is, a context where the containing element is
+                part of a different vocabulary defined by a different specification, 
+                should be made unique by use of a "reverse-DNS" qualified name along the lines of
+                <code>org_w3c_xsl_transform</code>.</para><para>By contrast, in the normal case where an element or attribute 
+                always has a containing element whose name is defined as part of the same vocabulary, 
+                short names such as <code>status</code> or
+                    <code>name</code> are perfectly adequate and cause no ambiguity.</para><para>For interoperability with XML, there may be cases where it is desirable to
+            use the same names for elements and attributes as defined in an XML vocabulary. There are two ways
+            this might be done:</para><para>
+                <itemizedlist><listitem><para>The XML expanded name can be used in Clark notation, enclosed in
+                            backticks. For example:
+                                <code>[&lt;`{http://www.w3.org/1999/XSL/Transform}stylesheet` version="2.0"...&gt;</code>
+                        </para></listitem><listitem><para>Prefixes and namespace declaration attributes may be used, following XML conventions:
+                            <code>&lt;`xsl:stylesheet` `xmlns:xsl`="http://www.w3.org/1999/XSL/Transform" version="2.0"...&gt;</code>.
+                            The FtanML system will not attach any meaning to such namespace declaration
+                            attributes, but it is capable of representing them if required. 
+                            Note that any name containing a colon (or various other characters such as ".") needs to be
+                            backtick-quoted. 
+                        </para></listitem></itemizedlist>
+            </para></section></section><section><title>Data Model</title><para>The data model for FtanML corresponds closely to the syntactic structure.</para><para>Null values, booleans, strings, and numbers need no further explanation.</para><para>A list is an ordered sequence of values; a list of length one is not the same thing as
+            its singleton member.</para><para>An element comprises a name (which is a string, or absent) and a set of zero or more
+            name/value pairs, the element's attributes. The content value of the element is modelled
+            as an attribute whose name is the zero-length string. Attributes whose value is null are
+            treated as absent.</para><para>Rich text is modelled as a sequence of strings and elements, in which no string is
+            zero-length, and no two strings are immediately adjacent. But note that rich text is a
+            distinct data type and is distinguishable from a list of strings and elements.
+        <footnote><para>Modelling rich text as a list of strings and elements is convenient
+        in some situations, especially because it's the only representation available using the data types of
+        many programming languages. The main drawback is that it's not convenient when we want to treat
+        the data as a simple string, and ignore the markup. So we make it a distinct data type,
+        that can easily be converted either to a list or to a string for processing when required.</para></footnote></para><para>All values in the model are immutable; modifications always involve creating new
+            values rather than modifying existing values. There is no notion of identity; it is not
+            meaningful to ask whether two lists both containing the values <code>[1,2,3]</code> are
+            "the same list", and this is also true for elements.</para><para>These concepts have mappings to the data structures of popular programming language
+            that in most cases are fairly obvious. There are a few exceptions: some languages do not
+            have a natural way of representing decimal numbers; others have difficulty representing
+            Unicode strings, especially strings in which the NUL character (<code>x00</code>) is
+            permitted. The way in which such conflicts are resolved is outside the scope of this
+            paper.</para><para>A noteworthy feature of the data model is that there are no "parent pointers". It is not
+            possible to navigate from a value to its container. Closely related to this, values have
+            no "identity" in the sense of object-oriented data models. In this respect the data model follows JSON rather than the
+            various models used to represent XML. The absence of parent references and object
+            identity creates some challenges, but has many benefits in establishing a purely
+            functional semantics for the processing language, and in enabling efficient
+            transformation: it means, for example, that copying a subtree from one element to
+            another is a very cheap operation, because the physical data can be shared.
+            <footnote><para>
+                I have previously [x] discussed the possibility of
+                writing an XSLT optimizer in XSLT; I concluded that the only thing preventing
+                this was the inefficiency of the XSLT processing model in cases where it is necessary
+                to make many passes over a tree, with each pass effecting a small change.
+                Allowing subtrees to be shared between the source and result of the transformation could
+                eliminate this problem.
+            </para></footnote></para></section><section><title>The Schema Language: FtanGram</title><para>The schema language can be used to define constraints on values, including constraints
+            on entire documents. This is the only purpose of a schema; validation returns a true or
+            false answer, perhaps with a stream of error messages as a side effect, but it does not
+            change the data being validated in any way, except perhaps as an internal
+            optimization.</para><para>A type is thus a predicate; it distinguishes values that match the type from those
+            that do not.</para><para>A schema is a set of named types. The seven named types <code>null</code>,
+                <code>boolean</code>, <code>number</code>, <code>string</code>, <code>list</code>,
+                <code>element</code>, and <code>text</code> are always available; other types are
+            user-defined.</para><para>Types have a representation as FtanML elements, and we will use this representation in
+            discussing types. However, the element used to represent a type must not be confused
+            with the type itself.</para><para>The convention for type representations is to use elements such as
+                <code>&lt;number gt=0 le=1000&gt;</code>, where <code>number</code> is the
+            name of a base type, and attributes such as <code>gt=0</code> and <code>le=1000</code>
+            define constraints. These attributes are referred to as <emphasis role="ital">facets</emphasis>. If there are multiple attributes, they define multiple
+            constraints, which are independent and orthogonal. In this example, the <code>gt</code>
+            facet defines a minimum value (exclusive), while the <code>le</code> facet defines a
+            maximum value (inclusive). Specifying a base type is often unnecessary — in this example
+            every value that can be greater than zero is necessarily a number, so every value that
+            satisfies the predicate will also satisfy the base type. However, including the base
+            type can still be useful to aid clarity.</para><para>Although we speak of "base type" here, there is no type hierarchy. One value can
+            belong to any number of types, and although it may be true that one type subsumes
+            another, the language makes no use of the fact. Naming a base type in a type
+            representation merely indicates that to satisfy the type, a value must satisfy all the
+            constraints imposed by the base type in addition to the facets explicitly listed.</para><para>Before we get into a detailed exposition, we'll again start with an example.</para><section><title>FtanGram Example: the Purchase Order Schema</title><para>In this section we present the schema for the purchase order shown earlier.
+            This is based on the example schema in the XSD primer, modified to correspond
+            with the way we restructured the instance document to take advantage of FtanML.</para><programlisting xml:space="preserve">
+ &lt;org_ftanml_schema [
+  &lt;import "ftan_calendar.ftg"&gt;
+  &lt;types
+   purchaseOrderType = 
+     &lt;element form=&lt;purchaseOrder 
+                      shipTo=&lt;addressType&gt;
+                      billTo=&lt;addressType&gt;
+                      comment=&lt;nullable&lt;text elements=&lt;inlineType&gt;&gt;&gt;
+                      items=&lt;occurs=[1,] &lt;itemType&gt;&gt;
+     &gt;
+   addressType = 
+     &lt;element form=&lt;  country=&lt;eq="US"&gt;
+                      &lt;seq [ &lt;element form=&lt;name &lt;string&gt;&gt;&gt;,
+                             &lt;element form=&lt;street &lt;string&gt;&gt;&gt;,
+                             &lt;element form=&lt;city &lt;string&gt;&gt;&gt;,
+                             &lt;element form=&lt;state &lt;string&gt;&gt;&gt;,
+                             &lt;element form=&lt;zip &lt;number&gt;&gt;&gt;]&gt;
+     &gt;
+   itemType =
+     &lt;element form=&lt;  partNum=&lt;SKUType&gt;
+                      productName=&lt;string&gt;
+                      quantity=&lt;number ge=1 lt=100 step=1&gt;
+                      USPrice=&lt;number ge=0 step=0.01&gt;
+                      comment=&lt;nullable&lt;text elements=&lt;inlineType&gt;&gt;&gt;
+                      shipDate=&lt;nullable&lt;org_ftanml_calendar_dateType&gt;&gt;
+                   &gt;
+     &gt;
+   inlineType = 
+     &lt;element elemName=&lt;enum=["ital", "bold"]&gt; 
+              form=&lt;&lt;inlineType&gt;&gt;
+     &gt; 
+   SKUType = &lt;string pattern="\[#\d{3}-[A-Z]{2}#]"&gt;  
+  &gt;   
+]&gt;</programlisting><para>Looking at this in a little detail, we see:</para><para>
+                <itemizedlist><listitem><para>A schema is a set of named types. Some of these types are defined inline, some (in this case
+                        <code>org_ftanml_calendar_dateType</code>) are imported from an external type library.</para></listitem><listitem><para>Elements are defined using the <code>form</code>
+                            attribute. The value of this attribute is a proforma element. The name
+                            of the proforma element matches the name of the instance element; the
+                            attributes of the proforma element define the types of the attributes of
+                            the instance element; and the content value of the proforma element defines
+                            the type of the content value of the instance element.</para></listitem><listitem><para>An optional attribute is given a type such as
+                                <code>&lt;nullable&lt;T&gt;&gt;</code>. This reflects the fact that
+                            an absent attribute is equivalent to an attribute that has the explicit
+                            value of null; so as well as the normal type of the attribute, the
+                            schema must also allow it to take the value null.</para></listitem><listitem><para>Note the use of a "cell" for escaping the regular expression in the pattern facet
+                        for <code>SKUType</code>. This helps to avoid clutter in a string that makes generous use
+                        of special characters, especially backslashes.</para></listitem></itemizedlist>
+            </para></section><section><title>Constructing Types</title><para>The construct <code>&lt;value&gt;</code> represents a type that matches
+                every value.</para><para>Given types <code>T</code>, <code>U</code>, <code>V</code>, the construct
+                    <code>&lt;anyOf [T, U, V]&gt;</code> represents the union of these types,
+                while <code>&lt;allOf [T, U, V]&gt;</code> represents their intersection.</para><para>For example, <code>&lt;anyOf [&lt;number&gt;, &lt;string&gt;]&gt;</code> allows numbers
+                and strings, while <code>&lt;allOf [&lt;positive&gt;, &lt;even&gt;]&gt;</code> allows
+                values provided they satisfy both the (user-defined) types <code>positive</code> and
+                    <code>even</code>.</para><para>For convenience, the construct <code>&lt;nullable &lt;T&gt;&gt;</code> is equivalent
+                to <code>&lt;anyOf [&lt;T&gt;, &lt;null&gt;]&gt;</code>: that is, either <code>T</code> or
+                null. Thus <code>&lt;nullable &lt;number&gt;&gt;</code> matches either a number, or
+                null.</para><para>An enumeration type can be defined using the construct
+                    <code>&lt;enum=[A,B,C,...]&gt;</code>. For example,
+                    <code>&lt;enum=["red", "green", "blue"]&gt;</code> matches the three
+                specified strings and nothing else. A singleton enumeration can be defined with the
+                    <code>eq</code> facet: for example <code>&lt;eq=""&gt;</code> matches the
+                zero-length string only.</para><para>The construct <code>&lt;not &lt;T&gt;&gt;</code> denotes a type that matches all
+                values that are not instances of <code>T</code>. This can be useful in constructing
+                more complex types; for example <code>&lt;not&lt;eq=""&gt;&gt;</code> matches all
+                non-empty strings, while <code>&lt;allOf [&lt;number&gt;, &lt;not &lt;eq=0&gt;&gt;]&gt;</code>
+                matches values that are numbers and that are not equal to zero.</para><para>The most general way of defining a restriction is with an assertion facet, for
+                example: <code>&lt;assert={$.startsWith("abc")}&gt;</code>. To understand
+                assertions, however, we need to look at the scripting language, which comes later in
+                the paper. (The curly braces signal that the value is a function; this represents an
+                extension to the base FtanML syntax which is used only in scripts.)</para></section><section><title>Restricting numbers</title><para>Numeric ranges may be defined using the four attributes <code>ge</code>,
+                    <code>gt</code>, <code>le</code>, and <code>lt</code>, corresponding to the XML
+                Schema facets <code>minInclusive</code>, <code>minExclusive</code>,
+                    <code>maxInclusive</code>, and <code>maxExclusive</code>, together with the
+                facets <code>eq</code> and <code>ne</code> which are applicable to all values. For
+                example, the type consisting of numbers in the range 0 to 100 inclusive may defined
+                as <code>&lt;number ge=0 le=100&gt;</code>. (As mentioned earlier, the element
+                name <code>number</code> is redundant, because only a number can satisfy the other
+                constraints.) </para><para>A <code>step</code> facet constrains the number to be an integer multiple of the
+                given increment. The most common values (both found in our example schema) are 1,
+                which requires the value to be an integer, and 0.01, which is often suitable for
+                currency amounts. Specifying <code>step=17.2</code> would be unusual, but is
+                perfectly legal. The facet does not constrain the way the value is written, for
+                example an integer can be validly written as <code>1.00000</code>.</para></section><section><title>Restricting strings</title><para>Strings may be restricted using a regular expression, for example
+                    <code>&lt;string pattern="[A-Z]*"&gt;</code>. There are no special facets
+                for defining a minimum, fixed, or maximum length, since regular expressions are
+                sufficient for this purpose.</para></section><section><title>Restricting lists</title><para>A list can be constrained with a grammar. A grammar is a facet like any other:
+                just another way of defining a restriction on the content, and it is defined in the
+                same way: <code>&lt;list grammar=....&gt;</code>. A simple grammar might allow a list
+                to consist of a sequence of zero or more numbers. This would be defined like
+                this:</para><programlisting xml:space="preserve">
+&lt;list grammar=&lt;number occurs=[0,]&gt;&gt;                
+</programlisting><para>To take another example, a grammar might require a value to be a list comprising a
+                string, a number, and a boolean. Here is the definition:</para><programlisting xml:space="preserve">
+&lt;list grammar=&lt;seq [&lt;string&gt;, &lt;number&gt;, &lt;boolean&gt;]&gt;&gt;                
+</programlisting><para>Unlike most schema languages in the XML world, grammars can constrain any
+                sequence of values, not only a sequence of elements. In principle, if there are
+                subtypes of string representing nouns, verbs, and so on, then a grammar could
+                constrain a list to contain a sequence of words making up an English
+                sentence.</para><para>The "alphabet" of the grammar — the set of tokens it recognizes — is the
+                set of types. The fact that a value might belong to more than one of these types does not
+                matter. The grammar exists not to define an unambiguous parse tree of the input, but
+                only to determine whether the input is valid against the type definition or not.</para><para>A grammar can be represented as a tree of particles. Each particle consists of
+                a term (what does it match?), and a repetition indicator (how often does it match?).
+                For leaf particles, the term is a type. Non-leaf particles are either sequence
+                particles or choice particles, and in each case the term is the set of child
+                particles in the tree.</para><para>The value of the <code>grammar</code> facet is an element representing
+                the root particle in this tree.</para><para>The three kinds of particle are represented as follows:</para><itemizedlist><listitem><para>A sequence particle is represented by an element named <code>seq</code>; an optional
+                            <code>occurs</code> attribute; and content which is a list containing
+                        the child particles in the tree. For example:
+                            <code>&lt;seq occurs=[0,] [&lt;white&gt;,&lt;black&gt;]&gt;</code>, which
+                        matches an alternating sequence of values of types <code>&lt;white&gt;</code>
+                        and <code>&lt;black&gt;</code>.</para></listitem><listitem><para>A choice particle is represented by an element named <code>choice</code>; an optional
+                            <code>occurs</code> attribute; and content which is a list containing
+                        the child particles in the tree. For example:
+                            <code>&lt;choice occurs=[0,] [&lt;white&gt;,&lt;black&gt;]&gt;</code>, which
+                        matches sequence of values, each of which can be either of
+                            <code>&lt;white&gt;</code> or <code>&lt;black&gt;</code> type.</para></listitem><listitem><para>A leaf particle is represented by the same element used to describe the type, augmented if
+                        necessary with an <code>occurs</code> attribute. For example
+                            <code>&lt;number&gt;</code>, or <code>&lt;number occurs=10&gt;</code>.
+                        The <code>occurs</code> attribute defaults to 1; it appears alongside the
+                        attributes defining facets of the type, though it is not really a property
+                        of the type, but rather of the particle referring to the type.</para></listitem></itemizedlist><para>The value of the <code>occurs</code> attribute is either an integer (indicating a
+                fixed number of occurrences), or a list of size two (indicating a range with a
+                minimum and maximum). The first item must be an integer, the second can be either
+                another integer, or null to indicate an unbounded range. For example
+                    <code>[0,1]</code> indicates an optional particle (zero or one occurrences),
+                    <code>[0,]</code> indicates zero or more, and <code>[1,]</code> indicates one or
+                more. The default is <code>occurs=1</code>.</para><para>Some further examples of grammars are shown in the table below:</para><para>
+                <table><caption><para>Examples of Grammars</para></caption><thead><tr><th>Example</th><th>Explanation</th></tr></thead><tbody><tr><td>&lt;seq [&lt;string&gt;, &lt;number&gt;, &lt;number&gt;]&gt;</td><td>A string followed by two numbers</td></tr><tr><td>&lt;seq [&lt;string&gt;, &lt;number occurs=2&gt;]&gt;</td><td>A string followed by two numbers</td></tr><tr><td>&lt;occurs=[0,] &lt;seq [&lt;string&gt;, &lt;number&gt;]&gt;&gt;</td><td>An alternating sequence of strings and numbers</td></tr><tr><td>&lt;enum=["red", "green", "blue"] occurs=[1,]&gt;</td><td>A sequence of one or more strings each taken from a defined
+                                    set of colour values</td></tr><tr><td>&lt;occurs=[0,100] &lt;choice [&lt;string&gt;, &lt;number&gt;]&gt;&gt;</td><td>A list of up to 100 items, each of which may be either a
+                                    string or a number. Note that when the sub-particles of a choice
+                                    are leaf particles, an alternative approach is to define a union
+                                    type using <code>&lt;anyOf&gt;</code></td></tr></tbody></table>
+            </para><para>Many of these examples serve the purpose that in XML Schema would be achieved
+                using simple types of variety list or union. But of course, in the document markup
+                tradition, grammars are commonly used to define sequences of elements, and we will
+                see examples of this in the next section.</para></section><section><title>Restricting elements</title><para>The simplest way to place restrictions on elements is by use of the <code>form</code> facet. 
+            Its value is an element, known as a proforma, which works as follows:</para><itemizedlist><listitem><para>The name of the proforma element constrains the name of the target element.</para></listitem><listitem><para>The attributes of the proforma element constrain the attributes of the target element.</para></listitem><listitem><para>The content value of the proforma element constrains the content value of the target
+                        element.</para></listitem></itemizedlist><para>For example, the proforma:</para><programlisting xml:space="preserve">
+                &lt;img height=&lt;number&gt; width=&lt;number&gt; &lt;null&gt;&gt;
+            </programlisting><para>represents an element whose name must be "img", whose <code>height</code> and
+                    <code>width</code> attributes must be numbers, and whose content value must be
+                absent (null).</para><para>This proforma can be used to define an element type like this:</para><programlisting xml:space="preserve">
+                &lt;element form=&lt;img height=&lt;number&gt; width=&lt;number&gt; &lt;null&gt;&gt;&gt;
+            </programlisting><para>Like all facets, a proforma can only define restrictions. If the proforma includes
+                no element name, then it places no restrictions on the element name. If a particular
+                attribute is not present in the proforma, then it places no restrictions on the
+                presence or content of that attribute. If the proforma has no content value, then
+                the content value of the target element is unconstrained.</para><para>If an attribute is to be optional, this can be indicated by permitting null as the
+                value: for example writing <code>height=&lt;nullable&lt;number&gt;&gt;</code>
+                indicates that the <code>height</code> attribute must either be a number, or null.
+                Recall that omitting an attribute is the same as giving it a value of null.</para><para>Some additional facets are available for elements for use where the proforma construct is
+            insufficiently expressive:</para><itemizedlist><listitem><para>The <code>elemName</code> facet defines the type of the element name.</para><para>For example 
+                        <code>&lt;element elemName=&lt;enum=["i", "b", "u"]&gt;&gt;</code> constrains the element
+                        name to be one of the names listed.</para></listitem><listitem><para>The <code>attName</code> facet defines the type that all attribute names must conform to (for
+                        example, as an enumeration, or by means of a pattern). This is the easiest
+                        way of prohibiting attributes from appearing (the other way is to constrain
+                        the value to be null). For example, <code>attName=&lt;ne="xmlns"&gt;</code>
+                        would disallow the attribute name <code>xmlns</code>; this constraint could
+                        also be expressed in the proforma as <code>xmlns=&lt;null&gt;</code>.</para></listitem><listitem><para>For convenience, as an alternative to using a proforma, the content of the element can be
+                        constrained using the <code>content</code> facet. The value is a type. For
+                        example, <code>content=&lt;boolean&gt;</code> constrains the content to be the
+                        boolean value true or false, while <code>content=&lt;null&gt;</code> constrains
+                        it to be null (which can be achieved either by omitting the content, or
+                        using the FtanML keyword <code>null</code>).</para></listitem></itemizedlist><para>We can now see how to define an element type that participates in the content model of another
+            element type. Suppose we have an element named <code>items</code> whose children are
+            elements named <code>item</code> with string content. We can define the type of <code>items</code>
+            like this:</para><programlisting xml:space="preserve">
+&lt;element form=
+  &lt;items 
+    grammar=&lt;element form=&lt;item &lt;string&gt;&gt; occurs=[0,]&gt;
+  &gt;  
+&gt;</programlisting><para>(I find it useful when writing such constructs to ensure that every angle bracket is aligned
+            either vertically or horizontally with its partner, and to limit the nesting of angle brackets on a single
+            line to about 3.)</para><para>Content models like this would quickly become unwieldy if the whole structure had
+                to be defined inline. In addition, it would not be possible to reuse types in
+                different parts of the model. It is therefore possible for the definition of one
+                type to refer to other types by name. The above example could be expressed using named
+                types in a schema, thus:</para><programlisting xml:space="preserve">
+&lt;types
+  itemsType = &lt;element form=&lt;items &lt;grammar=&lt;itemType occurs=[0,]&gt;&gt;&gt;&gt;
+  itemType = &lt;element form=&lt;item &lt;string&gt;&gt;&gt;
+&gt;</programlisting></section><section><title>Restricting Rich Text</title><para>Most of the time, the only restriction that needs to be placed on rich
+                text is to define what elements may appear within it. This is done with
+                an <code>elements</code> facet, whose value is a type. 
+                All elements appearing in the text must conform to this type.</para><para>We don't expect it to be used very often, but FtanML also allows rich text to
+                be constrained with a grammar. The rules for defining a grammar are exactly the same
+                as for lists, and they define the grammar when the text is considered as a list
+                containing strings and elements. For example, a grammar might define that the first
+                thing to appear is a <code>headword</code> element, and after that there are no
+                constraints.</para></section><section><title>Uniqueness and Referential Constraints</title><para>As with XML Schema, definition of constraints takes advantage of the processing
+                language, so this section contains some forward references to facilities not yet
+                introduced.</para><para>Uniqueness is enforced by a function-valued facet. For example:</para><programlisting xml:space="preserve">&lt;list unique={$@id}&gt;</programlisting><para>expresses a contraint on a list of elements stating that among the elements in
+                this list, all attributes named <code>id</code> must have distinct values. Null
+                values are excluded. This facet can be applied to lists and elements; in each case
+                the supplied function is used as a mapping function, and is applied to each item in
+                the list or each attribute of the element, as if by the <code>!</code> operator; the
+                value is invalid if the resulting list contains any duplicates. So a simple
+                constraint that all the numbers in a list of numbers be unique can be expressed as
+                    <code>unique={$}</code>; a constraint that the names of the attributes in an
+                element should each start with a different letter can be written
+                    <code>unique={substring($, 0, 1)}</code>, and a constraint that all the non-null
+                attributes of an element should have distinct values can be expressed as
+                    <code>unique={$2}</code> (when a mapping function is applied to an element, the
+                first argument <code>$</code> is the attribute name, and the second argument
+                    <code>$2</code> is the attribute value).</para><para>Referential constraints are enforced by a similar facet whose value is a pair of
+                functions, one of which selects the references (foreign keys) and one the target
+                identifiers (primary keys):</para><para><code>&lt;ref=&lt;from={$@ref} to={$@id}&gt;&gt;</code></para><para>The rule is that the set of values selected by the <code>from</code> function
+                (again excluding any nulls) must be a subset of the set of values selected by the
+                    <code>to</code> function.</para></section></section><section><title>Queries and Transformations: the FtanSkrit Processing Language</title><para>FtanSkrit is a functional, weakly-typed, Turing-complete programming language for
+                manipulating instances of the FtanML data model. It is an expression language with
+                full orthogonality: any expression can be used as an operand of any other
+                expression, subject only to rules on operator precedence and type
+                constraints.</para><para>A program in FtanSkrit is written as a function (a function which typically takes
+                a source document as input and produces a result document as its result). The body
+                of a function is an expression, and this exposition of the language will focus on
+                the different kinds of expression that can be written.</para><para>The data model that can result from parsing a FtanML document, as we saw earlier,
+            can contain seven types of value: null, boolean, number, string, list, element, and
+            text. We also mentioned an eighth type of value, namely a function. Functions can appear
+            in the data model anywhere that the other seven types of value can appear, for example
+            as the value of an attribute in an element, or as the value of an item in a list.</para><para>Because expressions can be nested arbitrarily, it's not easy to define the different
+            classes of expression without forward references to concepts that haven't been explained
+            yet, and it's also rather difficult to know where to begin. But because functions are so
+            important and central, that's where I'll start.</para><section><title>Functions</title><para>There are two important kinds of expression associated with functions: function
+                declarations and function calls.</para><section><title>Function Declarations</title><para>A function is written as an expression enclosed in curly braces. Here's a
+                    function that computes the sum of its two arguments: <code>{$1 +
+                    $2}</code></para><para>References to parameters are written <code>$1</code>, <code>$2</code> etc, where
+                        <code>$N</code> refers to the Nth supplied argument in the function call.
+                    The expression <code>$</code> can be used in place of <code>$1</code> to refer
+                    to the first argument, and is particularly useful for functions that expect a
+                    single argument. It can be used in rather the same way as <code>.</code> (the
+                    context item) in XPath, and plays a similar role to <code>_</code> in languages
+                    such as Perl or Scala.</para><para>For example, a function that returns true if the supplied element has a name
+                    might be written <code>{name($) != null}</code>.</para><para>Functions have no name, but can be bound to named variables, in which case the
+                variable name serves effectively as a function name. Functions in the system library
+                are bound to predefined variables. </para><para>A function does not have a fixed arity. The example function <code>{$1 +
+                        $2}</code> expects two arguments, but it can be called with more than two
+                    arguments (excess arguments are ignored), or with fewer than two (unsupplied
+                    arguments default to null).</para><para>The expression <code>$$</code> returns all the supplied arguments in the form
+                    of a list. This makes it possible to write functions that take a variable number
+                    of arguments: the actual number is accessible as <code>count($$)</code>. </para><para>Functions can refer to variables defined outside the function body, which
+                    become part of the closure of the function, to be used when it is
+                    evaluated.</para><para>Within the body of a function, the variable <code>self</code> is bound to the
+                    function itself. This makes it easy to write anonymous recursive functions: for
+                    example a function to compute the sum of its arguments can be written as
+                        <code>{if empty($$) then 0 else $ + self(tail($$))}</code>. We'll see later
+                    how to write mutually-recursive functions.</para><para>Because a function is an expression, it can be used anywhere an expression can
+                appear; for example as the value of an attribute in an element. This allows an
+                element to be used as a map from strings to functions, which is very like
+                Javascript's notion of an object. This enables a kind of polymorphism.</para><para>Sometimes it is useful to design a function so that parameters are supplied by
+                    name rather than positionally. The can be achieved by writing the function to
+                    accept an element as its argument. The caller might supply the arguments like
+                    this: <code>f(&lt;x=2 y=3&gt;)</code>; and in the function body the supplied values
+                    can then be referenced as <code>$@x</code> or <code>$@y</code>.</para><para>Functions do not declare their arguments explicitly. As a matter of convention,
+                when writing a public function it is good practice to bind the supplied parameters
+                to variables along with a type check. For example the following implementation
+                of the <code>indexOf</code> function starts by giving names to its arguments and checking their type,
+                    which simultaneously makes the function more robust and more readable.
+                <footnote><para>It would be easy enough to add syntax for a more verbose function declaration with
+                    an explicit signature. But at this stage, it's important (a) to keep the language small,
+                    and (b) to provide a very concise syntax for functions, allowing them to be used as freely
+                    and easily as predicates and steps are used in XPath.</para></footnote></para><programlisting xml:space="preserve">
+let indexOf = {
+  let Array = $1.as(&lt;occurs=[0,] &lt;number&gt;&gt;);
+  let Search = $2.as(&lt;number&gt;);
+  0..count(Array)-1?{Array[$]=Search}
+  }</programlisting><para>Because argument types are not declared, it's up to the implementor of a function
+                what to do when the caller supplies arguments of the wrong type. There are no implicit conversions
+                defined as part of the call mechanism. The preferred approach is to throw an error, which
+                can be readily achieved using the coding style in the above example.</para></section><section><title>Function Calls</title><para>If <code>F</code> is an expression that evaluates to a function, then the
+                        function may be called with arguments <code>x</code> and <code>y</code> using
+                        the expression <code>F(x, y)</code>.</para><para>If <code>f</code> is a variable whose value is a function, and if the function
+                        has at least one argument, then a function call can be written either as
+                        <code>f(x,y)</code> or as <code>x.f(y)</code>. </para><para>As in XPath 3.0, partial function application (currying) is possible by
+                        supplying <code>?</code> for one of the arguments: <code>contains(?, ':')</code>
+                        returns a function whose effect is to test whether its first argument is a
+                        string that contains a colon.</para><para>Some built-in functions can also be invoked using an infix operator. For
+                        example the <code>+</code> operator corresponds to the <code>plus</code>
+                        function; <code>a + b</code> has the same meaning as <code>plus(a, b)</code> or
+                        <code>a.plus(b)</code>. All the operators in the language, including higher-order operators, are defined
+                        in terms of functions, to allow them to be passed as arguments to higher-order
+                        functions.</para><para>The names of built-in functions always use the ASCII alphabet; for
+                        some operators we have allowed ourselves the luxury of reaching beyond ASCII,
+                        but users can always avoid relying on such operators and can use the function
+                        name instead.</para></section></section><section><title>List and Element Constructors</title><para>The syntax of lists and elements is extended so that expressions may appear
+                anywhere the FtanML syntax allows a value. </para><para>For example, the expression <code>{[$, $+1, $+2]}(5)</code> returns the list [5,
+                6, 7].</para><para>Lists in FtanML are not automatically flattened, so the expression <code>[1 to 5,
+                    10]</code> produces the length-2 list <code>[[1,2,3,4,5],10]</code> rather than
+                the length-6 list <code>[1,2,3,4,5,10]</code>. The latter result can be achieved
+                either by applying the <code>flatten()</code> function explicitly, or by using list
+                concatenation/append operators: for example <code>(1..5).append(10)</code>.</para><para>In an element constructor, expressions can be used to compute the values of
+                attributes, but cannot be used to compute their names. The value can be expressed
+                either as a parenthesized expression, or using a string or text value containing
+                expressions embedded in curly braces: <code>&lt;img size=(x+1) caption="Figure
+                    {n}"&gt;</code>. The same applies to the content value. Note that curly braces are
+                used only for inline expansion of strings and text (and for writing functions); to
+                compute general structured content, parenthesized expressions should be used. The
+                expression:</para><programlisting xml:space="preserve">&lt;job-titles (distinct-values(employee@job-title))&gt;</programlisting><para>might generate</para><programlisting xml:space="preserve">&lt;job-titles ["Manager", "Programmer", "Bottle-Washer"]&gt;</programlisting><para>A null value for an attribute indicates the effective absence of the attribute, so
+                the expression <code>&lt;size x=(a+1) y=(if a=2 then 3 else null)&gt;</code> might
+                produce the output <code>&lt;size x=3&gt;</code>.</para><para>More specifically, in an element constructor, the value of an attribute, or of the
+                content value, can take any of the following forms:</para><itemizedlist><listitem><para>A literal value, for example <code>a=3</code> or <code>a="blue"</code> or
+                        <code>a=false</code>.</para></listitem><listitem><para>A string or text value with embedded expressions enclosed between curly braces, for example
+                            <code>a="Chapter {n}"</code> The value of the attribute is obtained by
+                        evaluating the embedded expressions as strings and inserting the resulting
+                        strings into the text.</para></listitem><listitem><para>A list constructor, for example <code>a=[n, n+1, n+2]</code>.</para></listitem><listitem><para>An element constructor, for example <code>a=&lt;x=(n+1) y=(n+2)&gt;</code></para></listitem><listitem><para>A parenthesized expression, for example <code>a=(n+1)</code></para></listitem><listitem><para>A function, for example <code>a={$+1}</code>. In this case the value of
+                        the attribute is the function, not the result of evaluating the
+                        function.</para></listitem></itemizedlist><para>Where element constructors cannot be used because the element or attribute names
+                are not known statically, functions can be used to construct an element. For
+                example:</para><programlisting xml:space="preserve">
+element("img").add("x", 3).add("y", 5).add("", "An image")
+}</programlisting><para>Here the function call <code>element("img")</code> constructs an element with a
+                given name, and the <code>add()</code> function adds an attribute with a given name
+                and value (copying the element to create a new element). The last call adds the
+                element content, represented as an attribute with an empty name. It should be
+                remembered that although we use the term "element", FtanML elements will not only be
+                used in the way that XML elements are traditionally used, but also in the way that
+                maps are used in other programming languages, where the keys (attribute names) are
+                highly dynamic: indeed, to satisfy the kind of use cases for which maps are being
+                added to XSLT 3.0.</para><para>Rich text (mixed content) is constructed as a list of strings and elements, which
+                is then converted to rich text by applying the <code>toText()</code>
+                function.</para></section><section><title>Conditional Expressions</title><para>The syntax for a conditional expression is:</para><programlisting xml:space="preserve">
+                "if" expression "then" expression "else" expression
+            </programlisting><para>There is no need for parentheses (though you can use them if you like, for old
+                time's sake). The "else" branch is mandatory, partly to avoid choosing an arbitrary
+                default (null?) and partly to prevent the dangling-else ambiguity when conditional
+                expressions are nested. For example:</para><programlisting xml:space="preserve">
+ if $ = 0 then x else y
+ </programlisting><para>A simple try/catch construct is provided:</para><programlisting xml:space="preserve">
+                "try" expression "catch" function
+            </programlisting><para>which returns the result of the expression unless an error occurs during its
+                    evaluation, in which case the catch function is called, supplying error
+                    information as its argument, in the form of an element with attributes
+                    representing the error code and error description.</para><para>For example, the following catches a divide-by-zero error (we assume use of
+                    the XPath error codes), and returns null if it occurs; otherwise the error is
+                    re-thrown:</para><programlisting xml:space="preserve">
+                try (x.div(n)) catch {if $@code="FOAR0001" then null else error($)}
+            </programlisting><para>A function <code>orElse</code> allows a default to be substituted when a value
+                is null. For example <code>a.orElse(0)</code> returns the value of <code>a</code>
+                unless it is null, in which case it returns zero. This function could be defined as
+                    <code>{if $1=null then $2 else $1}</code>.</para></section><section><title>Variables</title><para>Variables have simple names (no "$" prefix, no backticks). The names
+                    <code>true</code>, <code>false</code>, and <code>null</code> are reserved: they
+                are used syntactically like variables, but have fixed predefined values. Language
+                keywords such as <code>if</code> and <code>let</code> are also reserved: unlike
+                XPath, this is possible because bare names are not used to refer to elements and
+                attributes in input documents.</para><para>Variables may be declared using the construct:</para><programlisting xml:space="preserve">
+                LetExpression ::= "let" name "=" expression; expression
+            </programlisting><para>which evaluates the second expression with the named variable bound to the
+                value of the first expression; for example <code>let x=2; x+x</code> returns
+                4.</para><para>Variables declared in this way are available only after they have been
+                    declared. An alternative style of declaration allows forwards references to
+                    variables, which is necessary when writing recursive functions. This style uses
+                    element notation: </para><programlisting xml:space="preserve">
+                let &lt;
+                  even = {if $=0 then true else odd(abs($)-1)}
+                  odd  = {if $=0 then false else even(abs($)-1)}
+                &gt;;
+                even(32)
+            </programlisting><para>With this approach, all the variables declared as attributes of the same
+                    element are in scope within each others' declarations, failing dynamically (or
+                    in the worst case, failing to finish) if this results in non-terminating
+                    recursion.</para></section><section><title>Equality and Other Comparisons</title><para>The <code>eq</code> function (operator <code>=</code>) is defined over all
+                values. To be equal, two values must have the same fundamental type (this means, for
+                example, that the string <code>"John"</code> is not equal to the rich text
+                    <code>|John|</code>). Strings are compared codepoint-by-codepoint. Lists are
+                equal if they have the same size and their items are pairwise equal. Elements are
+                equal if they have the same name, and if there is a one-to-one correspondence of
+                attributes in which both the attribute names and the corresponding values are equal
+                (the content value is treated here as an attribute). Two texts are equal if the two
+                sequences of strings and elements making up the texts are pairwise equal.</para><para>Defining equality for functions requires further work. Some languages such as
+                ML and Haskell make equality of functions undefined, but this would mean that
+                equality of lists and elements containing functions also becomes undefined.
+                Currently my preference is to make equality of functions implementation-defined,
+                subject to the proviso that two functions can only be equal if all invocations are
+                guaranteed to return equal results. It would be useful to attempt a more careful
+                definition, for example one that guarantees that the result of the expression
+                    <code>let a=b; a=b</code> is always true, but formalizing this is not easy
+                without introducing some notion of identity.</para><para>The <code>ne</code> function (operator <code>!=</code>) is the inverse of
+                        <code>eq</code>.</para><para>Ordering (specifically, the functions <code>le</code>, <code>lt</code>,
+                        <code>ge</code>, <code>gt</code>, and their corresponding operators
+                        <code>&lt;=</code>, <code>&lt;</code>, <code>&gt;=</code>,
+                        <code>&gt;=</code>) is defined over numbers and strings only. Strings are
+                    sorted in Unicode codepoint sequence.</para><para>Testing whether a value <code>V</code> is present in a list <code>A</code>
+                (the equivalent of the <code>=</code> operator in XPath) is sufficiently common that
+                we provide a function, <code>in(V, A)</code> with corresponding operator ∊ (x220A).
+                The function <code>in(V, A)</code> can be defined as <code>{let V=$1; let A=$2;
+                    exists(A?{$=V})}</code>. (This uses a filter operator which we will introduce in
+                due course.)</para><para>A collation is modelled as a set of functions. Specifically, a collation for a
+                particular language, say Swedish, is obtained using the function call
+                    <code>collation(&lt;lang="se"&gt;)</code>. This returns an element, whose
+                attributes are functions. One of these functions is a sort function, so to sort a
+                list of strings using Swedish collation, one can write
+                    <code>collation(&lt;lang="se"&gt;)@sort(input)</code>. Other functions available as
+                attributes of a collation include comparison functions <code>eq</code>,
+                    <code>le</code>, etc, and collation-sensitive versions of other functions that
+                involve string comparison such as <code>in</code>, <code>min</code>,
+                    <code>max</code>, <code>indexOf</code>, <code>contains</code>,
+                    <code>startsWith</code>, <code>endsWith</code>, <code>substringAfter</code>,
+                    <code>substringBefore</code>.</para><para>Comparing <code>A = null</code> returns true if <code>A</code> is null, 
+                false otherwise. (This is not as obvious as it might seem, given the semantics in some
+                other languages.)</para></section><section><title>Operations involving Types</title><para>The function <code>isA</code> tests whether a value belongs to a given type.
+                    Types are represented using the element representation introduced in an earlier
+                    section. For example, <code>x.isA(&lt;number ge=0&gt;)</code> returns true if the
+                    value of <code>x</code> is a number and satisfies the facet <code>ge=0</code>.
+                    Recall that a type is a predicate, not a label associated with a value, so this
+                    tests whether the value meets all the constraints defined by the type, not
+                    whether the value carries any particular type label.</para><para>For convenience, the functions <code>isNull</code>, <code>isBoolean</code>,
+                    <code>isNumber</code>, <code>isString</code>, <code>isList</code>,
+                    <code>isElement</code>, <code>isText</code>, and <code>isFunction</code> are
+                available to test for membership of the primitive types.</para><para>The function <code>as</code> is similar to <code>isA</code>, but instead of
+                    returning a boolean indicating whether or not the value is a member of the type,
+                    it returns the value unchanged if this is the case, and throws an error
+                    otherwise. We saw this function used to check the arguments to a function call.</para><para>For convenience, the functions <code>asNull</code>, <code>asBoolean</code>,
+                    <code>asNumber</code>, <code>asString</code>, <code>asList</code>,
+                    <code>asElement</code>, <code>asText</code>, and <code>asFunction</code> are
+                available to test for membership of the primitive types. In each case, they return
+                the argument unchanged if it matches the corresponding type, or throw an error
+                otherwise.</para><para>Functions for conversion of values have names such as <code>toString</code>,
+                    <code>toList</code>, and <code>toText</code>. There are no general rules here;
+                as in other languages, the rules for what can be converted to what are inherently
+                ad-hoc. </para><para>The <code>parse</code> function takes a FtanML lexical representation of a value
+                and returns the corresponding value; conversely, <code>serialize</code> takes a
+                value and returns its FtanML lexical representation. </para></section><section><title>Boolean Functions and Operators</title><para>The functions <code>and</code>, <code>or</code>, and <code>not</code> are
+                    available. The first two have equivalent operators <code>&amp;&amp;</code> and <code>||</code>.</para><para>The argument must either be a boolean or null; there is no implicit conversion
+                to boolean as in XPath. If an argument is null, the operators implement three-valued
+                logic as in SQL, for example <code>(null||true)</code> is <code>true</code>.</para><para>Order of evaluation is not defined; programmers should not assume that the
+                second argument will only be evaluated if it is required. (This rule might seem
+                unnecessary in the absence of side-effects, but it becomes important when defining
+                the terminating conditions of a recursive function. Like XPath, we choose to allow
+                optimizers the freedom to re-order the terms in a predicate, which can be important
+                when indexes are available on large data sets.)</para></section><section><title>Numeric Functions and Operators</title><para>The functions <code>plus</code>, <code>minus</code>, <code>times</code>,
+                    <code>div</code>, <code>idiv</code>, and <code>mod</code> are defined; the first
+                four have corresponding operators <code>+</code>, <code>-</code>, <code>*</code>,
+                and <code>/</code>. Arithmetic is performed in decimal. Division by zero is an
+                error; the precision of the result of division is implementation-defined, as are
+                limits on the value space.</para><para>Additional functions <code>abs</code>, <code>round</code>, <code>floor</code>,
+                        <code>ceiling</code> have the same effect as in XPath.</para><para>The function <code>parse</code> may be used to convert a string to a number.
+                    Writing <code>parse(X).asA(&lt;number&gt;)</code> checks that the value was
+                    indeed numeric.</para><para>Supplying null to an arithmetic function or operator results in the value
+                    null. Supplying any other non-numeric value causes an error. There is no
+                    implicit conversion of strings to numbers.</para><para>Aggregation functions <code>sum</code>, <code>avg</code>, <code>min</code>,
+                    <code>max</code> work as in XPath.</para><para>The function <code>to</code> or its equivalent operator <code>..</code>
+                returns a list of consecutive integers, for example <code>1..5</code> returns the
+                list <code>[1,2,3,4,5]</code>.</para></section><section><title>String Functions and Operators</title><para>The <code>toString</code> function can be applied to any value without
+                exception to convert it to a string. If the input is already a string, it is
+                returned unchanged. If the input is a boolean, number, or null, the result is the
+                same as the FtanML literal representation of the value. If the input is a list, the
+                result is <code>string-join($!toString, " ")</code>, that is, the space-separated
+                concatenation of the string values of the members of the array. If the input is an
+                element, the result is <code>string(content($))</code>, that is, the string value of
+                the element's content. If the input is rich text, the result is
+                    <code>string-join($.toList()!toString)</code>, that is, the concatenation
+                (without space separation) of the string-values of the strings and elements making
+                up the text. If the value is a function, the resulting string begins with "{" and
+                ends with "}", and is otherwise implementation-defined; it is not necessarily a
+                string that can be parsed and executed as a function.</para><para>String concatenation can be achieved conveniently using string templates, for
+                example <code>"See section {s} in chapter {n}"</code>. This mechanism can be used
+                wherever a string literal is permitted. The result of the enclosed expressions is
+                converted to a string if necessary, by using the <code>toString</code>
+                function.</para><para>Generally FtanSkrit avoids implicit conversion. For example, if rich text is
+                to be compared to a string, it must be converted to a string explicitly. When null
+                is supplied to a function that expects a string, it is generally treated as a
+                zero-length string (but this is a convention adopted by the functions in the
+                built-in function library; it is not a feature of the language). </para><para>Other functions are available as in XPath. Counting of characters in a string,
+                    however, starts at zero. The basic built-in functions use codepoint collation;
+                    equivalents using a different collation can be obtained as attributes of the
+                    collation.</para></section><section><title>Functions and Operators on Lists</title><para>The number of items in a list <code>A</code> is obtained using
+                    <code>count(A)</code> (or equivalently, <code>A.count()</code>).</para><para>The construct <code>A[n]</code> selects the n'th item in list <code>A</code>.
+                This construct is never used for filtering, only for subscripting. If <code>n</code>
+                is out of range, the expression returns null. This operation is also available as a
+                function <code>itemAt(A, n)</code>.</para><para>The function <code>cat(a, a)</code> (operator <code>++</code>) concatenates
+                two lists. The function <code>append(a, i)</code> (operator <code>+~</code>) appends
+                an item to a list, while <code>prepend(i, a)</code> (operator <code>~+</code>)
+                prepends. Thus for example <code>0 ~+ [1,2,3] ++ [4,5,6] +~ 7</code> returns the
+                list <code>[0, 1, 2, 3, 4, 5, 6, 7]</code>. </para><para>The function <code>head(a)</code> is equivalent to <code>a[0]</code>, while
+                        <code>tail(a)</code> equates to <code>remove(a, 0)</code>.</para><para>The function <code>flatten</code> flattens a list: it creates a new list in
+                which any non-list items in the argument list are copied to the new list, and any
+                list items are processed by copying their contents. This only works one level deep.
+                So <code>flatten([[1,2],[3,[4,5]]])</code> returns
+                <code>[1,2,3,[4,5]]</code>.</para><para>Functions <code>index-of</code>, <code>remove</code>, <code>subsequence</code>
+                work as in XPath, except that indexing starts at zero. The
+                    <code>insert-before</code> function inserts a single item at a specified
+                position; if the supplied item is a list, it becomes a nested list (there is no
+                flattening).</para><para>The function <code>toList</code> works as follows: if the argument is a list,
+                it is returned unchanged. If the argument is rich text, it is converted to a list
+                whose members are (non-zero-length) strings and elements. In other cases, the
+                function creates and returns a singleton list in which the argument is the only
+                item. This function is useful because it makes it easier to process different types
+                of content in the same way: a single element looks the same as a list of elements of
+                length one, which looks the same as mixed content comprising a single element; a
+                single string looks the same as mixed content containing no elements.</para><para>The function <code>forEach</code>, or the equivalent operator <code>!</code>,
+                applies a function to every item in a list. So <code>forEach([1,2,3], {$+1})</code>
+                returns <code>[2,3,4]</code>; this can also be written <code>[1,2,3] ! {$+1}</code>.
+                Similarly, <code>[1,2,3]!toString</code> returns <code>["1", "2", "3"]</code>. Note
+                that this is a non-flattening mapping operation; the result list will contain
+                exactly the same number of items as the input.</para><para>Another example: <code>(1..5)!{&lt;br&gt;}</code> returns
+                    <code>[&lt;br&gt;, &lt;br&gt;, &lt;br&gt;, &lt;br&gt;, &lt;br&gt;]</code></para><para>The function <code>select</code>, or the equivalent operator <code>?</code>,
+                applies a function to every item in a list and returns a list containing those items
+                for which the function returns true. So <code>select([1,2,3], {$&gt;=2})</code> returns
+                    <code>[2,3]</code>; this can also be written <code>[1,2,3]?{$&gt;=2}</code>.
+                Similarly, <code>[1,2,"London"]?isNumber</code> returns <code>[1,2]</code>.</para><para>The result of the <code>select</code> operator or function is always a list,
+                even if only one item is selected. If it is known that the predicate will select
+                exactly one item, it is necessary to extract that item from the result, typically by
+                a call on <code>head</code>, or by using the subscript operation
+                    <code>(A?P)[0]</code>. Because this is a common operation, the operator
+                    <code>??</code> is provided, equivalent to <code>?</code> followed by
+                    <code>head()</code>: it selects the first item found, or null if nothing was
+                matched. A query to find a singleton can now be written, for example
+                    <code>items??{$@id='xyz'}</code>. </para><para>The functions <code>all</code> and <code>some</code> can be used in
+                conjunction with the <code>forEach</code> (<code>!</code>) operator to perform
+                universal and existential quantification: they test whether a list consists entirely
+                of boolean true values (all), or contains at least one true value (some). So, for
+                example <code>all([1,2,3]!{$&gt;0})</code> returns true, while
+                    <code>some([1,2,3]!{$=0})</code> returns false.</para><para>Functions <code>fold-left</code> and <code>fold-right</code> are available as
+                    in XPath 3.0.</para></section><section><title>Functions and Operators on Elements</title><para>The function <code>name(E)</code> returns the name of an element
+                        <code>E</code>, or null if it is unnamed. The syntax <code>E.name()</code>
+                    can also be used, of course.</para><para>The mapping and filtering operators (<code>!</code> and <code>?</code>) apply to
+                elements as well as to lists. In this case they expect a two argument function to be
+                supplied, and call this with the attribute name as the first argument and the
+                attribute value as the second. The mapping operator returns a list with as many
+                members as there are non-null attributes in the input; the filter operator returns
+                an element with the same name as original, and with a subset of its attributes.
+                These operators treat the content value as just another attribute. They provide the
+                most general and powerful means of processing elements, and other operations can be
+                defined in terms of these two. For example, the function content(E), which returns
+                the content of an element, could be defined as E?{$1=""}!{$2}.</para><para>For example <code>E?{$.in("id", "code", "status"}</code> returns a copy of element
+                E, retaining only the three specified attributes.</para><para>If <code>E</code> is an element and <code>xyz</code> is the name of an attribute
+                (known at the time the program is written), then <code>E@xyz</code> returns the
+                value of the attribute. It returns the value only, not an "attribute node" as in
+                XPath; if the attribute is not present, it returns null. If the name needs to be
+                dynamically computed, this can be achieved using an expression in parentheses, for
+                example <code>E@(X@name)</code> returns the attribute of <code>E</code> whose name
+                is given by the expression <code>(X@name)</code>. The construct <code>E^</code> is
+                an abbreviation for <code>E@``</code> — it returns the value of the attribute whose
+                name is the zero-length string, that is, the content value.</para><para>Filtering a list of elements to select those with a given name is likely to be a
+                common operation. The syntax <code>L?{name($)=N}</code> achieves this but is a
+                little cumbersome, and becomes more so if the list can also include values other
+                than elements. So we provide the construct <code>:N</code>, where <code>N</code> is
+                a name, which represents a function that returns true when its first argument is an
+                element with the name <code>N</code>, and false otherwise. So given a list of
+                elements <code>L</code>, we can now select those having the name N by writing
+                    <code>L?:N</code>. If we know there will be only one such element, we can select
+                it using <code>L??:N</code>.</para><para>So if <code>PO</code> is the purchase order presented in section 2.1, then
+                    <code>PO@shipTo^??:name</code> gives the value <code>"Alice Smith"</code>, while
+                    <code>PO@items[0]@partNum</code> gives <code>"872-AA"</code>. </para><para>The following example selects from a list of elements those having a particular
+                attribute value: <code>PO@items?{$@USprice &gt; 20.00}</code>.</para><para>The <code>@</code> operator performs implicit mapping. Specifically: if the
+                left-hand operand is a list <code>L</code>, then any lists contained in this list
+                are expanded recursively. Any values in the expanded list that are not elements are
+                ignored, so we end up with a list of elements; call this <code>LL</code>. The value
+                of the expression <code>L@name</code> is then defined as <code>LL!{$@name}</code>.
+                Note that the result may be a list of lists; it is not flattened.</para><para>Returning again to the purchase order example, this means that
+                    <code>PO@items@partNum</code> returns the list of strings <code>["872-AA",
+                    "926-AA"]</code>.</para><para>The postfix operator <code>//</code> represents the<code> deepContent()</code>
+                function, which is the flattened transitive closure of the <code>content()</code>
+                function. Specifically, if the result of <code>content()</code> is a list, then any
+                element in that list has its own descendants inserted immediately after it. So the
+                function <code>descendants(E)</code> can be defined as <code>content(E)!{$ ~+ (if
+                    $.isA(&lt;element&gt;) then $.descendants() else [])}</code>. So if <code>E</code>
+                is an element, then <code>E//?:status</code> will select all descendant elements
+                named <code>status</code>, and <code>E//?[$@id=12]</code> will select all descendant
+                elements having the <code>id</code> attribute equal to 12.</para><para>The postfix operator <code>@@</code> similarly gives the transitive closure of
+                    <code>attributes()</code>.</para><para>As already mentioned, the function <code>forEach</code> and the equivalent
+                operator <code>!</code> are overloaded for elements to process all the attributes of
+                an element (including the content). The second operand is a function which is called
+                with two arguments, the attribute name and the attribute value. For example, given
+                an element E the expression <code>E!{$}</code> returns the names of its
+                attributes.</para><para>Similarly the function <code>select</code> and the equivalent operator
+                    <code>?</code> are overloaded to process all the attributes, and return an
+                element in which only a subset of the original attributes are present. </para><para>The function <code>element(name)</code> constructs an element with a given
+                name (which may be null). It can also be called with two arguments:
+                    <code>element(name, attributes)</code>. The second argument is a list of
+                attributes, each attribute being represented by a two-member list containing the
+                name and the value.</para><para>The function <code>add(element, name, value)</code> takes an existing element,
+                and adds an attribute with the given name and value, replacing any existing
+                attribute with the same value. A new element is returned. Calls to this function can
+                conveniently be chained: <code>element("rect").add("id", "a001").add("color",
+                    "black")</code>.</para><para>For convenience, the function <code>addContent</code> is defined as
+                    <code>add(?, "", ?)</code>.</para><para>So, for example, we can convert attributes to a list of child elements like
+                this:</para><programlisting xml:space="preserve">let elementsToAttributes = {
+    let E = $.asElement();
+    element(E.name()).setContent(E!{element($1).setContent($2)})    
+ }
+            </programlisting><para>The semantics of these constructions in FtanSkrit are different from the corresponding operations in XPath, but hopefully they will have a familiar feel.</para></section></section><section><title>Future Features</title><para>FtanML as presented in this paper packs a large amount of functionality into a small
+            language. It doesn't offer everything that anyone might ask for, and nor should it:
+            keeping it small is important. Nevertheless, there are things one might want to add, and
+            which have not been ruled out.</para><itemizedlist><listitem><para>An extensible mechanism for data types is needed: for example, representing
+                    dates as values. Schema validation can confirm that a date is a valid string,
+                    but for processing one would like to manipulate it as a date, not just as a
+                    string. Similarly, support for binary data is important to some applications;
+                    and it would be nice if URIs were recognizable as such. A general mechanism for
+                    extending the set of types (perhaps along the lines suggested in [Jeni
+                    Tennison]), would be undoubtedly useful.</para></listitem><listitem><para>What about pointers and links? XML has a sorry tale to tell in this area, but
+                    that doesn't mean it can't be done better. Arguably links and anchors should be
+                    first-class constructs marked as such in the syntax, rather than a semantic
+                    overlay affecting the interpretation of strings. Both intra-document and
+                    inter-document links are needed, and they should ideally be handled using a
+                    single mechanism. Support for the kind of referential integrity found in
+                    relational databases is as important as support for the hyperlinking traditions
+                    of the markup community, and there is no good reason why the two mechanisms
+                    should be distinct.</para></listitem><listitem><para>In the scripting language, there is an obvious need for rule-based processing
+                    in the style popularised by XSLT. In this paper, I have concentrated on
+                    presenting a small functional core for the scripting language, but I would like
+                    to see rule-based processing superimposed, and I see no reason why this should
+                    not be achievable.</para></listitem></itemizedlist></section><section><title>Conclusions and Summary</title><para>We have introduced three languages as replacements for the central pillars of the
+            markup edifice: FtanML as the markup language, FtanGram as its schema language, and
+            FtanSkrit as its query and transformation language. Let's try now to assess what we've
+            achieved.</para><para>Firstly, FtanML compared to XML. FtanML is considerably smaller as a specification,
+            but it's also more powerful. It gets rid of the same unwanted things that MicroXML gets
+            rid of (namespaces, comments, processing instructions, entities, DTDs), but by allowing
+            attributes and element content to be any value, the data model is much richer, more
+            orthogonal, and more expressive. It also solves the whitespace issue (which whitespace
+            is significant?). By dropping end tags, the language is a lot less verbose, which is
+            particularly noticeable when it is used for highly structured information, as in the
+            FtanGram syntax. There's a lot of general tidying-up in little areas like escaping of
+            special characters.</para><para>Does verbosity matter? We think it does. The fact that XML is bulky and hard to read
+            is a significant factor leading to the adoption of alternative syntaxes for languages
+            such as RDF and RelaxNG, and is a big turn-off for people coming newly to XSLT. Even if
+            specialist editors can reduce the burden of entering the markup, the amount of noise on
+            the page affects the ability of a human reader to absorb information quickly. This is
+            not to say that the most concise syntax is optimal, of course: we might have swung too
+            far. XML had human
+            readability as one of its goals, and we should remember that readability is not a binary
+            attribute; there are degrees of readability, and readability also depends greatly on
+            the familiarity of the reader with the notation.</para><para>Compared to JSON, FtanML's main contribution is that it adds support for mixed
+            content. And element names, which are very handy when modelling document
+            structures.</para><para>Compared to the XPath data model (XDM), the FtanML model has more capability and
+            greater orthogonality. The core structuring constructs (elements and lists) are powerful
+            enough for all computational requirements. XSLT and XQuery have found a need to extend
+            the core XML-based model with other constructs such as maps and lists; the FtanML model
+            does not have this awkward duality between constructs that can be directly serialized in
+            the markup, and constructs used only for internal processing.</para><para>FtanGram learns from RelaxNG the importance of designing a schema language to do
+            validation and nothing else. Unlike RelaxNG, it's able to take advantage of the
+            simplification and orthogonality of the data model. The unification of facilities for
+            "simple types" and "complex types" is particularly appealing, allowing a smaller number
+            of constructs to be combined in more powerful ways to create richer functionality. The
+            idea that element names as well as attributes and content are something that can be
+            constrained by a type is also a useful simplification. FtanGram also attempts to show
+            that by making the markup language itself more powerful and less verbose, the need for a
+            "compact syntax" (that is, a syntax using constructs other than those available in the
+            target language) is eliminated.</para><para>FtanSkrit is broadly equivalent in capability to XQuery, but with a stronger reliance
+            on higher-order functions and operators in preference to custom syntax. It currently
+            lacks any mechanism comparable to XSLT's template rules, but we have ideas for how that
+            could be added.</para><para>There will always be debates about strong versus weak typing, static versus dynamic. I
+            believe that FtanML's dynamic typing approach fits better with the philosophy that with
+            markup, you can have as much or as little schema machinery as you want. The XPath
+            ability to mix typed and untyped data is one solution to the problem of spanning the
+            worlds of structured and unstructured data, but it is something of a camel.</para><para>Are there any downsides? Some may find the languages excessively terse; highly compact
+            syntax is not easy on the eye. The absence of named end tags in FtanML can lead to long
+            strings of closing angle-brackets which are hard to match up without the support of a
+            syntax-driven editor. Generally, though, we feel that FtanML with its sister languages
+            FtanGram and FtanSkrit together form a markup system that has more than the power of the
+            equivalent XML stack, with much greater integrity of design, simplicity, orthogonality,
+            efficiency, and usability.</para></section><section><title>Implementation</title><para>A Scala implementation is available as open source software. It can be downloaded from here:</para><para><code>https://github.com/organizations/FtanML-WG</code></para><para>The implementation is not 100% complete,
+            and is intended as a proof of concept rather than as production quality software. It
+            includes a complete parser for FtanML which constructs a tree represenation of the
+            object model; an implementation of all the FtanGram types and facets (including the
+            grammar facet), but not the schema language itself; and an implementation of most of the
+            FtanSkrit processing language, though with some relatively unimportant functions and
+            operators omitted.</para></section><section><title>Acknowledgements</title><para>FtanML was invented by a group of students from German universities taught by the
+            author, with Stephanie Haupt as co-tutor, during a summer school in Ftan, Switzerland in
+            August 2012, organised by the Max Weber Programm, Bayern. The students deserve much of
+            the credit, if only for challenging things that I had assumed to be self-evident: they
+            were Max Altgelt, Julien Bergner, Lukas Graf, Dominik Helm, Axel Kroschk, Uwe von Lüpke,
+            My-Tien Nguyen, Sebastian Meßmer, Suhanyaa Nitkunanantharajah, Jan Landelin Pawellek,
+            and Martin Schmitt. They were a most impressive team and a pleasure to work with:
+            absorbing knowledge quickly, researching information thoroughly, generating ideas
+            constantly, reaching consensus amicably, writing parsers correctly, making decisions
+            wisely, and communicating bilingually. I am particularly indebted to Sebastian Meßmer
+            for helping me climb the Scala learning curve.</para></section><bibliography><title>References</title><bibliomixed xml:id="ref1" xreflabel="1"><emphasis role="ital">MicroXML</emphasis>. Ed. James Clark and John Cowan, 2012. W3C.
+            <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">https://dvcs.w3.org/hg/microxml/raw-file/tip/spec/microxml.html</link>.</bibliomixed><bibliomixed xml:id="ref2" xreflabel="2"><emphasis role="ital">XML Schema Part 0 Primer</emphasis>, Second Edition. Ed. David C. Fallside and Priscilla Walmsley. 28 Oct 2004. W3C.
+            <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/xmlschema-0/</link>.</bibliomixed><bibliomixed xml:id="ref3" xreflabel="3"><emphasis role="ital">Introducing JSON</emphasis>. <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.json.org</link></bibliomixed><bibliomixed xml:id="ref4" xreflabel="4"><emphasis role="ital">YAML: YAML ain't markup language</emphasis>. <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://yaml.org</link></bibliomixed><bibliomixed xml:id="ref5" xreflabel="5"><emphasis role="ital">LMNL: Layered Markup and Annotation Language</emphasis>. <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.lmnl-markup.com</link></bibliomixed><bibliomixed xml:id="ref6" xreflabel="6"><emphasis role="ital">ODDAG: A Data Structure for Overlapping Hierarchies</emphasis>. 
+            C. M. Sperberg-McQueen and C. Huitfeld. 2004. Springer.</bibliomixed><bibliomixed xml:id="ref7" xreflabel="7"><emphasis role="ital">Information technology -- Generic applications of ASN.1: Fast Infoset</emphasis>. 
+        ISO/IEC 24824-1:2007</bibliomixed><bibliomixed xml:id="ref8" xreflabel="8"><emphasis role="ital">Efficient XML Interchange (EXI) Format 1.0</emphasis>. 
+            10 Mar 2011. W3C. <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/2011/REC-exi-20110310/</link></bibliomixed></bibliography></article>

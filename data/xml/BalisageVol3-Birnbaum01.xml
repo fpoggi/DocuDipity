@@ -1,0 +1,499 @@
+<?xml version="1.0" encoding="UTF-8"?><article xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink" version="5.0-subset Balisage-1.2"><title>An XML user steps into, and escapes from, XPath quicksand</title><info><confgroup><conftitle>Balisage: The Markup Conference 2009</conftitle><confdates>August 11 - 14, 2009</confdates></confgroup><abstract><para>Until recently, the admirable and impressive <emphasis role="ital">eXist</emphasis> XML database sometimes failed to optimize queries with
+                numerical predicates. For example, a search for <emphasis role="ital">$i/following::word[1]</emphasis> would retrieve <emphasis role="ital">all</emphasis>
+                <code>&lt;word&gt;</code> elements on the <code>following</code> axis and
+                only then apply the predicate as a filter to return only the first of them. This was
+                enormously inefficient when <code>$i</code> pointed to a node near the beginning of
+                a very large document, with many thousands of following
+                    <code>&lt;word&gt;</code> elements. As an end-user without the Java
+                programming skills to write optimization code for <emphasis role="ital">eXist</emphasis>, the author describes two types of optimization in the more
+                familiar XML, XPath, and XQuery, which reduced the number of nodes that needed to be
+                accessed and thus improved response time substantially.</para><para>A subsequent optimization introduced by the <emphasis role="ital">eXist</emphasis>
+                developers into the <emphasis role="ital">eXist</emphasis> code base is described in
+                an addendum to this paper. Although this revision partially obviates the need for
+                the work-arounds developed earlier, the analysis of the efficiency of various XPath
+                approaches to a single problem continues to provide valuable general lessons about
+                XPath.</para></abstract><author><personname><firstname>David</firstname><othername>J.</othername><surname>Birnbaum</surname></personname><personblurb><para>David J. Birnbaum is Professor and Chair of the Department of Slavic Languages
+                    and Literatures at the University of Pittsburgh. He has been involved in the
+                    study of electronic text technology since the mid-1980s, has delivered
+                    presentations at a variety of electronic text technology conferences, and has
+                    served on the board of the Association for Computers and the Humanities, the
+                    editorial board of <emphasis role="ital">Markup Languages: Theory and
+                        Practice</emphasis>, and the Text Encoding Initiative Council. Much of his
+                    electronic text work intersects with his research in medieval Slavic manuscript
+                    studies, but he also often writes about issues in the philosophy of
+                    markup.</para></personblurb><affiliation><jobtitle>Professor and Chair</jobtitle><orgname>Department of Slavic Languages and Literatures University of
+                    Pittsburgh</orgname></affiliation><email>djbpitt@pitt.edu</email></author><legalnotice><para>Copyright © 2009 by David J. Birnbaum. All rights reserved. Used by
+                permission.</para></legalnotice><keywordset role="author"><keyword>XPath</keyword><keyword>XQuery</keyword><keyword>eXist</keyword><keyword>optimization</keyword><keyword>efficiency</keyword><keyword>indexing</keyword></keywordset></info><section><title>The corpus</title><para>Alain de Lille’s (<emphasis role="ital">Alanus ab insulis</emphasis>)
+            allegorical-philosophical epic, the <emphasis role="ital">Anticlaudianus,</emphasis> is
+            a poem divided into nine books with a brief verse prologue and an equally brief prose
+            pre-prologue. The text was published by Robert Bossuat in 1955 (<emphasis role="ital">Anticlaudianus / Alain de Lille: texte critique avec une introduction et des
+                tables</emphasis> publié par R. Bossuat [Paris : J. Vrin, 1955]), cleaned up in 2009
+            by Danuta Shanzer (University of Illinois at Urbana-Champaign, <link xlink:href="mailto:shanzer@illinois.edu" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">shanzer@illinois.edu</link>) as a Dumbarton Oaks Medieval Library Latin Series Work
+            In Progress, and converted to XML and published as a queriable concordance by David J.
+            Birnbaum (University of Pittsburgh, <link xlink:href="mailto:djbpitt@pitt.edu" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">djbpitt@pitt.edu</link>). When this report was
+            last edited in August 2009, the concordance was freely accessible at <link xlink:href="http://clover.slavic.pitt.edu:8081/exist/acl/search.html" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://clover.slavic.pitt.edu:8081/exist/acl/search.html</link>; it will eventually
+            move to a different stable freely accessible address, which has not yet been determined,
+            but which should be discoverable through search engines.</para><para>The corpus consists of a single XML file subdivided into
+                <code>&lt;book&gt;</code> elements (prose introduction, verse introduction,
+            nine principal chapters). Each <code>&lt;book&gt;</code> is divided into
+                <code>&lt;line&gt;</code> elements (4344 <code>&lt;line&gt;</code>
+            elements in the nine principal <code>&lt;book&gt;</code> elements, for an
+            average of 482.7 <code>&lt;line&gt;</code> elements per
+                <code>&lt;book&gt;</code> element), and each
+                <code>&lt;line&gt;</code> is divided into <code>&lt;word&gt;</code>
+            elements (27222 <code>&lt;word&gt;</code> elements in the nine principal books,
+            or approximately 6.27 <code>&lt;word&gt;</code> elements per
+                <code>&lt;line&gt;</code> element; the <code>&lt;word&gt;</code>
+            counts per <code>&lt;line&gt;</code> range from a low of 4 to a high of 10). For
+            example, Book 2 begins:</para><programlisting xml:space="preserve">&lt;book n="2"&gt;
+  &lt;line&gt;
+    &lt;word&gt;Regia&lt;/word&gt;
+    &lt;word&gt;tota&lt;/word&gt;
+    &lt;word&gt;silet;&lt;/word&gt;
+    &lt;word&gt;expirat&lt;/word&gt;
+    &lt;word&gt;murmur&lt;/word&gt;
+    &lt;word&gt;in&lt;/word&gt;
+    &lt;word&gt;altum,&lt;/word&gt;
+  &lt;/line&gt;
+  &lt;line&gt;
+    &lt;word&gt;cum&lt;/word&gt;
+    &lt;word&gt;visu&lt;/word&gt;
+    &lt;word&gt;placidos&lt;/word&gt;
+    &lt;word&gt;delegat&lt;/word&gt;
+    &lt;word&gt;curia&lt;/word&gt;
+    &lt;word&gt;vultus,&lt;/word&gt;
+  &lt;/line&gt;
+  &lt;!-- more lines --&gt;
+&lt;/book&gt;</programlisting><para>Because scholars are likely to be interested more in the contents of the nine
+            principal books than in the contents of the prose and verse introductions, the counts
+            and calculations below omit the latter. They are, nonetheless, relevant in certain
+            situations, such as when a query consults all <code>&lt;word&gt;</code> elements
+            in the document, including those in the introductions. The prose introduction contains
+            477 <code>&lt;word&gt;</code> elements and the verse introduction 50.</para></section><section><title>The task</title><para>The goal of the electronic concordance project is to enable users to search for words
+            and generate a keyword-in-context (KWIC) report on the fly. The system was originally
+            implemented using the <emphasis role="ital">eXist</emphasis> XML database (<link xlink:href="http://www.exist-db.org" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.exist-db.org</link>), version 1.3.0dev-rev:8710-20090308. Version 1.3 of
+                <emphasis role="ital">eXist</emphasis>, still in beta at the time this report was
+            last revised, is the first to introduce a <emphasis role="ital">Lucene</emphasis>-based
+            index, which is intended eventually to replace the original proprietary full-text index,
+            and the present concordance is indexed and accessed using the <emphasis role="ital">Lucene</emphasis> index. When the user enters a query string and launches a search,
+            the system retrieves all hits and returns them with several preceding and following
+            words (three each by default, but the user can adjust this number). Line breaks in the
+            original are rendered as slashes in the KWIC output (this part of the code has been
+            omitted from most of this report in the interest of legibility, except when it is the
+            object of optimization). For example, a search for <code>pugna</code> (Latin for
+            ‘fight’), which occurs four times in the corpus, returns:</para><itemizedlist><listitem><para><emphasis role="bold">Acl.8.254: </emphasis>Martis amore / succensi, <emphasis role="ital">pugna</emphasis> cupiunt incidere vitam. / </para></listitem><listitem><para><emphasis role="bold">Acl.9.283: </emphasis>Luxum / Sobrietas, sed <emphasis role="ital">pugna</emphasis> favet Virtutibus, harum / </para></listitem><listitem><para><emphasis role="bold">Acl.9.331: </emphasis>fraudesque recurrit. / degeneri
+                        <emphasis role="ital">pugna,</emphasis> servili Marte, dolosa / </para></listitem><listitem><para><emphasis role="bold">Acl.9.384: </emphasis>indignata sub umbras. / <emphasis role="ital">Pugna</emphasis> cadit, cedit iuveni</para></listitem></itemizedlist><para>The XPath <code>preceding</code> and <code>following</code> axes are ideally suited to
+            this type of project, since they ignore the <code>&lt;line&gt;</code> element
+            boundaries and treat adjacent <code>&lt;word&gt;</code> elements identically
+            irrespective of whether they fall in the same <code>&lt;line&gt;</code> element
+            as the target word or in preceding or following <code>&lt;line&gt;</code>
+            elements. For example, the system can retrieve the three
+                <code>&lt;word&gt;</code> elements that precede the target
+                <code>&lt;word&gt;</code> element with the following XQuery (assume that
+                <code>$i</code> represents the target <code>&lt;word&gt;</code>
+            element):</para><programlisting xml:space="preserve">for $j in reverse(1 to 3) return $i/preceding::word[$j]</programlisting><para>This query returns the third, second, and first <code>&lt;word&gt;</code>
+            elements before the target <code>&lt;word&gt;</code> element, in the specified
+            order. An analogous statement can retrieve the three <code>&lt;word&gt;</code>
+            elements that follow the hit, thus providing the rest of the context. Because queries
+            along the long (<code>preceding</code> and <code>following</code>) axes make no
+            distinction between preceding and following <code>&lt;word&gt;</code> elements
+            within the same <code>&lt;line&gt;</code> element and those that require
+            crossing a <code>&lt;line&gt;</code> element boundary, the resulting XQuery code
+            is lucid and clean, making it extremely easy to read, write, and maintain.</para></section><section><title>The problem</title><para>The preceding strategy retrieves the correct results, and does so with elegant code,
+            but initially it proved unusable in practice for reasons of efficiency, even with
+            appropriately configured <emphasis role="ital">eXist Lucene</emphasis> and range indexes
+                (“<xref linkend="Configuring"/>,” “<xref linkend="Lucene"/>,” “<xref linkend="Tuning"/>”). Until a recent revision in the <emphasis role="ital">eXist</emphasis> code base (see the <link linkend="Addendum" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Addendum</link>,
+            below), XPath expressions that addressed the long axes were inefficient because
+                <emphasis role="ital">eXist</emphasis> retrieved the <emphasis role="ital">entire</emphasis> set of nodes on the specified axis before looking at the
+            predicate. For example, in the worst case a hit would fall at the beginning of the first
+                <code>&lt;line&gt;</code> in the first <code>&lt;book&gt;</code>
+            element, which meant that in order to find the three immediately following
+                <code>&lt;word&gt;</code> elements by looking on the <code>following</code>
+            axis <emphasis role="ital">eXist</emphasis> would first retrieve as many as 27221
+            following <code>&lt;word&gt;</code> elements and only then apply a numerical
+            predicate to filter the returned result. Since the context includes both preceding and
+            following <code>&lt;word&gt;</code> elements (that is, it requires accessing the
+                <code>preceding</code> axis in the former case and the <code>following</code> axis
+            in the latter), hits that have fewer preceding <code>&lt;word&gt;</code>
+            elements have more following ones, and vice versa, which means that all hits require
+            sets of retrievals that span the entire document. The overhead was not a significant
+            problem with queries that retrieved a mere handful of hits, but those that retrieved as
+            few as two hundred hits could take several minutes to return, and sometimes they failed
+            to return entirely because they generated Java heap overflow errors (which could have
+            been evaded by increasing the heap size, but that would not have provided a solution to
+            the efficiency problem).</para><para>This problem is not a unique or inherent property of the long axes. Rather, it is a
+            property of the number of nodes on which the predicate operates. For example, in a
+            flattened tree (imagine transforming the document to one where all
+                <code>&lt;word&gt;</code> elements are directly under the root and line and
+            book boundaries are encoded as empty milestone tags), a hit at the beginning of the
+            document that queried the <code>following-sibling</code> axis, rather than the
+                <code>following</code> axis, would nonetheless retrieve tens of thousands of
+            unwanted <code>&lt;word&gt;</code> elements before applying the predicates to
+            select the mere three that were actually needed. For this reason, although the problem
+            may initially appear to be an overlap issue in that in its original form it crosses the
+            boundaries of <code>&lt;line&gt;</code> elements, the flattening thought
+            experiment reveals that it is actually an optimization problem that is independent of
+            both the specific axes involved and the depth of the nesting. If, for example, <emphasis role="ital">eXist</emphasis> were to look first at the predicate and then access
+            only the necessary elements on the specified axis, instead of first retrieving all
+            elements on that axis and only then consulting the predicate and discarding the unwanted
+            ones (in the present case, all but one), processing would not be suffocated by
+            unnecessary retrieval irrespective of whether the query needed to cross a
+                <code>&lt;line&gt;</code> element boundary.</para><para>As is discussed in the <link linkend="Addendum" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Addendum</link>, below, <emphasis role="ital">eXist</emphasis> has since implemented this type of optimization, but
+            the problem nonetheless continues to merit consideration. Among other things, the issue
+            was never about <emphasis role="ital">eXist</emphasis>, since were that the case, an
+            obvious solution would have been to use an alternative platform that provided the
+            necessary optimization. Instead, the problem provides an opportunity to reflect more
+            generally on the nature of XPath expressions and the relationship between XPath and XML.
+            For example, although the inefficiency described above is independent of the specific
+            axis involved insofar as it could also have arisen with the sibling axes in a flattened
+            tree, it nonetheless does depend on the XML structure, or, more precisely, on its
+            indifference to the XML structure. What the long axes in the actual problem and the
+            sibling axes in the flattened tree alternative have in common is that they operate
+            independently of the tree structure. For example, the sibling axes in the original tree
+            constrains the number of nodes involved because the tree is balanced in a way that
+            ensures that no <code>&lt;word&gt;</code> element will have more than nine
+            sibling <code>&lt;word&gt;</code> elements. What the long axes in that same tree
+            and the sibling axes in the hypothetical flattened tree alternative have in common, on
+            the other hand, is that all <code>&lt;word&gt;</code> elements are treated as
+            though they are on the same level of the tree (in the former case because the long axes
+            ignore the tree and in the latter case because the tree is flattened, and therefore
+            irrelevant). This suggests that unless one can be certain that the software that will
+            evaluate one’s XPath expressions will optimize one’s query, the designer should take
+            into consideration the number of nodes that will be addressed by those
+            expressions.</para></section><section><title>An XPath solution</title><para>Since <emphasis role="ital">eXist</emphasis> was unable to optimize the queries in
+            question, that duty fell on the user, who, in this case, first adopted a strategy that
+            avoided the long axes, favoring instead the sibling axes at all levels
+                (<code>&lt;word&gt;</code> and <code>&lt;line&gt;</code>). This
+            constrains searches for <code>&lt;word&gt;</code> elements within a
+                <code>&lt;line&gt;</code> element to an average of 2.64 (5.27 / 2) elements
+            and searches for <code>&lt;line&gt;</code> elements within a
+                <code>&lt;book&gt;</code> element to 240.5 (481.7 / 2) elements, and in the
+            worst case to 5.27 and 481.7, respectively. These numbers should be multiplied by six
+            for a typical query, which retrieves three preceding and three following
+                <code>&lt;word&gt;</code> elements, but they still compare very favorably to
+            queries along the long axes, which consult 13610.5 (27221 / 2)
+                <code>&lt;word&gt;</code> elements on average and 27221 in the worst case. A
+            prose explanation of the strategy for retrieving the three
+                <code>&lt;word&gt;</code> elements following the target while using the
+                <code>following-sibling</code> axis exclusively instead of the
+                <code>following</code> axis is:</para><orderedlist><listitem><para>If there is a <code>&lt;word&gt;</code> element in the appropriate
+                    position on the <code>following-sibling</code> axis (that is, in the same
+                        <code>&lt;line&gt;</code> element), retrieve it.</para></listitem><listitem><para>If not, navigate up to the <code>parent</code> axis (a
+                        <code>&lt;line&gt;</code> element), get its following-sibling
+                        <code>&lt;line&gt;</code> element, and retrieve the appropriate
+                        <code>&lt;word&gt;</code> child element from within that
+                        <code>&lt;line&gt;</code>.</para></listitem></orderedlist><para>The following XQuery snippet retrieves the three <code>&lt;word&gt;</code>
+            elements that follow the target. Assume that <code>$i</code> refers to the target (here
+            and in subsequent examples):</para><programlisting xml:space="preserve">if (count($i/following-sibling::word) ge 3)
+then for $j in (1 to 3) return $i/following-sibling::word[$j]
+else
+  if (count($i/following-sibling::word) eq 2)
+  then (for $j in (1 to 2) return $i/following-sibling::word[$j], 
+    $i/parent::line/following-sibling::line/word[1])
+  else
+    if (count($i/following-sibling::word) eq 1)
+    then ($i/following-sibling::word[1], for $j in (1 to 2) 
+      return ($i/parent::line/following-sibling::line/word[$j]))
+    else
+      for $j in (1 to 3) return $i/parent::line/following-sibling::line/word[$j]</programlisting><para>An analogous strategy can retrieve the three <code>&lt;word&gt;</code>
+            elements that immediately precede the target.</para><para>It is possible to generalize this solution to allow the user to specify at run time
+            the number of preceding or following <code>&lt;word&gt;</code> elements to
+            provide as context along the following lines (assume that <code>$scope</code> specifies
+            the number of words of context to provide after the target
+                <code>&lt;word&gt;</code>):</para><programlisting xml:space="preserve">if (count($i/following-sibling::word) ge $scope) 
+then for $j in (1 to $scope) return $i/following-sibling::word[$j]
+else for $k in (0 to ($scope - 1)) return
+  if (count($i/following-sibling::word) eq $k) 
+  then (
+    for $j in (1 to $k) return $i/following-sibling::word[$j],
+    for $j in (1 to ($scope - $k)) return $i/parent::line/following-sibling::line/word[$j]
+  )
+  else ""</programlisting><para>An analogous strategy can retrieve a user-specified number of
+                <code>&lt;word&gt;</code> elements that immediately precede the target. This
+            generalization, however, is fragile because it looks only at the
+                <code>&lt;line&gt;</code> element that contains the target
+                <code>&lt;word&gt;</code> element plus the immediately preceding or
+            following sibling <code>&lt;line&gt;</code> element. This means that, for
+            example, if the user wants to include a context of five following
+                <code>&lt;word&gt;</code> elements, the code will fail when the target
+                <code>&lt;word&gt;</code> falls at the end of a
+                <code>&lt;line&gt;</code> and the following (sibling)
+                <code>&lt;line&gt;</code> contains only four
+                <code>&lt;word&gt;</code>elements. It might be possible to circumvent this
+            limitation through a recursive approach, but by that point the code would become so
+            convoluted as to be difficult to understand and impractical to maintain.</para></section><section><title>A range index solution</title><para>In addition to the new <emphasis role="ital">Lucene</emphasis>-based full-text index
+            (and the original full-text index, which is still available), <emphasis role="ital">eXist</emphasis> also supports range indexes, which provide very fast access to
+            element nodes on the <code>descendant-or-self</code> (<code>//</code>) or
+                <code>child</code> (<code>/</code>) axis and attribute notes on the
+                <code>attribute</code> (<code>/@</code>) axis according to their typed data value.
+            This suggests an alternative approach:</para><orderedlist><listitem><para>Before storing the XML source document, create an <code>@offset</code>
+                    attribute for each <code>&lt;word&gt;</code> element and assign it a
+                    unique sequential integer value. The first <code>&lt;word&gt;</code>
+                    element in the document has an <code>@offset</code> value of <code>1</code>, the
+                    next has a value of <code>2</code>, etc.</para></listitem><listitem><para>Retrieve the target <code>&lt;word&gt;</code> element by using the new
+                        <emphasis role="ital">Lucene</emphasis> full-text index.</para></listitem><listitem><para>Retrieve the adjacent context <code>&lt;word&gt;</code> elements
+                    according to their <code>@offset</code> attribute values by counting backward or
+                    forward from the <code>@offset</code> value of the target
+                        <code>&lt;word&gt;</code> element.</para></listitem></orderedlist><para>This approach is available only where the designer has control over the XML source and
+            is able to incorporate a specific <code>@offset</code> attribute that is to be used only
+            for navigation during retrieval. It has at least two weaknesses, one aesthetic and one
+            technical:</para><itemizedlist><listitem><para>The aesthetic problem is that the ordinal position of each
+                        <code>&lt;word&gt;</code> element within the document is an inherent
+                    property of the document structure, and the user should not have to specify
+                    through the insertion of character-based markup into the document a value that
+                    is already encoded implicitly but consistently and unambiguously in the markup
+                    structure.</para></listitem><listitem><para>The technical problem is that the insertion or deletion of a word in the
+                    document will break the numbering, requiring that the <code>@offset</code>
+                    values be calculated anew and rewritten. In the present case the document is
+                    relatively stable (that is, more stable than, for example, an on-line commerce
+                    site that writes new data for every transaction), but the editor may still
+                    choose to modify her reading at some point as she reconsiders the available
+                    evidence and perhaps discovers and needs to integrate the data from newly
+                    discovered manuscript witnesses.</para></listitem></itemizedlist><para> In practice, neither of these weakness imposes a serious inconvenience in the context
+            of the present project, and the opportunity to use the <emphasis role="ital">eXist</emphasis> range index feature provides a substantial improvement in response
+            time over alternative strategies (see the time test data below).</para><para>With the modification to the XML source described above, the first two lines of Book 2
+            now look like:</para><programlisting xml:space="preserve">&lt;book n="2"&gt;
+  &lt;line&gt;
+    &lt;word offset="3708"&gt;Regia&lt;/word&gt;
+    &lt;word offset="3709"&gt;tota&lt;/word&gt;
+    &lt;word offset="3710"&gt;silet;&lt;/word&gt;
+    &lt;word offset="3711"&gt;expirat&lt;/word&gt;
+    &lt;word offset="3712"&gt;murmur&lt;/word&gt;
+    &lt;word offset="3713"&gt;in&lt;/word&gt;
+    &lt;word offset="3714"&gt;altum,&lt;/word&gt;
+  &lt;/line&gt;            
+  &lt;line&gt;
+    &lt;word offset="3715"&gt;cum&lt;/word&gt;
+    &lt;word offset="3716"&gt;visu&lt;/word&gt;
+    &lt;word offset="3717"&gt;placidos&lt;/word&gt;
+    &lt;word offset="3718"&gt;delegat&lt;/word&gt;
+    &lt;word offset="3719"&gt;curia&lt;/word&gt;
+    &lt;word offset="3720"&gt;vultus,&lt;/word&gt;
+    &lt;/line&gt;
+  &lt;!-- more lines --&gt;
+&lt;/book&gt;</programlisting><para>The following code will now use a properly-configured <emphasis role="ital">eXist</emphasis> range index to retrieve the three
+                <code>&lt;word&gt;</code> elements following the target
+                <code>&lt;word&gt;</code> element (assume <code>$i</code> is the target
+                <code>&lt;word&gt;</code> element):</para><programlisting xml:space="preserve">let $offset := $i/@offset
+return
+for $j in (1 to 3) return doc("/db/acl/acl.xml")//word[@offset eq ($offset + $j)]</programlisting><para>An analogous strategy can retrieve the three <code>&lt;word&gt;</code>
+            elements that immediately precede the target. Furthermore, this solution is easily
+            generalized to allow the user to specify the number of preceding or following context
+                <code>&lt;word&gt;</code> elements at run time (assume that
+                <code>$scope</code> specifies the number of words of context to provide after the
+            target <code>&lt;word&gt;</code>):</para><programlisting xml:space="preserve">let $offset := $i/@offset
+return
+for $j in (1 to $scope) return doc("/db/acl/acl.xml")//word[@offset eq ($offset + $j)]</programlisting><para>The strategy of writing structural information about the XML (such as offset position)
+            into attribute values of the XML source itself in the interest of improved execution
+            time can also be applied to writing slashes to mark the ends of lines. The most natural
+            XPath way to write a slash after the target <code>&lt;word&gt;</code> element
+            when it ends a <code>&lt;line&gt;</code> element in the XML source is:</para><programlisting xml:space="preserve">if (not($i/following-sibling::word)) then " / " else ""</programlisting><para>A similar approach can be used to write slashes after the leading and trailing context
+                <code>&lt;word&gt;</code> elements when they end a
+                <code>&lt;line&gt;</code> element. This method is not maddeningly slow
+            because the number of nodes on the sibling axes is typically small, but further
+            improvement in processing speed is available by modifying the XML source to include the
+            string <code>" / "</code> (without the quotation marks) as an attribute value associated
+            with <code>&lt;word&gt;</code> elements that fall at the end of
+                <code>&lt;line&gt;</code> elements and then retrieving it when generating
+            the report, instead of consulting the sibling axis. The first two lines of Book 2 now
+            look like:</para><programlisting xml:space="preserve">&lt;book n="2"&gt;
+  &lt;line&gt;
+    &lt;word offset="3708"&gt;Regia&lt;/word&gt;
+    &lt;word offset="3709"&gt;tota&lt;/word&gt;
+    &lt;word offset="3710"&gt;silet;&lt;/word&gt;
+    &lt;word offset="3711"&gt;expirat&lt;/word&gt;
+    &lt;word offset="3712"&gt;murmur&lt;/word&gt;
+    &lt;word offset="3713"&gt;in&lt;/word&gt;
+    &lt;word last=" / " offset="3714"&gt;altum,&lt;/word&gt;
+  &lt;/line&gt;            
+  &lt;line&gt;
+    &lt;word offset="3715"&gt;cum&lt;/word&gt;
+    &lt;word offset="3716"&gt;visu&lt;/word&gt;
+    &lt;word offset="3717"&gt;placidos&lt;/word&gt;
+    &lt;word offset="3718"&gt;delegat&lt;/word&gt;
+    &lt;word offset="3719"&gt;curia&lt;/word&gt;
+    &lt;word last=" / " offset="3720"&gt;vultus,&lt;/word&gt;
+  &lt;/line&gt;
+  &lt;!-- more lines --&gt;
+&lt;/book&gt;</programlisting><para>The XQuery code to write trailing context <code>&lt;word&gt;</code> elements
+            is then:</para><programlisting xml:space="preserve">let $offset := $i/@offset
+for $j in (1 to 3) return (
+  " ", 
+  data(doc("/db/acl/acl.xml")//word[@offset eq ($offset + $j)]),
+  data(doc("/db/acl/acl.xml")//word[@offset eq ($offset + $j)]/@last)
+)</programlisting><para>This approach writes a space after the target <code>&lt;word&gt;</code>
+            element, followed by the appropriate trailing context <code>&lt;word&gt;</code>
+            element, followed by the value of the <code>@last</code> attribute of that
+                <code>&lt;word&gt;</code> element. If there is a <code>@last</code>
+            attribute, it has the value <code>" / "</code> (without the quotation marks), which is
+            what we want to write. If the attribute is missing, that statement operates vacuously,
+            producing no output.</para></section><section><title>Time test results</title><para>To test the relative efficiency of the various coding strategies described above, the
+            same query was executed ten times with each of four strategies. The query was a search
+            for the word <code>sed</code> (Latin for ‘but’), which occurs 221 times in the corpus,
+            and the XQuery scripts were all written to return it along with its location (book and
+            line number) and with three context words on either side. The search strategies
+            were:</para><itemizedlist><listitem><para><emphasis role="bold">Long axes:</emphasis> Search for context words using the
+                        <code>preceding</code> and <code>following</code> axes. Place slashes at the
+                    ends of lines by checking whether each output word has a following sibling
+                        <code>&lt;word&gt;</code> element in the same
+                        <code>&lt;line&gt;</code>.</para></listitem><listitem><para><emphasis role="bold">Sibling axes:</emphasis> Search for context words using
+                    the sibling axes. If there are not enough context
+                        <code>&lt;word&gt;</code> elements in the same
+                        <code>&lt;line&gt;</code>, find the nearest sibling of the
+                        <code>&lt;line&gt;</code> and navigate to the desired word element
+                    along the <code>child</code> axis. Place slashes as described above.</para></listitem><listitem><para><emphasis role="bold"><code>@offset</code>:</emphasis> Modify the XML to add
+                    an <code>@offset</code> attribute to every <code>&lt;word&gt;</code>
+                    element and find the context words by counting down or up from the
+                        <code>@offset</code> attribute value for the target
+                        <code>&lt;word&gt;</code>. Place slashes as described above.</para></listitem><listitem><para><emphasis role="bold"><code>@last</code>:</emphasis> Same as
+                        <code>@offset</code>, except add a <code>@last</code> attribute in the XML
+                    to every <code>&lt;word&gt;</code> element that is the last in its
+                    parent <code>&lt;line&gt;</code>, and place slashes at the ends of lines
+                    by returning the value of that attribute.</para></listitem></itemizedlist><para>The tests were conducted on a Gateway 3GHz Pentium D with 1MG of memory, running
+            Microsoft Windows Vista with Service Pack 1.0. The Java version is 1.6.0_13 and the
+                <emphasis role="ital">eXist</emphasis> version is 1.3.0dev-rev:0000-20090528.</para><table border="1" rules="all"><tr align="center"><td>
+                    <para>
+                        <emphasis role="ital">Test no.</emphasis>
+                    </para>
+                </td><td>
+                    <para>
+                        <emphasis role="ital">Long axes</emphasis>
+                    </para>
+                </td><td>
+                    <para>
+                        <emphasis role="ital">Sibling axes</emphasis>
+                    </para>
+                </td><td>
+                    <emphasis role="ital">
+                        <code>@offset</code>
+                    </emphasis>
+                </td><td>
+                    <emphasis role="ital">
+                        <code>@last</code>
+                    </emphasis>
+                </td></tr><tr align="right"><td>
+                    <emphasis role="ital">1</emphasis>
+                </td><td>447.750</td><td>38.477</td><td>34.345</td><td>24.413</td></tr><tr align="right"><td>
+                    <emphasis role="ital">2</emphasis>
+                </td><td>440.265</td><td>38.390</td><td>34.446</td><td>24.416</td></tr><tr align="right"><td>
+                    <emphasis role="ital">3</emphasis>
+                </td><td>559.141</td><td>38.710</td><td>34.438</td><td>24.445</td></tr><tr align="right"><td>
+                    <emphasis role="ital">4</emphasis>
+                </td><td>905.472</td><td>38.484</td><td>35.409</td><td>24.384</td></tr><tr align="right"><td>
+                    <emphasis role="ital">5</emphasis>
+                </td><td>702.915</td><td>38.590</td><td>34.562</td><td>24.447</td></tr><tr align="right"><td>
+                    <emphasis role="ital">6</emphasis>
+                </td><td>530.739</td><td>38.341</td><td>34.798</td><td>24.424</td></tr><tr align="right"><td>
+                    <emphasis role="ital">7</emphasis>
+                </td><td>851.608</td><td>38.714</td><td>34.145</td><td>24.415</td></tr><tr align="right"><td>
+                    <emphasis role="ital">8</emphasis>
+                </td><td>473.601</td><td>38.496</td><td>34.410</td><td>24.395</td></tr><tr align="right"><td>
+                    <emphasis role="ital">9</emphasis>
+                </td><td>670.772</td><td>39.521</td><td>34.423</td><td>24.463</td></tr><tr align="right"><td>
+                    <emphasis role="ital">10</emphasis>
+                </td><td>473.601</td><td>38.317</td><td>34.429</td><td>24.469</td></tr><tr align="right"><td align="left">
+                    <emphasis role="bital">Mean</emphasis>
+                </td><td>631.150</td><td>38.604</td><td>34.541</td><td>24.427</td></tr><tr align="right"><td align="left">
+                    <emphasis role="bital">Ratio 1</emphasis>
+                </td><td>25.838</td><td>1.580</td><td>1.414</td><td>1.000</td></tr><tr align="right"><td align="left">
+                    <emphasis role="bital">Ratio 2</emphasis>
+                </td><td>18.273</td><td>1.118</td><td>1.000</td><td> </td></tr><tr align="right"><td align="left">
+                    <emphasis role="bital">Ratio 3</emphasis>
+                </td><td>16.349</td><td>1.000</td><td> </td><td> </td></tr></table><para>Times are reported in seconds. The three ratio lines in the table set the time for one
+            of the tests at a value of <code>1</code> and then calculate the amount of time the
+            other implementations required in proportion to it.</para><para>The results show that querying along the long axes took more than 16 times as much
+            time as querying along the sibling axes. Using the <code>@offset</code> attribute value
+            instead of either the long axes or the sibling axes saved an additional 11% in time, and
+            using the <code>@last</code> attribute value as well saved an additional 41% in time
+            over that. All told, the implementation that relies on the long axes took more than 25
+            times as much time as the one with the greatest optimization.</para></section><section><title>Is it XML?</title><para>The XML version of the poem has an inherent hierarchy (the poem contains books, which
+            contain lines, which contain words) and inherent order (the words occur in a particular
+            order, as do the lines and books). Those inherent features are encoded naturally in the
+            structure of the XML document because XML documents are obligatorily hierarchical (even
+            though in some projects the hierarchy may be flat) and ordered (even though in some
+            projects the user may ignore the order). The addition of <code>@offset</code> and
+                <code>@last</code> attributes and the adoption of a strategy that treats the
+            document as flat and never looks at the hierarchy essentially transforms the approach
+            from one that is based on natural properties of XML documents to one that is based on a
+            flat-file database way of thinking. That is, we could map each
+                <code>&lt;word&gt;</code> element in the XML version to a record in a
+            database table, the fields of which would be the textual representation of the word (a
+            character string), the offset value (a unique positive integer), an indication of
+            whether the word falls at the end of a line (a boolean value), and the book and line
+            number (a string value, which is used in reporting). Records in a database do not have
+            an inherent order, but once we rely on the value of the <code>@offset</code> attribute
+            in the XML document, the <code>&lt;word&gt;</code> elements might as well be
+            sprinkled through the document in any order, and the <code>&lt;line&gt;</code>
+            and <code>&lt;book&gt;</code> elements play no role at all in the system. That
+            is, except for the book and line number, the most highly optimized (and most efficient)
+            implementation above adopts precisely a flat-file database approach, which raises the
+            question of whether this project should have been undertaken in XML in the first
+            place.</para><para>The answer to that rhetorical question is that of course it should have been
+            undertaken in XML because the order and hierarchy are meaningful. They are inherent in
+            the XML structure but must be written explicitly into a corresponding database
+            implementation, which indicates that this is data that wants, as it were, to be regarded
+            as an ordered and hierarchical XML document. The problem is not that the data is
+            inherently tabular, and therefore inherently suited to a flat-file database solution,
+            but that the XML tool available to manipulate the data was not sufficiently optimized for
+            the type of retrieval required.</para></section><section><title>Conclusion</title><para>The best solution would be, of course, an optimization within <emphasis role="ital">eXist</emphasis> that would let users write concise and legible XQuery code (using
+            the long axes), which would then be executed efficiently through optimization behind the
+            scenes. This type of solution would remove the need for both more complex code (along
+            the lines of the sibling-axes approach described above) and modifying the XML to write
+            information into the document in character form when that information is already
+            inherent in the document structure. Until such a solution became available, though, the
+            strategies described above provided a substantial improvement over explicit use of the
+            long axes, salvaging a project that would otherwise have been unusable for reasons of
+            efficiency.</para></section><section xml:id="Addendum"><title>Addendum</title><para><emphasis role="ital">eXist</emphasis> is an open-source project, which means that
+            impatient users who require an optimization not already present in the code have the
+            opportunity to implement that optimization themselves and contribute it to the project.
+            Unfortunately, in the present case this particular impatient user lacked the Java
+            programming skills to undertake the task. Fortunately, however, the <emphasis role="ital">eXist</emphasis> development team is very responsive to feature requests
+            from users, and shortly after I wrote to the developers about the problem they released
+            an upgrade that implemented precisely the modification described above (consult the
+            predicate first and retrieve only the nodes that will be needed from the designated
+            axis). Rerunning the original code that relied on the long axes on the same machine as
+            the earlier tests but using <emphasis role="ital">eXist</emphasis> version
+            1.3.0dev-rev9622-20090802, which includes this new optimization, yielded times of 1.754,
+            1.778, 1.765, 1.944, 1.944, 1.777, 18.949, 1.838, 1.763, and 1.798 seconds. The mean
+            time for these tests was 3.531 seconds, and if we exclude the aberrant long time on the
+            seventh trial (an artifact of a system process that woke up at an inconvenient moment?),
+            the mean drops to 1.818 seconds. The 3.531-second figure is 14.455% of the best mean
+            time (24.427 seconds) achieved with my XSLT-based optimizations and 0.559% of the mean
+            time of the long-axes search (631.150 seconds) before the introduction of the <emphasis role="ital">eXist</emphasis>-internal optimization. The 1.818-second figure is
+            7.443% of the best mean time (24.427 seconds) achieved with my XPath-based optimizations
+            and 0.288% of the mean time of the long-axes search (631.150 seconds) before the
+            introduction of the <emphasis role="ital">eXist</emphasis>-internal optimization.</para><para>The <emphasis role="ital">eXist</emphasis> optimization works by checking the static
+            return type of the predicate expression to determine whether it is a positional
+            predicate. (This paragraph reproduces more or less verbatim an explanation provided by
+            the <emphasis role="ital">eXist</emphasis> developers.) If the answer is yes and there
+            is no context dependency, the predicate will be evaluated in advance and the result will
+            be used to limit the range of the context selection (e.g.,
+            <code>following::word</code>). For example, <code>$i/following::word[1]</code> would
+            benefit from the optimization because the static return type of the predicate is a
+            positional predicate and it entails no context dependency. On the other hand,
+                <code>$i/following::word[position() = 1]</code> would not be optimized because it
+            introduces a context dependency insofar as <code>position()</code> returns the position
+            of the current context item and cannot be evaluated without looking at the context.
+            Furthermore, determining the static type is not always easy. In particular, the type
+            information is passed along local variables declared in a <code>let</code> or
+                <code>for</code>, but it gets lost through function calls. My original query,
+                <code>for $j in (1 to 3) return $i/following::word[$j]</code>, works, but if
+                <code>$j</code> were a function parameter, it would not. Additionally, support for
+            this optimization with particular XPath functions is being introduced only
+            incrementally, to avoid breaking existing code. For example, the developers’ initial
+            attempt at an optimization failed with the <code>reverse()</code> function that I used
+            to retrieve the three preceding words in the correct order, although support for this
+            function was added later to the optimization.</para><para>The unsurprising technical conclusion, then, is that, at least in the present case,
+            optimization of the XPath code by the user to reduce the scope of a query can achieve
+            substantial improvement, but much more impressive results are obtained by optimizing the
+            Java code underlying the XPath interpreter. What this experiment also reveals, though,
+            is that, at least in the present case, the user was not reduced to waiting helplessly
+            for a resolution by the developers, and was able to achieve meaningful improvement in
+            those areas that he did control, viz., the XML, XPath, and XQuery.</para><para>In his concluding statement at the Balisage 2009 pre-conference Symposium on
+            Processing XML Efficiently, Michael Kay invoked David Wheeler’s advice that application
+            developers optimize the code that users actually write, that is, that they find out what
+            people are doing and make that go quickly. From an end-user perspective, though, the
+            lesson can be reversed: Find out what goes quickly and use it.</para></section><bibliography><title>Works cited</title><bibliomixed xreflabel="Configuring" xml:id="Configuring">“Configuring Database Indexes.”
+            (Part of the <emphasis role="ital">eXist</emphasis> documentation.) <link xlink:href="http://www.exist-db.org/indexing.html" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.exist-db.org/indexing.html</link>. Accessed 2009-05-31.</bibliomixed><bibliomixed xreflabel="Lucene" xml:id="Lucene">“Lucene-based Full Text Index” (Part of the
+                <emphasis role="ital">eXist</emphasis> documentation.) <link xlink:href="http://www.exist-db.org/lucene.html" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.exist-db.org/lucene.html</link>. Accessed 2009-05-31.</bibliomixed><bibliomixed xreflabel="Tuning" xml:id="Tuning">“Tuning the Database.” (Part of the
+                <emphasis role="ital">eXist</emphasis> documentation.) <link xlink:href="http://exist.sourceforge.net/tuning.html" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://exist.sourceforge.net/tuning.html</link>. Accessed 2009-05-31.</bibliomixed></bibliography></article>

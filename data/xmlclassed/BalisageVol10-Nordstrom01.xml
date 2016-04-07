@@ -1,0 +1,741 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?><classedDocument><article xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink" class="po-hcontainer e0 e0" version="5.0-subset Balisage-1.3"><title class="po-block e1 e1"><textual class="po-textual">Semantic Profiling Using Indirection</textual></title><info class="po-record e2 e2"><confgroup class="po-record e3 e3"><conftitle class="po-field e4 e4"><textual class="po-textual">Balisage: The Markup Conference 2013</textual></conftitle><confdates class="po-field e5 e5"><textual class="po-textual">August 6 - 9, 2013</textual></confdates></confgroup><abstract class="po-container e6 e6"><para class="po-block e7 e7"><textual class="po-textual">Profiling is an often-used XML publishing technique where nodes are marked as
+                conditional according to a set of profiles, identified using attribute values as
+                filtering conditions. When publishing, the nodes are only included if the publishing
+                conditions match the publishing context. The profiles are sometimes also used as
+                variables in text content, including the attribute value in the publication.</textual></para><para class="po-block e8 e8"><textual class="po-textual">While useful, these techniques have a number of problems. For example, if the
+                attribute values need to be changed, the new values usually require converting any
+                    </textual><quote class="po-inline e9 e9"><textual class="po-textual">live</textual></quote><textual class="po-textual"> legacy documentation to the new values, changing the schema,
+                stylesheets, etc, and supporting both the old and new profiles will not be possible.
+                This paper takes a look at profiling, some of the common problems and suggest ways
+                to solve those problems.</textual></para><para class="po-block e10 e10"><textual class="po-textual">An abstraction layer solves this. The profile values are not used directly;
+                instead they represent a specific </textual><quote class="po-inline e11 e11"><textual class="po-textual">semantic profile</textual></quote><textual class="po-textual">. The abstraction
+                layer can be expressed using URNs that are matched to human-readable values when
+                required.</textual></para><para class="po-block e12 e12"><textual class="po-textual">A different problem arises when handling XML documents with structures not in our
+                control. The document might be from a third party and not be editable directly, or
+                use incompatible profiling semantics.</textual></para><para class="po-block e13 e13"><textual class="po-textual">These documents can be profiled using </textual><emphasis class="po-inline e14 e14" role="ital"><textual class="po-textual">out-of-line</textual></emphasis><textual class="po-textual">
+                profiling, describing the conditions outside the document, for example, in an
+                extended XLink linkbase listing the nodes and their profiles. XLink, as it turns
+                out, is well suited for this.</textual></para></abstract><author class="po-record e15 e15"><personname class="po-record e16 e16"><firstname class="po-field e17 e17"><textual class="po-textual">Ari</textual></firstname><surname class="po-field e18 e18"><textual class="po-textual">Nordström</textual></surname></personname><personblurb class="po-container e19 e19"><para class="po-block e20 e20"><textual class="po-textual">Ari Nordström is the resident XML guy at Condesign AB in Göteborg, Sweden. His
+                    information structures and solutions are used by Volvo Cars, Ericsson, and many
+                    others, with more added every year. His favourite XML specification remains
+                    XLink so quite a few of his frequent talks and presentations on XML focus on
+                    linking. </textual></para><para class="po-block e21 e21"><textual class="po-textual">Ari spends some of his spare time projecting films at the Draken Cinema in
+                    Göteborg, which should explain why he wants to automate cinemas using XML. He
+                    now realises it's too late, however.</textual></para></personblurb><email class="po-field e22 e22"><textual class="po-textual">ari.nordstrom@condesign.se</textual></email></author><legalnotice class="po-container e23 e23"><para class="po-block e24 e24"><textual class="po-textual">Copyright © Ari Nordström 2013</textual></para></legalnotice></info><section class="po-hcontainer e25 e25" xml:id="section_sb3_nkw_vj"><title class="po-block e26 e26"><textual class="po-textual">Intro</textual></title><para class="po-block e27 e27"><textual class="po-textual">Profiling is an often-used XML publishing technique where nodes are marked as
+            conditional according to a set of profiles, identified using attribute values as
+            filtering conditions. When publishing, the nodes are only included if the publishing
+            conditions match the publishing context. The profiles are sometimes also used as
+            variables in text content, including the attribute value in the publication.</textual></para><para class="po-block e28 e28"><textual class="po-textual">While useful, these techniques have a number of problems. This paper takes a look at
+            profiling, some of the common problems and suggest ways to solve those problems.</textual></para><section class="po-hcontainer e29 e29"><title class="po-block e30 e30"><textual class="po-textual">Definitions</textual></title><para class="po-block e31 e31"><textual class="po-textual">Before I begin, let me briefly attempt to define the terminology used in this
+                paper. Consider the following markup example:</textual></para><programlisting class="po-block e32 e32" xml:space="preserve"><textual class="po-textual">&lt;doc profile="B"&gt;
+   &lt;p&gt;Information common to products A, B, and C.&lt;/p&gt;
+   &lt;p profile="A"&gt;Information about product A.&lt;/p&gt;
+   &lt;p profile="B C"&gt;Information about products B and C.&lt;/p&gt;
+   &lt;p profile="B C"&gt;Information about products B and C.&lt;/p&gt;
+&lt;/doc&gt;
+</textual></programlisting><para class="po-block e33 e33"><textual class="po-textual">The above is an example document that describes a product with the three product
+                variants </textual><quote class="po-inline e34 e34"><textual class="po-textual">A</textual></quote><textual class="po-textual">, </textual><quote class="po-inline e35 e35"><textual class="po-textual">B</textual></quote><textual class="po-textual"> and </textual><quote class="po-inline e36 e36"><textual class="po-textual">C</textual></quote><textual class="po-textual">; in other words,
+                it's the same basic product (imagine, for example, a diesel-engined car model with
+                three different-sized engines) but with three differing configurations.</textual></para><para class="po-block e37 e37"><textual class="po-textual">I try to use the following terminology throughout the paper:</textual></para><itemizedlist class="po-table e38 e38"><listitem class="po-container e39 e39"><para class="po-block e40 e40"><textual class="po-textual">A </textual><emphasis class="po-inline e41 e41"><textual class="po-textual">profile</textual></emphasis><textual class="po-textual"> is a set of conditions defining when a node
+                        is applicable. The </textual><code class="po-atom e42 e42"><textual class="po-textual">profile="A"</textual></code><textual class="po-textual"> attribute in the second
+                            </textual><code class="po-atom e43 e43"><textual class="po-textual">p</textual></code><textual class="po-textual"> element, for example, says that this particular
+                            </textual><code class="po-atom e44 e44"><textual class="po-textual">p</textual></code><textual class="po-textual"> element is applicable for the variant
+                        </textual><quote class="po-inline e45 e45"><textual class="po-textual">A</textual></quote><textual class="po-textual">.</textual></para></listitem><listitem class="po-container e46 e46"><para class="po-block e47 e47"><textual class="po-textual">A profile's </textual><emphasis class="po-inline e48 e48"><textual class="po-textual">value</textual></emphasis><textual class="po-textual"> is the human-readable condition for
+                        a specific profile, there to help a reader identify the condition in the
+                        text flow. For example, information that applies to the</textual><quote class="po-inline e49 e49"><textual class="po-textual">D5</textual></quote><textual class="po-textual">
+                        diesel engine might be marked up with </textual><code class="po-atom e50 e50"><textual class="po-textual">profile="D5"</textual></code><textual class="po-textual">.</textual></para></listitem><listitem class="po-container e51 e51"><para class="po-block e52 e52"><textual class="po-textual">A profile's </textual><emphasis class="po-inline e53 e53"><textual class="po-textual">semantics</textual></emphasis><textual class="po-textual">, on the other hand, represent
+                        the underlying </textual><emphasis class="po-inline e54 e54"><textual class="po-textual">meaning</textual></emphasis><textual class="po-textual"> behind the value. The
+                            </textual><quote class="po-inline e55 e55"><textual class="po-textual">D5</textual></quote><textual class="po-textual"> diesel engine might be renamed to something very
+                        different without changing the semantics of a profile</textual><footnote class="po-popup e56 e56"><para class="po-block e57 e57"><textual class="po-textual">This is one of the basic problems with profiling that this paper
+                                attempts to address.</textual></para></footnote><textual class="po-textual">. For example, a marketing department might decide to rename it
+                        without the engineering department changing a single engine
+                        component.</textual></para></listitem><listitem class="po-container e58 e58"><para class="po-block e59 e59"><textual class="po-textual">A profiling </textual><emphasis class="po-inline e60 e60"><textual class="po-textual">context</textual></emphasis><textual class="po-textual"> is the condition(s) applied to
+                        the document when publishing it. In my examples, I try to consistently set
+                        that profile in the root element; above, the publishing context is
+                            </textual><quote class="po-inline e61 e61"><textual class="po-textual">B</textual></quote><textual class="po-textual">, which means that only nodes either
+                            </textual><emphasis class="po-inline e62 e62"><textual class="po-textual">without</textual></emphasis><textual class="po-textual"> any profiles or nodes
+                            </textual><emphasis class="po-inline e63 e63"><textual class="po-textual">including</textual></emphasis><textual class="po-textual"> the context profile's value are included
+                        in the publication.</textual></para></listitem></itemizedlist></section><section class="po-hcontainer e64 e64" xml:id="section_b2h_t4w_vj"><title class="po-block e65 e65"><textual class="po-textual">The Basic Example</textual></title><para class="po-block e66 e66"><textual class="po-textual">Consider the following example:</textual></para><programlisting class="po-block e67 e67" xml:space="preserve"><textual class="po-textual">&lt;doc&gt;
+   &lt;p&gt;Information common to products A, B, and C.&lt;/p&gt;
+   &lt;p profile="A"&gt;Information about product A.&lt;/p&gt;
+   &lt;p profile="B"&gt;Information about product B.&lt;/p&gt;
+   &lt;p profile="C"&gt;Information about product C.&lt;/p&gt;
+&lt;/doc&gt;
+</textual></programlisting><para class="po-block e68 e68"><textual class="po-textual">Three </textual><code class="po-atom e69 e69"><textual class="po-textual">p</textual></code><textual class="po-textual"> elements are profiled for products </textual><quote class="po-inline e70 e70"><textual class="po-textual">A</textual></quote><textual class="po-textual">,
+                    </textual><quote class="po-inline e71 e71"><textual class="po-textual">B</textual></quote><textual class="po-textual">, and </textual><quote class="po-inline e72 e72"><textual class="po-textual">C</textual></quote><textual class="po-textual">, respectively. A fourth remains
+                unprofiled and is therefore always applicable. When publishing, the profile to be
+                used could be selected by adding an attribute to the root, like this:</textual></para><programlisting class="po-block e73 e73" xml:space="preserve"><textual class="po-textual">&lt;doc profile="A"&gt;
+   ...
+&lt;/doc&gt;</textual></programlisting><para class="po-block e74 e74"><textual class="po-textual">The </textual><code class="po-atom e75 e75"><textual class="po-textual">profile</textual></code><textual class="po-textual"> attribute in the root is used as a </textual><emphasis class="po-inline e76 e76" role="ital"><textual class="po-textual">context</textual></emphasis><textual class="po-textual"> for the publication. Processed, the document would
+                become:</textual></para><programlisting class="po-block e77 e77" xml:space="preserve"><textual class="po-textual">&lt;doc profile="A"&gt;
+   &lt;p&gt;Information common to products A, B, and C.&lt;/p&gt;
+   &lt;p profile="A"&gt;Information about product A.&lt;/p&gt;
+&lt;/doc&gt;</textual></programlisting><para class="po-block e78 e78"><textual class="po-textual">Multiple profiles can be defined using this principle, of course, separating each
+                value with a whitespace character:</textual></para><programlisting class="po-block e79 e79" xml:space="preserve"><textual class="po-textual">&lt;doc profile="B"&gt;
+   &lt;p&gt;Information common to products A, B, and C.&lt;/p&gt;
+   &lt;p profile="A"&gt;Information about product A.&lt;/p&gt;
+   &lt;p profile="B C"&gt;Information about products B and C.&lt;/p&gt;
+   &lt;p profile="B C"&gt;Information about products B and C.&lt;/p&gt;
+&lt;/doc&gt;
+</textual></programlisting><para class="po-block e80 e80"><textual class="po-textual">Here, the last two </textual><code class="po-atom e81 e81"><textual class="po-textual">p</textual></code><textual class="po-textual"> elements with </textual><quote class="po-inline e82 e82"><textual class="po-textual">B C</textual></quote><textual class="po-textual"> profiles match
+                the publishing context, </textual><quote class="po-inline e83 e83"><textual class="po-textual">B</textual></quote><textual class="po-textual">, assuming OR logic. </textual></para><para class="po-block e84 e84"><textual class="po-textual">Similarly, using </textual><quote class="po-inline e85 e85"><textual class="po-textual">B C</textual></quote><textual class="po-textual"> as context, profiles using </textual><quote class="po-inline e86 e86"><textual class="po-textual">B</textual></quote><textual class="po-textual">,
+                    </textual><quote class="po-inline e87 e87"><textual class="po-textual">C</textual></quote><textual class="po-textual">, and </textual><quote class="po-inline e88 e88"><textual class="po-textual">B C</textual></quote><textual class="po-textual"> would be included, again assuming OR
+                processing.</textual></para></section><section class="po-hcontainer e89 e89" xml:id="section-2011-10-28-9-43-5-73568251-6"><title class="po-block e90 e90"><textual class="po-textual">Multiple Conditions</textual></title><para class="po-block e91 e91"><textual class="po-textual">It is common to use different attributes for different profiling purposes. There
+                might be an attribute </textual><code class="po-atom e92 e92"><textual class="po-textual">profile</textual></code><textual class="po-textual"> for processing product variants and an
+                attribute </textual><code class="po-atom e93 e93"><textual class="po-textual">audience</textual></code><textual class="po-textual"> for processing content according to intended reader
+                category. Here's an example:</textual></para><programlisting class="po-block e94 e94" xml:space="preserve"><textual class="po-textual">&lt;doc profile="B" audience="default"&gt;
+   &lt;p&gt;Information common to products A, B, and C.&lt;/p&gt;
+   &lt;p profile="A"&gt;Information about product A.&lt;/p&gt;
+   &lt;p profile="B C" audience="default"&gt;Information about products B and C.&lt;/p&gt;
+   &lt;p profile="B C" audience="admin"&gt;Information about products B and C.&lt;/p&gt;
+&lt;/doc&gt;
+</textual></programlisting><para class="po-block e95 e95"><textual class="po-textual">Here, the information is filtered in context </textual><quote class="po-inline e96 e96"><textual class="po-textual">B</textual></quote><textual class="po-textual"> and a
+                    </textual><quote class="po-inline e97 e97"><textual class="po-textual">default</textual></quote><textual class="po-textual"> audience, so the last paragraph would be excluded because
+                the </textual><code class="po-atom e98 e98"><textual class="po-textual">audience</textual></code><textual class="po-textual"> attribute doesn't match.</textual></para><para class="po-block e99 e99"><textual class="po-textual">A third attribute might be required for processing the intended platform, a fourth
+                for differences in diagnostic software, etc. Basically, different attributes would
+                be used for differing semantics or when mixing them might prove messy for one reason
+                or another.</textual></para></section><section class="po-hcontainer e100 e100" xml:id="section-2011-10-28-9-43-5-73568251-2"><title class="po-block e101 e101"><textual class="po-textual">Variable Text</textual></title><para class="po-block e102 e102"><textual class="po-textual">Profiles can be used for variable text, like this:</textual></para><programlisting class="po-block e103 e103" xml:space="preserve"><textual class="po-textual">&lt;p&gt;Information about product &lt;phrase profile="A B C"/&gt;.&lt;/p&gt;</textual></programlisting><para class="po-block e104 e104"><textual class="po-textual">Ignoring the linguistic difficulties this construction tends to cause, the idea is
+                simple. When processed, the </textual><code class="po-atom e105 e105"><textual class="po-textual">phrase</textual></code><textual class="po-textual"> element is replaced with the
+                context's profile value, </textual><quote class="po-inline e106 e106"><textual class="po-textual">A</textual></quote><textual class="po-textual">, </textual><quote class="po-inline e107 e107"><textual class="po-textual">B</textual></quote><textual class="po-textual">, or </textual><quote class="po-inline e108 e108"><textual class="po-textual">C</textual></quote><textual class="po-textual">. In
+                the published document, a more generic text can be replaced with the exact product
+                variant.</textual></para></section><section class="po-hcontainer e109 e109" xml:id="section-2011-10-28-16-53-21-87065566-"><title class="po-block e110 e110"><textual class="po-textual">Tools and Processing</textual></title><para class="po-block e111 e111"><textual class="po-textual">A profile's allowed values are sometimes defined as in enumerated lists to avoid
+                user errors. In DITA, for example (see </textual><xref class="po-milestone e112 e112" linkend="id-dita"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">), an audience
+                    </textual><code class="po-atom e113 e113"><textual class="po-textual">type</textual></code><textual class="po-textual"> attribute includes the following values</textual><footnote class="po-popup e114 e114"><para class="po-block e115 e115"><textual class="po-textual">The audience construct is more complex than that, but this suffices as an
+                        example.</textual></para></footnote><textual class="po-textual">:</textual></para><programlisting class="po-block e116 e116" xml:space="preserve"><textual class="po-textual">&lt;!ATTLIST audience
+      type       (user | purchaser |
+                  administrator | programmer |
+                  executive | services | other | 
+                  -dita-use-conref-target)  #IMPLIED
+... &gt;</textual></programlisting><para class="po-block e117 e117"><textual class="po-textual">It follows that adding a new audience will cause problems. For that reason,
+                    </textual><code class="po-atom e118 e118"><textual class="po-textual">CDATA</textual></code><textual class="po-textual"> constructs are common, as are catch-alls like this:</textual></para><programlisting class="po-block e119 e119" xml:space="preserve"><textual class="po-textual">othertype  CDATA  #IMPLIED</textual></programlisting><para class="po-block e120 e120"><textual class="po-textual">This allows for new audience types without having to change the DTD. Here, having
+                the authoring software keep track of the allowed values in a database or such is a
+                good idea, because someone will almost certainly misspell the new audience type,
+                causing problems later. Here's an example from a CMS I sometimes use:</textual></para><figure class="po-container e121 e121" xml:id="figure-2011-10-28-19-44-14-40882030-"><mediaobject class="po-container e122 e122"><imageobject class="po-container e123 e123"><imagedata class="po-meta e124 e124" fileref="../../../vol10/graphics/Nordstrom01/Nordstrom01-001.jpg"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></imagedata></imageobject></mediaobject></figure><para class="po-block e125 e125"><textual class="po-textual">The values are fetched from a database. The profile uses two levels, a group
+                    (</textual><quote class="po-inline e126 e126"><textual class="po-textual">Grupp_B</textual></quote><textual class="po-textual">, above), and products </textual><quote class="po-inline e127 e127"><textual class="po-textual">C</textual></quote><textual class="po-textual">,
+                </textual><quote class="po-inline e128 e128"><textual class="po-textual">D</textual></quote><textual class="po-textual">, and </textual><quote class="po-inline e129 e129"><textual class="po-textual">E</textual></quote><textual class="po-textual"> that belong to the group</textual><footnote class="po-popup e130 e130"><para class="po-block e131 e131"><textual class="po-textual">The resulting attribute value is a string, for example,
+                            </textual><quote class="po-inline e132 e132"><textual class="po-textual">Grupp_B_Produkt_C</textual></quote><textual class="po-textual">.</textual></para></footnote><textual class="po-textual">.</textual></para><section class="po-hcontainer e133 e133" xml:id="section-2011-10-28-19-44-14-40882030-"><title class="po-block e134 e134"><textual class="po-textual">Publishing</textual></title><para class="po-block e135 e135"><textual class="po-textual">Publishing is a simple XSLT transformation that filters the contents according
+                    to context. If several conditions with differing semantics are used (such as
+                        </textual><code class="po-atom e136 e136"><textual class="po-textual">profile</textual></code><textual class="po-textual"> and </textual><code class="po-atom e137 e137"><textual class="po-textual">audience</textual></code><textual class="po-textual">, above), using one stylesheet
+                    per profile type is easy to set up in an XProc pipeline used to preprocess the
+                    document.</textual></para><para class="po-block e138 e138"><textual class="po-textual">Essentially, filtering is about string matching. The publishing context value
+                    needs to match the node's profile for the node to be included</textual><footnote class="po-popup e139 e139"><para class="po-block e140 e140"><textual class="po-textual">With unprofiled content always being included.</textual></para></footnote><textual class="po-textual">.</textual></para></section><section class="po-hcontainer e141 e141" xml:id="section-2011-10-28-19-44-14-40882030-1"><title class="po-block e142 e142"><textual class="po-textual">Boolean Logic</textual></title><para class="po-block e143 e143"><textual class="po-textual">The above examples all assume OR. A single profile value match is enough to
+                    include a node. Similarly, even with a multiple-value context, a single matching
+                    profile value is enough:</textual></para><programlisting class="po-block e144 e144" xml:space="preserve"><textual class="po-textual">&lt;doc profile="A B"&gt;
+   &lt;p&gt;Information common to products A, B, and C.&lt;/p&gt;
+   &lt;p profile="A"&gt;Information about product A.&lt;/p&gt;
+   &lt;p profile="B C"&gt;Information about products B and C.&lt;/p&gt;
+   &lt;p profile="B C"&gt;Information about products B and C.&lt;/p&gt;
+&lt;/doc&gt;
+</textual></programlisting><para class="po-block e145 e145"><textual class="po-textual">Here, nothing is excluded from the output because the </textual><quote class="po-inline e146 e146"><textual class="po-textual">A</textual></quote><textual class="po-textual"> context
+                    matches the first node and </textual><quote class="po-inline e147 e147"><textual class="po-textual">B</textual></quote><textual class="po-textual"> the second and the third.</textual></para><para class="po-block e148 e148"><textual class="po-textual">Sometimes, Boolean AND is preferred</textual><footnote class="po-popup e149 e149"><para class="po-block e150 e150"><textual class="po-textual">For example, the node might be an illustration showing a product
+                            variant (</textual><quote class="po-inline e151 e151"><textual class="po-textual">A</textual></quote><textual class="po-textual">) configured with a specific accessory
+                                (</textual><quote class="po-inline e152 e152"><textual class="po-textual">B</textual></quote><textual class="po-textual">), so it would only make sense to include the
+                            illustration in the published document if the publishing context
+                            included both </textual><quote class="po-inline e153 e153"><textual class="po-textual">A</textual></quote><textual class="po-textual"> and </textual><quote class="po-inline e154 e154"><textual class="po-textual">B</textual></quote><textual class="po-textual">.</textual></para></footnote><textual class="po-textual">. Here is a simple (and limited) way to do it:</textual></para><programlisting class="po-block e155 e155" xml:space="preserve"><textual class="po-textual">&lt;doc profile="B"&gt;
+   &lt;p&gt;Information common to products A, B, and C.&lt;/p&gt;
+   &lt;p profile="A"&gt;Information about product A.&lt;/p&gt;
+   &lt;p profile="B C"&gt;Information about products B and C.&lt;/p&gt;
+   &lt;p profile="B C" boolean="AND"&gt;Information about products B and C.&lt;/p&gt;
+&lt;/doc&gt;
+</textual></programlisting><para class="po-block e156 e156"><textual class="po-textual">Here, </textual><code class="po-atom e157 e157"><textual class="po-textual">boolean="AND"</textual></code><textual class="po-textual"> in the last paragraph means that for it to be
+                    included, </textual><emphasis class="po-inline e158 e158" role="ital"><textual class="po-textual">every</textual></emphasis><textual class="po-textual">
+                    </textual><code class="po-atom e159 e159"><textual class="po-textual">profile</textual></code><textual class="po-textual"> value must match the context (</textual><quote class="po-inline e160 e160"><textual class="po-textual">B AND C</textual></quote><textual class="po-textual">). In
+                    this case, the last paragraph is therefore excluded from the output.</textual></para><para class="po-block e161 e161"><textual class="po-textual">More advanced Boolean expressions might be useful, of course, but would almost
+                    certainly prove to be far more problematic to implement in an XSLT
+                    stylesheet:</textual></para><programlisting class="po-block e162 e162" xml:space="preserve"><textual class="po-textual">&lt;p profile="B AND C AND NOT(A OR D)"&gt;Some text.&lt;/p&gt;</textual></programlisting><para class="po-block e163 e163"><textual class="po-textual">This is no longer mere XSLT territory; an external tool for parsing the
+                    attribute contents might prove necessary.</textual></para></section></section></section><section class="po-hcontainer e164 e164" xml:id="section_osb_phx_vj"><title class="po-block e165 e165"><textual class="po-textual">But There Are Problems</textual></title><section class="po-hcontainer e166 e166" xml:id="section-2011-10-28-9-43-5-73568251-3"><title class="po-block e167 e167"><textual class="po-textual">Renaming Values</textual></title><para class="po-block e168 e168"><textual class="po-textual">Let's say you need to rename some of the profiles. It's not uncommon for a product
+                to be renamed or even to possess multiple names, depending on, say, market
+                requirements. Problems ensue:</textual><itemizedlist class="po-table e169 e169"><listitem class="po-container e170 e170"><para class="po-block e171 e171"><textual class="po-textual">If the values are from a schema, the schema must be updated with the
+                            new values, either by renaming the existing values or by adding new
+                            ones.</textual></para><para class="po-block e172 e172"><textual class="po-textual">The first option means that legacy documents will no longer be valid
+                            and will have to be converted. The second means that the legacy
+                            documents will have to be converted anyway or there will be two
+                            unrelated values for what is essentially the same profile.</textual></para></listitem><listitem class="po-container e173 e173"><para class="po-block e174 e174"><textual class="po-textual">Converting the old profiles to new values in this manner usually
+                            results in that the old ones can no longer be supported. If a legacy
+                            document is republished, it must use the new values. In a best case,
+                            this might confuse the existing users; in a worst, it might render the
+                            documents unusable.</textual></para></listitem><listitem class="po-container e175 e175"><para class="po-block e176 e176"><textual class="po-textual">Very often, once the client is made aware of the basic problem, the
+                            decision is to keep the old document base, making them either
+                            incompatible or just very expensive to update, because of the doubled
+                            profiles.</textual></para></listitem></itemizedlist><textual class="po-textual">
+            </textual></para></section><section class="po-hcontainer e177 e177" xml:id="section-2011-10-28-9-43-5-73568251-4"><title class="po-block e178 e178"><textual class="po-textual">Changing Scope</textual></title><para class="po-block e179 e179"><textual class="po-textual">Changing the </textual><emphasis class="po-inline e180 e180" role="ital"><textual class="po-textual">scope</textual></emphasis><textual class="po-textual"> of a profile value means that
+                the semantics of that value is updated.
+                </textual><textual class="po-textual">For
+                example, let's say that a car engine </textual><quote class="po-inline e181 e181"><textual class="po-textual">D5</textual></quote><textual class="po-textual"> is updated with new
+                components, perhaps as the result of updated specifications or new component
+                suppliers. To marketing, it's still the same engine; after a certain date, it is
+                simply manufactured using the new components instead of the old. </textual></para><para class="po-block e182 e182"><textual class="po-textual">To engineers and mechanics, the changes are likely to be significant and require
+                new assembly methods, diagnostics, spare parts, and so on. The documentation will
+                have to reflect these changes. New content must be added, technical data updated,
+                images and illustrations changed.</textual></para><para class="po-block e183 e183"><textual class="po-textual">Keeping the old profile, </textual><quote class="po-inline e184 e184"><textual class="po-textual">D5</textual></quote><textual class="po-textual">, would still make sense to marketing,
+                and the car itself would still leave the assembly line with a </textual><quote class="po-inline e185 e185"><textual class="po-textual">D5</textual></quote><textual class="po-textual">
+                batch on the boot lid, but cause problems for the technical writer:</textual><itemizedlist class="po-table e186 e186"><listitem class="po-container e187 e187"><para class="po-block e188 e188"><textual class="po-textual">When updating legacy documents with new information (for example, when
+                            correcting errors), the writer would not be able to tell if a new
+                            warning, seemingly profiled with the same value, was compatible or not
+                            with the new information.</textual></para></listitem><listitem class="po-container e189 e189"><para class="po-block e190 e190"><textual class="po-textual">When writing new </textual><quote class="po-inline e191 e191"><textual class="po-textual">D5</textual></quote><textual class="po-textual"> content, reusing old modules
+                            profiled with that same value would be equally deceptive; there is no
+                            easy way to know if the information is compatible or not.</textual></para></listitem></itemizedlist><textual class="po-textual">
+            </textual></para><para class="po-block e192 e192"><textual class="po-textual">Changing the profile value might solve part of the problem but again cause
+                problems; the resulting conversions of old values to new are much harder to do.
+                Which existing modules are compatible with the new version of the engine and which
+                aren't? Very frequently the decision is to create a new (internal) profile, keeping
+                the two apart, but this results in added processing when publishing, and certainly a
+                doubled profile even in cases when the information is, in fact, identical.</textual></para></section><section class="po-hcontainer e193 e193" xml:id="section_kyh_vnx_vj"><title class="po-block e194 e194"><textual class="po-textual">Text Content</textual></title><para class="po-block e195 e195"><textual class="po-textual">If the </textual><quote class="po-inline e196 e196"><textual class="po-textual">D5</textual></quote><textual class="po-textual"> profile, above, is used as variable text (see </textual><xref class="po-milestone e197 e197" linkend="section-2011-10-28-9-43-5-73568251-2"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">), changing the value is not an
+                option. The product is still marketed as </textual><emphasis class="po-inline e198 e198"><textual class="po-textual">D5</textual></emphasis><textual class="po-textual">. The end user will
+                most likely not know or care about the updated components or the resulting updated
+                document content. </textual></para><para class="po-block e199 e199"><textual class="po-textual">Here, again, some attempt to solve the problem by adding internal profiling
+                values. In the car industry, model years are not used for profiling; instead, the
+                vehicles are identified using manufacturing weeks. To someone in the know, the
+                manufacturing week will clearly identify changes to a component such as the
+                    </textual><quote class="po-inline e200 e200"><textual class="po-textual">D5</textual></quote><textual class="po-textual"> engine, but this divides the readers into two categories: the
+                internal audience that knows the significance of weeks and the external that only
+                sees the model year. This may not seem as a big problem but any third-party
+                technical group (consider, for example, third-party car mechanics, car enthusiasts,
+                etc) will have problems unless they have knowledge about, and access to, the
+                internal profiling.</textual></para><para class="po-block e201 e201"><textual class="po-textual">Using profiles as variable text also results in language-related problems:</textual><itemizedlist class="po-table e202 e202"><listitem class="po-container e203 e203"><para class="po-block e204 e204"><textual class="po-textual">A single profile, say </textual><quote class="po-inline e205 e205"><textual class="po-textual">A</textual></quote><textual class="po-textual">, is uncomplicated to use in a
+                            variable: </textual><quote class="po-inline e206 e206"><textual class="po-textual">A </textual><emphasis class="po-inline e207 e207"><textual class="po-textual">is</textual></emphasis><textual class="po-textual"> the latest-generation diesel
+                                engine for the environmentally conscious driver.</textual></quote><textual class="po-textual">
+                        </textual></para></listitem><listitem class="po-container e208 e208"><para class="po-block e209 e209"><textual class="po-textual">A variable that might result from possibly multiple matching profiles
+                            is more difficult: </textual><quote class="po-inline e210 e210"><textual class="po-textual">B and C </textual><emphasis class="po-inline e211 e211"><textual class="po-textual">are</textual></emphasis><textual class="po-textual">
+                                high-performance turbo engine</textual><emphasis class="po-inline e212 e212"><textual class="po-textual">s</textual></emphasis><textual class="po-textual"> for the
+                                demanding racing driver.</textual></quote><textual class="po-textual">
+                        </textual></para></listitem></itemizedlist><textual class="po-textual">
+            </textual></para><para class="po-block e213 e213"><textual class="po-textual">For the writer, variable text resulting form single or multiple profiles are
+                ultimately manageable only if they are known in advance.</textual></para></section><section class="po-hcontainer e214 e214" xml:id="section_hzf_npx_vj"><title class="po-block e215 e215"><textual class="po-textual">Localisation</textual></title><para class="po-block e216 e216"><textual class="po-textual">A related problem is about localisation</textual><footnote class="po-popup e217 e217"><para class="po-block e218 e218"><textual class="po-textual">For a moment ignoring the differing grammatical requirements imposed in
+                        variable text.</textual></para></footnote><textual class="po-textual">. If the target market requires different profiling values (perhaps the
+                product is sold under a different name), the values must be handled either when
+                translating or when publishing for that market. This is doable, of course, but will
+                add to the complexity. If the </textual><emphasis class="po-inline e219 e219"><textual class="po-textual">localised</textual></emphasis><textual class="po-textual"> value or scope needs to
+                be changed at some point, as described above, further problems will arise.</textual></para></section></section><section class="po-hcontainer e220 e220" xml:id="section-2011-10-28-12-56-2-95308562-"><title class="po-block e221 e221"><textual class="po-textual">A Basic Solution</textual></title><section class="po-hcontainer e222 e222" xml:id="section-2011-10-28-12-56-2-95308562-2"><title class="po-block e223 e223"><textual class="po-textual">Why Do We Have Problems?</textual></title><para class="po-block e224 e224"><textual class="po-textual">The naming problems (that is, keeping the semantics of a profile unchanged but
+                changing the displayed value) have a fairly obvious basic cause: </textual><emphasis class="po-inline e225 e225"><textual class="po-textual">Values
+                    are handled directly, instead of addressing the basic semantics of the
+                    profile.</textual></emphasis><textual class="po-textual"> They inevitable change over time, but a simple product name
+                change may be just that, a mere name change, meaning that the semantics remain
+                unchanged. Yet, the profiling information that is available does not reflect
+                this.</textual></para><para class="po-block e226 e226"><textual class="po-textual">As with any changing content, any profile value should be version handled, yet
+                they can't be when handled directly as strings.</textual></para><para class="po-block e227 e227"><textual class="po-textual">The scoping problems offer further revelations:</textual><itemizedlist class="po-table e228 e228"><listitem class="po-container e229 e229"><para class="po-block e230 e230"><textual class="po-textual">We confuse semantics with values. Changed semantics may or may not
+                            result in a changed value; filtering should be based on semantics rather
+                            than representations.</textual></para></listitem><listitem class="po-container e231 e231"><para class="po-block e232 e232"><textual class="po-textual">The semantics evolve over time, as do the values, but the values are
+                            only there to represent the semantics.</textual></para><para class="po-block e233 e233"><textual class="po-textual">In the car example, </textual><quote class="po-inline e234 e234"><textual class="po-textual">D5</textual></quote><textual class="po-textual"> is used for both scopes because
+                            for the manufacturer's aftersales organisation, the engine variant is
+                            the same, regardless of the components used. In other words, we happen
+                            to have two different versions of the basic semantics but the same value
+                            to represent them.</textual></para></listitem><listitem class="po-container e235 e235"><para class="po-block e236 e236"><textual class="po-textual">Because we confuse semantics and presentation, we can either describe
+                            the changes in presentation or describe the changes in semantics, but
+                            not both.</textual></para></listitem><listitem class="po-container e237 e237"><para class="po-block e238 e238"><textual class="po-textual">A change in a profile's semantics should mean a new version of the
+                            profile but not necessarily new values.</textual></para></listitem></itemizedlist><textual class="po-textual">
+            </textual></para><para class="po-block e239 e239"><textual class="po-textual">Or, in so many words, we confuse semantics and current values, using them
+                interchangeably and frequently changing the wrong one. We need to separate the
+                two.</textual></para></section><section class="po-hcontainer e240 e240" xml:id="section-2011-10-28-12-56-2-95308562-3"><title class="po-block e241 e241"><textual class="po-textual">Abstraction Layers</textual></title><para class="po-block e242 e242"><textual class="po-textual">The solution is to separate semantics from presentation, like this:</textual></para><table class="po-container e243 e243"><thead class="po-container e244 e244"><tr class="po-table e245 e245"><td class="po-block e246 e246"><textual class="po-textual">
+                            </textual><para class="po-block e247 e247"><textual class="po-textual">Semantics</textual></para><textual class="po-textual">
+                        </textual></td><td class="po-block e248 e248"><textual class="po-textual">
+                            </textual><para class="po-block e249 e249"><textual class="po-textual">Presentation</textual></para><textual class="po-textual">
+                        </textual></td></tr></thead><tbody class="po-table e250 e250"><tr class="po-table e251 e251"><td class="po-block e252 e252"><textual class="po-textual">
+                            </textual><para class="po-block e253 e253"><textual class="po-textual">D5 old</textual></para><textual class="po-textual">
+                        </textual></td><td class="po-block e254 e254"><textual class="po-textual">
+                            </textual><para class="po-block e255 e255"><textual class="po-textual">D5</textual></para><textual class="po-textual">
+                        </textual></td></tr><tr class="po-table e256 e256"><td class="po-block e257 e257"><textual class="po-textual">
+                            </textual><para class="po-block e258 e258"><textual class="po-textual">D5 new</textual></para><textual class="po-textual">
+                        </textual></td><td class="po-block e259 e259"><textual class="po-textual">
+                            </textual><para class="po-block e260 e260"><textual class="po-textual">D5</textual></para><textual class="po-textual">
+                        </textual></td></tr></tbody></table><para class="po-block e261 e261"><textual class="po-textual">Or, if changing profiles according to localisation, like this:</textual></para><table class="po-container e262 e262"><thead class="po-container e263 e263"><tr class="po-table e264 e264"><td class="po-block e265 e265"><textual class="po-textual">
+                            </textual><para class="po-block e266 e266"><textual class="po-textual">Semantics</textual></para><textual class="po-textual">
+                        </textual></td><td class="po-block e267 e267"><textual class="po-textual">
+                            </textual><para class="po-block e268 e268"><textual class="po-textual">Presentation</textual></para><textual class="po-textual">
+                        </textual></td></tr></thead><tbody class="po-table e269 e269"><tr class="po-table e270 e270"><td class="po-block e271 e271"><textual class="po-textual">
+                            </textual><para class="po-block e272 e272"><textual class="po-textual">Platform X, GB</textual></para><textual class="po-textual">
+                        </textual></td><td class="po-block e273 e273"><textual class="po-textual">
+                            </textual><para class="po-block e274 e274"><textual class="po-textual">Vauxhall</textual></para><textual class="po-textual">
+                        </textual></td></tr><tr class="po-table e275 e275"><td class="po-block e276 e276"><textual class="po-textual">
+                            </textual><para class="po-block e277 e277"><textual class="po-textual">Platform X, DE</textual></para><textual class="po-textual">
+                        </textual></td><td class="po-block e278 e278"><textual class="po-textual">
+                            </textual><para class="po-block e279 e279"><textual class="po-textual">Opel</textual></para><textual class="po-textual">
+                            </textual><para class="po-block e280 e280"><textual class="po-textual">Saab</textual></para><textual class="po-textual">
+                        </textual></td></tr><tr class="po-table e281 e281"><td class="po-block e282 e282"><textual class="po-textual">
+                            </textual><para class="po-block e283 e283"><textual class="po-textual">Platform X, SE</textual></para><textual class="po-textual">
+                        </textual></td><td class="po-block e284 e284"><textual class="po-textual">
+                            </textual><para class="po-block e285 e285"><textual class="po-textual">Opel</textual></para><textual class="po-textual">
+                            </textual><para class="po-block e286 e286"><textual class="po-textual">Saab</textual></para><textual class="po-textual">
+                        </textual></td></tr></tbody></table><para class="po-block e287 e287"><textual class="po-textual">And so on. In the former example, we have a basic name for the semantics
+                    (</textual><quote class="po-inline e288 e288"><textual class="po-textual">D5</textual></quote><textual class="po-textual">) and two </textual><emphasis class="po-inline e289 e289"><textual class="po-textual">versions</textual></emphasis><textual class="po-textual">, both represented by
+                the same value. In the latter, we have three </textual><emphasis class="po-inline e290 e290"><textual class="po-textual">localisations</textual></emphasis><textual class="po-textual"> of
+                the basic platform name (</textual><quote class="po-inline e291 e291"><textual class="po-textual">X</textual></quote><textual class="po-textual">), GB, DE and SE. Interestingly, the
+                localisations of the platform use three different values, Vauxhall, Opel and Saab.
+                In this case, this represents the fact that the same basic platform is used to
+                create three separate vehicle brands.</textual></para><para class="po-block e292 e292"><textual class="po-textual">Obviously, all may be required to completely describe the correlation between the
+                semantics and every intended representation of the profile</textual><footnote class="po-popup e293 e293"><para class="po-block e294 e294"><textual class="po-textual">Quite possibly, there might be other parameters to alter the basic profile
+                        in some way.</textual></para></footnote><textual class="po-textual">, like so:</textual></para><programlisting class="po-block e295 e295" xml:space="preserve"><textual class="po-textual">PROFILE-VERSION-LOCALISATION</textual></programlisting><para class="po-block e296 e296"><textual class="po-textual">The different versions and localisations could then be assigned values:</textual></para><table class="po-container e297 e297"><thead class="po-container e298 e298"><tr class="po-table e299 e299"><td class="po-block e300 e300"><textual class="po-textual">
+                            </textual><para class="po-block e301 e301"><textual class="po-textual">Profile</textual></para><textual class="po-textual">
+                        </textual></td><td class="po-block e302 e302"><textual class="po-textual">
+                            </textual><para class="po-block e303 e303"><textual class="po-textual">Values</textual></para><textual class="po-textual">
+                        </textual></td></tr></thead><tbody class="po-table e304 e304"><tr class="po-table e305 e305"><td class="po-block e306 e306"><textual class="po-textual">
+                            </textual><para class="po-block e307 e307"><textual class="po-textual">D5.1-GB</textual></para><textual class="po-textual">
+                            </textual><para class="po-block e308 e308"><textual class="po-textual">D5.1-DE</textual></para><textual class="po-textual">
+                            </textual><para class="po-block e309 e309"><textual class="po-textual">D5.1-SE</textual></para><textual class="po-textual">
+                        </textual></td><td class="po-block e310 e310"><textual class="po-textual">
+                            </textual><para class="po-block e311 e311"><textual class="po-textual">D5</textual></para><textual class="po-textual">
+                        </textual></td></tr><tr class="po-table e312 e312"><td class="po-block e313 e313"><textual class="po-textual">
+                            </textual><para class="po-block e314 e314"><textual class="po-textual">D5.2-GB</textual></para><textual class="po-textual">
+                            </textual><para class="po-block e315 e315"><textual class="po-textual">D5.2-DE</textual></para><textual class="po-textual">
+                            </textual><para class="po-block e316 e316"><textual class="po-textual">D5.2-SE</textual></para><textual class="po-textual">
+                        </textual></td><td class="po-block e317 e317"><textual class="po-textual">
+                            </textual><para class="po-block e318 e318"><textual class="po-textual">D5</textual></para><textual class="po-textual">
+                        </textual></td></tr><tr class="po-table e319 e319"><td class="po-block e320 e320"><textual class="po-textual">
+                            </textual><para class="po-block e321 e321"><textual class="po-textual">X.1-GB</textual></para><textual class="po-textual">
+                        </textual></td><td class="po-block e322 e322"><textual class="po-textual">
+                            </textual><para class="po-block e323 e323"><textual class="po-textual">Vauxhall</textual></para><textual class="po-textual">
+                        </textual></td></tr><tr class="po-table e324 e324"><td class="po-block e325 e325"><textual class="po-textual">
+                            </textual><para class="po-block e326 e326"><textual class="po-textual">X.1-DE</textual></para><textual class="po-textual">
+                        </textual></td><td class="po-block e327 e327"><textual class="po-textual">
+                            </textual><para class="po-block e328 e328"><textual class="po-textual">Saab Opel</textual></para><textual class="po-textual">
+                        </textual></td></tr><tr class="po-table e329 e329"><td class="po-block e330 e330"><textual class="po-textual">
+                            </textual><para class="po-block e331 e331"><textual class="po-textual">X.1-SE</textual></para><textual class="po-textual">
+                        </textual></td><td class="po-block e332 e332"><textual class="po-textual">
+                            </textual><para class="po-block e333 e333"><textual class="po-textual">Saab Opel</textual></para><textual class="po-textual">
+                        </textual></td></tr></tbody></table><para class="po-block e334 e334"><textual class="po-textual">Note that the table represents incomplete semantics rather than a real-life
+                problem. More is required to determine which value to use and when.</textual></para><para class="po-block e335 e335"><textual class="po-textual">If the core semantics change, the corresponding values may or may not change</textual><footnote class="po-popup e336 e336"><para class="po-block e337 e337"><textual class="po-textual">A product may be partly or completely revised, yet retain its product
+                        name. Consider, for example, Apple's product naming strategy for tablets and
+                        laptops.</textual></para></footnote><textual class="po-textual">; if changed values are desired, the corresponding semantics </textual><emphasis class="po-inline e338 e338" role="ital"><textual class="po-textual">must</textual></emphasis><textual class="po-textual"> change</textual><footnote class="po-popup e339 e339"><para class="po-block e340 e340"><textual class="po-textual">Even though the product may be unchanged and the marketing department
+                        decide on a new name, without changing the basic semantic profile, there is
+                        no way of knowing </textual><emphasis class="po-inline e341 e341"><textual class="po-textual">when</textual></emphasis><textual class="po-textual"> the name change occurred.</textual></para></footnote><textual class="po-textual">.</textual></para><para class="po-block e342 e342"><textual class="po-textual">The </textual><quote class="po-inline e343 e343"><textual class="po-textual">core</textual></quote><textual class="po-textual"> profile, the intended semantics of the filtering
+                condition, should be uniquely and persistently named. That name should be version
+                handled and localised as needed. So, I wonder, is there a convenient way to separate
+                semantics from presentation?</textual></para></section><section class="po-hcontainer e344 e344" xml:id="section-2011-10-28-12-56-2-95308562-4"><title class="po-block e345 e345"><textual class="po-textual">Use URNs to Name Filters</textual></title><para class="po-block e346 e346"><textual class="po-textual">I'm partial to URNs when it comes to uniquely identifying things. I'd have used
+                URNs to name my kids, had I been allowed to. </textual></para><para class="po-block e347 e347"><textual class="po-textual">It's easy to define a URN namespace for unique names. And if you control the
+                scope, they can also be persistent. For URN-based profiling, something like this
+                should do:</textual></para><programlisting class="po-block e348 e348" xml:space="preserve"><textual class="po-textual">PROFILE:LANG-COUNTRY:VERSION</textual></programlisting><para class="po-block e349 e349"><textual class="po-textual">
+                </textual><code class="po-atom e350 e350"><textual class="po-textual">PROFILE</textual></code><textual class="po-textual">, of course, is the core profile, the semantic filter concept,
+                    </textual><code class="po-atom e351 e351"><textual class="po-textual">LANG-COUNTRY</textual></code><textual class="po-textual"> the localisation and </textual><code class="po-atom e352 e352"><textual class="po-textual">VERSION</textual></code><textual class="po-textual"> a specific
+                milestone. Combined, they should describe the examples above, but
+                    </textual><code class="po-atom e353 e353"><textual class="po-textual">PROFILE</textual></code><textual class="po-textual"> can be further broken down if needed. For example,
+                    </textual><emphasis class="po-inline e354 e354" role="ital"><textual class="po-textual">Platform X</textual></emphasis><textual class="po-textual"> in the above table could solve the
+                semantic problems: </textual><code class="po-atom e355 e355"><textual class="po-textual">X:OPEL</textual></code><textual class="po-textual">, </textual><code class="po-atom e356 e356"><textual class="po-textual">X:SAAB</textual></code><textual class="po-textual">, etc.</textual></para><para class="po-block e357 e357"><textual class="po-textual">A semantically identical profile used for different markets requiring different
+                presentation (values) is solved like so:</textual></para><table class="po-container e358 e358"><thead class="po-container e359 e359"><tr class="po-table e360 e360"><td class="po-block e361 e361"><textual class="po-textual">
+                            </textual><para class="po-block e362 e362"><textual class="po-textual">URN</textual></para><textual class="po-textual">
+                        </textual></td><td class="po-block e363 e363"><textual class="po-textual">
+                            </textual><para class="po-block e364 e364"><textual class="po-textual">Values</textual></para><textual class="po-textual">
+                        </textual></td></tr></thead><tbody class="po-table e365 e365"><tr class="po-table e366 e366"><td class="po-block e367 e367"><textual class="po-textual">
+                            </textual><para class="po-block e368 e368"><textual class="po-textual">URN-X:sv-SE:12</textual></para><textual class="po-textual">
+                        </textual></td><td class="po-block e369 e369"><textual class="po-textual">
+                            </textual><para class="po-block e370 e370"><textual class="po-textual">V1</textual></para><textual class="po-textual">
+                        </textual></td></tr><tr class="po-table e371 e371"><td class="po-block e372 e372"><textual class="po-textual">
+                            </textual><para class="po-block e373 e373"><textual class="po-textual">URN-X:en-GB:12</textual></para><textual class="po-textual">
+                        </textual></td><td class="po-block e374 e374"><textual class="po-textual">
+                            </textual><para class="po-block e375 e375"><textual class="po-textual">V2</textual></para><textual class="po-textual">
+                        </textual></td></tr></tbody></table><para class="po-block e376 e376"><textual class="po-textual">The values (</textual><quote class="po-inline e377 e377"><textual class="po-textual">V1</textual></quote><textual class="po-textual"> for Sweden, </textual><quote class="po-inline e378 e378"><textual class="po-textual">V2</textual></quote><textual class="po-textual"> for the UK) are
+                different because the target localisation varies, but the core profile
+                    (</textual><quote class="po-inline e379 e379"><textual class="po-textual">URN-X</textual></quote><textual class="po-textual">) is the same, as is the version (</textual><quote class="po-inline e380 e380"><textual class="po-textual">12</textual></quote><textual class="po-textual">). The
+                values </textual><quote class="po-inline e381 e381"><textual class="po-textual">V1</textual></quote><textual class="po-textual"> and </textual><quote class="po-inline e382 e382"><textual class="po-textual">V2</textual></quote><textual class="po-textual"> are therefore equivalent with each
+                other.</textual></para><para class="po-block e383 e383"><textual class="po-textual">Here's the introductory XML example using URNs as profiles:</textual></para><programlisting class="po-block e384 e384" xml:space="preserve"><textual class="po-textual">&lt;doc profile="urn:x-profile:a:sv-SE:12"&gt;
+   &lt;p&gt;Information common to products A, B, and C.&lt;/p&gt;
+   &lt;p profile="urn:x-profile:a:sv-SE:12"&gt;Information about product A.&lt;/p&gt;
+   &lt;p profile="urn:x-profile:b:sv-SE:7"&gt;Information about product B.&lt;/p&gt;
+   &lt;p profile="urn:x-profile:c:sv-SE:3"&gt;Information about product C.&lt;/p&gt;
+&lt;/doc&gt;
+</textual></programlisting><para class="po-block e385 e385"><textual class="po-textual">A variable might be included like so:</textual></para><programlisting class="po-block e386 e386" xml:space="preserve"><textual class="po-textual">&lt;p&gt;Information about product &lt;phrase profile="urn:x-profile:a:sv-SE:12"/&gt;.&lt;/p&gt;</textual></programlisting><para class="po-block e387 e387"><textual class="po-textual">As the </textual><code class="po-atom e388 e388"><textual class="po-textual">phrase</textual></code><textual class="po-textual"> element is a placeholder for variable content, the URN
+                needs to be processed accordingly so that the right values are used when publishing.
+                This construct, of course, can still result in a linguistic nightmare.</textual></para><para class="po-block e389 e389"><textual class="po-textual">Can representing profiles with URNs solve the problems we've outlined?</textual><itemizedlist class="po-table e390 e390"><listitem class="po-container e391 e391"><para class="po-block e392 e392"><textual class="po-textual">If a profile is updated, either when changing the values or their
+                            scope, a system that can fully resolve the URNs will support both the
+                            old and new profiles. A new document can use the new values because it
+                            uses a later URN version while a legacy document can keep on using the
+                            old values because it uses the older URN version.</textual></para></listitem><listitem class="po-container e393 e393"><para class="po-block e394 e394"><textual class="po-textual">As a consequence, no processing of legacy documents beyond resolving
+                            URNs is necessary.</textual></para></listitem><listitem class="po-container e395 e395"><para class="po-block e396 e396"><textual class="po-textual">It is still easy to string match profiles when publishing, even if
+                            localisation is required.</textual></para></listitem><listitem class="po-container e397 e397"><para class="po-block e398 e398"><textual class="po-textual">It is also easy to publish a legacy document that uses old URNs with
+                            new values by preprocessing the old URNs</textual><footnote class="po-popup e399 e399"><para class="po-block e400 e400"><textual class="po-textual">Although it would result in having to check what exact
+                                    semantics the later version represents. On the other hand, if
+                                    profile semantics are versioned, it should be easy to bind
+                                    specific versions to specific functionality.</textual></para></footnote><textual class="po-textual">.</textual></para></listitem></itemizedlist><textual class="po-textual">
+            </textual></para></section><section class="po-hcontainer e401 e401" xml:id="section-2011-10-28-12-56-2-95308562-5"><title class="po-block e402 e402"><textual class="po-textual">Processing</textual></title><section class="po-hcontainer e403 e403" xml:id="section-2011-10-29-13-38-13-46080094-"><title class="po-block e404 e404"><textual class="po-textual">Editor</textual></title><para class="po-block e405 e405"><textual class="po-textual">To make URNs practical, the writer will need help to identify and insert a
+                    profile (while URNs are unique, they are not necessarily human-readable).
+                    Similarly, when editing existing profiled nodes, the profiles must be easily
+                    identifiable.</textual></para><para class="po-block e406 e406"><textual class="po-textual">The problem, of course, is that a string like
+                        </textual><quote class="po-inline e407 e407"><textual class="po-textual">urn:x-cassis:r1:cos:xplatform:000359:sv-SE:0.12</textual></quote><textual class="po-textual"> is not very
+                    descriptive. Identifying it requires asking the CMS, which might prove
+                    cumbersome if one ever wanted to work offline.</textual></para><para class="po-block e408 e408"><textual class="po-textual">A cop-out solution is to use strictly human-readable URNs, but problems such
+                    as identifying the variations in scope in the </textual><quote class="po-inline e409 e409"><textual class="po-textual">D5</textual></quote><textual class="po-textual"> example above
+                    (see </textual><xref class="po-milestone e410 e410" linkend="section-2011-10-28-9-43-5-73568251-4"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">) require
+                    more.</textual></para><para class="po-block e411 e411"><textual class="po-textual">Perhaps better and certainly easier to process is to insert descriptive
+                    throwaway attributes containing current profile values when checking out or
+                    opening a document in the editor. Such an attribute, say, </textual><code class="po-atom e412 e412"><textual class="po-textual">values</textual></code><textual class="po-textual">,
+                    would be for convenience only and be stripped from the document at
+                    check-in:</textual></para><programlisting class="po-block e413 e413" xml:space="preserve"><textual class="po-textual">&lt;p profile="urn:x-profile:a:sv-SE:12" values="A"&gt;Information about product A.&lt;/p&gt;</textual></programlisting><para class="po-block e414 e414"><textual class="po-textual">An more powerful alternative requiring a bit more processing is to use a
+                    mapping document listing any required profile-and-value pairs for any checked
+                    out or open documents, like so:</textual></para><programlisting class="po-block e415 e415" xml:space="preserve"><textual class="po-textual">&lt;maps&gt;
+		...
+		&lt;pair&gt;
+  		&lt;profile&gt;urn:x-profile:a:sv-SE:12&lt;/profile&gt;
+  		&lt;values&gt;A&lt;/values&gt;
+		&lt;/pair&gt;
+		&lt;pair&gt;
+  		&lt;profile&gt;urn:x-profile:a:en-GB:12&lt;/profile&gt;
+  		&lt;values&gt;B&lt;/values&gt;
+		&lt;/pair&gt;
+  ...
+&lt;/maps&gt;</textual></programlisting><para class="po-block e416 e416"><textual class="po-textual">Or some variation thereof. A mapping document might also provide the basis for
+                    a profiling GUI, listing the available profiles and their versions in some
+                    human-readable form, an immediate advantage being that once populated, the
+                    mapping document would give access to the available profiles without requiring a
+                    server connection. </textual></para><para class="po-block e417 e417"><textual class="po-textual">I've used a similar approach with a mapping document when matching URNs for
+                    checked-out or open documents with their temporary URLs in the editor:</textual></para><programlisting class="po-block e418 e418" xml:space="preserve"><textual class="po-textual">&lt;Repository&gt;
+    &lt;RepositoryName&gt;CosTI&lt;/RepositoryName&gt;
+    &lt;Map&gt;
+        &lt;UrnUrlPair&gt;
+            &lt;Urn&gt;urn:x-cassis:r1:cos:00002730:sv-SE:0.7&lt;/Urn&gt;
+            &lt;Url&gt;C:\Users\arin\Documents\condesign\cassis\ti\xmetal\2880321bb5d24b08a95e2854bccf859b\prox-för-cassis.xml&lt;/Url&gt;
+            &lt;Writable&gt;false&lt;/Writable&gt;
+            &lt;EditUrl /&gt;
+        &lt;/UrnUrlPair&gt;
+    &lt;/Map&gt;
+    &lt;ShowMetadataDialog&gt;true&lt;/ShowMetadataDialog&gt;
+&lt;/Repository&gt;</textual></programlisting><para class="po-block e419 e419"><textual class="po-textual">Expanding this to include profiling would be relatively easy</textual><footnote class="po-popup e420 e420"><para class="po-block e421 e421"><textual class="po-textual">An added bonus is that in this case, the URN handling APIs are already
+                            in place.</textual></para></footnote><textual class="po-textual">.</textual></para></section><section class="po-hcontainer e422 e422" xml:id="section-2011-10-29-16-39-36-3630333-"><title class="po-block e423 e423"><textual class="po-textual">Variable Text and Localisation</textual></title><para class="po-block e424 e424"><textual class="po-textual">Variable text in the editor can be inserted using both techniques above: a
+                    throwaway </textual><code class="po-atom e425 e425"><textual class="po-textual">values</textual></code><textual class="po-textual"> attribute or a separate mapping document both do
+                    the trick. The former alternative requires less processing while the latter
+                    gives access to more features. Localised values, for example, would require the
+                    mapping document.</textual></para></section><section class="po-hcontainer e426 e426" xml:id="section-2011-10-29-13-38-13-46080094-2"><title class="po-block e427 e427"><textual class="po-textual">Combining Profiles</textual></title><para class="po-block e428 e428"><textual class="po-textual">URNs (and indeed any type of abstraction layer) can help simplify complex
+                    profiles, such as the logical expressions mentioned in </textual><xref class="po-milestone e429 e429" linkend="section-2011-10-28-19-44-14-40882030-1"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">. Instead of having to
+                    process the expression in an attribute, the expression can be represented using
+                    another URN, like so (with apologies for the pseudo-code):</textual></para><programlisting class="po-block e430 e430" xml:space="preserve"><textual class="po-textual">URN-EXPRESSION = URN1 AND URN2 AND NOT(URN3 OR URN4)</textual></programlisting><para class="po-block e431 e431"><textual class="po-textual">The replacement URN represents the expression and is used instead of it when
+                    processing. Of course, to be more than a theoretical exercise in neat ways of
+                    doing the unneeded, the situations in which boolean expressions can occur must
+                    be clearly defined. Such situations are common when describing complex modular
+                    products and their many variants; such products are frequently sold as
+                    individuals, requiring individualised documentation. A closer look of those
+                    situations is outside the scope of this document, but the point I want to make
+                    here is nevertheless an important one: rather than processing
+                        </textual><quote class="po-inline e432 e432"><textual class="po-textual">2*(3+2)</textual></quote><textual class="po-textual">, process </textual><quote class="po-inline e433 e433"><textual class="po-textual">10</textual></quote><textual class="po-textual">. An abstraction layer is
+                    simply some suitable representation of semantics.  </textual></para><para class="po-block e434 e434"><textual class="po-textual">Thus, a writer might use a shortcut URN to represent a group of profiles
+                    comprising several URNs. Such a </textual><quote class="po-inline e435 e435"><textual class="po-textual">user-defined URN</textual></quote><textual class="po-textual"> could be paired
+                    with descriptive metadata to help identify it and other URNs created for similar
+                    purposes. The right systems support could easily provide the user with a listing
+                    of the underlying profiles.</textual></para></section><section class="po-hcontainer e436 e436" xml:id="section_xsq_pcz_vj"><title class="po-block e437 e437"><textual class="po-textual">Base Profiles</textual></title><para class="po-block e438 e438"><textual class="po-textual">A complete profile includes localisation and version information, but
+                    sometimes it is useful to process the </textual><emphasis class="po-inline e439 e439"><textual class="po-textual">base profile</textual></emphasis><textual class="po-textual">
+                    regardless of language, country or version. This is easily done by defining
+                    wildcard behaviour:</textual></para><programlisting class="po-block e440 e440" xml:space="preserve"><textual class="po-textual">URN:*:*</textual></programlisting><para class="po-block e441 e441"><textual class="po-textual">This basically ignores the wildcards; it matches every single one. With the
+                    URN semantics well defined (I use EBNF for mine) this should be easy.</textual></para><para class="po-block e442 e442"><textual class="po-textual">Other useful variations here might define processing for, say, the latest
+                    version of a profile. A stylesheet treating </textual><code class="po-atom e443 e443"><textual class="po-textual">URN:sv-SE:*</textual></code><textual class="po-textual"> as the
+                    latest is not hard to do but will, of course, require access to the
+                    corresponding values, either at runtime or when populating a mapping
+                    document.</textual></para></section><section class="po-hcontainer e444 e444" xml:id="section-2011-10-30-15-25-43-46300461-4"><title class="po-block e445 e445"><textual class="po-textual">Assertions</textual></title><para class="po-block e446 e446"><textual class="po-textual">Sometimes, filtering profiled content causes structural problems in the
+                    resulting document, with required elements missing. Consider this admittedly
+                    simplistic example: </textual></para><programlisting class="po-block e447 e447" xml:space="preserve"><textual class="po-textual">&lt;doc profile="A"&gt;
+  ...
+  &lt;warning&gt;
+    &lt;p profile="A"&gt;Some content.&lt;/p&gt;
+  &lt;/warning&gt;
+  ...
+&lt;/doc&gt;</textual></programlisting><para class="po-block e448 e448"><textual class="po-textual">If a </textual><code class="po-atom e449 e449"><textual class="po-textual">warning</textual></code><textual class="po-textual"> must always contain at least one </textual><code class="po-atom e450 e450"><textual class="po-textual">p</textual></code><textual class="po-textual">, the
+                    above will result in an invalid </textual><code class="po-atom e451 e451"><textual class="po-textual">warning</textual></code><textual class="po-textual"> if published in context
+                        </textual><quote class="po-inline e452 e452"><textual class="po-textual">B</textual></quote><textual class="po-textual"> rather than  </textual><quote class="po-inline e453 e453"><textual class="po-textual">A</textual></quote><textual class="po-textual">. This is an easy mistake to
+                    make, and more complex nodes could easily end up being invalid without the user
+                    noticing, especially in modularised documents, resulting in the problem
+                    remaining undiscovered until the document is published.</textual></para><para class="po-block e454 e454"><textual class="po-textual">As these problems will only appear later</textual><footnote class="po-popup e455 e455"><para class="po-block e456 e456"><textual class="po-textual">The document that is profiled remains valid, of course.</textual></para></footnote><textual class="po-textual">, they can be difficult to spot. This can be solved using </textual><emphasis class="po-inline e457 e457" role="ital"><textual class="po-textual">schematron</textual></emphasis><textual class="po-textual"> (ISO standard; see </textual><xref class="po-milestone e458 e458" linkend="id-idso-sch"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">)
+                    assertions and validation on a document to check for problems and missing
+                    content after applying profiles. Such tests can be automated and used to
+                    validate the profiled nodes only. Here's a schematron fragment for checking if
+                    the </textual><code class="po-atom e459 e459"><textual class="po-textual">warning</textual></code><textual class="po-textual"> contents match the publishing context:</textual></para><programlisting class="po-block e460 e460" xml:space="preserve"><textual class="po-textual">&lt;!-- Profiling status for node --&gt;
+&lt;pattern&gt;
+    &lt;rule context="warning"&gt;
+        &lt;assert test="p/@profile"&gt;No profiling information.&lt;/assert&gt;
+        &lt;report test="p/@profile"&gt;Profiling present.&lt;/report&gt;
+    &lt;/rule&gt;
+&lt;/pattern&gt;
+&lt;!-- Match --&gt;
+&lt;pattern&gt;
+    &lt;rule context="warning"&gt;
+        &lt;report test="contains(/*/@profile,p/@profile)"&gt;Profile matches 
+            publishing context.&lt;/report&gt;
+    &lt;/rule&gt;
+&lt;/pattern&gt;
+&lt;!-- No match --&gt;
+&lt;pattern&gt;
+    &lt;rule context="warning"&gt;
+        &lt;assert test="contains(/*/@profile,p/@profile)"&gt;Profile does not 
+            match publishing context.&lt;/assert&gt;
+    &lt;/rule&gt;
+&lt;/pattern&gt;</textual></programlisting><para class="po-block e461 e461"><textual class="po-textual">Note that complex schematron documents can be automatically generated if the
+                    possible profiles are known and the possible changes are defined in a
+                    schema.</textual></para><para class="po-block e462 e462"><textual class="po-textual">It might be possible to use XML Schema 1.1 assertions but since an assertion
+                    on an element cannot refer to siblings or ancestors (</textual><xref class="po-milestone e463 e463" linkend="id-xsdassertions"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">),
+                    the assertion would have to be made on descendants only, like so:</textual></para><programlisting class="po-block e464 e464" xml:space="preserve"><textual class="po-textual">&lt;xs:schema 
+    xmlns:xs="http://www.w3.org/2001/XMLSchema" 
+    elementFormDefault="qualified"&gt;
+    &lt;xs:element name="doc"&gt;
+        &lt;xs:complexType&gt;
+            &lt;xs:sequence 
+                maxOccurs="unbounded"&gt;
+                &lt;xs:element 
+                    name="warning"&gt;
+                    &lt;xs:complexType&gt;
+                        &lt;xs:sequence 
+                            maxOccurs="unbounded"&gt;
+                            &lt;xs:element 
+                                name="p"&gt;
+                                &lt;xs:complexType 
+                                    mixed="true"&gt;
+                                    &lt;xs:attribute 
+                                        name="profile"/&gt;
+                                &lt;/xs:complexType&gt;
+                            &lt;/xs:element&gt;
+                        &lt;/xs:sequence&gt;
+                        &lt;xs:attribute 
+                            name="profile"/&gt;
+                    &lt;/xs:complexType&gt;
+                &lt;/xs:element&gt;
+            &lt;/xs:sequence&gt;
+            &lt;xs:attribute 
+                name="profile"/&gt;
+            &lt;xs:assert 
+                test="contains(@profile,.//*/@profile)"/&gt;
+        &lt;/xs:complexType&gt;
+    &lt;/xs:element&gt;
+&lt;/xs:schema&gt;</textual></programlisting><para class="po-block e465 e465"><textual class="po-textual">This might result in some rather complex expressions, if the assertion
+                    required needed to go beyond the basics as illustrated above. I have not further
+                    explored this at the time of this writing.</textual></para></section><section class="po-hcontainer e466 e466" xml:id="section-2011-10-29-13-38-13-46080094-1"><title class="po-block e467 e467"><textual class="po-textual">Publishing</textual></title><para class="po-block e468 e468"><textual class="po-textual">Publishing documents that include URN profiles remains easy; the URNs can be
+                    processed as strings, using string matching, so the filtering of nodes should
+                    not be a problem. Processing a translated document that uses untranslated
+                    profiles might prove tricky, however. Here is an example of a document
+                    originally profiled in Swedish but now translated to English:</textual></para><programlisting class="po-block e469 e469" xml:space="preserve"><textual class="po-textual">&lt;doc profile="urn:x-profile:a:en-GB:12"&gt;
+   &lt;p&gt;Information common to products A, B, and C.&lt;/p&gt;
+   &lt;p profile="urn:x-profile:a:sv-SE:12"&gt;Information about product A.&lt;/p&gt;
+   &lt;p profile="urn:x-profile:b:sv-SE:7"&gt;Information about product B.&lt;/p&gt;
+   &lt;p profile="urn:x-profile:c:sv-SE:3"&gt;Information about product C.&lt;/p&gt;
+&lt;/doc&gt;
+</textual></programlisting><para class="po-block e470 e470"><textual class="po-textual">
+                    </textual><emphasis class="po-inline e471 e471" role="ital"><textual class="po-textual">None</textual></emphasis><textual class="po-textual"> of the profiled </textual><code class="po-atom e472 e472"><textual class="po-textual">p</textual></code><textual class="po-textual"> elements is
+                    included in the resulting publication. This, of course, could be the desired
+                    result, but more likely is that the profiles need to be preprocessed. One way
+                    could be to prep the file going to translation, replacing any language/country
+                    information in the URNs before translation. More flexible is to define the exact
+                    preprocess according to need. For one thing, if the profiled node is not
+                    relevant in the target localisation, the profile should remain unchanged</textual><footnote class="po-popup e473 e473"><para class="po-block e474 e474"><textual class="po-textual">Or the node removed; translators should not have to see it.</textual></para></footnote><textual class="po-textual">.</textual></para><note class="po-container e475 e475"><para class="po-block e476 e476"><textual class="po-textual">It might be better to include every applicable profile localisation
+                        directly in the above example, rather than replacing the original one during
+                        preprocessing, as suggested by a reviewer of this paper. Or, if the profile
+                        was always applicable, leave out the localisation altogether by using a
+                        wildcard convention ( such as </textual><code class="po-atom e477 e477"><textual class="po-textual">profile="urn:x-profile:a:*:12"</textual></code><textual class="po-textual">)
+                        with suitable assertions when preprocessing. More complex localisation
+                        requirements could be similarly handled (</textual><quote class="po-inline e478 e478"><emphasis class="po-inline e479 e479"><textual class="po-textual">sv-SE</textual></emphasis><textual class="po-textual">
+                            and </textual><emphasis class="po-inline e480 e480"><textual class="po-textual">de-DE</textual></emphasis><textual class="po-textual">, but not
+                            </textual><emphasis class="po-inline e481 e481"><textual class="po-textual">en-GB</textual></emphasis></quote><textual class="po-textual">, etc) using more complex
+                        assertions.</textual></para></note><para class="po-block e482 e482"><textual class="po-textual">Also, the translators should be made aware of any processing requiring exact
+                    values (most notably when using profiles for variable text in content); the
+                    profile </textual><emphasis class="po-inline e483 e483"><textual class="po-textual">values</textual></emphasis><textual class="po-textual"> in a localisation are far more important to
+                    the translator than their corresponding URNs. The latter, then, need to be
+                    mapped to any relevant values, including values resulting from localisation or
+                    from some special processing (i.e. if the latest version of a profile is
+                    preferred), before the original document is translated. The values can be placed
+                    in a mapping document</textual><footnote class="po-popup e484 e484"><para class="po-block e485 e485"><textual class="po-textual">Or in </textual><code class="po-atom e486 e486"><textual class="po-textual">values</textual></code><textual class="po-textual"> throwaway attributes, depending on the
+                            situation.</textual></para></footnote><textual class="po-textual">, provided to the translators but they'd almost certainly prefer
+                    preprocessed documents where text variables such as the </textual><code class="po-atom e487 e487"><textual class="po-textual">phrase</textual></code><textual class="po-textual">
+                    element in </textual><xref class="po-milestone e488 e488" linkend="section-2011-10-28-9-43-5-73568251-2"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual"> include their values rather
+                    than the URNs:</textual></para><programlisting class="po-block e489 e489" xml:space="preserve"><textual class="po-textual">&lt;p&gt;Information about product &lt;phrase profile="A B C"&gt;A, B and C&lt;/&gt;.&lt;/p&gt;</textual></programlisting><note class="po-container e490 e490"><para class="po-block e491 e491"><textual class="po-textual">This will not solve the grammatical problem. It simply helps translators
+                        by showing the actual values rather than the URNs.</textual></para></note></section><section class="po-hcontainer e492 e492" xml:id="section_xng_qhz_vj"><title class="po-block e493 e493"><textual class="po-textual">The Grammatical Problem Solved</textual></title><para class="po-block e494 e494"><textual class="po-textual">The following sentence using a text variable will potentially cause problems
+                    if the number of applicable profiles varies:</textual><itemizedlist class="po-table e495 e495"><listitem class="po-container e496 e496"><para class="po-block e497 e497"><textual class="po-textual">A single profile, say </textual><quote class="po-inline e498 e498"><textual class="po-textual">A</textual></quote><textual class="po-textual">, is uncomplicated to use in
+                                a variable: </textual><quote class="po-inline e499 e499"><textual class="po-textual">A </textual><emphasis class="po-inline e500 e500"><textual class="po-textual">is</textual></emphasis><textual class="po-textual"> the latest-generation
+                                    diesel engine for the environmentally conscious driver.</textual></quote><textual class="po-textual">
+                            </textual></para></listitem><listitem class="po-container e501 e501"><para class="po-block e502 e502"><textual class="po-textual">A variable that might result from possibly multiple matching
+                                profiles is more difficult: </textual><quote class="po-inline e503 e503"><textual class="po-textual">B and C </textual><emphasis class="po-inline e504 e504"><textual class="po-textual">are</textual></emphasis><textual class="po-textual">
+                                    high-performance turbo engine</textual><emphasis class="po-inline e505 e505"><textual class="po-textual">s</textual></emphasis><textual class="po-textual"> for the
+                                    demanding racing driver.</textual></quote><textual class="po-textual">
+                            </textual></para></listitem></itemizedlist><textual class="po-textual">
+                </textual></para><programlisting class="po-block e506 e506" xml:space="preserve"><textual class="po-textual">&lt;p&gt;The &lt;phrase profile="A B C"&gt;is the latest generation diesel engine
+for the environmentally conscious driver.&lt;/&gt;.&lt;/p&gt;</textual></programlisting><para class="po-block e507 e507"><textual class="po-textual">Brute force solutions involving marking up inline content to identify
+                    grammatical constructs might be manageable if only two need to be handled, if
+                    Boolean constructs are accepted, for example, by using expressions such as
+                        </textual><code class="po-atom e508 e508"><textual class="po-textual">profile="(A AND NOT(B)) OR (B AND NOT(A))"</textual></code><textual class="po-textual"> for singular and
+                        </textual><code class="po-atom e509 e509"><textual class="po-textual">profile="A AND B"</textual></code><textual class="po-textual"> for plural form, but even this will quickly
+                    become unmanageable for the writer.</textual></para><para class="po-block e510 e510"><textual class="po-textual">Far more useful is to add an abstraction layer that defines the
+                        </textual><emphasis class="po-inline e511 e511"><textual class="po-textual">types</textual></emphasis><textual class="po-textual"> of profiles, for example, </textual><quote class="po-inline e512 e512"><textual class="po-textual">diesel
+                        engines</textual></quote><textual class="po-textual"> or </textual><quote class="po-inline e513 e513"><textual class="po-textual">turbo engines</textual></quote><textual class="po-textual">. A mapping document might
+                    define a group of profiles for the purpose, like so:</textual></para><programlisting class="po-block e514 e514" xml:space="preserve"><textual class="po-textual">&lt;group&gt;
+		&lt;profile&gt;urn:x-profile:abc&lt;/profile&gt;
+		&lt;included&gt;
+  		&lt;profile&gt;urn:x-profile:a&lt;/profile&gt;
+  		&lt;profile&gt;urn:x-profile:b&lt;/profile&gt;
+  		&lt;values&gt;D5&lt;/values&gt;
+		&lt;/included&gt;
+  ...
+&lt;/group&gt;</textual></programlisting><para class="po-block e515 e515"><textual class="po-textual">Here, all variants are called </textual><quote class="po-inline e516 e516"><textual class="po-textual">D5</textual></quote><textual class="po-textual"> but the value could just as
+                    well be </textual><quote class="po-inline e517 e517"><textual class="po-textual">D Series Diesel Engine</textual></quote><textual class="po-textual"> or something else. The point is
+                    that the abstraction is needed to a) group the participating profiles into a
+                    meaningful semantic group while b) keeping </textual><emphasis class="po-inline e518 e518"><textual class="po-textual">either</textual></emphasis><textual class="po-textual"> singular
+                    or plural form, but not both, regardless of the number of exact profiles
+                    used.</textual></para><para class="po-block e519 e519"><textual class="po-textual">A different but useful way to solve the problem is to count the context
+                    profiles in the root (one or more) and include markup to handle only the
+                    grammatically relevant differences. Singular might be marked up as
+                        </textual><code class="po-atom e520 e520"><textual class="po-textual">&lt;wrap context="s"&gt;is&lt;/wrap&gt;</textual></code><textual class="po-textual"> and plural as
+                        </textual><code class="po-atom e521 e521"><textual class="po-textual">&lt;wrap context="p"&gt;are&lt;/wrap&gt;</textual></code><textual class="po-textual"> or similar.</textual></para></section></section></section><section class="po-hcontainer e522 e522" xml:id="section-2011-10-28-12-56-2-95308562-6"><title class="po-block e523 e523"><textual class="po-textual">Out-of-line Profiling</textual></title><para class="po-block e524 e524"><textual class="po-textual">The profiling abstraction layer described above provides the basic ideas but more fun
+            can be had. What if, for example, you needed to profile XML following a schema that you
+            don't control? There are ID attributes but no profiling semantics. You can't change the
+            schema directly and processing for local needs would be too expensive</textual><footnote class="po-popup e525 e525"><para class="po-block e526 e526"><textual class="po-textual">Agreed, this is a contrived example. I never really bought that classic
+                    namespacing argument, </textual><quote class="po-inline e527 e527"><textual class="po-textual">what if you need to import a foreign namespace into
+                        yours?</textual></quote><textual class="po-textual">
+                </textual></para></footnote><textual class="po-textual">?</textual></para><para class="po-block e528 e528"><textual class="po-textual">My immediate reaction when thinking about this was </textual><quote class="po-inline e529 e529"><textual class="po-textual">extended XLink</textual></quote><textual class="po-textual">.
+            XLink (</textual><xref class="po-milestone e530 e530" linkend="id-xlink"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">) is an
+            all-purpose linking standard that never really reached the level of acceptance I feel it
+            deserves </textual><footnote class="po-popup e531 e531"><para class="po-block e532 e532"><textual class="po-textual">The lack of a processing model while including behavioural attributes is a
+                    frequent criticism and arguably pertains to my suggested use, here. See, for
+                    example, Paul Prescod's </textual><quote class="po-inline e533 e533"><textual class="po-textual">XLink: behavior must go!</textual></quote><textual class="po-textual"> (</textual><xref class="po-milestone e534 e534" linkend="id-prescod"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">).</textual></para></footnote><textual class="po-textual">. Among other things, the spec describes </textual><emphasis class="po-inline e535 e535" role="ital"><textual class="po-textual">out-of-line
+                links</textual></emphasis><textual class="po-textual">, that is, links that are described outside the resources they use,
+            in </textual><quote class="po-inline e536 e536"><textual class="po-textual">linkbases</textual></quote><textual class="po-textual">. The linkbase lists </textual><emphasis class="po-inline e537 e537" role="ital"><textual class="po-textual">locators</textual></emphasis><textual class="po-textual"> that identify the start and end points of the links, and
+                </textual><emphasis class="po-inline e538 e538" role="ital"><textual class="po-textual">arcs</textual></emphasis><textual class="po-textual"> that connect those points with each other. The
+            spec allows for </textual><quote class="po-inline e539 e539"><textual class="po-textual">multi-ended</textual></quote><textual class="po-textual"> links, which basically means that the link
+            ends can be connected with each other in any combinations, as many times as
+            needed.</textual></para><figure class="po-container e540 e540" xml:id="figure-2011-10-30-9-42-53-11614317-"><mediaobject class="po-container e541 e541"><imageobject class="po-container e542 e542"><imagedata class="po-meta e543 e543" fileref="../../../vol10/graphics/Nordstrom01/Nordstrom01-002.jpg"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></imagedata></imageobject></mediaobject></figure><para class="po-block e544 e544"><textual class="po-textual">A linkbase (the blob to the left) lists locators and arcs that identify nodes and
+            their relations in the document to the right. What's cool with extended XLink is that
+            the link ends that participate in a link have no idea they are part of one. We can
+            describe document semantics outside it.</textual></para><section class="po-hcontainer e545 e545" xml:id="section-2011-10-28-12-56-2-95308562-7"><title class="po-block e546 e546"><textual class="po-textual">Extended Profiling</textual></title><para class="po-block e547 e547"><textual class="po-textual">Just as I can describe links outside the participant resources, I should be able
+                to profile nodes in resources in a linkbase-like construct, like this:</textual></para><programlisting class="po-block e548 e548" xml:space="preserve"><textual class="po-textual">&lt;linkbase&gt;
+  &lt;locator href="doc.xml#id1" profile="URN1"/&gt;
+  &lt;locator href="doc.xml#id1" profile="URN2"/&gt;
+  &lt;locator href="doc.xml#id2" profile="URN1"/&gt;
+  ...
+&lt;/linkbase&gt;</textual></programlisting><para class="po-block e549 e549"><textual class="po-textual">Two separate </textual><code class="po-atom e550 e550"><textual class="po-textual">locator</textual></code><textual class="po-textual">s identify the two profiles for the node with
+                    </textual><code class="po-atom e551 e551"><textual class="po-textual">id1</textual></code><textual class="po-textual"> in </textual><emphasis class="po-inline e552 e552"><textual class="po-textual">doc.xml</textual></emphasis><textual class="po-textual">, </textual><quote class="po-inline e553 e553"><textual class="po-textual">URN1</textual></quote><textual class="po-textual"> and
+                    </textual><quote class="po-inline e554 e554"><textual class="po-textual">URN2</textual></quote><textual class="po-textual">, respectively. A third locator identifies a second node,
+                    </textual><code class="po-atom e555 e555"><textual class="po-textual">id2</textual></code><textual class="po-textual">, with the profile </textual><quote class="po-inline e556 e556"><textual class="po-textual">URN1</textual></quote><textual class="po-textual">. This, essentially, is
+                the mapping document I described above (see </textual><xref class="po-milestone e557 e557" linkend="section-2011-10-29-13-38-13-46080094-"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">), so throwaway values could
+                easily be included, like so:</textual></para><programlisting class="po-block e558 e558" xml:space="preserve"><textual class="po-textual">&lt;linkbase&gt;
+  &lt;locator href="doc.xml#id1" profile="URN1" values="A B"/&gt;
+  &lt;locator href="doc.xml#id1" profile="URN2" values="C"/&gt;
+  &lt;locator href="doc.xml#id2" profile="URN1" values="A B"/&gt;
+  ...
+&lt;/linkbase&gt;</textual></programlisting><para class="po-block e559 e559"><textual class="po-textual">With URNs identifying the document(s), it is easy to include proper version
+                handling and match localisation values with their URNs, like so (this is not
+                directly equivalent with the above):</textual></para><programlisting class="po-block e560 e560" xml:space="preserve"><textual class="po-textual">&lt;linkbase&gt;
+  &lt;locator href="URN-DOC:sv-SE:1#id1" profile="URN1:sv-SE:1" values="A"/&gt;
+  &lt;locator href="URN-DOC:en-GB:1#id1" profile="URN1:en-GB:1" values="B"/&gt;
+  ...
+  &lt;locator href="URN-DOC:sv-SE:2#id1" profile="URN1:sv-SE:2" values="A C"/&gt;
+  ...
+&lt;/linkbase&gt;</textual></programlisting><para class="po-block e561 e561"><textual class="po-textual">The first two locators describe version 1 of the document in Swedish and English
+                containing the </textual><code class="po-atom e562 e562"><textual class="po-textual">id1</textual></code><textual class="po-textual"> node profiled with URN1, version 1, with localised
+                values in Swedish (</textual><quote class="po-inline e563 e563"><textual class="po-textual">A</textual></quote><textual class="po-textual">) and English (</textual><quote class="po-inline e564 e564"><textual class="po-textual">B</textual></quote><textual class="po-textual">), respectively.
+                The third locator describes the Swedish version 2 of the same document, profiled
+                with version 2 of URN1 and updated values localised for Swedish (</textual><quote class="po-inline e565 e565"><textual class="po-textual">A</textual></quote><textual class="po-textual">
+                and </textual><quote class="po-inline e566 e566"><textual class="po-textual">C</textual></quote><textual class="po-textual">).</textual></para><para class="po-block e567 e567"><textual class="po-textual">As with the inline profiling (see </textual><xref class="po-milestone e568 e568" linkend="section-2011-10-28-12-56-2-95308562-"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">), the URN profiles here can
+                represent expressions.</textual></para><section class="po-hcontainer e569 e569" xml:id="section-2011-10-30-13-33-4-32060711-2"><title class="po-block e570 e570"><textual class="po-textual">Basic Requirements for the Document</textual></title><para class="po-block e571 e571"><textual class="po-textual">Some requirements for that third-party document structure emerge:</textual><itemizedlist class="po-table e572 e572"><listitem class="po-container e573 e573"><para class="po-block e574 e574"><textual class="po-textual">The document must be XML.</textual></para></listitem><listitem class="po-container e575 e575"><para class="po-block e576 e576"><textual class="po-textual">Any relevant node should be identified with IDs or some other way
+                                to uniquely identify profiled nodes.</textual></para></listitem><listitem class="po-container e577 e577"><para class="po-block e578 e578"><textual class="po-textual">For variable text, there should be a placeholder to
+                                replace.</textual></para></listitem></itemizedlist><textual class="po-textual">
+                </textual></para></section><section class="po-hcontainer e579 e579" xml:id="section-2011-10-30-13-33-4-32060711-1"><title class="po-block e580 e580"><textual class="po-textual">XLink Roles and Titles Put to Use</textual></title><para class="po-block e581 e581"><textual class="po-textual">The XLink spec describes </textual><emphasis class="po-inline e582 e582" role="ital"><textual class="po-textual">roles</textual></emphasis><textual class="po-textual"> that can be
+                    applied to other XLink semantics:</textual></para><para class="po-block e583 e583"><textual class="po-textual">
+                    </textual><quote class="po-inline e584 e584"><textual class="po-textual">The value of the role or arcrole attribute must be a URI reference as
+                        defined in [IETF RFC 2396], except that if the URI scheme used is allowed to
+                        have absolute and relative forms, the URI portion must be absolute. The URI
+                        reference identifies some resource that describes the intended
+                        property.</textual></quote><textual class="po-textual">
+                </textual></para><para class="po-block e585 e585"><textual class="po-textual">Sound familiar? A URN, of course, is a type of URI, so roles in XLink can do
+                    more or less exactly what I have described above, except, of course, that there
+                    can only be one URN per locator. That means that either a set of URN profiles is
+                    described in a set of locators, with one URN per locator, or the URNs are
+                    combined to other URNs as hinted in </textual><xref class="po-milestone e586 e586" linkend="section-2011-10-29-13-38-13-46080094-2"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">. Of course, that
+                    resulting URN is just a </textual><quote class="po-inline e587 e587"><textual class="po-textual">reference [that] identifies some resource that
+                        describes the intended property</textual></quote><textual class="po-textual">, so we seem to be well within the
+                    intentions of the spec.</textual></para><para class="po-block e588 e588"><textual class="po-textual">The spec also describes </textual><emphasis class="po-inline e589 e589" role="ital"><textual class="po-textual">titles</textual></emphasis><textual class="po-textual">:</textual></para><para class="po-block e590 e590"><textual class="po-textual">
+                    </textual><quote class="po-inline e591 e591"><textual class="po-textual">The title attribute is used to describe the meaning of a link or resource
+                        in a human-readable fashion, along the same lines as the role or arcrole
+                        attribute. </textual></quote><textual class="po-textual">
+                </textual></para><para class="po-block e592 e592"><textual class="po-textual">So, here's an XLink version of the above example (stripping namespace stuff
+                    and such):</textual></para><programlisting class="po-block e593 e593" xml:space="preserve"><textual class="po-textual">&lt;linkbase&gt;
+  &lt;locator href="URN-DOC:sv-SE:1#id1" role="URN1:sv-SE:1" title="A"/&gt;
+  &lt;locator href="URN-DOC:en-GB:1#id1" role="URN1:en-GB:1" title="B"/&gt;
+  ...
+  &lt;locator href="URN-DOC:sv-SE:2#id1" role="URN1:sv-SE:2" title="A C"/&gt;
+  ...
+&lt;/linkbase&gt;</textual></programlisting><para class="po-block e594 e594"><textual class="po-textual">This, of course, is exactly what we need, and in processable form.</textual></para></section></section><section class="po-hcontainer e595 e595" xml:id="section-2011-10-28-12-56-2-95308562-8"><title class="po-block e596 e596"><textual class="po-textual">Out-of-line Processing</textual></title><para class="po-block e597 e597"><textual class="po-textual">A lot of the required processing for out-of-line profiles is unchanged from the
+                inline version (see </textual><xref class="po-milestone e598 e598" linkend="section-2011-10-28-12-56-2-95308562-5"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">).
+                Out-of-line links, whether they are done in linkbases or in overlay documents, add
+                some processing and may present practical difficulties, but also hint at a different
+                approach when creating or editing the profiles in the editor.</textual></para><section class="po-hcontainer e599 e599" xml:id="section-2011-10-30-15-25-43-46300461-"><title class="po-block e600 e600"><textual class="po-textual">Editor</textual></title><para class="po-block e601 e601"><textual class="po-textual">When profiling a document out-of-line, we are essentially editing a linkbase,
+                    that is, a separate document. That document does not need to be edited using
+                    full XML editing capabilities, only what's needed for locating the nodes and
+                    profiling them. This suggests a DITA map-like approach. In quite a few XML
+                    editors out there, there is a separate window or pane for editing DITA maps. It
+                    is specialised and only needed to handle editing topicrefs and such.</textual></para><para class="po-block e602 e602"><textual class="po-textual">Similarly, a linkbase editor needs only include the necessary profiling
+                    handling, adding locators to the linkbase using a function in the main editor
+                    and then adding profiles in the linkbase editor. For editing existing locators,
+                    it should be enough to click on them to locate the corresponding nodes in the
+                    editor but remain in the specialised window when editing them.</textual></para><para class="po-block e603 e603"><textual class="po-textual">The remaining problem is a practical one: how does one visualise a profile in
+                    the main editor window so that the user can easily spot any profiled content.
+                    Here, a processing instruction might suffice if the editor has trouble
+                    populating the document tree from more than one source.</textual></para></section><section class="po-hcontainer e604 e604" xml:id="section-2011-10-30-15-25-43-46300461-1"><title class="po-block e605 e605"><textual class="po-textual">Schematron Uses</textual></title><para class="po-block e606 e606"><textual class="po-textual">Schematron can be used to validate the resulting profiled content and to
+                    generate PIs in the target document to indicate profiles, but also to generate
+                    the linkbase itself, if the rules describing what can be profiled and how are
+                    formalised. If the target document doesn't contain IDs, a schematron-like
+                    reporting function implemented in the specialised editor can be used to identify
+                    nodes using XPath expressions.</textual></para></section><section class="po-hcontainer e607 e607" xml:id="section-2011-10-30-15-25-43-46300461-3"><title class="po-block e608 e608"><textual class="po-textual">Variable Text</textual></title><para class="po-block e609 e609"><textual class="po-textual">Variable text is more difficult to implement properly out-of-line, not because
+                    of the out-of-line approach itself but because we don't necessarily control the
+                    document. The language must be such that the profile value naturally fits into
+                    the text flow.</textual></para><para class="po-block e610 e610"><textual class="po-textual">If profiling content we don't control, the problem is mostly beyond our
+                    control. If there are placeholders, the problem can be solved, but if not, while
+                    we can pinpoint a location using a variety of means (anything from a PI to
+                    XPointer comes to mind) variable text when profiling out-of-line should probably
+                    not be attempted if we don't control the content.</textual></para></section><section class="po-hcontainer e611 e611" xml:id="section_sfp_bzf_wj"><title class="po-block e612 e612"><textual class="po-textual">The Grammatical Problem Revisited</textual></title><para class="po-block e613 e613"><textual class="po-textual">The grammatical solution suggested in </textual><xref class="po-milestone e614 e614" linkend="section_xng_qhz_vj"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual"> is
+                    even easier to handle in a linkbase, as the profiles are all in one place,
+                    regardless of how many modules they are used in. They can easily be preprocessed
+                    by wrapping selected groups in abstractions (grouping profiles under a single
+                    label), counting them, and otherwise producing any relevant information about
+                    them when publishing a document.</textual></para><para class="po-block e615 e615"><textual class="po-textual">A reviewer of this paper commented: </textual><quote class="po-inline e616 e616"><textual class="po-textual">Instead of storing the variable
+                        text only and using additional wrap element for the grammatical relevant
+                        differences, why not store the whole grammatical phrase as variable text?
+                    </textual></quote></para><para class="po-block e617 e617"><textual class="po-textual">This is perhaps an easier solution for an author to handle than the one I
+                    started out with, but one that will cause the duplication of any surrounding
+                    grammatical phrases and likely reintroduce copy-paste editing when authors
+                    include the complete phrases with the variant information, rather than only the
+                    product variants themselves. Applying this on the sentence from </textual><xref class="po-milestone e618 e618" linkend="section_xng_qhz_vj"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">,
+                    we might end up with a number of variants, almost but not quite copies of each
+                    other:</textual></para><itemizedlist class="po-table e619 e619"><listitem class="po-container e620 e620"><para class="po-block e621 e621"><quote class="po-inline e622 e622"><textual class="po-textual">A </textual><emphasis class="po-inline e623 e623"><textual class="po-textual">is</textual></emphasis><textual class="po-textual"> the latest-generation diesel engine
+                                for the environmentally conscious driver.</textual></quote></para></listitem><listitem class="po-container e624 e624"><para class="po-block e625 e625"><quote class="po-inline e626 e626"><textual class="po-textual">B </textual><emphasis class="po-inline e627 e627"><textual class="po-textual">is</textual></emphasis><textual class="po-textual"> the latest-generation diesel engine
+                                for the environmentally conscious driver.</textual></quote></para></listitem><listitem class="po-container e628 e628"><para class="po-block e629 e629"><quote class="po-inline e630 e630"><textual class="po-textual">C </textual><emphasis class="po-inline e631 e631"><textual class="po-textual">is</textual></emphasis><textual class="po-textual"> the latest-generation diesel engine
+                                for the environmentally conscious driver.</textual></quote></para></listitem><listitem class="po-container e632 e632"><para class="po-block e633 e633"><quote class="po-inline e634 e634"><textual class="po-textual">A and B </textual><emphasis class="po-inline e635 e635"><textual class="po-textual">are</textual></emphasis><textual class="po-textual"> the latest-generation diesel
+                                engines for the environmentally conscious driver.</textual></quote></para></listitem><listitem class="po-container e636 e636"><para class="po-block e637 e637"><quote class="po-inline e638 e638"><textual class="po-textual">B and C </textual><emphasis class="po-inline e639 e639"><textual class="po-textual">are</textual></emphasis><textual class="po-textual"> the latest-generation diesel
+                                engines for the environmentally conscious driver.</textual></quote></para></listitem><listitem class="po-container e640 e640"><para class="po-block e641 e641"><quote class="po-inline e642 e642"><textual class="po-textual">A, B and C </textual><emphasis class="po-inline e643 e643"><textual class="po-textual">are</textual></emphasis><textual class="po-textual"> the latest-generation
+                                diesel engines for the environmentally conscious
+                            driver.</textual></quote></para></listitem></itemizedlist><para class="po-block e644 e644"><textual class="po-textual">And so on, for any permutations that may arise. The conclusion, in my mind, is
+                    obvious: any more complex sentences involving </textual><emphasis class="po-inline e645 e645"><textual class="po-textual">named</textual></emphasis><textual class="po-textual">
+                    variants in this manner should probably be avoided in favour of a more generic
+                    label (say, </textual><quote class="po-inline e646 e646"><textual class="po-textual">diesel engine</textual></quote><textual class="po-textual"> or </textual><quote class="po-inline e647 e647"><textual class="po-textual">D</textual></quote><textual class="po-textual">, in this case) in
+                    any real-world document.</textual></para></section></section></section><section class="po-hcontainer e648 e648"><title class="po-block e649 e649"><textual class="po-textual">End Notes</textual></title><section class="po-hcontainer e650 e650"><title class="po-block e651 e651"><textual class="po-textual">In Or Out Of Line?</textual></title><para class="po-block e652 e652"><textual class="po-textual">Inline (meaning </textual><quote class="po-inline e653 e653"><textual class="po-textual">placed in the physical XML file</textual></quote><textual class="po-textual">) profiles can be
+                messy. If new profiles need to be added to an otherwise unchanged XML file, it must
+                nevertheless be edited to include those new profiles. In a system with version
+                handling and modularisation, this frequently means that a profile change will result
+                in that any module referring to the edited XML file must also be updated.</textual></para><para class="po-block e654 e654"><textual class="po-textual">Moving the profiles out of line, to a linkbase, immediately solves this problem.
+                With the profiles stored outside the physical XML files, the files only need to be
+                edited if their contents (beyond the profiling information) are changed. Adding or
+                editing profiles requires changing the linkbase, not the XML modules.</textual></para><para class="po-block e655 e655"><textual class="po-textual">On the other hand, inline profiles are easy to display and highlight in an editor
+                simply by adding some CSS. Out of line, there needs to be some kind of interaction
+                between the editor and the linkbase. This may or may not be practical for an author,
+                depending on the situation, and may be difficult to implement.</textual></para><para class="po-block e656 e656"><textual class="po-textual">So which one is better? Leaving aside the implementation considerations for a
+                moment, in a highly modularised</textual><footnote class="po-popup e657 e657"><para class="po-block e658 e658"><textual class="po-textual">With multiple reuse levels or significant numbers of reusable modules, or
+                        both.</textual></para></footnote><textual class="po-textual"> document management environment where each module is individually
+                version handled for full traceability, moving the profiles out of line should be
+                considered, especially if editing a module always means that it must be checked out
+                and its version updated. A simple profile update inline could require updating not
+                only the current module and its translations, but also any module that links to the
+                current module, plus their translations.</textual></para></section><section class="po-hcontainer e659 e659"><title class="po-block e660 e660"><textual class="po-textual">I'm Not Alone</textual></title><para class="po-block e661 e661"><textual class="po-textual">The techniques used when profiling and filtering, of course, are quite common.
+                I've mentioned DITA as an example, but the same principles are found everywhere.
+                DocBook's profiling attributes (</textual><code class="po-atom e662 e662"><textual class="po-textual">arch</textual></code><textual class="po-textual">, </textual><code class="po-atom e663 e663"><textual class="po-textual">os</textual></code><textual class="po-textual">, etc) come to
+                mind, as do the more generic </textual><code class="po-atom e664 e664"><textual class="po-textual">role</textual></code><textual class="po-textual"> attribute found in many
+                schemas.</textual></para><para class="po-block e665 e665"><textual class="po-textual">Indirection techniques to handle renaming are, of course, not uncommon, and are
+                used in both XML-based systems and outside them. For a comprehensive, and, in many
+                ways, different, profiling mechanism, have a look at the S1000D technical
+                documentation specification's </textual><quote class="po-inline e666 e666"><textual class="po-textual">applicability model</textual></quote><textual class="po-textual"> (see </textual><xref class="po-milestone e667 e667" linkend="id-s1000d-applic-model"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">
+                for an introduction, or download the S1000D spec itself at </textual><xref class="po-milestone e668 e668" linkend="id-s1000d-home"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">).</textual></para><para class="po-block e669 e669"><textual class="po-textual">The S1000D applicability model is frequently implemented by S1000D vendors in the
+                so-called </textual><emphasis class="po-inline e670 e670"><textual class="po-textual">S1000D Common Source Database (CSDB)</textual></emphasis><textual class="po-textual"> using a certain
+                level of indirection. There is a product lookup database that is set up to manage
+                and map product semantics with values (such as aircraft manufacturer names, product
+                serial numbers and so on), including versioning. S1000D also includes an assertion
+                mechanism, implemented to varying degrees by vendors.</textual></para><para class="po-block e671 e671"><textual class="po-textual">Finally, it should be noted that the S1000D applicability model may use
+                out-of-line profiling, for example, to manage inline filtering conditions.</textual></para></section><section class="po-hcontainer e672 e672"><title class="po-block e673 e673"><textual class="po-textual">Thank You</textual></title><para class="po-block e674 e674"><textual class="po-textual">My sincerest thanks must go to the reviewers of this paper.  I have attempted to
+                update the paper accordingly, trying to clarify, expand and remove content as
+                suggested by the many helpful comments. Any mistakes, omissions and
+                misunderstandings are solely mine, however.</textual></para><para class="po-block e675 e675"><textual class="po-textual">A far better title than the one originally supplied by me was kindly provided by
+                the Balisage program committee.  My original title, I feel, is best left
+                unmentioned, but for the new one, my heartfelt (and relieved) thanks must go to
+                Tommie &amp; Co. </textual></para></section></section><bibliography class="po-hcontainer e676 e676"><title class="po-block e677 e677"><textual class="po-textual">Bibliography</textual></title><bibliomixed class="po-block e678 e678" xml:id="id-dita"><textual class="po-textual">DITA </textual><emphasis class="po-inline e679 e679"><textual class="po-textual">audience</textual></emphasis><textual class="po-textual"> Attribute </textual><link class="po-inline e680 e680" xlink:actuate="onRequest" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://docs.oasis-open.org/dita/v1.2/os/spec/langref/audience.html#audience</textual></link></bibliomixed><bibliomixed class="po-block e681 e681" xml:id="id-urn"><textual class="po-textual">Uniform Resource Names (URN) Namespace Definition Mechanisms 
+                </textual><link class="po-inline e682 e682" xlink:actuate="onRequest" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://www.ietf.org/rfc/rfc3406.txt</textual></link></bibliomixed><bibliomixed class="po-block e683 e683" xml:id="id-idso-sch"><textual class="po-textual">Schematron ISO
+                standard </textual><link class="po-inline e684 e684" xlink:actuate="onRequest" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://standards.iso.org/ittf/PubliclyAvailableStandards/index.html</textual></link></bibliomixed><bibliomixed class="po-block e685 e685" xml:id="id-xsdassertions"><textual class="po-textual">XML Schema 1.1 Structures
+                (Assertions) </textual><link class="po-inline e686 e686" xlink:actuate="onRequest" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://www.w3.org/TR/xmlschema11-1/#cAssertions</textual></link></bibliomixed><bibliomixed class="po-block e687 e687" xml:id="id-xlink"><textual class="po-textual">XML Linking Language (XLink) Version
+                1.1 </textual><link class="po-inline e688 e688" xlink:actuate="onRequest" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://www.w3.org/TR/xlink11/</textual></link></bibliomixed><bibliomixed class="po-block e689 e689" xml:id="id-prescod"><textual class="po-textual">XLink: behavior must
+                go! </textual><link class="po-inline e690 e690" xlink:actuate="onRequest" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://www.biglist.com/lists/xsl-list/archives/199905/msg00218.html</textual></link></bibliomixed><bibliomixed class="po-block e691 e691" xml:id="id-s1000d-home"><textual class="po-textual">The S1000D Web
+                Site </textual><link class="po-inline e692 e692" xlink:actuate="onRequest" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://public.s1000d.org/Pages/Home.aspx</textual></link></bibliomixed><bibliomixed class="po-block e693 e693" xml:id="id-s1000d-applic-model"><textual class="po-textual">S1000D Applicability Model </textual><link class="po-inline e694 e694" xlink:actuate="onRequest" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://www.ataebiz.org/forum/2008_ata_e-biz_forum_agenda/Applicability_vanRotterdam.pdf</textual></link></bibliomixed></bibliography></article></classedDocument>

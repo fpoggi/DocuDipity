@@ -1,0 +1,2088 @@
+<?xml version="1.0" encoding="UTF-8"?><article xmlns:xlink="http://www.w3.org/1999/xlink" xmlns="http://docbook.org/ns/docbook" version="5.0-subset Balisage-1.3"><title>Programming in XPath 3.0</title><info><confgroup><conftitle>Balisage: The Markup Conference 2013</conftitle><confdates>August 6 - 9, 2013</confdates></confgroup><abstract><para>While XPath is universally considered the critical intersection of XSLT and
+                XQuery, until recently it lacked some essential capabilities of a full-pledged
+                programming language. </para><para>Although not obvious from the W3C specifications, this paper demonstrates some of
+                the new, crucial features of XPath 3.0 that make it a truly complete, standalone,
+                modern XML programming language. </para><para>
+                Among others, the benefits of host-language-independent XPath 3.0 programming include 
+                the elimination of the need for redundant “per host language” programming and the ability 
+                to specify XPath callable units with true copy and paste portability between different 
+                host languages, such as XSLT and XQuery.
+            </para></abstract><author><personname><firstname>Dimitre</firstname><surname>Novatchev</surname></personname><personblurb><para>
+									Dimitre Novatchev developed FXSL – the functional programming library
+									for XSLT (1.0 and 2.0). He thrives at discovering and employing
+									unexpected capabilities of XSLT and XPath that even their W3C creators
+									hadn’t imagined.
+									</para><para>
+									Suggested the argument placeholder feature that is now part of XPath 3.0.
+									</para><para>
+									Member in the W3C XSLT working group in 2011 – 2013, where he contributed
+									to the design and specification of XSLT 3.0.
+									</para><para>
+									Dimitre has answered around 5000 XSLT/XML/XPath questions on StackOverflow
+									and many questions on the XSL-List.
+									</para></personblurb><email>DNovatchev@gmail.com</email><affiliation><orgname>IMS Health / Appature</orgname></affiliation><link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://dnovatchev.wordpress.com</link></author><legalnotice><para>Copyright © 2013 Dimitre Novatchev</para></legalnotice></info><section><title>1. Is XPath  1.0 a full programming language?</title><para> Does XPath 1.0[<citation linkend="XPath1.0"/>]  have all necessary features to be
+            used as a complete, self-sustained programming language? </para><para>
+            The facts summarized in this table show that XPath 1.0  lacks many important features 
+            of a programming language.
+        </para><table><thead><tr><th>Capability</th><th>Presence</th><th>Remarks</th></tr></thead><tbody><tr><td>Define <emphasis>variables</emphasis></td><td>No.</td><td>Variables references can be part of XPath 1.0  expressions, 
+                        but such variables must be defined by the host language 
+                        (various PLs, DOM, or XSLT[<citation linkend="XSLT1.0"/>]).
+                    </td></tr><tr><td>Define and use <emphasis>range/outer-context variables</emphasis>.</td><td>No.</td><td>In an XSLT context the function <code>current()</code> provides a limited capability 
+                        of an outer-context variable.
+                    </td></tr><tr><td>Define its <emphasis>own</emphasis> functions.</td><td>No.</td><td>Only XPath system functions or functions defined in the host-provided context 
+                        (such as <code>generate-id()</code> ) can be referenced.
+                    </td></tr><tr><td>Work with <emphasis>sequences</emphasis> of items.</td><td>No.</td><td>Only the notion of a <emphasis>nodeset</emphasis> is defined. No support 
+                        for sequences containing a non-node, or of nodes that can occur 
+                        more than once and/or in any order.
+                    </td></tr><tr><td>Define own <emphasis>callable units</emphasis>.</td><td>No.</td><td> </td></tr><tr><td>Specify that a function should be executed on every selected node.</td><td>No.</td><td> </td></tr><tr><td>Strong typing.</td><td>No.</td><td>XPath 1.0 is a weakly-typed language.</td></tr></tbody></table><para/></section><section><title>2.	Is XPath  2.0 a full programming language?</title><para> Does XPath 2.0[<citation linkend="XPath2.0"/>] have all necessary features to be used as a complete,
+            self-sustained programming language? </para><para>
+            The facts summarized in this table show that XPath 2.0, while having strong typing, 
+            the capability to define its own variables and operations on sequences, 
+            still lacks some important features of a programming language, 
+            such as its own callable units of execution.
+        </para><table><thead><tr><th>Capability</th><th>Presence</th><th>Remarks</th></tr></thead><tbody><tr><td>Define <emphasis>variables</emphasis>.</td><td>Yes, but limited.</td><td>Variables can be defined within an XPath 2.0 expression. 
+                        It is impossible to define a variable whose value is a sequence.</td></tr><tr><td>Define and use <emphasis>range/outer-context variables</emphasis>.</td><td>Yes.</td><td> </td></tr><tr><td>Define its <emphasis>own</emphasis> functions.</td><td>No.</td><td>Only XPath system functions or functions defined in the host-provided context 
+                        (such as functions defined in XSLT[<citation linkend="XSLT2.0"/>] or in XQuery[<citation linkend="XQuery1.0"/>]) can be referenced.</td></tr><tr><td>Work with <emphasis>sequences</emphasis> of items.</td><td>Yes.</td><td>XPath 2.0 supports sequences whose items can be non-nodes, 
+                        or  nodes that can occur more than once and/or in any order.</td></tr><tr><td>Define own <emphasis>callable units</emphasis>.</td><td>No.</td><td> </td></tr><tr><td>Specify that a function should be executed on every selected node.</td><td>Yes.</td><td><code>/a/b/c/string-length()</code>    is legal</td></tr><tr><td>Specify that a function should be executed on every item in a sequence.</td><td>No.</td><td>While <code>/a/b/c/string-length()</code> is legal, it isn’t allowed to use: 
+                        <code>('London', 'New York', 'Paris')/string-length()</code>
+                    </td></tr><tr><td>Strong typing.</td><td>Yes.</td><td>XSD type constructors, <code>cast as</code>,  <code>castable as</code>,  <code>instance of</code>
+                    </td></tr></tbody></table><para/></section><section><title>3. The Function Library Author’s Dilemma</title><para> There are examples of useful function libraries that have a separate version for
+                XSLT2.0[<citation linkend="XSLT2.0"/>] and a separate version for XQuery[<citation linkend="XQuery1.0"/>]. There are other function libraries, written only for use in
+            one of these two languages. A real-world example of a function library with both XSLT
+            and XQuery versions is the <emphasis>FunctX library
+                by Priscilla Walmsley</emphasis>[<citation linkend="Walmsley"/>]. </para><para>
+            While a function library author has the goal to produce his library for the widest possible audience, 
+            writing one separate version of the library for XSLT 
+            and another separate version for XQuery is problematic:
+        </para><itemizedlist><listitem><para>
+                    The time required to produce two versions of the library – for use from two different languages, 
+                    may be significantly (up to twice) bigger than the time for producing a single version.
+                </para></listitem><listitem><para>
+                    If the time necessary to produce two different versions of the library 
+                    could be used for producing only one version, then more functions 
+                    could be written and included in this library.
+                </para></listitem><listitem><para>
+                    Having two versions for the same set of functions is redundant 
+                    and results in all anomalies of redundancy.
+                </para></listitem><listitem><para>
+                    Maintaining two different versions of the same set of functions 
+                    is challenging – it is difficult to maintain the two versions in synch, 
+                    and the required time to do so is significantly greater than maintaining a single library.
+                </para></listitem></itemizedlist><para>
+            Due to these problems, some libraries would only have one single version. The libraries
+            that have two versions
+            could have included more useful functions, or could have become available sooner,
+            if they had been written in a single version only.
+        </para><para>
+            “Copy and paste portability” has never been achieved with XPath 2.0 to the extent to be really useful, 
+            because the language lacks the ability to define its own callable units 
+            and because it cannot define its own variables that contain a sequence, and it isn’t possible to produce 
+            a new XML document / node by an XPath 2.0 expression.
+        </para><para/></section><section><title>4. New capabilities in XPath 3.0</title><para>
+            The next table shows some of the significant new features of XPath 3.0[<citation linkend="XPath3.0"/>]:
+        </para><table><thead><tr><th>Capability</th><th>Presence</th><th>Remarks</th></tr></thead><tbody><tr><td>Define <emphasis>variables</emphasis></td><td>Yes.</td><td>In addition to the variable definition available in XPath 2.0, 
+                        XPath 3.0 makes it possible to define in a “let clause” 
+                        a variable whose value is a sequence.
+                    </td></tr><tr><td>Define and use <emphasis>range/outer-context variables</emphasis>.</td><td>Yes.</td><td>As in XPath 2.0.</td></tr><tr><td>Work with <emphasis>sequences of items</emphasis>.</td><td>Yes.</td><td>As in XPath 2.0.</td></tr><tr><td>Define own <emphasis>callable units</emphasis>.</td><td>Yes.</td><td>Inline function items.</td></tr><tr><td>Specify that a function should be executed on every selected node.</td><td>Yes.</td><td>As in XPath 2.0.</td></tr><tr><td>Specify that a function should be executed on every item in a sequence.</td><td>Yes.</td><td>The   <code>!</code>   (simple mapping) operator.</td></tr><tr><td>Strong typing.</td><td>Yes.</td><td>As in XPath 2.0.</td></tr><tr><td>Define its <emphasis>own</emphasis> functions.</td><td>Yes.</td><td>This is one of the most significant new features of XPath 3.0, 
+                        based on the “function item” type as defined in the XDM[<citation linkend="XDM3.0"/>].  
+                        Only “inline function items” (anonymous functions) can be defined. 
+                        Typically, these are defined as the content of a variable, 
+                        which then can be used as a function.
+                    </td></tr><tr><td>Higher Order Functions (HOFs).</td><td>Yes.</td><td>A function item is a first class object. It can be passed as a parameter 
+                        or returned as a result of calling a function. It is possible to express 
+                        such well-known FP techniques as functional composition, partial function application, 
+                        creation of closures.
+                    </td></tr><tr><td>Can recursive anonymous functions be specified within an XPath expression?</td><td>Yes.</td><td>Shown later in this paper.</td></tr><tr><td>Can robust recursion of anonymous functions be implemented?</td><td>Yes.</td><td>Shown later in this paper.</td></tr><tr><td>Can a new XML document or node be created within an XPath expression?</td><td>Yes.</td><td>Shown later in this paper.</td></tr><tr><td>Can new data types be created in an XPath expression?</td><td>Yes.</td><td>Shown later in this paper.</td></tr></tbody></table><para>
+            In the next sections we give examples of using XPath 3.0 to specify functional composition, 
+            partial application, closures, anonymous function recursion and robust recursion. 
+            Then we provide an example of specifying a new data type – the Binary Search Tree. 
+            We show how a new XML document can be created with an XPath 3.0 expression. 
+            Finally, we provide an example of a complete XML processing application written entirely in XPath.
+        </para><para/><section><title>4.1 Creating and using an anonymous function in an XPath
+                    expression. HOFs.</title><para> In XPath 3.0 one can define inline (anonymous) functions and then provide
+                arguments for their execution in a function call simply like this:
+                <programlisting xml:space="preserve">
+let $incr := 
+       function($n) {$n+1}
+ 
+  return $incr(2)
+                </programlisting>
+                Or, as recommended alternative, define the same function in a strongly typed way:
+                <programlisting xml:space="preserve">
+    let $incr :=
+          function($n as xs:integer) as xs:integer
+            {
+              $n +1
+            }
+      return
+        $incr(2)
+                </programlisting>
+                When either of these two expressions is evaluated, the result is: <code>3</code>. </para><para>
+                <emphasis role="bold">The remaining examples in this paper use strong
+                    typing</emphasis>. </para><para> The ability to define a function as a pure XPath 3.0 expression is one of the
+                most important additions to the XPath Data Model (XDM)[<citation linkend="XDM3.0"/>].</para><para>The function has no name and is the value of the <code>$incr</code> variable. The
+                function definition has a strongly typed argument and a strongly typed result – in
+                this case both the argument and the result must be of type <code>xs:integer</code>.  </para><para>The body of the function is an XPath expression of type
+                <code>xs:integer</code></para><para>The scope of the function is the let clause where it is defined and the
+                corresponding <code>return</code> clause. </para><para>Most importantly, in XPath 3.0 one can define Higher-Order Functions (HOFs)[<citation linkend="HOF"/>].
+                By definition, a higher order function has an argument which itself is a function,
+                or produces a function as its result.  </para><para> Here is a complete example of defining and calling a HOF within an XPath
+                expression: </para><programlisting xml:space="preserve">
+   let $process :=
+             function($s as xs:string, $fun as function(xs:string) as xs:string)
+                 as xs:string
+            {
+              $fun($s)
+            },
+
+        $lower :=
+          function($s as xs:string) as xs:string
+            {
+              lower-case($s)
+            }
+         ,
+         $reverse :=
+          function($s as xs:string) as xs:string
+            {
+              codepoints-to-string(reverse(string-to-codepoints($s)))
+            }
+      return
+         ('lower: ', $process('HELLO', $lower),
+          ', reverse: ', $process('HELLO', $reverse))
+            </programlisting><para> The function <code>$process()</code>takes two arguments: a string, and a function
+                that takes a string and produces a string. The result returned by
+                    <code>$process()</code>is a string. </para><para> Then, in the same <code>let</code> clause two functions are defined, each taking
+                a string and producing a string: <code>$lower()</code> and <code>$reverse()</code>. </para><para> In the return clause <code>$process()</code> is called twice, with “HELLO” as the
+                same first argument, and with the <code>$lower()</code> function as the second
+                argument in the first call to <code>$process()</code> and <code>$reverse()</code>
+                function as the second argument in the second call to <code>$process()</code>. </para><para> When the above expression is evaluated, the result is:
+                <programlisting xml:space="preserve">lower:  hello , reverse:  OLLEH</programlisting></para></section><section><title>4.2 Function composition</title><para>
+                By definition, the functional composition[<citation linkend="FuncComp"/>] of two functions <code>g(x)</code> and <code>h(y)</code>
+                is a third function   <code>f(x)</code>  such that   <code>f(x) = h(g(x))</code>
+            </para><para>
+                We can specify a function, which takes as its parameters two other functions, 
+                and produces as its result the functional composition of its two arguments:
+                <programlisting xml:space="preserve">
+        $compose :=
+             function($f as function(), $g as function())
+                 as function()
+            {
+              function($x as item()*)
+              {
+                $g($f($x))
+              }
+            }
+                </programlisting>
+            </para><para>
+                And we can use the so defined function in the following expression:
+                <programlisting xml:space="preserve">
+    let $compose :=
+             function($f as function(), $g as function())
+                 as function()
+            {
+              function($x as item()*)
+              {
+                $g($f($x))
+              }
+            },
+
+        $lower :=
+          function($s as xs:string) as xs:string
+            {
+              lower-case($s)
+            }
+         ,
+
+         $reverse :=
+          function($s as xs:string) as xs:string
+            {
+              codepoints-to-string(reverse(string-to-codepoints($s)))
+            }
+
+      return
+               $compose($reverse, $lower)('HELLO')
+                </programlisting>
+            </para><para>
+                The result of evaluating this expression is:
+                <programlisting xml:space="preserve">olleh</programlisting>
+            </para></section><section><title>4.3 Partial application of a function</title><para>
+                One definition of <emphasis role="bital">partial application</emphasis>[<citation linkend="PartApp"/>] is the following:</para><blockquote><para><emphasis>“<link xlink:href="http://en.wikipedia.org/wiki/Partial_application" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest"><emphasis role="bold">Partial function application</emphasis></link> is the ability to take a function of many parameters 
+and apply arguments to some of the parameters to create a new function that 
+needs only the application of the remaining arguments to produce the equivalent 
+of applying all arguments to the original function.”</emphasis></para></blockquote><para>
+                XPath 3.0 has a natural way of specifying partial application.
+                <programlisting xml:space="preserve">f(3, ?)</programlisting> 
+                is a new function <code>g(x)</code>, such that for all allowed values of <code>x</code> 
+                the following holds:
+                <programlisting xml:space="preserve">g(x) = f(3, x)</programlisting>
+            </para><para> Using partial application, we can re-define the <code>increment()</code> function
+                in the following way:
+                <programlisting xml:space="preserve">
+    let $plus :=
+          function($m as xs:integer, $n as xs:integer) as xs:integer
+          {
+            $m + $n
+          },
+          
+        $incr :=
+          function($n as xs:integer) as xs:integer
+          {
+            $plus(1, ?)($n)
+          }
+        return 
+            $incr(2)
+                </programlisting>
+                When this XPath 3.0 expression is evaluated, the result is <code>3</code>. 
+            </para><para> In the above expression the partial application of <code>$plus()</code> on
+                binding its first argument to <code>1</code> is defined simply as:
+                <programlisting xml:space="preserve">$plus(1, ?) </programlisting> 
+                The ‘<code>?</code>’ character is
+                called <emphasis>argument placeholder</emphasis> and is used to denote
+                free (still not bound) arguments. </para></section><section><title>4.4 Closures</title><para>By definition “<emphasis>a closure[<citation linkend="Closure"/>] is a function produced by
+                    another function and the produced function contains data from the producing
+                    function</emphasis>.” 
+            </para><para> Here is a complete example:
+                <programlisting xml:space="preserve">
+    let $greet :=
+           function($greeting as xs:string)
+               as function(xs:string) as xs:string
+                  {
+                    function($name as xs:string) as xs:string
+                          {
+                             $greeting || $name || '! '
+                          }
+                  },
+         $hello := $greet('Hello: ')
+                  
+          return
+            ($hello ('John'), $hello ('Peter') )
+              </programlisting>
+                Note that the outer function <code> $greet()</code> returns as its result the inner
+                function and injects into the body of the inner function some of its own (outer
+                function’s) data –  the value of its <code> $greeting</code>  argument. 
+            </para><para> When the above expression is evaluated, the result is:
+                <programlisting xml:space="preserve">Hello: John! Hello: Peter! </programlisting>
+            </para><para> Here is another example. Let’s have this XML document: <programlisting xml:space="preserve">                    
+&lt;Books&gt;
+	&lt;Book&gt;
+		&lt;Title&gt;Six Great Ideas&lt;/Title&gt;
+		&lt;Author&gt;Mortimer J. Adler&lt;/Author&gt;
+	&lt;/Book&gt;
+	&lt;Book&gt;
+		&lt;Title&gt;The Society of Mind&lt;/Title&gt;
+		&lt;Author&gt;Marvin Minsky&lt;/Author&gt;
+	&lt;/Book&gt;
+&lt;/Books&gt;
+                </programlisting>
+            </para><para> We want to have a function that has only one argument – a book’s title and
+                returns the author of the book with this title. Somehow this function should have
+                the above XML document already injected in its definition:
+                <programlisting xml:space="preserve">
+   let $lookup :=
+          function($books as element())
+             as function(xs:string) as xs:string?
+           {
+            function($bookTitle as xs:string) as xs:string?
+            {
+              $books/Book[Title eq $bookTitle]/Author
+            }
+           },
+           
+      $author := $lookup(/Books)
+      
+       return
+          $author('The Society of Mind')
+                </programlisting>
+                The wanted function (<code>$author()</code>) is created by the function
+                    <code>$lookup()</code> by injecting into it some of its own content – the top
+                element of the XML document to be searched. The result is:
+                <programlisting xml:space="preserve">Marvin Minsky</programlisting>
+            </para></section><section><title>4.5 Can Anonymous functions be
+                recursive?</title><para> Such a question seems odd – if a recursive function[<citation linkend="Recurs"/>] is one that calls itself by
+                name, then how can an anonymous function be recursive, having no name? </para><para> This seems to be a stopping problem when trying to write XPath 3.0 inline
+                function items that process long sequences or other, recursive data structures. So
+                serious a problem, that some people[<citation linkend="Snelson"/>][<citation linkend="Snelson2"/>] even raised the question of amending
+                the XPath Data Model and altering the XPath 3.0 syntax in order to allow an
+                anonymous function to call itself. </para><para><emphasis role="bold">As it turns out, a natural solution exists, without the
+                    need to change anything[<citation linkend="Nova"/>]</emphasis>. </para><para> Let us take a concrete problem: Write an XPath 3.0 inline function, that given a
+                positive integer <code>n</code>, produces the value of <code>n!</code> (The
+                factorial of <code>n</code>). 
+            </para><para> As a first attempt, let us analyze this code:
+                <programlisting xml:space="preserve">          let $f := function($n as xs:integer,
+              $f1 as function(xs:integer) as xs:integer
+              ) as xs:integer
+
+              {
+                 if($n eq 0)
+                    then 1
+                    else $n * $f1($n -1, $f1)
+              }
+              return
+                $f(5, $f)             
+              </programlisting>
+                What happens here?
+            </para><para>
+                An inline function cannot call itself by name, because it doesn’t have a name.
+                What we still can do, though, is to pass the function as an argument to itself.
+            </para><para> The only special thing to notice here is how the processing is initiated:
+                <programlisting xml:space="preserve">$f(5, $f)</programlisting> calling the function and passing it to
+                itself. 
+            </para><para> Such initiation may seem weird to a caller and is also error-prone. This is why
+                we need to further improve the solution so that no weirdness remains on the surface:
+                <programlisting xml:space="preserve">let $f := function($n as xs:integer,
+                   $f1 as function(xs:integer,
+                                   function()) as xs:integer
+                   ) as xs:integer
+             {
+               if($n eq 0)
+                 then 1
+                 else $n * $f1($n -1, $f1)
+
+              },
+
+    $F := function($n as xs:integer) as xs:integer
+            {
+               $f($n, $f)
+            }
+   return
+           $F(5)</programlisting>
+                Thus we produced an inline, anonymous function <code>$F</code>, which given an
+                argument <code>$n</code>, produces<code> $n!</code>
+            </para></section><section><title>4.6 Robust Recursion</title><para> While the described recursion technique works well with relatively small values
+                    for<code> n</code>, we run into problems when <code>n</code> becomes bigger. </para><para>
+                <emphasis role="bold">Let’s see this based on another example – calculating the sum
+                    of a sequence of numbers:</emphasis>
+                <programlisting xml:space="preserve">  let $f := function($nums as xs:double*,
+                     $f1 as  function(xs:double*, function()) 
+                               as xs:double
+                   ) as xs:double
+             {
+              if(not($nums[1]))
+                 then 0
+                 else $nums[1] + $f1(subsequence($nums,2), $f1)
+              },
+
+    $F := function($nums as xs:double*) as xs:double
+            {
+                $f($nums, $f)
+            }
+   return
+           $F(1 to 10)</programlisting>
+                This calculates correctly the sum of the numbers <code>1</code> to <code>10</code> –
+                the result is: <programlisting xml:space="preserve">55</programlisting> However, if we try:
+                <programlisting xml:space="preserve">$F(1 to 100)</programlisting>
+                the result is the following Saxon 9.4.6EE exception:
+                        <programlisting xml:space="preserve"><emphasis role="bold">Error on line 22
+Too many nested function calls. May be due to infinite recursion.
+Transformation failed: Run-time errors were reported</emphasis></programlisting>
+             </para><para> So, what happens here? Most readers would have guessed by now — our old <emphasis>Stack Overflow</emphasis> (not the site) exception. </para><para> Is there <emphasis>any</emphasis> way to avoid this exception? </para><para> One could rely on the smartness of the XSLT processor to do this. A slight
+                fraction of XSLT processors recognize a limited kind of <emphasis>tail
+                    recursion</emphasis> and implement it using iteration, thus avoiding recursion. 
+            </para><para>
+                <emphasis role="bold">Let us refactor the above code into a tail-recursive
+                    one</emphasis> (the last thing the function does is invoke a function):
+                <programlisting xml:space="preserve"> let $f := function($nums as xs:double*,
+                    $accum as xs:double,
+                    $f1 as  
+                           function(xs:double*, xs:double, function())
+                               as xs:double
+                    ) as xs:double
+             {
+              if(not($nums[1]))
+                 then $accum
+                 else $f1(subsequence($nums,2), $accum+$nums[1], $f1)
+              },
+    $F := function($nums as xs:double*) as xs:double
+          {
+             $f($nums, 0, $f)
+          }
+  return
+     $F(1 to 100)</programlisting>
+            </para><para>
+                Saxon[Saxon] is well-known for carrying out tail-recursion optimization, 
+                however it still raises the stack-overflow exception for the above, tail-recursive code. 
+                Why?
+            </para><para> Here is the Wikipedia definition[<citation linkend="TailCall"/>] of tail recursion: </para><blockquote><para><emphasis>“In <link xlink:href="http://en.wikipedia.org/wiki/Computer_science" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">
+                        <emphasis role="bold">computer science</emphasis></link>, a <emphasis role="bold">tail call</emphasis> is a <emphasis role="bold"><link xlink:href="http://en.wikipedia.org/wiki/Subroutine" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">subroutine</link>
+                    </emphasis> call that happens inside another procedure as its final action; it
+                    may produce a return value which is then immediately <emphasis role="bold"><link xlink:href="http://en.wikipedia.org/wiki/Return_statement" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">returned</link>
+                    </emphasis> by the calling procedure. The <emphasis role="bold">
+                        <link xlink:href="http://en.wikipedia.org/wiki/Call_site" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">call
+                            site</link></emphasis> is then said to be in <emphasis role="bold">tail
+                        position</emphasis>, i.e. at the end of the calling procedure. If any call
+                    that a subroutine performs, such that it might eventually lead to this same
+                    subroutine being called again down the call chain, is in tail position, such a
+                    subroutine is said to be <emphasis role="bold">tail-recursive</emphasis>”</emphasis>
+            </para></blockquote><para> At present, the XSLT/XPath processors that do recognize some kind of tail
+                recursion typically do so if a function/template calls <emphasis role="bold">itself</emphasis> by
+                    name. </para><para>
+                There is no record that any of them handles the case when the tail call is to another function
+                (Michael Kay, author of Saxon[<citation linkend="Saxon"/>], shared on the Saxon mailing list that Saxon correctly 
+                handles any type of tail calls (not only calls to the same named template) for templates, 
+                but doesn’t do so in the case of functions).
+            </para><para>
+                So, what can we do in this situation? One decision is to wait until some processor starts 
+                handling any type of tail call inside functions.
+            </para><para> Fortunately, there is another option: <emphasis role="bold">use the DVC (Divide
+                    and Conquer) technique</emphasis>[<citation linkend="DivConq"/>] for minimizing the maximum depth of nested
+                recursion calls. </para><para>
+                The idea is to split the sequence into subsequences (usually two) of roughly the same length, 
+                recursively process each subsequence, and then combine the results of processing 
+                each individual subsequence.
+            </para><para>
+                <emphasis role="bold">Here is the above code, re-written [<citation linkend="Nova2"/>] to use DVC</emphasis>:
+                <programlisting xml:space="preserve">let $f := function($nums as xs:double*,
+                   $f1 as function(xs:double*, function())
+                             as xs:double
+                   ) as xs:double
+             {if(not($nums[1]))
+                 then 0
+                 else if(not($nums[2]))
+                        then $nums[1]
+                        else
+                         let $half := count($nums) idiv 2
+                          return
+                            $f1(subsequence($nums,1, $half), $f1)
+		             +
+		               $f1(subsequence($nums, $half+1), $f1)
+              },
+
+    $F := function($nums as xs:double*) as xs:double
+            {
+                $f($nums, $f)
+            }
+  return
+    $F(1 to 10000)                </programlisting>
+                
+            </para><para> Sure enough, this time we get the result without any exception being thrown:
+                <programlisting xml:space="preserve">5.0005E7</programlisting>
+            </para><para> Using this technique, the maximum recursion depth is <code>Log2(N)</code> — thus
+                for processing a sequence with <code>1M</code> (one million elements) the maximum
+                recursion depth is just <code>19</code>. </para><para>
+                <emphasis role="bold">Thus, the DVC technique is a tool that can be immediately used
+                    to circumvent the lack of intelligence of current XPath 3.0 processors when
+                    dealing with tail-call optimization</emphasis>. </para><para/></section><section><title>4.7 Producing a new XML document or
+                element</title><para> Can an XPath expression produce a new XML document? Say, from the Books XML
+                document used before, can an XPath expression produce this XML document:
+                <programlisting xml:space="preserve">&lt;Person&gt;Marvin Minsky&lt;/Person&gt;                </programlisting>
+                    “<emphasis role="bold">No way!</emphasis>” will tell you any XPath specialist.
+                And they would be right for XPath 1.0 or 2.0. </para><para>
+                <emphasis role="bold">Remarkably, we can produce the above new XML document with the
+                    following XPath 3.0 expression</emphasis>:
+                <programlisting xml:space="preserve">parse-xml(concat('&lt;Person&gt;', (//Author)[last()], '&lt;/Person&gt;')) </programlisting></para><para> When this XPath 3.0 expression is evaluated, the result is:
+                <programlisting xml:space="preserve"> &lt;Person&gt;Marvin Minsky&lt;/Person&gt;</programlisting>
+            </para><para> To see that we have really produced a new document we evaluate this expression:
+                <programlisting xml:space="preserve">parse-xml(concat('&lt;Person&gt;', (//Author)[last()], '&lt;/Person&gt;'))/*/text()</programlisting>
+                and sure enough, the result is: <programlisting xml:space="preserve">Marvin Minsky</programlisting>
+            </para></section></section><section><title>5.	Complete XPath 3.0 modules and applications</title><para>
+            We now have the necessary knowledge to produce a complete module or XML processing 
+            application within a single XPath 3.0 expression.
+        </para><para>
+            The problem we are solving in this chapter is to define a new data-type – 
+            the Binary Search Tree (BST). The code is implemented entirely in XPath. 
+            An advantage of an “XPath-only” definition is that it can be used (hosted) in 
+            many programs—it can be hosted in XSLT programs, in XQuery programs, 
+            and in any other programming language that hosts XPath. Thus “XPath-only” 
+            data-type definitions or, more generally, libraries of XPath functions, 
+            are highly portable and reusable.
+        </para><para> A BST[<citation linkend="BST"/>] as defined here can process an XML document and represent its data as a
+            binary search tree. A BST can implement “find/insert/delete a node” operations much more
+            efficiently (with logarithmic time complexity) than in the case when the nodes are
+            processed in a linear fashion. </para><table><caption><para><emphasis role="bold">Brief efficiency analysis</emphasis></para></caption><tr><td>
+                    <para> It is a well-known, proven fact that find/insert/delete operations in a
+                        balanced binary tree can be implemented with time complexity of
+                            <code>O(log2N)</code>. </para>
+                    <para> When processing in a linear fashion two sequences of data items:
+                            <code>seq1</code> and <code>seq2</code> and if <code>seq2</code> is
+                            <code>1000000</code>(1M) times longer than <code>seq1</code>, the time
+                        for processing <code>seq2</code> is around one million times bigger, than
+                        the time for processing <code>seq1</code>. </para>
+                    <para> Compare this to having two balanced binary search trees <code>bst1</code>
+                        and <code>bst2</code>, where <code>bst2</code> has <code>1000000</code> (1M)
+                        times more data items (nodes) than <code>bst1</code> – in this case the time
+                        to process <code>bst2</code> is only <code>19</code> times bigger than the
+                        time for processing <code>bst1</code>. </para>
+                </td></tr></table><para> In the rest of this paper we are solving this real-world problem: <emphasis role="bold">Find all bank transactions within a given range of dates</emphasis>. </para><para>
+            <emphasis role="bold">Example</emphasis>: the following XML document contains a list of
+            bank transactions (withdrawals and deposits). Each transaction is stamped with a date.
+            The transactions are in no particular chronological order: <programlisting xml:space="preserve"> &lt;Transactions&gt;
+        &lt;transaction date="2012-03-01"&gt;
+                &lt;withdrawal&gt;100&lt;/withdrawal&gt;
+        &lt;/transaction&gt;
+        &lt;transaction date="2012-01-15"&gt;
+                &lt;deposit&gt;200&lt;/deposit&gt;
+        &lt;/transaction&gt;
+        &lt;transaction date="2012-05-01"&gt;
+                &lt;deposit&gt;100&lt;/deposit&gt;
+        &lt;/transaction&gt;
+        &lt;transaction date="2012-02-01"&gt;
+                &lt;withdrawal&gt;50&lt;/withdrawal&gt;
+        &lt;/transaction&gt;
+        &lt;transaction date="2012-06-01"&gt;
+                &lt;deposit&gt;100&lt;/deposit&gt;
+        &lt;/transaction&gt;
+        &lt;transaction date="2012-04-01"&gt;
+                &lt;deposit&gt;100&lt;/deposit&gt;
+        &lt;/transaction&gt;
+        &lt;transaction date="2012-01-01"&gt;
+                &lt;deposit&gt;25&lt;/deposit&gt;
+        &lt;/transaction&gt;
+&lt;/Transactions&gt;            </programlisting> If we could represent the above XML document as a
+            binary search tree where for each node (transaction), the date of its left child
+            (transaction) node is less than the (parent) node’s date and the date of its right child
+            (transaction) node is greater than the (parent) node’s date. Then such a binary search
+            tree be graphically represented as below: <inlinemediaobject><imageobject><imagedata fileref="../../../vol10/graphics/Novatchev01/Novatchev01-001.png"/></imageobject></inlinemediaobject>
+        </para><para>
+            <emphasis role="bold">Problem</emphasis>: Find all the transactions in the range
+            2012-03-15 to 2012-05-15. </para><para>
+            This problem can be solved efficiently now that the transactions are stored in a binary tree. 
+            (The more balanced the binary search tree is, the more efficient is a BST-based solution.)
+        </para><para>
+            The following pseudo-code (an initial version of which and the code below was first produced by 
+            Roger Costello [<citation linkend="Costello"/>]) that shows how to find the wanted transactions 
+            (<code>start date &gt;= 2012-03-15</code>, <code>end date &lt;= 2012-05-15</code>):
+        </para><para>
+          <emphasis role="bold">Return a sequence of the following nodes</emphasis>:
+        </para><para>
+            If the value of the root node equals the start date, then:
+            <orderedlist><listitem><para>
+                        The root node.
+                    </para></listitem><listitem><para>
+                        The result of recursing on the right subtree.
+                    </para></listitem></orderedlist>
+        </para><para>
+            If the value of the root node equals the end date, then:
+            <orderedlist><listitem><para>
+                        The result of recursing on the left subtree.
+                    </para></listitem><listitem><para>
+                        The root node.
+                    </para></listitem></orderedlist>
+        </para><para>
+            If the value of the root node is between the start and end date, then:
+            <orderedlist><listitem><para>
+                        The result of recursing on the left subtree.
+                    </para></listitem><listitem><para>
+                        The root node.
+                    </para></listitem><listitem><para>
+                        The result of recursing on the right subtree.
+                    </para></listitem></orderedlist>
+        </para><para>
+            If the value of the root node is less than the start date, then:
+            <orderedlist><listitem><para>
+                        The result of recursing on the right subtree,
+                    </para></listitem></orderedlist>
+        </para><para>
+            If the value of the root node is greater than the end date, then:
+            <orderedlist><listitem><para>
+                        The result of recursing on the left subtree.
+                    </para></listitem></orderedlist>
+        </para><table><caption><para><emphasis role="bold">XSLT/XQuery or XPath?</emphasis></para></caption><tr><td>
+                    <para> The code in this chapter can be implemented using XSLT or XQuery -defined
+                        functions. One would favor an XPath-only solution because: <itemizedlist><listitem><para>Implementation in more than one language (e.g. in both XSLT
+                                    and XQuery) is often required.</para></listitem><listitem><para>The XPath code can be shorter and easier to understand.</para></listitem><listitem><para>The XPath solution can be injected into XSLT and/or XQuery
+                                    code, with simple copy and paste.</para></listitem></itemizedlist>
+                        <emphasis role="bold">Recommendation</emphasis>: Consider producing an
+                        XPath-only solution or a library of functions, especially if there is even a
+                        remote possibility that the functionality would be needed in more than one
+                        XML processing language.</para>
+                </td></tr></table><para>
+            <programlisting xml:space="preserve">$find-range-of-transactions :=
+	         function( $tree as function()*,
+	                   $start-date as xs:date,
+	                   $end-date as xs:date
+	                  )
+	         {
+	             $find-range-of-transactions-helper
+	         				( $tree,
+	               	 	   $start-date,
+	                       	$end-date,
+	                       	$find-range-of-transactions-helper)
+	         }</programlisting>
+            The function’s name is <code>find-range-of-transactions</code>. This is a recursive
+            function. As shown previously, implementing recursion using anonymous functions requires
+            a “helper” function. Here is the helper function
+                <code>find-range-of-transactions-helper()</code>:
+            <programlisting xml:space="preserve">$find-range-of-transactions-helper :=
+	        function( $tree as function()*,
+	                  $start-date as xs:date,
+	                  $end-date as xs:date,
+	                  $find-range-of-transactions-helper
+	                  )
+	                   as element(transaction)*
+	        {
+	            if (empty($tree)) then ()
+	            else
+	                if (xs:date($root($tree)/@date)  eq  $start-date) 
+                       then
+	                     (
+	                        $root($tree),
+	                        $find-range-of-transactions-helper
+	                        	  ( $right($tree),
+	                                $start-date,
+	                                $end-date,
+	                                $find-range-of-transactions-helper)
+	                     )
+	                    else  if (xs:date($root($tree)/@date)  eq  $end-date) 
+                           then
+	                          (
+	                             $find-range-of-transactions-helper
+	                             	  ( $left($tree),
+	                                     $start-date,
+	                                     $end-date,
+	                                     $find-range-of-transactions-helper),
+	                             $root($tree)
+	                          )
+	                        else
+	                            if ((xs:date($root($tree)/@date)  gt  $start-date)
+	                              and
+	                                (xs:date($root($tree)/@date)  lt  $end-date)) then
+	                              (
+	                                  $find-range-of-transactions-helper
+	                                   	 ( $left($tree),
+	                                      	$start-date,
+	                                      	$end-date,
+	                                      	$find-range-of-transactions-helper),
+	                                  $root($tree),
+	                                  $find-range-of-transactions-helper
+	                                 	   ( $right($tree),
+	                                   	   $start-date,
+	                                   	   $end-date,
+	                                   	   $find-range-of-transactions-helper)
+	                              )
+	                            else
+	                                if (xs:date($root($tree)/@date)  lt  $start-date) then
+	                                  (
+	                                      $find-range-of-transactions-helper
+	                                      	  ( $right($tree),
+	                                       	   $start-date,
+	                                       	   $end-date,
+	                                       	   $find-range-of-transactions-helper)
+	                                  )
+	                                else
+	                                    if (xs:date($root($tree)/@date)  gt  $end-date) then
+	                                      (
+	                                           $find-range-of-transactions-helper
+	                                          	   ( $left($tree),
+	                                           	    $start-date,
+	                                           	    $end-date,
+	                                           	    $find-range-of-transactions-helper)
+	                                      )
+	                                    else ()
+	         }</programlisting>
+        </para><para> As tree-nodes are inserted into the binary tree, a comparison is made between the
+            tree-node being inserted and the tree’s root node. How should the comparison be done?
+            That depends on the data-type of the items stored in a tree. Consequently, the “insert
+            function” must be provided an appropriate “comparator function.” For our bank
+            transactions example, the comparison is done based on the date attribute. Here is an
+            appropriate comparator function:
+            <programlisting xml:space="preserve">$transaction-less-than-comparator :=
+	 function($arg1 as element(transaction),
+	          $arg2 as element(transaction)
+	          ) as xs:boolean
+	   {
+	      xs:date($arg1/@date)  lt   xs:date($arg2/@date)
+	   }    </programlisting>
+        </para><para>
+            The value of the variable is an anonymous function. The function takes two arguments – 
+            both transaction  elements – and returns true if the date of  the first transaction is less 
+            than the date of  the second transaction.
+        </para><para>
+            In this paper we define a binary search tree is a set of these functions:
+            <orderedlist><listitem><para>
+                        <emphasis role="bold">create</emphasis>: create an empty tree.</para></listitem><listitem><para>
+                        <emphasis role="bold">root</emphasis>: return the value of the root
+                        node.</para></listitem><listitem><para>
+                        <emphasis role="bold">left</emphasis>: return the left subtree.</para></listitem><listitem><para>
+                        <emphasis role="bold">right</emphasis>: return the right subtree.</para></listitem><listitem><para>
+                        <emphasis role="bold">empty</emphasis>: return true if the tree is empty,
+                        false otherwise.</para></listitem><listitem><para>
+                        <emphasis role="bold">insert</emphasis>: insert an item into the tree, with
+                        comparison done using a comparator (see above).</para></listitem><listitem><para>
+                        <emphasis role="bold">print</emphasis>: serialize the tree as XML
+                        document.</para></listitem><listitem><para>
+                        <emphasis role="bold">populate</emphasis>: create a BST from a sequence of
+                        items.</para></listitem></orderedlist>
+           Additionaly, one can define other useful functions on a BST, such as node deletion[<citation linkend="Nova3"/>].
+        </para><para> Below is the complete XPath code for both the BST type definition and the functions
+            that use this data-type to actually solve the problem of finding all the bank
+            transactions between a given start date and a given end date.
+            <programlisting xml:space="preserve">let
+         (:
+             The purpose of create is to return an empty tree.
+         
+             It returns a sequence of functions, 
+                - the first function represents the root of a tree, 
+                - the second function represents the left subtree, 
+                - and the third function represents the right subtree. 
+             The value of each function is an empty sequence.
+         :) 
+         $create := (
+                     function() { () }      (: root :),
+                     function() { () }      (: left :),
+                     function() { () }      (: right :) 
+                     ),
+                     
+                     
+         (:
+             empty() returns a boolean value,
+             indicating whether $tree is empty.
+         
+             $tree is empty in either of these two cases:
+             1. $tree is the empty sequence (it doesn't contain any functions). 
+             2. $tree contains a sequence of three functions, but the first 
+                  function - representing the root - is empty (i.e., if you invoke the 
+                  first function it returns the empty sequence). 
+         :)
+         $empty := function($tree as function()*)
+                   {
+                        empty($tree) or empty($tree[1]())
+                   },
+                   
+                   
+         (:
+             root()returns the value of the root node. 
+         
+             This function takes one argument, $tree. Since $tree 
+             is represented by a sequence of functions, returning the 
+             value of the root node actually means returning the value of   
+             the function that corresponds to the root node.
+         
+             If $tree is empty then the empty sequence is returned. Otherwise 
+             the *value* of executing the first function in $tree  is returned (recall 
+             that a tree is represented by a sequence of functions, the first 
+             function representing the root of the tree).
+         
+             Note: $tree[1] is the first function whereas
+                        $tree[1]() is the *value* of executing the first function.
+         :)
+         $root := function($tree as function()*)
+                  {
+                      if ($empty($tree)) 
+                         then ()
+                         else $tree[1]()
+                  },
+                  
+                  
+         (:
+             left()returns the left subtree. 
+         
+             This function takes one argument, $tree. Since $tree is represented 
+             by a sequence of functions, returning the left subtree  
+             actually means returning the value of executing the function that corresponds 
+             to the left subtree.
+         
+             If $tree is empty then the empty sequence is returned. Otherwise 
+             the *value* of executing the second function in $tree is returned (recall 
+             that a tree is represented by a sequence of functions, the second 
+             function representing the left subtree).
+             
+             Note: $tree[2] is the second function whereas
+                        $tree[2]() is the *value* of executing the second function.
+         :)
+         $left := function($tree as function()*)
+                  {
+                      if ($empty($tree)) then ()
+                         else 
+                           if ($empty($tree[2])) then ()
+                              else $tree[2]()
+                  },
+                  
+                  
+         (:
+             right() returns the right subtree. 
+         
+             This function takes one argument, $tree. Since $tree is represented 
+             by a sequence of functions, returning the right subtree actually 
+             means returning the value of executing the function that corresponds to the
+             right subtree.
+         
+             If $tree is empty then the empty sequence is returned. Otherwise 
+             the *value* of executing the third function in $tree is returned (recall 
+             that a tree is represented by a sequence of functions, the third 
+             function representing the right subtree).
+         :)
+         $right := function($tree as function()*)
+                   {
+                        if ($empty($tree)) then ()
+                        else 
+                          if ($empty($tree[3])) then ()
+                          else $tree[3]()
+                   },
+                   
+                   
+        (:
+            As tree-nodes are inserted into a BST, a comparison is made between 
+            the value being inserted and the value in the tree's root node. How should 
+            the comparison be done? That depends on the type of the data contained in a tree-node.
+            Comparing two integers is different than comparing two tree fragments.
+            So, the insert function must be provided with an appropriate comparator. For 
+            the case of bank transactions, a date comparison is needed.
+            Here is an appropriate comparator function:
+        :)
+        $transaction-less-than-comparator :=
+	        function( $arg1  as element(transaction),
+	                  $arg2  as element(transaction)
+	                 ) as xs:boolean
+	        {
+	              xs:date($arg1/@date) lt xs:date($arg2/@date)
+	        },
+                                                  
+                                                  
+         $numeric-less-than-comparator :=
+	         function( $arg1 as xs:decimal,
+	                   $arg2 as xs:decimal
+	                  ) as xs:boolean
+	         {
+	               $arg1  lt   $arg2
+	         },
+                                           
+                                           
+         (:
+             insert() takes a $tree (BST) and a $item and produces a new BST that is the result 
+             of inserting $item as a tree-node in $tree.  A BST is a persistent (functional) data-type.
+             Insertions or deletions are never done “in place” – instead a new BST is produced.       
+
+             The new node is inserted at:
+             - if $tree is empty then as root node.
+             - if the value of $item is less than the value of  the root node then
+               the new tree-node is inserted into the left subtree (note the recursive definition)
+             - else the new tree-node is inserted into the right subtree (again note the recursive
+               definition)
+         
+             Here are the steps taken if $tree is empty:
+             - $item specified to be the result of  the  root function. That is, the root function, 
+               if invoked, it returns $item. 
+             - A left function is created such that, if invoked, will return an empty subtree.
+             - A right function is created such that, if invoked, will return an empty subtree.
+             
+             The insert function is recursive. Recursion with anonymous functions requires
+             a helper function as discussed before.
+         :)
+         $insert-helper :=
+	         function( $tree as function()*,
+	                   $item as item(),
+	                   $less-than-comparator as function(item(), item()) as xs:boolean,
+	                   $insert-helper
+	                   )
+	         {
+	         if ($empty($tree)) then
+	               (
+	                     function() {$item}     (: root :),
+	                     function() {()}        (: left :),
+	                     function() {()}        (: right :)
+	               )
+	          else if ($less-than-comparator($item, $root($tree))) then
+	               (
+	                     function() {$root($tree)}                           	(: root :),
+
+	                     function() {$insert-helper( $left($tree),
+	                                                 $item,
+	                                                 $less-than-comparator,
+	                                                 $insert-helper)
+	                                }   				                         (: left :),
+
+	                     function() {$right($tree)}                          	(: right :)
+	                )
+	          else
+	               (
+	                     function() {$root($tree)}                          	 (: root :),
+	                     function() {$left($tree)}                           	(: left :),
+
+	                     function() {$insert-helper( $right($tree),
+	                                                 $item,
+	                                                 $less-than-comparator,
+	                                                 $insert-helper)
+	                                }      				                      (: right :)
+	                )
+	         },
+                           
+                           
+         $insert :=
+	         function ( $tree as function()*,
+	                    $item as item(),
+	                    $less-than-comparator as function(item(), item()) as xs:boolean
+	                    )
+	         {
+	               $insert-helper($tree, $item, $less-than-comparator, $insert-helper)
+	         },
+                    
+                    
+         (:
+             print() produces an XML document that represents the BST $tree. 
+         
+             The XML document produced by  print()  consists of:
+             1. A root element that represents the value of executing the root function.
+             2. A left element that represents the value of print() on the left subtree
+                (note the recursive definition).
+             3. A right element that represents the value of print() on the right subtree
+                (note the recursive definition).
+
+            The $print-helper function produces the markup
+             as a string and then the $printer function converts
+             this string into an XML document by calling the  parse-xml() function.
+         :)
+         $print-helper :=
+	         function ( $tree as function()*,
+	                    $print-helper
+	                    ) 
+	                     as xs:string?
+	         {
+	              if (not($empty($tree))) then
+	              concat('&lt;tree&gt;',
+	                       '&lt;root&gt;',
+	                          $root($tree),
+	                       '&lt;/root&gt;',
+	                        '&lt;left&gt;',
+	                          $print-helper($left($tree),$print-helper),
+	                        '&lt;/left&gt;',
+	                        '&lt;right&gt;',
+	                          $print-helper($right($tree),$print-helper),
+	                        '&lt;/right&gt;',
+	                     '&lt;/tree&gt;'
+	                      )
+	             else ()
+	          },
+                          
+                          
+         $print := function ($tree as function()*)
+                   {parse-xml($print-helper($tree, $print-helper))/*},
+                   
+                   
+         (:
+             populate() produces a new tree from its BST argument $tree by inserting
+             the value of the head() of the sequence $items onto $tree and then inserting 
+             the tail() of the sequence $items onto the result. 
+         :)
+         $populate-helper :=
+	         function ( $tree as function()*,
+	                    $items as item()*,
+	                    $less-than-comparator as function(item(), item()) as xs:boolean,
+	                    $populate-helper
+	                    )
+	         {
+	             if (empty($items)) then $tree
+	             else
+	                  $populate-helper( $insert($tree, $items[1], $less-than-comparator),
+	                                    $items[position() gt 1],
+	                                    $less-than-comparator,
+	                                    $populate-helper
+	                                    )
+	         },
+                             
+                             
+         $populate :=
+	         function( $tree as function()*,
+	                   $items as item()*,
+	                   $less-than-comparator as function(item(), item()) as xs:boolean
+	                   )
+	         {$populate-helper($tree, $items, $less-than-comparator, $populate-helper)},
+                      
+                      
+        (:
+           Finally, the solution of the original problem. 
+           Task: find all the bank transactions in the range 2012-03-15 to 2012-05-15. 
+         :)
+        $find-range-of-transactions-helper :=
+	        function( $tree as function()*,
+	                  $start-date as xs:date,
+	                  $end-date as xs:date,
+	                  $find-range-of-transactions-helper
+	                )
+	                as element(transaction)*
+	        {
+	            if (empty($tree)) then ()
+	            else
+	                if (xs:date($root($tree)/@date) eq $start-date) then
+	                     (
+	                            $root($tree),
+	                            $find-range-of-transactions-helper
+	                        		        ( $right($tree),
+	                                   	   $start-date,
+	                                      	$end-date,
+	                                     	 $find-range-of-transactions-helper)
+	                     )
+	                    else
+	                        if (xs:date($root($tree)/@date) eq $end-date) then
+	                          (
+	                                 $find-range-of-transactions-helper
+	                             	            ( $left($tree),
+	                                       	    $start-date,
+	                                      	     $end-date,
+	                                       	    $find-range-of-transactions-helper),
+	                                 $root($tree)
+	                          )
+	                        else
+	                            if ((xs:date($root($tree)/@date) gt $start-date)
+	                               and
+	                                (xs:date($root($tree)/@date) lt $end-date)) then
+	                             (
+	                                   $find-range-of-transactions-helper
+	                                   		( $left($tree),
+	                                      	   $start-date,
+	                                      	   $end-date,
+	                                      	   $find-range-of-transactions-helper),
+	                                   $root($tree),
+	                                   $find-range-of-transactions-helper
+	                                 		( $right($tree),
+	                                   	    $start-date,
+	                                   	    $end-date,
+	                                   	    $find-range-of-transactions-helper)
+	                             )
+	                            else
+	                                if (xs:date($root($tree)/@date) lt $start-date) then
+	                                 (
+	                                    $find-range-of-transactions-helper
+	                                      ( $right($tree),
+	                                        $start-date,
+	                                        $end-date,
+	                                        $find-range-of-transactions-helper)
+	                                 )
+	                                else
+	                                    if (xs:date($root($tree)/@date) gt $end-date) then
+	                                     (
+	                                        $find-range-of-transactions-helper
+	                                          ( $left($tree),
+	                                            $start-date,
+	                                            $end-date,
+	                                            $find-range-of-transactions-helper)
+	                                     )
+	                                    else ()
+	         },
+                                        
+                                        
+         $find-range-of-transactions :=
+	         function($tree as function()*,
+	                  $start-date as xs:date,
+	                  $end-date as xs:date
+	                  )
+	         {
+	             $find-range-of-transactions-helper
+	         	  ( $tree,
+	                 $start-date,
+	                 $end-date,
+	                 $find-range-of-transactions-helper)
+	         }
+
+                                                               
+    (:  At last, we finalize this big, outermost *let* clause with a *return* clause 
+        that expresses the intent of the users of the BST data-type.
+        We want to get all transactions in the period:
+        15th March 2012 to 15th May 2012.
+    :)
+
+  return (
+              $find-range-of-transactions
+                ( $populate((), //transaction, $transaction-less-than-comparator),
+                  xs:date('2012-03-15'), 
+                  xs:date('2012-05-15')
+                 )
+             )</programlisting>
+        </para></section><section><title>6.	Analysis</title><para>
+            <emphasis role="bold">This example shows how a new data-type, or generally a library of
+                functions can be defined in an XPath 3.0 expression and then used by a client in the
+                same XPath expression</emphasis>: <itemizedlist><listitem><para>The definitions of the library functions are in the “let clause”.</para></listitem><listitem><para>The expressions that use these library functions are in the “return
+                        clause”.</para></listitem></itemizedlist>
+        </para><para>
+            <emphasis role="bold">We also experienced some inconvenience and that helped us specify
+                a wish-list for a future version of XPath</emphasis>: <orderedlist><listitem><para> Our example contains one huge let-return expression. For better
+                        modularity it would have been nice to place all the binary search tree
+                        functions (create, left, right, insert, etc.) into their own “module” which
+                        could then be “imported” by the bank transaction functions. Unfortunately,
+                        XPath does not support this. <emphasis role="bold">Recommendation for a
+                            future XPath version</emphasis>: <emphasis>Support XPath
+                            expression files and an import clause to collect such expressions from
+                            files in a desired new, client XPath program</emphasis>. </para></listitem><listitem><para> Our example implemented binary search trees as a sequence of functions.
+                        While this works okay, it would be much more precise and elegant if XPath
+                        had a “tuple type” so that a tree could be simply defined as a tuple: tree
+                        is a tuple (root, left, right). <emphasis role="bold">Recommendation for a
+                            future XPath version</emphasis>: <emphasis>Support a tuple
+                            type, so that the result type of various functions (such as the creation
+                            of a tree) can be more precisely specified than just a sequence of
+                            function items</emphasis>. </para></listitem><listitem><para>
+                        The Map data-type could further boost the expressiveness of XPath, 
+                        making the language even more convenient. The Map data-type is already 
+                        part of the latest published working draft of XSLT 3.0 [<citation linkend="XSLT3.0"/>] and has been warmly 
+                        accepted by the XML developers community.
+                    </para></listitem><listitem><para>
+                        Introducing generics would further strengthen the expressive power and preciseness of XPath. 
+                    </para></listitem></orderedlist>
+        </para></section><section><title>7. Consuming an XPath function library from XSLT 3.0 and XQuery 3.1</title><para>
+         It is possible in XSLT 3.0 to conveniently consume an XPath function library
+         directly from a text file.
+       </para><para>
+         <emphasis role="bold">Here is an example:</emphasis>
+       </para><para>
+         <emphasis role="bold">A simple function library</emphasis> (file SimpleLibraryAsMap.xpath):
+       </para><para>
+         <programlisting xml:space="preserve">
+ let
+         $incr := function($n as xs:integer)
+                   {$n +1},
+         $mult := function($m as xs:integer, $n as xs:integer)
+                   {$m * $n},
+         $decr := function($n as xs:integer)
+                   {$n -1},
+         $idiv := function($m as xs:integer, $n as xs:integer)
+                   {$m idiv $n}
+
+	  (: Provide the function libary  as a map:)
+ return
+      map {
+           'incr'     := $incr,
+           'mult'     := $mult,
+           'decr'     := $decr,
+           'idiv'     := $idiv
+          }  </programlisting>
+       </para><para>
+         <emphasis role="bold">XSLT transformation that uses this function library</emphasis>:
+       </para><para>
+         <programlisting xml:space="preserve">
+&lt;xsl:stylesheet version="3.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+ xmlns:xs="http://www.w3.org/2001/XMLSchema"&gt;
+ &lt;xsl:output omit-xml-declaration="yes" indent="yes"/&gt;
+
+ &lt;xsl:template match="/"&gt;
+
+  &lt;!-- The Function Library --&gt;
+  &lt;xsl:variable name="vMath" as="map(*)"&gt;
+    &lt;xsl:evaluate xpath="unparsed-text('SimpleLibraryAsMap.xpath')"/&gt;
+  &lt;/xsl:variable&gt;
+
+  &lt;xsl:sequence select="'incr(3) = ', $vMath('incr')(3)"/&gt;
+ &lt;/xsl:template&gt;
+&lt;/xsl:stylesheet&gt;         </programlisting>
+       </para><para><emphasis role="bold">The result is:</emphasis> "incr(3) =  4"</para><para>The "importing" of the library is done via the simple and powerful combination
+             of the standard XPath 3.0 function <emphasis>unparsed-text()</emphasis> and the new XSLT 3.0 instruction
+             <emphasis>&lt;xsl:evaluate&gt;</emphasis>
+       </para><para>
+       <emphasis role="bold">Consuming the function library from a map-cognizant XQuery processor is even simpler</emphasis>
+        -- we just need to
+       wrap the library as/into an XQuery module and then import this module in the consuming XQuery.
+       </para><para/></section><section><title>Conclusion</title><para>
+            The powerful new capabilities in XPath 3.0 such as HOFs,  inline functions, functional composition, 
+            partial application and closures, indirect and robust anonymous function recursion, 
+            own sequence-type variables and the ability to create new XML documents / nodes, turn XPath 
+            into a full-pledged, complete, modern XML programming language: the first to truly implement 
+            useful copy-paste code portability between XSLT and XQuery. 
+        </para><para>
+            This gives the XML programmer the ability to write an application once and reuse it many times
+            – standalone or included into code written in many other languages. 
+        </para><para>
+            Function library author’s productivity is significantly increased, redundancy is eliminated,
+            maintenance of dual sets of functions is no longer a problem.
+        </para><para>
+            A few finishing touches are needed such as adding tuples, generics 
+            and modularity support – either by the W3C or by proactive programmers.
+        </para><para/></section><section><title>Acknowledgement</title><para>Many thanks to Roger Costello, without whose work this paper would hardly be possible.</para><para/></section><section><title>Appendix: The BST data type defined and consumed as a map </title><para>Here we show an easy way to consume from both XSLT and XQuery
+            the BST function library residing at its own file</para><para><emphasis role="bold">The BST XPath code</emphasis> (XPathFunctionLibrary.xpath)
+            -- see how a <emphasis>map</emphasis> is created in the return clause:</para><para>
+        <programlisting xml:space="preserve">
+ let
+         (:
+             The purpose of create is to return an empty tree.
+
+             It returns a sequence of functions,
+                - the first function represents the root of a tree,
+                - the second function represents the left subtree,
+                - and the third function represents the right subtree.
+             The value of each function is an empty sequence.
+         :)
+         $create := (
+                                function() { () }      (: root :),
+                                function() { () }      (: left :),
+                                function() { () }      (: right :)
+                            ),
+
+
+         (:
+             empty() returns a boolean value,
+             indicating whether $tree is empty.
+
+             $tree is empty in either of these two cases:
+             1. $tree is the empty sequence (it doesn't contain any functions).
+             2. $tree contains a sequence of three functions, but the first
+                  function - representing the root - is empty (i.e., if you invoke the
+                  first function it returns the empty sequence).
+         :)
+         $empty := function($tree as function(*)*)
+                           {
+                                empty($tree) or empty($tree[1]())
+                           },
+
+
+         (:
+             root()returns the value of the root node.
+
+             This function takes one argument, $tree. Since $tree
+             is represented by a sequence of functions, returning the
+             value of the root node actually means returning the value of
+             the function that corresponds to the root node.
+
+             If $tree is empty then the empty sequence is returned. Otherwise
+             the *value* of executing the first function in $tree  is returned (recall
+             that a tree is represented by a sequence of functions, the first
+             function representing the root of the tree).
+
+             Note: $tree[1] is the first function whereas
+                        $tree[1]() is the *value* of executing the first function.
+         :)
+         $root := function($tree as function(*)*)
+                        {
+                              if ($empty($tree))
+                                  then ()
+                                  else $tree[1]()
+                        },
+
+
+         (:
+             left()returns the left subtree.
+
+             This function takes one argument, $tree. Since $tree is represented
+             by a sequence of functions, returning the left subtree
+             actually means returning the value of executing the function that corresponds
+             to the left subtree.
+
+             If $tree is empty then the empty sequence is returned. Otherwise
+             the *value* of executing the second function in $tree is returned (recall
+             that a tree is represented by a sequence of functions, the second
+             function representing the left subtree).
+
+             Note: $tree[2] is the second function whereas
+                        $tree[2]() is the *value* of executing the second function.
+         :)
+         $left := function($tree as function(*)*)
+                      {
+                            if ($empty($tree)) then ()
+                            else
+                                  if ($empty($tree[2])) then ()
+                                  else $tree[2]()
+                      },
+
+
+         (:
+             right() returns the right subtree.
+
+             This function takes one argument, $tree. Since $tree is represented
+             by a sequence of functions, returning the right subtree actually
+             means returning the value of executing the function that corresponds to the
+             right subtree.
+
+             If $tree is empty then the empty sequence is returned. Otherwise
+             the *value* of executing the third function in $tree is returned (recall
+             that a tree is represented by a sequence of functions, the third
+             function representing the right subtree).
+         :)
+         $right := function($tree as function(*)*)
+                        {
+                              if ($empty($tree)) then ()
+                             else
+                                   if ($empty($tree[3])) then ()
+                                   else $tree[3]()
+                        },
+
+
+         $numeric-less-than-comparator :=
+	         function( $arg1 as xs:decimal,
+	                           $arg2 as xs:decimal
+	                         ) as xs:boolean
+	         {
+	               $arg1  lt   $arg2
+	         },
+
+
+         (:
+             insert() takes a $tree (BST) and a $item and produces a new BST that is the result
+             of inserting $item as a tree-node in $tree.  A BST is a persistent (functional) data-type.
+             Insertions or deletions are never done “in place” – instead a new BST is produced.
+
+             The new node is inserted at:
+             - if $tree is empty then as root node.
+             - if the value of $item is less than the value of  the root node then
+               the new tree-node is inserted into the left subtree (note the recursive definition)
+             - else the new tree-node is inserted into the right subtree (again note the recursive
+               definition)
+
+             Here are the steps taken if $tree is empty:
+             - $item specified to be the result of  the  root function. That is, the root function,
+               if invoked, it returns $item.
+             - A left function is created such that, if invoked, will return an empty subtree.
+             - A right function is created such that, if invoked, will return an empty subtree.
+
+             The insert function is recursive. Recursion with anonymous functions requires
+             a helper function as discussed before.
+         :)
+         $insert-helper :=
+	         function( $tree as function(*)*,
+	                          $item as item(),
+	                          $less-than-comparator as function(item(), item()) as xs:boolean,
+	                          $insert-helper
+	                         )
+	         {
+	         if ($empty($tree)) then
+	               (
+	                     function() {$item}     (: root :),
+	                     function() {()}            (: left :),
+	                     function() {()}            (: right :)
+	               )
+	          else if ($less-than-comparator($item, $root($tree))) then
+	               (
+	                     function() {$root($tree)}                           	(: root :),
+
+	                     function() {$insert-helper( $left($tree),
+	                                                                     $item,
+	                                                                     $less-than-comparator,
+	                                                                     $insert-helper)
+	                                        }   				(: left :),
+
+	                     function() {$right($tree)}                          	(: right :)
+	                )
+	          else
+	               (
+	                     function() {$root($tree)}                          	(: root :),
+	                     function() {$left($tree)}                           	(: left :),
+
+	                     function() {$insert-helper( $right($tree),
+	                                                                     $item,
+	                                                                     $less-than-comparator,
+	                                                                     $insert-helper)
+	                                          }      				  (: right :)
+	                )
+	         },
+
+
+         $insert :=
+	         function ( $tree as function(*)*,
+	                           $item as item(),
+	                           $less-than-comparator as function(item(), item()) as xs:boolean
+	                         )
+	         {
+	               $insert-helper($tree, $item, $less-than-comparator, $insert-helper)
+	         },
+
+
+         (:
+             print() produces an XML document that represents the BST $tree.
+
+             The XML document produced by  print()  consists of:
+             1. A root element that represents the value of executing the root function.
+             2. A left element that represents the value of print() on the left subtree
+                (note the recursive definition).
+             3. A right element that represents the value of print() on the right subtree
+                (note the recursive definition).
+
+            The $print-helper function produces the markup
+             as a string and then the $printer function converts
+             this string into an XML document by calling the  parse-xml() function.
+         :)
+         $print-helper :=
+	         function ( $tree as function(*)*,
+	                           $print-helper
+	                          )
+	                          as xs:string?
+	         {
+	         if (not($empty($tree))) then
+	                 concat('&lt;tree&gt;',
+	                                    '&lt;root&gt;',
+	                                          $root($tree),
+	                                    '&lt;/root&gt;',
+	                                    '&lt;left&gt;',
+	                                          $print-helper($left($tree),$print-helper),
+	                                    '&lt;/left&gt;',
+	                                    '&lt;right&gt;',
+	                                          $print-helper($right($tree),$print-helper),
+	                                    '&lt;/right&gt;',
+	                            '&lt;/tree&gt;'
+	                           )
+	          else ()
+	          },
+
+
+         $print := function ($tree as function(*)*)
+                         {parse-xml($print-helper($tree, $print-helper))/*},
+
+
+         (:
+             populate() produces a new tree from its BST argument $tree by inserting
+             the value of the head() of the sequence $items onto $tree and then inserting
+             the tail() of the sequence $items onto the result.
+         :)
+         $populate-helper :=
+	         function ( $tree as function(*)*,
+	                           $items as item()*,
+	                           $less-than-comparator as function(item(), item()) as xs:boolean,
+	                           $populate-helper
+	                         )
+	         {
+	             if (empty($items)) then $tree
+	             else
+	                  $populate-helper( $insert($tree, $items[1], $less-than-comparator),
+	                                                    $items[position() gt 1],
+	                                                    $less-than-comparator,
+	                                                    $populate-helper
+	                                                  )
+	         },
+
+
+         $populate :=
+	         function( $tree as function(*)*,
+	                           $items as item()*,
+	                           $less-than-comparator as function(item(), item()) as xs:boolean
+	                         )
+	         {$populate-helper($tree, $items, $less-than-comparator, $populate-helper)}
+
+	  (: Finally, make the function libary :)
+	 return
+      map {'create'   := $create,
+           'empty'    := $empty,
+
+           'root'     := $root,
+           'left'     := $left,
+           'right'    := $right,
+
+           'insert'   := $insert,
+
+           'populate' := $populate,
+           'print'    := $print,
+
+           'numeric-less-than-comparator'     := $numeric-less-than-comparator
+          }        </programlisting>
+      </para><para><emphasis role="bold">Here is the XSLT consuming code, that solves the bank
+            transactions problem</emphasis>: </para><para>
+        <programlisting xml:space="preserve">
+&lt;xsl:stylesheet version="3.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+ xmlns:xs="http://www.w3.org/2001/XMLSchema"&gt;
+ &lt;xsl:output omit-xml-declaration="yes" indent="yes"/&gt;
+
+
+ &lt;xsl:template match="node()|@*"&gt;
+
+  &lt;!-- The Tree Function Library --&gt;
+  &lt;xsl:variable name="vTree" as="map(*)"&gt;
+    &lt;xsl:evaluate xpath="unparsed-text('XPathFunctionLibrary.xpath')"/&gt;
+  &lt;/xsl:variable&gt;
+
+  &lt;xsl:sequence select=
+   "
+        (:
+           Finally, the solution of the original problem.
+           Task: find all the bank transactions in the range 2012-03-15 to 2012-05-15.
+         :)
+    let $find-range-of-transactions-helper :=
+	        function( $tree as function(*)*,
+	                          $start-date as xs:date,
+	                          $end-date as xs:date,
+	                          $find-range-of-transactions-helper
+	                )
+	                as element(transaction)*
+	        {
+	            if (empty($tree)) then ()
+	            else
+	                if (xs:date($vTree('root')($tree)/@date) eq $start-date) then
+	                     (
+	                            $vTree('root')($tree),
+	                            $find-range-of-transactions-helper
+	                        		        ($vTree('right')($tree),
+	                                   	 $start-date,
+	                                     $end-date,
+	                                     $find-range-of-transactions-helper)
+	                     )
+	                    else
+	                        if (xs:date($vTree('root')($tree)/@date) eq $end-date) then
+	                          (
+	                                 $find-range-of-transactions-helper
+	                             	            ($vTree('left')($tree),
+	                                       	   $start-date,
+	                                      	   $end-date,
+	                                       	   $find-range-of-transactions-helper),
+	                                 $vTree('root')($tree)
+	                          )
+	                        else
+	                            if (
+	                                (xs:date($vTree('root')($tree)/@date) gt $start-date)
+	                                 and
+	                                (xs:date($vTree('root')($tree)/@date) lt $end-date)) then
+	                             (
+	                                   $find-range-of-transactions-helper
+	                                   		($vTree('left')($tree),
+	                                       $start-date,
+	                                       $end-date,
+	                                       $find-range-of-transactions-helper),
+	                                   $vTree('root')($tree),
+	                                   $find-range-of-transactions-helper
+	                                 		($vTree('right')($tree),
+	                                   	 $start-date,
+	                                   	 $end-date,
+	                                   	 $find-range-of-transactions-helper)
+	                             )
+	                            else
+	                                if (xs:date($vTree('root')($tree)/@date) lt $start-date) then
+	                                 (
+	                                    $find-range-of-transactions-helper
+	                                      	               ($vTree('right')($tree),
+	                                       	                $start-date,
+	                                       	                $end-date,
+	                                       	                $find-range-of-transactions-helper)
+	                                 )
+	                                else
+	                                    if (xs:date($vTree('root')($tree)/@date) gt $end-date) then
+	                                     (
+	                                        $find-range-of-transactions-helper
+                                          	            ($vTree('left')($tree),
+                                           	             $start-date,
+                                           	             $end-date,
+                                           	             $find-range-of-transactions-helper)
+	                                     )
+	                                    else ()
+	         },
+
+
+         $find-range-of-transactions :=
+	         function($tree as function(*)*,
+	                          $start-date as xs:date,
+	                          $end-date as xs:date
+	                         )
+	         {
+	             $find-range-of-transactions-helper
+	         		       ( $tree,
+	               	         $start-date,
+	                       	         $end-date,
+	                       	         $find-range-of-transactions-helper)
+	         },
+
+        (:
+            As tree-nodes are inserted into a BST, a comparison is made between
+            the value being inserted and the value in the tree's root node. How should
+            the comparison be done? That depends on the type of the data contained in a tree-node.
+            Comparing two integers is different than comparing two tree fragments.
+            So, the insert function must be provided with an appropriate comparator. For
+            the case of bank transactions, a date comparison is needed.
+            Here is an appropriate comparator function:
+        :)
+        $transaction-less-than-comparator :=
+	        function( $arg1  as element(transaction),
+	                          $arg2  as element(transaction)
+	                        ) as xs:boolean
+	        {
+	              xs:date($arg1/@date) lt xs:date($arg2/@date)
+	        }
+
+
+
+    (:  At last, we finalize this big, outermost *let* clause with a *return* clause
+        that expresses the intent of the users of the BST data-type.
+        We want to get all transactions in the period:
+        15th March 2012 to 15th May 2012.
+    :)
+
+      return (
+              $find-range-of-transactions
+                      ($vTree('populate')
+                         ((), //transaction, $transaction-less-than-comparator),
+                       xs:date('2012-03-15'),
+                       xs:date('2012-05-15')
+                      )
+             )   "/&gt;
+ &lt;/xsl:template&gt;
+&lt;/xsl:stylesheet&gt;        </programlisting>
+      </para><para><emphasis role="bold">The BST XPath code -- as an XQuery module</emphasis> (XPathFunctionLibrary.xpath)
+            -- see how a <emphasis>map</emphasis> is created in the return clause:</para><para>
+        <programlisting xml:space="preserve">
+module namespace BST = "BST";
+
+declare variable $BST:vTree :=
+
+ let
+         (:
+             The purpose of create is to return an empty tree.
+
+             It returns a sequence of functions,
+                - the first function represents the root of a tree,
+                - the second function represents the left subtree,
+                - and the third function represents the right subtree.
+             The value of each function is an empty sequence.
+         :)
+         $create := (
+                                function() { () }      (: root :),
+                                function() { () }      (: left :),
+                                function() { () }      (: right :)
+                            ),
+
+
+         (:
+             empty() returns a boolean value,
+             indicating whether $tree is empty.
+
+             $tree is empty in either of these two cases:
+             1. $tree is the empty sequence (it doesn't contain any functions).
+             2. $tree contains a sequence of three functions, but the first
+                  function - representing the root - is empty (i.e., if you invoke the
+                  first function it returns the empty sequence).
+         :)
+         $empty := function($tree as function(*)*)
+                           {
+                                empty($tree) or empty($tree[1]())
+                           },
+
+
+         (:
+             root()returns the value of the root node.
+
+             This function takes one argument, $tree. Since $tree
+             is represented by a sequence of functions, returning the
+             value of the root node actually means returning the value of
+             the function that corresponds to the root node.
+
+             If $tree is empty then the empty sequence is returned. Otherwise
+             the *value* of executing the first function in $tree  is returned (recall
+             that a tree is represented by a sequence of functions, the first
+             function representing the root of the tree).
+
+             Note: $tree[1] is the first function whereas
+                        $tree[1]() is the *value* of executing the first function.
+         :)
+         $root := function($tree as function(*)*)
+                        {
+                              if ($empty($tree))
+                                  then ()
+                                  else $tree[1]()
+                        },
+
+
+         (:
+             left()returns the left subtree.
+
+             This function takes one argument, $tree. Since $tree is represented
+             by a sequence of functions, returning the left subtree
+             actually means returning the value of executing the function that corresponds
+             to the left subtree.
+
+             If $tree is empty then the empty sequence is returned. Otherwise
+             the *value* of executing the second function in $tree is returned (recall
+             that a tree is represented by a sequence of functions, the second
+             function representing the left subtree).
+
+             Note: $tree[2] is the second function whereas
+                        $tree[2]() is the *value* of executing the second function.
+         :)
+         $left := function($tree as function(*)*)
+                      {
+                            if ($empty($tree)) then ()
+                            else
+                                  if ($empty($tree[2])) then ()
+                                  else $tree[2]()
+                      },
+
+
+         (:
+             right() returns the right subtree.
+
+             This function takes one argument, $tree. Since $tree is represented
+             by a sequence of functions, returning the right subtree actually
+             means returning the value of executing the function that corresponds to the
+             right subtree.
+
+             If $tree is empty then the empty sequence is returned. Otherwise
+             the *value* of executing the third function in $tree is returned (recall
+             that a tree is represented by a sequence of functions, the third
+             function representing the right subtree).
+         :)
+         $right := function($tree as function(*)*)
+                        {
+                              if ($empty($tree)) then ()
+                             else
+                                   if ($empty($tree[3])) then ()
+                                   else $tree[3]()
+                        },
+
+
+         $numeric-less-than-comparator :=
+	         function( $arg1 as xs:decimal,
+	                           $arg2 as xs:decimal
+	                         ) as xs:boolean
+	         {
+	               $arg1  lt   $arg2
+	         },
+
+
+         (:
+             insert() takes a $tree (BST) and a $item and produces a new BST that is the result
+             of inserting $item as a tree-node in $tree.  A BST is a persistent (functional) data-type.
+             Insertions or deletions are never done “in place” – instead a new BST is produced.
+
+             The new node is inserted at:
+             - if $tree is empty then as root node.
+             - if the value of $item is less than the value of  the root node then
+               the new tree-node is inserted into the left subtree (note the recursive definition)
+             - else the new tree-node is inserted into the right subtree (again note the recursive
+               definition)
+
+             Here are the steps taken if $tree is empty:
+             - $item specified to be the result of  the  root function. That is, the root function,
+               if invoked, it returns $item.
+             - A left function is created such that, if invoked, will return an empty subtree.
+             - A right function is created such that, if invoked, will return an empty subtree.
+
+             The insert function is recursive. Recursion with anonymous functions requires
+             a helper function as discussed before.
+         :)
+         $insert-helper :=
+	         function( $tree as function(*)*,
+	                          $item as item(),
+	                          $less-than-comparator as function(item(), item()) as xs:boolean,
+	                          $insert-helper
+	                         )
+	         {
+	         if ($empty($tree)) then
+	               (
+	                     function() {$item}     (: root :),
+	                     function() {()}            (: left :),
+	                     function() {()}            (: right :)
+	               )
+	          else if ($less-than-comparator($item, $root($tree))) then
+	               (
+	                     function() {$root($tree)}                           	(: root :),
+
+	                     function() {$insert-helper( $left($tree),
+	                                                                     $item,
+	                                                                     $less-than-comparator,
+	                                                                     $insert-helper)
+	                                        }   				(: left :),
+
+	                     function() {$right($tree)}                          	(: right :)
+	                )
+	          else
+	               (
+	                     function() {$root($tree)}                          	(: root :),
+	                     function() {$left($tree)}                           	(: left :),
+
+	                     function() {$insert-helper( $right($tree),
+	                                                                     $item,
+	                                                                     $less-than-comparator,
+	                                                                     $insert-helper)
+	                                          }      				  (: right :)
+	                )
+	         },
+
+
+         $insert :=
+	         function ( $tree as function(*)*,
+	                           $item as item(),
+	                           $less-than-comparator as function(item(), item()) as xs:boolean
+	                         )
+	         {
+	               $insert-helper($tree, $item, $less-than-comparator, $insert-helper)
+	         },
+
+
+         (:
+             print() produces an XML document that represents the BST $tree.
+
+             The XML document produced by  print()  consists of:
+             1. A root element that represents the value of executing the root function.
+             2. A left element that represents the value of print() on the left subtree
+                (note the recursive definition).
+             3. A right element that represents the value of print() on the right subtree
+                (note the recursive definition).
+
+            The $print-helper function produces the markup
+             as a string and then the $printer function converts
+             this string into an XML document by calling the  parse-xml() function.
+         :)
+         $print-helper :=
+	         function ( $tree as function(*)*,
+	                           $print-helper
+	                          )
+	                          as xs:string?
+	         {
+	         if (not($empty($tree))) then
+	                 concat('&lt;tree&gt;',
+	                                    '&lt;root&gt;',
+	                                          $root($tree),
+	                                    '&lt;/root&gt;',
+	                                    '&lt;left&gt;',
+	                                          $print-helper($left($tree),$print-helper),
+	                                    '&lt;/left&gt;',
+	                                    '&lt;right&gt;',
+	                                          $print-helper($right($tree),$print-helper),
+	                                    '&lt;/right&gt;',
+	                            '&lt;/tree&gt;'
+	                           )
+	          else ()
+	          },
+
+
+         $print := function ($tree as function(*)*)
+                         {parse-xml($print-helper($tree, $print-helper))/*},
+
+
+         (:
+             populate() produces a new tree from its BST argument $tree by inserting
+             the value of the head() of the sequence $items onto $tree and then inserting
+             the tail() of the sequence $items onto the result.
+         :)
+         $populate-helper :=
+	         function ( $tree as function(*)*,
+	                           $items as item()*,
+	                           $less-than-comparator as function(item(), item()) as xs:boolean,
+	                           $populate-helper
+	                         )
+	         {
+	             if (empty($items)) then $tree
+	             else
+	                  $populate-helper( $insert($tree, $items[1], $less-than-comparator),
+	                                                    $items[position() gt 1],
+	                                                    $less-than-comparator,
+	                                                    $populate-helper
+	                                                  )
+	         },
+
+
+         $populate :=
+	         function( $tree as function(*)*,
+	                           $items as item()*,
+	                           $less-than-comparator as function(item(), item()) as xs:boolean
+	                         )
+	         {$populate-helper($tree, $items, $less-than-comparator, $populate-helper)}
+
+	  (: Finally, make the function libary :)
+	 return
+      map {'create'   := $create,
+           'empty'    := $empty,
+
+           'root'     := $root,
+           'left'     := $left,
+           'right'    := $right,
+
+           'insert'   := $insert,
+
+           'populate' := $populate,
+           'print'    := $print,
+
+           'numeric-less-than-comparator'     := $numeric-less-than-comparator
+          }
+;        </programlisting>
+      </para><para><emphasis role="bold">Here is the XQuery consuming code, that solves the bank
+            transactions problem</emphasis>: </para><para>
+        <programlisting xml:space="preserve">
+import module namespace bst="BST" at "XPathFunctionLibrary.xpath";
+
+declare variable $vDoc := doc('transactions.xml');
+
+
+  (: The Tree Function Library :)
+        (:
+           Finally, the solution of the original problem.
+           Task: find all the bank transactions in the range 2012-03-15 to 2012-05-15.
+         :)
+    let $find-range-of-transactions-helper :=
+	        function( $tree as function(*)*,
+	                          $start-date as xs:date,
+	                          $end-date as xs:date,
+	                          $find-range-of-transactions-helper
+	                )
+	                as element(transaction)*
+	        {
+	            if (empty($tree)) then ()
+	            else
+	                if (xs:date($bst:vTree('root')($tree)/@date) eq $start-date) then
+	                     (
+	                            $bst:vTree('root')($tree),
+	                            $find-range-of-transactions-helper
+	                        		        ($bst:vTree('right')($tree),
+	                                   	 $start-date,
+	                                     $end-date,
+	                                     $find-range-of-transactions-helper)
+	                     )
+	                    else
+	                        if (xs:date($bst:vTree('root')($tree)/@date) eq $end-date) then
+	                          (
+	                                 $find-range-of-transactions-helper
+	                             	            ($bst:vTree('left')($tree),
+	                                       	   $start-date,
+	                                      	   $end-date,
+	                                       	   $find-range-of-transactions-helper),
+	                                 $bst:vTree('root')($tree)
+	                          )
+	                        else
+	                            if (
+	                                (xs:date($bst:vTree('root')($tree)/@date) gt $start-date)
+	                                 and
+	                                (xs:date($bst:vTree('root')($tree)/@date) lt $end-date)) then
+	                             (
+	                                   $find-range-of-transactions-helper
+	                                   		($bst:vTree('left')($tree),
+	                                       $start-date,
+	                                       $end-date,
+	                                       $find-range-of-transactions-helper),
+	                                   $bst:vTree('root')($tree),
+	                                   $find-range-of-transactions-helper
+	                                 		($bst:vTree('right')($tree),
+	                                   	 $start-date,
+	                                   	 $end-date,
+	                                   	 $find-range-of-transactions-helper)
+	                             )
+	                            else
+	                                if (xs:date($bst:vTree('root')($tree)/@date) lt $start-date) then
+	                                 (
+	                                    $find-range-of-transactions-helper
+	                                      	               ($bst:vTree('right')($tree),
+	                                       	                $start-date,
+	                                       	                $end-date,
+	                                       	                $find-range-of-transactions-helper)
+	                                 )
+	                                else
+	                                    if (xs:date($bst:vTree('root')($tree)/@date) gt $end-date) then
+	                                     (
+	                                        $find-range-of-transactions-helper
+                                          	            ($bst:vTree('left')($tree),
+                                           	             $start-date,
+                                           	             $end-date,
+                                           	             $find-range-of-transactions-helper)
+	                                     )
+	                                    else ()
+	         },
+
+
+         $find-range-of-transactions :=
+	         function($tree as function(*)*,
+	                          $start-date as xs:date,
+	                          $end-date as xs:date
+	                         )
+	         {
+	             $find-range-of-transactions-helper
+	         		       ( $tree,
+	               	         $start-date,
+	                       	         $end-date,
+	                       	         $find-range-of-transactions-helper)
+	         },
+
+        (:
+            As tree-nodes are inserted into a BST, a comparison is made between
+            the value being inserted and the value in the tree's root node. How should
+            the comparison be done? That depends on the type of the data contained in a tree-node.
+            Comparing two integers is different than comparing two tree fragments.
+            So, the insert function must be provided with an appropriate comparator. For
+            the case of bank transactions, a date comparison is needed.
+            Here is an appropriate comparator function:
+        :)
+        $transaction-less-than-comparator :=
+	        function( $arg1  as element(transaction),
+	                          $arg2  as element(transaction)
+	                        ) as xs:boolean
+	        {
+	              xs:date($arg1/@date) lt xs:date($arg2/@date)
+	        }
+
+
+
+    (:  At last, we finalize this big, outermost *let* clause with a *return* clause
+        that expresses the intent of the users of the BST data-type.
+        We want to get all transactions in the period:
+        15th March 2012 to 15th May 2012.
+    :)
+
+      return (
+              $find-range-of-transactions
+                      ($bst:vTree('populate')
+                         ((), $vDoc//transaction, $transaction-less-than-comparator),
+                       xs:date('2012-03-15'),
+                       xs:date('2012-05-15')
+                      )
+             )        </programlisting>
+      </para></section><bibliography><title>References:</title><bibliomixed xml:id="BST">
+                    <emphasis>Binary Search Tree as defined by Wikipedia</emphasis>, 
+                    at: <link xlink:href="http://en.wikipedia.org/wiki/Binary_search_tree" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">
+                        http://en.wikipedia.org/wiki/Binary_search_tree</link>
+                </bibliomixed><bibliomixed xml:id="Closure">
+                    <emphasis>Closure (computer science) -- Wikipedia</emphasis>, 
+                    at: <link xlink:href="http://en.wikipedia.org/wiki/Binary_search_tree" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">
+                        http://en.wikipedia.org/wiki/Binary_search_tree</link>
+                </bibliomixed><bibliomixed xml:id="Costello">
+                    <emphasis>Pearls of XSLT and XPath 3.0 Design</emphasis>, 
+                    at: <link xlink:href="http://www.xfront.com/Pearls-of-XSLT-and-XPath-3-0-Design.pdf" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">
+                        http://www.xfront.com/Pearls-of-XSLT-and-XPath-3-0-Design.pdf</link>
+                </bibliomixed><bibliomixed xml:id="DivConq">
+                    <emphasis>Divide and conquer algorithm -- Wikipedia</emphasis>, 
+                    at: <link xlink:href="http://en.wikipedia.org/wiki/Divide_and_conquer_algorithm" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">
+                        http://en.wikipedia.org/wiki/Divide_and_conquer_algorithm</link>
+                </bibliomixed><bibliomixed xml:id="FuncComp">
+                    <emphasis>Function composition -- Wikipedia</emphasis>, 
+                    at: <link xlink:href="http://en.wikipedia.org/wiki/Function_composition" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">
+                        http://en.wikipedia.org/wiki/Function_composition</link>
+                </bibliomixed><bibliomixed xml:id="Nova">
+                    <emphasis>Recursion with anonymous (inline) functions in XPath 3.0</emphasis>, 
+                    at: <link xlink:href="http://dnovatchev.wordpress.com/2012/10/15/recursion-with-anonymous-inline-functions-in-xpath-3-0-2/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">
+                        http://dnovatchev.wordpress.com/2012/10/15/recursion-with-anonymous-inline-functions-in-xpath-3-0-2/</link>
+                </bibliomixed><bibliomixed xml:id="HOF">
+                    <emphasis>Higher-order function -- Wikipedia</emphasis>, 
+                    at: <link xlink:href="http://en.wikipedia.org/wiki/Higher-order_function" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">
+                        http://en.wikipedia.org/wiki/Higher-order_function</link>
+                </bibliomixed><bibliomixed xml:id="Nova2">
+                     <emphasis>Recursion with anonymous (inline) functions in XPath 3.0 — Part II</emphasis>, 
+                     at: <link xlink:href="http://dnovatchev.wordpress.com/2013/04/08/recursion-with-anonymous-inline-functions-in-xpath-3-0-part-ii/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">
+                         http://dnovatchev.wordpress.com/2013/04/08/recursion-with-anonymous-inline-functions-in-xpath-3-0-part-ii/</link>
+                 </bibliomixed><bibliomixed xml:id="Nova3">
+                     <emphasis>The Binary Search Tree Data Structure–having fun with XPath 3.0</emphasis>, 
+                     at: <link xlink:href="http://dnovatchev.wordpress.com/2012/01/09/the-binary-search-tree-data-structurehaving-fun-with-xpath-3-0/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">
+                         http://dnovatchev.wordpress.com/2012/01/09/the-binary-search-tree-data-structurehaving-fun-with-xpath-3-0/</link>
+                 </bibliomixed><bibliomixed xml:id="PartApp">
+                     <emphasis>Partial function application -- Wikipedia</emphasis>, 
+                     at: <link xlink:href="http://rosettacode.org/wiki/Partial_function_application" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">
+                         http://rosettacode.org/wiki/Partial_function_application</link>
+                 </bibliomixed><bibliomixed xml:id="Recurs">
+                     <emphasis>Recursion (computer science) -- Wikipedia</emphasis>, 
+                     at: <link xlink:href="http://en.wikipedia.org/wiki/Recursion_(computer_science)#Recursive_functions_and_algorithms" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">
+                         http://en.wikipedia.org/wiki/Recursion_(computer_science)#Recursive_functions_and_algorithms</link>
+                 </bibliomixed><bibliomixed xml:id="Saxon">
+                     <emphasis>The Saxon XSLT/XQuery/XPath Processor</emphasis>, 
+                     at: <link xlink:href="http://www.saxonica.com" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">
+                         http://www.saxonica.com</link>
+                 </bibliomixed><bibliomixed xml:id="Snelson">
+                     <emphasis>Adding Recursive Inline Functions to XQuery 1.1 and XPath 2.1</emphasis>, 
+                     at: <link xlink:href="http://john.snelson.org.uk/adding-recursive-inline-function-to-xquery-11" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">
+                         http://john.snelson.org.uk/adding-recursive-inline-function-to-xquery-11</link>
+                 </bibliomixed><bibliomixed xml:id="Snelson2">
+                     <emphasis>W3C Bugzilla: Bug 8662 - [XQ31ReqUC] Requirement: Recursive inline functions </emphasis>, 
+                     at: <link xlink:href="https://www.w3.org/Bugs/Public/show_bug.cgi?id=8662" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">
+                         https://www.w3.org/Bugs/Public/show_bug.cgi?id=8662</link>
+                 </bibliomixed><bibliomixed xml:id="TailCall">
+                     <emphasis>Tail call -- Wikipedia</emphasis>, 
+                     at: <link xlink:href="http://en.wikipedia.org/wiki/Tail_call" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">
+                         http://en.wikipedia.org/wiki/Tail_call</link>
+                 </bibliomixed><bibliomixed xml:id="Walmsley">
+                     <emphasis>FunctX XSLT 2.0 and XQuery 1.0 Function Libraries</emphasis>, 
+                     at: <link xlink:href="http://www.functx.com/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">
+                         http://www.functx.com/</link>
+                 </bibliomixed><bibliomixed xml:id="XDM3.0">
+                     <emphasis>XQuery and XPath Data Model 3.0</emphasis>, 
+                     at: <link xlink:href="http://www.w3.org/TR/xpath-datamodel-30/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">
+                         http://www.w3.org/TR/xpath-datamodel-30/</link>
+                 </bibliomixed><bibliomixed xml:id="XPath1.0">
+                     <emphasis>XML Path Language (XPath) Version 1.0</emphasis>, 
+                     at: <link xlink:href="http://www.w3.org/TR/xpath/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">
+                         http://www.w3.org/TR/xpath/</link>
+                 </bibliomixed><bibliomixed xml:id="XPath2.0">
+                     <emphasis>XML Path Language (XPath) 2.0 (Second Edition)</emphasis>, 
+                     at: <link xlink:href="http://www.w3.org/TR/xpath20/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">
+                         http://www.w3.org/TR/xpath20/</link>
+                 </bibliomixed><bibliomixed xml:id="XPath3.0">
+                     <emphasis>XML Path Language (XPath) 3.0</emphasis>, 
+                     at: <link xlink:href="http://www.w3.org/TR/xpath-30/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">
+                         http://www.w3.org/TR/xpath-30/</link>
+                 </bibliomixed><bibliomixed xml:id="XSLT1.0">
+                     <emphasis>XSL Transformations (XSLT) Version 1.0</emphasis>, 
+                     at: <link xlink:href="http://www.w3.org/TR/xslt" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">
+                         http://www.w3.org/TR/xslt</link>
+                 </bibliomixed><bibliomixed xml:id="XSLT2.0">
+                     <emphasis>XSL Transformations (XSLT) Version 2.0</emphasis>, 
+                     at: <link xlink:href="http://www.w3.org/TR/xslt20/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">
+                         http://www.w3.org/TR/xslt20/</link>
+                 </bibliomixed><bibliomixed xml:id="XSLT3.0">
+                     <emphasis>XSL Transformations (XSLT) Version 3.0</emphasis>, 
+                     at: <link xlink:href="http://www.w3.org/TR/xslt-30/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">
+                         http://www.w3.org/TR/xslt-30/</link>
+                 </bibliomixed><bibliomixed xml:id="XQuery1.0">
+                     <emphasis>XQuery 1.0: An XML Query Language (Second Edition)</emphasis>, 
+                     at: <link xlink:href="http://www.w3.org/TR/xquery/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">
+                         http://www.w3.org/TR/xquery/</link>
+                 </bibliomixed></bibliography></article>

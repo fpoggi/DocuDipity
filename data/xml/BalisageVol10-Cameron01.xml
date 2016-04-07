@@ -1,0 +1,648 @@
+<?xml version="1.0" encoding="UTF-8"?><article xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink" version="5.0-subset Balisage-1.3" xml:id="HR-23632987-8973"><title>icXML:  Accelerating a Commercial XML
+     Parser Using SIMD and Multicore Technologies</title><info><confgroup><conftitle>Balisage: The Markup Conference 2013</conftitle><confdates>August 6 - 9, 2013</confdates></confgroup><abstract><para>Prior research on the acceleration of XML processing using single-instruction
+	   multiple-data (SIMD) and multi-core
+            parallelism has lead to a number of interesting research prototypes. This work is
+	    the first to investigate to the extent to which the techniques underlying these prototypes 
+	    could result
+            in systematic performance benefits when fully integrated into a commercial XML parser
+            The widely used Xerces-C++ parser of the Apache Software Foundation was chosen as the
+            foundation for the study. A systematic restructuring of the parser was undertaken, while
+            maintaining the existing API for application programmers. Using SIMD techniques alone,
+            an increase in parsing speed of at least 50% was observed in a range of applications.
+            When coupled with pipeline parallelism on dual core processors, improvements of 2x and
+            beyond were realized. 
+	    
+	    icXML is intended as an important industrial contribution in its own right as well
+	    as an important case study for the underlying Parabix parallel processing framework.
+	    Based on the success of the icXML development, there is a strong case for continued
+	    development of that framework as well as for the application of that framework
+	    to other important XML technology stacks.   An important area for further work is
+	    the extension of Parabix technology to accelerate Java-based implementations as
+	    well as ones based on C/C++.
+	    
+	    </para></abstract><author><personname><firstname>Nigel</firstname><surname>Medforth</surname></personname><personblurb><para>Nigel Medforth is a M.Sc. student at Simon Fraser University and the lead
+               developer of icXML. He earned a Bachelor of Technology in Information Technology at
+               Kwantlen Polytechnic University in 2009 and was awarded the Dean’s Medal for
+               Outstanding Achievement.</para><para>Nigel is currently researching ways to leverage both the Parabix framework and
+               stream-processing models to further accelerate XML parsing within icXML.</para></personblurb><affiliation><jobtitle>Developer</jobtitle><orgname>International Characters Inc.</orgname></affiliation><affiliation><jobtitle>Graduate Student</jobtitle><orgname>School of Computing Science, Simon Fraser University </orgname></affiliation><email>nmedfort@sfu.ca</email></author><author><personname><firstname>Dan</firstname><surname>Lin</surname></personname><personblurb><para>Dan Lin is a Ph.D student at Simon Fraser University. She earned a Master of Science
+	     in Computing Science at Simon Fraser University in 2010. Her research focus on on high 
+	     performance algorithms that exploit parallelization strategies on various multicore platforms.
+	   </para></personblurb><affiliation><jobtitle>Graduate Student</jobtitle><orgname>School of Computing Science, Simon Fraser University </orgname></affiliation><email>lindanl@sfu.ca</email></author><author><personname><firstname>Kenneth</firstname><surname>Herdy</surname></personname><personblurb><para> Ken Herdy completed an Advanced Diploma of Technology in Geographical Information
+               Systems at the British Columbia Institute of Technology in 2003 and earned a Bachelor
+               of Science in Computing Science with a Certificate in Spatial Information Systems at
+               Simon Fraser University in 2005. </para><para> Ken is currently pursuing PhD studies in Computing Science at Simon Fraser
+               University with industrial scholarship support from the Natural Sciences and
+               Engineering Research Council of Canada, the Mathematics of Information Technology and
+               Complex Systems NCE, and the BC Innovation Council. His research focus is an analysis
+               of the principal techniques that may be used to improve XML processing performance in
+               the context of the Geography Markup Language (GML). </para></personblurb><affiliation><jobtitle>Graduate Student</jobtitle><orgname>School of Computing Science, Simon Fraser University </orgname></affiliation><email>ksherdy@sfu.ca</email></author><author><personname><firstname>Rob</firstname><surname>Cameron</surname></personname><personblurb><para>Dr. Rob Cameron is Professor of Computing Science and Associate Dean of Applied
+               Sciences at Simon Fraser University. His research interests include programming
+               language and software system technology, with a specific focus on high performance
+               text processing using SIMD and multicore parallelism. He is the developer of the REX
+               XML shallow parser as well as the parallel bit stream (Parabix) framework for SIMD
+               text processing. </para></personblurb><affiliation><jobtitle>Professor of Computing Science</jobtitle><orgname>Simon Fraser University</orgname></affiliation><affiliation><jobtitle>Chief Technology Officer</jobtitle><orgname>International Characters, Inc.</orgname></affiliation><email>cameron@cs.sfu.ca</email></author><author><personname><firstname>Arrvindh</firstname><surname>Shriraman</surname></personname><personblurb><para/></personblurb><affiliation><jobtitle>Assistant Professor</jobtitle><orgname>School of Computing Science, Simon Fraser University</orgname></affiliation><email>ashriram.cs.sfu.ca</email></author><legalnotice><para>This work is licensed under a Creative Commons Attribution-Noncommercial-No Derivative
+            Works 2.5 Canada License (<link xlink:href="http://creativecommons.org/licenses/by-nc-nd/2.5/ca/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://creativecommons.org/licenses/by-nc-nd/2.5/ca/</link>).</para></legalnotice></info><section><title>Introduction</title><para>    
+	Parallelization and acceleration of XML parsing is a widely
+	studied problem that has seen the development of a number
+	of interesting research prototypes using both single-instruction
+	   multiple-data (SIMD) and
+	multi-core parallelism.   Most works have investigated
+	data parallel solutions on multicore
+	architectures using various strategies to break input
+	documents into segments that can be allocated to different cores.
+	For example, one possibility for data
+	parallelization is to add a pre-parsing step to compute
+	a skeleton tree structure of an  XML document <citation linkend="GRID2006"/>.
+	The parallelization of the pre-parsing stage itself can be tackled with 
+	  state machines <citation linkend="E-SCIENCE2007"/>, <citation linkend="IPDPS2008"/>.
+	Methods without pre-parsing have used speculation <citation linkend="HPCC2011"/> or post-processing that 
+	combines the partial results <citation linkend="ParaDOM2009"/>.
+	A hybrid technique that combines data and pipeline parallelism was proposed to 
+	hide the latency of a "job" that has to be done sequentially <citation linkend="ICWS2008"/>.
+      </para><para>
+	Fewer efforts have investigated SIMD parallelism, although this approach
+	has the potential advantage of improving single core performance as well
+	as offering savings in energy consumption <citation linkend="HPCA2012"/>.
+	Intel introduced specialized SIMD string processing instructions in the SSE 4.2 instruction set extension 
+	and showed how they can be used to improve the performance of XML parsing <citation linkend="XMLSSE42"/>.
+	The Parabix framework uses generic SIMD extensions and bit parallel methods to 
+	process hundreds of XML input characters simultaneously <citation linkend="Cameron2009"/> <citation linkend="cameron-EuroPar2011"/>.
+	Parabix prototypes have also combined SIMD methods with thread-level parallelism to 
+	achieve further acceleration on multicore systems <citation linkend="HPCA2012"/>.
+      </para><para>
+	In this paper, we move beyond research prototypes to consider
+	the detailed integration of both SIMD and multicore parallelism into the 
+	Xerces-C++ parser of the Apache Software Foundation, an existing
+	standards-compliant open-source parser that is widely used
+	in commercial practice.    The challenge of this work is
+	to parallelize the Xerces parser in such a way as to
+	preserve the existing APIs as well as offering worthwhile 
+	end-to-end acceleration of XML processing.    
+	To achieve the best results possible, we undertook
+	a nine-month comprehensive restructuring of the Xerces-C++ parser,
+	seeking to expose as many critical aspects of XML parsing
+	as possible for parallelization, the result of which we named icXML.   
+	Overall, we employed Parabix-style methods of transcoding, tokenization
+	and tag parsing, parallel string comparison methods in symbol
+	resolution, bit parallel methods in namespace processing, 
+	as well as staged processing using pipeline parallelism to take advantage of
+	multiple cores.
+      </para><para>
+	The remainder of this paper is organized as follows.   
+	  <xref linkend="background"/> discusses the structure of the Xerces and Parabix XML parsers and the fundamental
+	differences between the two parsing models.   
+	<xref linkend="architecture"/> then presents the icXML design based on a restructured Xerces architecture to 
+	incorporate SIMD parallelism using Parabix methods.   
+	<xref linkend="multithread"/> moves on to consider the multithreading of the icXML architecture
+	using the pipeline parallelism model.  
+	<xref linkend="performance"/> analyzes the performance of both the single-threaded and
+	multi-threaded versions of icXML in comparison to original Xerces,
+	demonstrating substantial end-to-end acceleration of
+	a GML-to-SVG translation application written against the Xerces API.
+	  <xref linkend="conclusion"/> concludes the paper with a discussion of future work and the potential for 
+	applying the techniques discussed herein in other application domains.
+      </para></section><section xml:id="background"><title>Background</title><section xml:id="background-xerces"><title>Xerces C++ Structure</title><para> The Xerces C++ parser is a widely-used standards-conformant
+            XML parser produced as open-source software
+             by the Apache Software Foundation.
+            It features comprehensive support for a variety of character encodings both
+            commonplace (e.g., UTF-8, UTF-16) and rarely used (e.g., EBCDIC), support for multiple
+            XML vocabularies through the XML namespace mechanism, as well as complete
+            implementations of structure and data validation through multiple grammars declared
+            using either legacy DTDs (document type definitions) or modern XML Schema facilities.
+            Xerces also supports several APIs for accessing parser services, including event-based
+            parsing using either pull parsing or SAX/SAX2 push-style parsing as well as a DOM
+            tree-based parsing interface. </para><para>
+            Xerces,
+            like all traditional parsers, processes XML documents sequentially a byte-at-a-time from
+            the first to the last byte of input data. Each byte passes through several processing
+            layers and is classified and eventually validated within the context of the document
+            state. This introduces implicit dependencies between the various tasks within the
+            application that make it difficult to optimize for performance. As a complex software
+	      system, no one feature dominates the overall parsing performance. <xref linkend="xerces-profile"/>
+	    shows the execution time profile of the top ten functions in a
+            typical run. Even if it were possible, Amdahl's Law dictates that tackling any one of
+            these functions for parallelization in isolation would only produce a minute improvement
+            in performance. Unfortunately, early investigation into these functions found that
+            incorporating speculation-free thread-level parallelization was impossible and they were
+            already performing well in their given tasks; thus only trivial enhancements were
+            attainable. In order to obtain a systematic acceleration of Xerces, it should be
+            expected that a comprehensive restructuring is required, involving all aspects of the
+            parser. </para><table xml:id="xerces-profile"><caption><para>Execution Time of Top 10 Xerces Functions</para></caption><colgroup span="1"><col align="left" valign="top" span="1"/><col align="left" valign="top" span="1"/></colgroup><thead><tr><th>Time (%) </th><th> Function Name </th></tr></thead><tbody><tr valign="top"><td>13.29	</td><td>XMLUTF8Transcoder::transcodeFrom </td></tr><tr valign="top"><td>7.45	</td><td>IGXMLScanner::scanCharData </td></tr><tr valign="top"><td>6.83	</td><td>memcpy </td></tr><tr valign="top"><td>5.83	</td><td>XMLReader::getNCName </td></tr><tr valign="top"><td>4.67	</td><td>IGXMLScanner::buildAttList </td></tr><tr valign="top"><td>4.54	</td><td>RefHashTableO&lt;&gt;::findBucketElem </td></tr><tr valign="top"><td>4.20	</td><td>IGXMLScanner::scanStartTagNS </td></tr><tr valign="top"><td>3.75	</td><td>ElemStack::mapPrefixToURI </td></tr><tr valign="top"><td>3.58	</td><td>ReaderMgr::getNextChar </td></tr><tr valign="top"><td>3.20	</td><td>IGXMLScanner::basicAttrValueScan </td></tr></tbody></table></section><section><title>The Parabix Framework</title><para> The Parabix (parallel bit stream) framework is a transformative approach to XML
+            parsing (and other forms of text processing.) The key idea is to exploit the
+            availability of wide SIMD registers (e.g., 128-bit) in commodity processors to represent
+            data from long blocks of input data by using one register bit per single input byte. To
+            facilitate this, the input data is first transposed into a set of basis bit streams. 
+	      For example, <xref linkend="xml-bytes"/> shows  the ASCII bytes for the string "<code>b7&lt;A</code>" with
+		the corresponding  8 basis bit streams, b<subscript>0</subscript> through  b<subscript>7</subscript> shown in  <xref linkend="xml-bits"/>. 
+            The bits used to construct b<subscript>7</subscript> have been highlighted in this example.
+	      Boolean-logic operations (∧, ∨ and ¬ denote the
+	      boolean AND, OR and NOT operators) are used to classify the input bits into a set of
+               <emphasis role="ital">character-class bit streams</emphasis>, which identify key
+            characters (or groups of characters) with a <code>1</code>. For example, one of the
+            fundamental characters in XML is a left-angle bracket. A character is an
+               <code>'&lt;' if and only if
+               ¬(b<subscript>0</subscript> ∨ b<subscript>1</subscript>)
+               ∧ (b<subscript>2</subscript> ∧ b<subscript>3</subscript>)
+               ∧ (b<subscript>4</subscript> ∧ b<subscript>5</subscript>)
+               ∧ ¬ (b<subscript>6</subscript> ∨
+               b<subscript>7</subscript>) = 1</code>. Similarly, a character is numeric, <code>[0-9]
+               if and only if ¬(b<subscript>0</subscript> ∨
+               b<subscript>1</subscript>) ∧ (b<subscript>2</subscript> ∧
+                  b<subscript>3</subscript>) ∧ ¬(b<subscript>4</subscript>
+               ∧ (b<subscript>5</subscript> ∨
+            b<subscript>6</subscript>))</code>. An important observation here is that ranges of
+            characters may require fewer operations than individual characters and
+            <!-- the classification cost could be amortized over many character classes.--> multiple
+            classes can share the classification cost. </para><table xml:id="xml-bytes"><caption><para>XML Source Data</para></caption><colgroup span="1"><col align="right" valign="top" span="1"/><col align="center" valign="top" span="1"/><col align="center" valign="top" span="1"/><col align="center" valign="top" span="1"/><col align="center" valign="top" span="1"/></colgroup><tbody><tr><td>String </td><td> <code>b</code> </td><td> <code>7</code> </td><td> <code>&lt;</code> </td><td> <code>A</code> </td></tr><tr><td>ASCII </td><td> <code>0110001</code><emphasis role="bold"><code>0</code></emphasis> </td><td> <code>0011011</code><emphasis role="bold"><code>1</code></emphasis></td><td> <code>0011110</code><emphasis role="bold"><code>0</code></emphasis></td><td> <code>0100000</code><emphasis role="bold"><code>1</code></emphasis></td></tr></tbody></table><table xml:id="xml-bits"><caption><para>8-bit ASCII Basis Bit Streams</para></caption><colgroup span="1"><col align="center" valign="top" span="1"/><col align="center" valign="top" span="1"/><col align="center" valign="top" span="1"/><col align="center" valign="top" span="1"/><col align="center" valign="top" span="1"/><col align="center" valign="top" span="1"/><col align="center" valign="top" span="1"/><col align="center" valign="top" span="1"/></colgroup><tbody><tr><td> b<subscript>0</subscript> </td><td> b<subscript>1</subscript> </td><td> b<subscript>2</subscript> </td><td> b<subscript>3</subscript></td><td> b<subscript>4</subscript> </td><td> b<subscript>5</subscript> </td><td> b<subscript>6</subscript> </td><td> b<subscript>7</subscript> </td></tr><tr><td> <code>0</code> </td><td> <code>1</code> </td><td> <code>1</code> </td><td> <code>0</code> </td><td> <code>0</code> </td><td> <code>0</code> </td><td> <code>1</code> </td><td> <emphasis role="bold"><code>0</code></emphasis> </td></tr><tr><td> <code>0</code> </td><td> <code>0</code> </td><td> <code>1</code> </td><td> <code>1</code> </td><td> <code>0</code> </td><td> <code>1</code> </td><td> <code>1</code> </td><td> <emphasis role="bold"><code>1</code></emphasis> </td></tr><tr><td> <code>0</code> </td><td> <code>0</code> </td><td> <code>1</code> </td><td> <code>1</code> </td><td> <code>1</code> </td><td> <code>1</code> </td><td> <code>0</code> </td><td> <emphasis role="bold"><code>0</code></emphasis> </td></tr><tr><td> <code>0</code> </td><td> <code>1</code> </td><td> <code>0</code> </td><td> <code>0</code> </td><td> <code>0</code> </td><td> <code>0</code> </td><td> <code>0</code> </td><td> <emphasis role="bold"><code>1</code></emphasis> </td></tr></tbody></table><!-- Using a mixture of boolean-logic and arithmetic operations, character-class --><!-- bit streams can be transformed into lexical bit streams, where the presense of --><!-- a 1 bit identifies a key position in the input data. As an artifact of this --><!-- process, intra-element well-formedness validation is performed on each block --><!-- of text. --><para> Consider, for example, the XML source data stream shown in the first line of <xref linkend="derived"/>.
+The remaining lines of this figure show
+            several parallel bit streams that are computed in Parabix-style parsing, with each bit
+            of each stream in one-to-one correspondence to the source character code units of the
+            input stream. For clarity, 1 bits are denoted with 1 in each stream and 0 bits are
+            represented as underscores. The first bit stream shown is that for the opening angle
+            brackets that represent tag openers in XML. The second and third streams show a
+            partition of the tag openers into start tag marks and end tag marks depending on the
+            character immediately following the opener (i.e., "<code>/</code>") or
+            not. The remaining three lines show streams that can be computed in subsequent parsing
+            (using the technique of bitstream addition <citation linkend="cameron-EuroPar2011"/>), namely streams
+            marking the element names, attribute names and attribute values of tags. </para><table xml:id="derived"><caption><para>XML Source Data and Derived Parallel Bit Streams</para></caption><colgroup span="1"><col align="center" valign="top" span="1"/><col align="left" valign="top" span="1"/></colgroup><tbody><tr><td> Source Data </td><td> <code> &lt;document&gt;fee&lt;element a1='fie' a2 = 'foe'&gt;&lt;/element&gt;fum&lt;/document&gt; </code></td></tr><tr><td> Tag Openers </td><td> <code>1____________1____________________________1____________1__________</code></td></tr><tr><td> Start Tag Marks </td><td> <code>_1____________1___________________________________________________</code></td></tr><tr><td> End Tag Marks </td><td> <code>___________________________________________1____________1_________</code></td></tr><tr><td> Empty Tag Marks </td><td> <code>__________________________________________________________________</code></td></tr><tr><td> Element Names </td><td> <code>_11111111_____1111111_____________________________________________</code></td></tr><tr><td> Attribute Names </td><td> <code>______________________11_______11_________________________________</code></td></tr><tr><td> Attribute Values </td><td> <code>__________________________111________111__________________________</code></td></tr></tbody></table><para> Two intuitions may help explain how the Parabix approach can lead to improved XML
+            parsing performance. The first is that the use of the full register width offers a
+            considerable information advantage over sequential byte-at-a-time parsing. That is,
+            sequential processing of bytes uses just 8 bits of each register, greatly limiting the
+            processor resources that are effectively being used at any one time. The second is that
+            byte-at-a-time loop scanning loops are actually often just computing a single bit of
+            information per iteration: is the scan complete yet? Rather than computing these
+            individual decision-bits, an approach that computes many of them in parallel (e.g., 128
+            bytes at a time using 128-bit registers) should provide substantial benefit. </para><para> Previous studies have shown that the Parabix approach improves many aspects of XML
+            processing, including transcoding <citation linkend="Cameron2008"/>, character classification and
+            validation, tag parsing and well-formedness checking. The first Parabix parser used
+            processor bit scan instructions to considerably accelerate sequential scanning loops for
+            individual characters <citation linkend="CameronHerdyLin2008"/>. Recent work has incorporated a method
+            of parallel scanning using bitstream addition <citation linkend="cameron-EuroPar2011"/>, as well as
+            combining SIMD methods with 4-stage pipeline parallelism to further improve throughput
+            <citation linkend="HPCA2012"/>. Although these research prototypes handled the full syntax of
+            schema-less XML documents, they lacked the functionality required by full XML parsers. </para><para> Commercial XML processors support transcoding of multiple character sets and can
+            parse and validate against multiple document vocabularies. Additionally, they provide
+            API facilities beyond those found in research prototypes, including the widely used SAX,
+            SAX2 and DOM interfaces. </para></section><section><title>Sequential vs. Parallel Paradigm</title><para> Xerces—like all traditional XML parsers—processes XML documents
+            sequentially. Each character is examined to distinguish between the XML-specific markup,
+            such as a left angle bracket <code>"&lt;"</code>, and the content held within the
+            document. As the parser progresses through the document, it alternates between markup
+            scanning, validation and content processing modes. </para><para> In other words, Xerces belongs to an equivalence class of applications termed FSM
+	   applications.<footnote xml:id="FSM"><para>Herein FSM applications are considered software systems whose
+            behaviour is defined by the inputs, current state and the events associated with
+	      transitions of states.</para></footnote> Each state transition indicates the processing context of
+            subsequent characters. Unfortunately, textual data tends to be unpredictable and any
+            character could induce a state transition. </para><para> Parabix-style XML parsers utilize a concept of layered processing. A block of source
+            text is transformed into a set of lexical bitstreams, which undergo a series of
+            operations that can be grouped into logical layers, e.g., transposition, character
+            classification, and lexical analysis. Each layer is pipeline parallel and require
+            neither speculation nor pre-parsing stages <citation linkend="HPCA2012"/>. To meet the API requirements
+            of the document-ordered Xerces output, the results of the Parabix processing layers must
+            be interleaved to produce the equivalent behaviour. </para></section></section><section xml:id="architecture"><title>Architecture</title><section><title>Overview</title><!--\def \CSG{Content Stream Generator}--><para> icXML is more than an optimized version of Xerces. Many components were grouped,
+            restructured and rearchitected with pipeline parallelism in mind. In this section, we
+            highlight the core differences between the two systems. As shown in Figure
+	      <xref linkend="xerces-arch"/>, Xerces is comprised of five main modules: the transcoder, reader,
+            scanner, namespace binder, and validator. The <emphasis role="ital">Transcoder</emphasis> converts source data into UTF-16 before Xerces parses it as XML;
+            the majority of the character set encoding validation is performed as a byproduct of
+            this process. The <emphasis role="ital">Reader</emphasis> is responsible for the
+            streaming and buffering of all raw and transcoded (UTF-16) text. It tracks the current
+            line/column position,
+            <!--(which is reported in the unlikely event that the input contains an error), -->
+            performs line-break normalization and validates context-specific character set issues,
+            such as tokenization of qualified-names. The <emphasis role="ital">Scanner</emphasis>
+            pulls data through the reader and constructs the intermediate representation (IR) of the
+            document; it deals with all issues related to entity expansion, validates the XML
+            well-formedness constraints and any character set encoding issues that cannot be
+            completely handled by the reader or transcoder (e.g., surrogate characters, validation
+            and normalization of character references, etc.) The <emphasis role="ital">Namespace
+               Binder</emphasis> is a core piece of the element stack. It handles namespace scoping
+            issues between different XML vocabularies. This allows the scanner to properly select
+            the correct schema grammar structures. The <emphasis role="ital">Validator</emphasis>
+            takes the IR produced by the Scanner (and potentially annotated by the Namespace Binder)
+            and assesses whether the final output matches the user-defined DTD and schema grammar(s)
+            before passing it to the end-user. </para><figure xml:id="xerces-arch"><title>Xerces Architecture</title><mediaobject><imageobject><imagedata format="png" fileref="../../../vol10/graphics/Cameron01/Cameron01-001.png" width="155cm"/></imageobject></mediaobject></figure><para> In icXML functions are grouped into logical components. As shown in 
+             <xref linkend="xerces-arch"/>, two major categories exist: (1) the Parabix Subsystem and (2) the
+	       Markup Processor. All tasks in (1) use the Parabix Framework <citation linkend="HPCA2012"/>, which
+            represents data as a set of parallel bitstreams. The <emphasis role="ital">Character Set
+	      Adapter</emphasis>, discussed in <xref linkend="character-set-adapter"/>, mirrors
+            Xerces's Transcoder duties; however instead of producing UTF-16 it produces a set of
+	      lexical bitstreams, similar to those shown in <xref linkend="CameronHerdyLin2008"/>. These lexical
+            bitstreams are later transformed into UTF-16 in the Content Stream Generator, after
+            additional processing is performed. The first precursor to producing UTF-16 is the
+               <emphasis role="ital">Parallel Markup Parser</emphasis> phase. It takes the lexical
+            streams and produces a set of marker bitstreams in which a 1-bit identifies significant
+            positions within the input data. One bitstream for each of the critical piece of
+            information is created, such as the beginning and ending of start tags, end tags,
+            element names, attribute names, attribute values and content. Intra-element
+            well-formedness validation is performed as an artifact of this process. Like Xerces,
+            icXML must provide the Line and Column position of each error. The <emphasis role="ital">Line-Column Tracker</emphasis> uses the lexical information to keep track of the
+            document position(s) through the use of an optimized population count algorithm,
+	      described in <xref linkend="errorhandling"/>. From here, two data-independent
+            branches exist: the Symbol Resolver and Content Preparation Unit. </para><para> A typical XML file contains few unique element and attribute names—but
+            each of them will occur frequently. icXML stores these as distinct data structures,
+            called symbols, each with their own global identifier (GID). Using the symbol marker
+            streams produced by the Parallel Markup Parser, the <emphasis role="ital">Symbol
+               Resolver</emphasis> scans through the raw data to produce a sequence of GIDs, called
+            the <emphasis role="ital">symbol stream</emphasis>. </para><para> The final components of the Parabix Subsystem are the <emphasis role="ital">Content
+               Preparation Unit</emphasis> and <emphasis role="ital">Content Stream
+            Generator</emphasis>. The former takes the (transposed) basis bitstreams and selectively
+            filters them, according to the information provided by the Parallel Markup Parser, and
+	    the latter transforms the filtered streams into the tagged UTF-16 <emphasis role="ital">content stream</emphasis>, discussed in <xref linkend="contentstream"/>. </para><para> Combined, the symbol and content stream form icXML's compressed IR of the XML
+            document. The <emphasis role="ital">Markup Processor</emphasis>
+	    parses the IR to
+            validate and produce the sequential output for the end user. The <emphasis role="ital">Final WF checker</emphasis> performs inter-element well-formedness validation that
+            would be too costly to perform in bit space, such as ensuring every start tag has a
+            matching end tag. Xerces's namespace binding functionality is replaced by the <emphasis role="ital">Namespace Processor</emphasis>. Unlike Xerces, it is a discrete phase
+            that produces a series of URI identifiers (URI IDs), the <emphasis role="ital">URI
+               stream</emphasis>, which are associated with each symbol occurrence. This is
+		 discussed in <xref linkend="namespace-handling"/>. Finally, the <emphasis role="ital">Validation</emphasis> layer implements the Xerces's validator. However,
+            preprocessing associated with each symbol greatly reduces the work of this stage. </para><figure xml:id="icxml-arch"><title>icXML Architecture</title><mediaobject><imageobject><imagedata format="png" fileref="../../../vol10/graphics/Cameron01/Cameron01-002.png" width="500cm"/></imageobject></mediaobject></figure></section><section xml:id="character-set-adapter"><title>Character Set Adapters</title><para> In Xerces, all input is transcoded into UTF-16 to simplify the parsing costs of
+            Xerces itself and provide the end-consumer with a single encoding format. In the
+            important case of UTF-8 to UTF-16 transcoding, the transcoding costs can be significant,
+            because of the need to decode and classify each byte of input, mapping variable-length
+            UTF-8 byte sequences into 16-bit UTF-16 code units with bit manipulation operations. In
+            other cases, transcoding may involve table look-up operations for each byte of input. In
+            any case, transcoding imposes at least a cost of buffer copying. </para><para> In icXML, however, the concept of Character Set Adapters (CSAs) is used to minimize
+            transcoding costs. Given a specified input encoding, a CSA is responsible for checking
+            that input code units represent valid characters, mapping the characters of the encoding
+            into the appropriate bitstreams for XML parsing actions (i.e., producing the lexical
+            item streams), as well as supporting ultimate transcoding requirements. All of this work
+            is performed using the parallel bitstream representation of the source input. </para><para> An important observation is that many character sets are an extension to the legacy
+            7-bit ASCII character set. This includes the various ISO Latin character sets, UTF-8,
+            UTF-16 and many others. Furthermore, all significant characters for parsing XML are
+            confined to the ASCII repertoire. Thus, a single common set of lexical item calculations
+            serves to compute lexical item streams for all such ASCII-based character sets. </para><para> A second observation is that—regardless of which character set is
+            used—quite often all of the characters in a particular block of input will be
+            within the ASCII range. This is a very simple test to perform using the bitstream
+            representation, simply confirming that the bit 0 stream is zero for the entire block.
+            For blocks satisfying this test, all logic dealing with non-ASCII characters can simply
+            be skipped. Transcoding to UTF-16 becomes trivial as the high eight bitstreams of the
+            UTF-16 form are each set to zero in this case. </para><para> A third observation is that repeated transcoding of the names of XML elements,
+            attributes and so on can be avoided by using a look-up mechanism. That is, the first
+            occurrence of each symbol is stored in a look-up table mapping the input encoding to a
+            numeric symbol ID. Transcoding of the symbol is applied at this time. Subsequent look-up
+            operations can avoid transcoding by simply retrieving the stored representation. As
+            symbol look up is required to apply various XML validation rules, there is achieves the
+            effect of transcoding each occurrence without additional cost. </para><para> The cost of individual character transcoding is avoided whenever a block of input is
+            confined to the ASCII subset and for all but the first occurrence of any XML element or
+            attribute name. Furthermore, when transcoding is required, the parallel bitstream
+            representation supports efficient transcoding operations. In the important case of UTF-8
+            to UTF-16 transcoding, the corresponding UTF-16 bitstreams can be calculated in bit
+	      parallel fashion based on UTF-8 streams <citation linkend="Cameron2008"/>, and all but the final bytes
+            of multi-byte sequences can be marked for deletion as discussed in the following
+            subsection. In other cases, transcoding within a block only need be applied for
+            non-ASCII bytes, which are conveniently identified by iterating through the bit 0 stream
+            using bit scan operations. </para></section><section xml:id="par-filter"><title>Combined Parallel Filtering</title><para> As just mentioned, UTF-8 to UTF-16 transcoding involves marking all but the last
+            bytes of multi-byte UTF-8 sequences as positions for deletion. For example, the two
+            Chinese characters <code>你好</code> are represented as two
+            three-byte UTF-8 sequences <code>E4 BD A0</code> and <code>E5 A5 BD</code> while the
+            UTF-16 representation must be compressed down to the two code units <code>4F60</code>
+            and <code>597D</code>. In the bit parallel representation, this corresponds to a
+            reduction from six bit positions representing UTF-8 code units (bytes) down to just two
+            bit positions representing UTF-16 code units (double bytes). This compression may be
+            achieved by arranging to calculate the correct UTF-16 bits at the final position of each
+            sequence and creating a deletion mask to mark the first two bytes of each 3-byte
+            sequence for deletion. In this case, the portion of the mask corresponding to these
+            input bytes is the bit sequence <code>110110</code>. Using this approach, transcoding
+            may then be completed by applying parallel deletion and inverse transposition of the
+            UTF-16 bitstreams <citation linkend="Cameron2008"/>. </para><para> Rather than immediately paying the costs of deletion and transposition just for
+            transcoding, however, icXML defers these steps so that the deletion masks for several
+            stages of processing may be combined. In particular, this includes core XML requirements
+            to normalize line breaks and to replace character reference and entity references by
+            their corresponding text. In the case of line break normalization, all forms of line
+            breaks, including bare carriage returns (CR), line feeds (LF) and CR-LF combinations
+            must be normalized to a single LF character in each case. In icXML, this is achieved by
+            first marking CR positions, performing two bit parallel operations to transform the
+            marked CRs into LFs, and then marking for deletion any LF that is found immediately
+            after the marked CR as shown by the Pablo source code in 
+	      <xref linkend="fig-LBnormalization"/>.
+	      <figure xml:id="fig-LBnormalization"><title>Line Break Normalization Logic</title><programlisting xml:space="preserve">
+# XML 1.0 line-break normalization rules.
+if lex.CR:
+# Modify CR (#x0D) to LF (#x0A)
+  u16lo.bit_5 ^= lex.CR
+  u16lo.bit_6 ^= lex.CR
+  u16lo.bit_7 ^= lex.CR
+  CRLF = pablo.Advance(lex.CR) &amp; lex.LF
+  callouts.delmask |= CRLF
+# Adjust LF streams for line/column tracker
+  lex.LF |= lex.CR
+  lex.LF ^= CRLF
+</programlisting></figure>
+         </para><para> In essence, the deletion masks for transcoding and for line break normalization each
+            represent a bitwise filter; these filters can be combined using bitwise-or so that the
+            parallel deletion algorithm need only be applied once. </para><para> A further application of combined filtering is the processing of XML character and
+	   entity references. Consider, for example, the references <code>&amp;amp;</code> or
+	     <code>&amp;#x3C;</code> which must be replaced in XML processing with the single
+               <code>&amp;</code> and <code>&lt;</code> characters, respectively. The
+            approach in icXML is to mark all but the first character positions of each reference for
+            deletion, leaving a single character position unmodified. Thus, for the references
+               <code>&amp;amp;</code> or <code>&amp;#x3C;</code> the masks <code>01111</code> and
+               <code>011111</code> are formed and combined into the overall deletion mask. After the
+            deletion and inverse transposition operations are finally applied, a post-processing
+            step inserts the proper character at these positions. One note about this process is
+            that it is speculative; references are assumed to generally be replaced by a single
+            UTF-16 code unit. In the case, that this is not true, it is addressed in
+            post-processing. </para><para> The final step of combined filtering occurs during the process of reducing markup
+            data to tag bytes preceding each significant XML transition as described in
+	      <xref linkend="contentstream"/>. Overall, icXML avoids separate buffer copying
+            operations for each of the these filtering steps, paying the cost of parallel deletion
+            and inverse transposition only once. Currently, icXML employs the parallel-prefix
+            compress algorithm of Steele <citation linkend="HackersDelight"/>. Performance is independent of the
+            number of positions deleted. Future versions of icXML are expected to take advantage of
+            the parallel extract operation <citation linkend="HilewitzLee2006"/> that Intel is now providing in its
+            Haswell architecture. </para></section><section xml:id="contentstream"><title>Content Stream</title><para> A relatively-unique concept for icXML is the use of a filtered content stream.
+            Rather that parsing an XML document in its original format, the input is transformed
+            into one that is easier for the parser to iterate through and produce the sequential
+            output. In <xref linkend="fig-parabix2"/>, the source data
+	     <code> &lt;document&gt;fee&lt;element a1='fie' a2 = 'foe'&gt;&lt;/element&gt;fum&lt;/document&gt;</code>
+	     is transformed into 
+           
+         <emphasis role="ital"><code>0</code></emphasis><code>fee</code><emphasis role="ital"><code>0</code></emphasis><code>=fie</code><emphasis role="ital"><code>0</code></emphasis><code>=foe</code><emphasis role="ital"><code>0</code></emphasis><code>&gt;</code><emphasis role="ital"><code>0</code></emphasis><code>/fum</code><emphasis role="ital"><code>0</code></emphasis><code>/</code>
+   <!--  as originally tagged (DTD model for code doesn't permit emphasis)         
+           <code><emphasis role="ital">0</emphasis><![CDATA[fee]]><emphasis role="ital">0</emphasis><![CDATA[=fie]]><emphasis role="ital">0</emphasis><![CDATA[=foe]]><emphasis role="ital">0</emphasis><![CDATA[>]]><emphasis role="ital">0</emphasis><![CDATA[/fum]]><emphasis role="ital">0</emphasis><![CDATA[/]]></code>-->
+            through the parallel filtering algorithm, described in <xref linkend="par-filter"/>. </para><table xml:id="fig-parabix2"><caption><para>XML Source Data and Derived Parallel Bit Streams</para></caption><colgroup span="1"><col align="center" valign="top" span="1"/><col align="left" valign="top" span="1"/></colgroup><tbody><tr><td> Source Data </td><td>
+	                            <code> &lt;document&gt;fee&lt;element a1='fie' a2 = 'foe'&gt;&lt;/element&gt;fum&lt;/document&gt; </code></td></tr><tr><td> String Ends </td><td> <code>1____________1_______________1__________1_1____________1__________</code></td></tr><tr><td> Markup Identifiers </td><td>         <code>_________1______________1_________1______1_1____________1_________</code></td></tr><tr><td> Deletion Mask </td><td>              <code>_11111111_____1111111111_1____1111_11_______11111111_____111111111</code></td></tr><tr><td> Undeleted Data </td><td> <emphasis role="ital"><code>0</code></emphasis><code>________&gt;fee</code><emphasis role="ital"><code>0</code></emphasis><code>__________=_fie</code><emphasis role="ital"><code>0</code></emphasis><code>____=__foe</code><emphasis role="ital"><code>0</code></emphasis><code>&gt;</code><emphasis role="ital"><code>0</code></emphasis><code>/________fum</code><emphasis role="ital"><code>0</code></emphasis><code>/_________</code>
+   <!--  as originally tagged (DTD model for code doesn't permit emphasis)         
+<code><emphasis role="ital">0</emphasis>________&gt;fee<emphasis role="ital">0</emphasis>__________=_fie<emphasis role="ital">0</emphasis>____=__foe<emphasis role="ital">0</emphasis>><emphasis role="ital">0</emphasis>/________fum<emphasis role="ital">0</emphasis>/_________</code>-->
+</td></tr></tbody></table><para> Combined with the symbol stream, the parser traverses the content stream to
+            effectively reconstructs the input document in its output form. The initial <emphasis role="ital">0</emphasis> indicates an empty content string. The following
+               <code>&gt;</code> indicates that a start tag without any attributes is the first
+            element in this text and the first unused symbol, <code>document</code>, is the element
+            name. Succeeding that is the content string <code>fee</code>, which is null-terminated
+            in accordance with the Xerces API specification. Unlike Xerces, no memory-copy
+            operations are required to produce these strings, which as
+	      <xref linkend="xerces-profile"/> shows accounts for 6.83% of Xerces's execution time.
+            Additionally, it is cheap to locate the terminal character of each string: using the
+            String End bitstream, the Parabix Subsystem can effectively calculate the offset of each
+            null character in the content stream in parallel, which in turn means the parser can
+            directly jump to the end of every string without scanning for it. </para><para> Following <code>'fee'</code> is a <code>=</code>, which marks the
+            existence of an attribute. Because all of the intra-element was performed in the Parabix
+            Subsystem, this must be a legal attribute. Since attributes can only occur within start
+            tags and must be accompanied by a textual value, the next symbol in the symbol stream
+            must be the element name of a start tag, and the following one must be the name of the
+            attribute and the string that follows the <code>=</code> must be its value. However, the
+            subsequent <code>=</code> is not treated as an independent attribute because the parser
+            has yet to read a <code>&gt;</code>, which marks the end of a start tag. Thus only
+            one symbol is taken from the symbol stream and it (along with the string value) is added
+            to the element. Eventually the parser reaches a <code>/</code>, which marks the
+            existence of an end tag. Every end tag requires an element name, which means they
+            require a symbol. Inter-element validation whenever an empty tag is detected to ensure
+            that the appropriate scope-nesting rules have been applied. </para></section><section xml:id="namespace-handling"><title>Namespace Handling</title><!-- Should we mention canonical bindings or speculation? it seems like more of an optimization than anything. --><para> In XML, namespaces prevents naming conflicts when multiple vocabularies are used
+            together. It is especially important when a vocabulary application-dependant meaning,
+            such as when XML or SVG documents are embedded within XHTML files. Namespaces are bound
+            to uniform resource identifiers (URIs), which are strings used to identify specific
+            names or resources. On line 1 in <xref linkend="namespace-ex"/>, the <code>xmlns</code>
+            attribute instructs the XML processor to bind the prefix <code>p</code> to the URI
+               '<code>pub.net</code>' and the default (empty) prefix to
+               <code>book.org</code>. Thus to the XML processor, the <code>title</code> on line 2
+            and <code>price</code> on line 4 both read as
+            <code>"book.org":title</code> and
+               <code>"book.org":price</code> respectively, whereas on line 3 and
+            5, <code>p:name</code> and <code>price</code> are seen as
+               <code>"pub.net":name</code> and
+               <code>"pub.net":price</code>. Even though the actual element name
+               <code>price</code>, due to namespace scoping rules they are viewed as two
+            uniquely-named items because the current vocabulary is determined by the namespace(s)
+            that are in-scope. </para><table xml:id="namespace-ex"><caption><para>XML Namespace Example</para></caption><colgroup span="1"><col align="center" valign="top" span="1"/><col align="left" valign="top" span="1"/></colgroup><tbody><tr><td>1. </td><td>&lt;book xmlns:p="pub.net" xmlns="book.org"&gt; </td></tr><tr><td>2. </td><td>  &lt;title&gt;BOOK NAME&lt;/title&gt; </td></tr><tr><td>3. </td><td>  &lt;p:name&gt;PUBLISHER NAME&lt;/p:name&gt; </td></tr><tr><td>4. </td><td>  &lt;price&gt;X&lt;/price&gt; </td></tr><tr><td>5. </td><td>  &lt;price xmlns="publisher.net"&gt;Y&lt;/price&gt; </td></tr><tr><td>6. </td><td>&lt;/book&gt; </td></tr></tbody></table><para> In both Xerces and icXML, every URI has a one-to-one mapping to a URI ID. These
+            persist for the lifetime of the application through the use of a global URI pool. Xerces
+            maintains a stack of namespace scopes that is pushed (popped) every time a start tag
+            (end tag) occurs in the document. Because a namespace declaration affects the entire
+            element, it must be processed prior to grammar validation. This is a costly process
+            considering that a typical namespaced XML document only comes in one of two forms: (1)
+            those that declare a set of namespaces upfront and never change them, and (2) those that
+            repeatedly modify the namespaces in predictable patterns. </para><para> For that reason, icXML contains an independent namespace stack and utilizes bit
+            vectors to cheaply perform <!-- speculation and scope resolution options with a single XOR operation &#8212; even if many alterations are performed. -->
+            <!-- performance advantage figure?? average cycles/byte cost? --> When a prefix is
+            declared (e.g., <code>xmlns:p="pub.net"</code>), a namespace binding
+            is created that maps the prefix (which are assigned Prefix IDs in the symbol resolution
+            process) to the URI. Each unique namespace binding has a unique namespace id (NSID) and
+            every prefix contains a bit vector marking every NSID that has ever been associated with
+	      it within the document. For example, in <xref linkend="namespace-ex"/>, the prefix binding
+            set of <code>p</code> and <code>xmlns</code> would be <code>01</code> and
+            <code>11</code> respectively. To resolve the in-scope namespace binding for each prefix,
+            a bit vector of the currently visible namespaces is maintained by the system. By ANDing
+            the prefix bit vector with the currently visible namespaces, the in-scope NSID can be
+            found using a bit-scan intrinsic. A namespace binding table, similar to 
+            <xref linkend="namespace-binding"/>, provides the actual URI ID. </para><table xml:id="namespace-binding"><caption><para>Namespace Binding Table Example</para></caption><colgroup span="1"><col align="center" valign="top" span="1"/><col align="center" valign="top" span="1"/><col align="center" valign="top" span="1"/><col align="center" valign="top" span="1"/><col align="center" valign="top" span="1"/></colgroup><thead><tr><th>NSID </th><th> Prefix </th><th> URI </th><th> Prefix ID </th><th> URI ID </th></tr></thead><tbody><tr><td>0 </td><td> <code> p</code> </td><td> <code> pub.net</code> </td><td> 0 </td><td> 0 </td></tr><tr><td>1 </td><td> <code> xmlns</code> </td><td> <code> books.org</code> </td><td> 1 </td><td> 1 </td></tr><tr><td>2 </td><td> <code> xmlns</code> </td><td> <code> pub.net</code> </td><td> 1 </td><td> 0 </td></tr></tbody></table><para>
+            <!-- PrefixBindings = PrefixBindingTable[prefixID]; -->
+            <!-- VisiblePrefixBinding = PrefixBindings & CurrentlyVisibleNamespaces; -->
+            <!-- NSid = bitscan(VisiblePrefixBinding); -->
+            <!-- URIid = NameSpaceBindingTable[NSid].URIid; -->
+         </para><para> To ensure that scoping rules are adhered to, whenever a start tag is encountered,
+            any modification to the currently visible namespaces is calculated and stored within a
+            stack of bit vectors denoting the locally modified namespace bindings. When an end tag
+            is found, the currently visible namespaces is XORed with the vector at the top of the
+            stack. This allows any number of changes to be performed at each scope-level with a
+            constant time.
+            <!-- Speculation can be handled by probing the historical information within the stack but that goes beyond the scope of this paper.-->
+         </para></section><section xml:id="errorhandling"><title>Error Handling</title><para>
+            <!-- XML errors are rare but they do happen, especially with untrustworthy data sources.-->
+            Xerces outputs error messages in two ways: through the programmer API and as thrown
+            objects for fatal errors. As Xerces parses a file, it uses context-dependant logic to
+            assess whether the next character is legal; if not, the current state determines the
+            type and severity of the error. icXML emits errors in the similar manner—but
+            how it discovers them is substantially different. Recall that in Figure
+            <xref linkend="icxml-arch"/>, icXML is divided into two sections: the Parabix Subsystem and
+            Markup Processor, each with its own system for detecting and producing error messages. </para><para> Within the Parabix Subsystem, all computations are performed in parallel, a block at
+            a time. Errors are derived as artifacts of bitstream calculations, with a 1-bit marking
+            the byte-position of an error within a block, and the type of error is determined by the
+            equation that discovered it. The difficulty of error processing in this section is that
+            in Xerces the line and column number must be given with every error production. Two
+            major issues exist because of this: (1) line position adheres to XML white-normalization
+            rules; as such, some sequences of characters, e.g., a carriage return followed by a line
+            feed, are counted as a single new line character. (2) column position is counted in
+            characters, not bytes or code units; thus multi-code-unit code-points and surrogate
+            character pairs are all counted as a single column position. Note that typical XML
+            documents are error-free but the calculation of the line/column position is a constant
+            overhead in Xerces. <!-- that must be maintained in the case that one occurs. --> To
+            reduce this, icXML pushes the bulk cost of the line/column calculation to the occurrence
+            of the error and performs the minimal amount of book-keeping necessary to facilitate it.
+            icXML leverages the byproducts of the Character Set Adapter (CSA) module and amalgamates
+            the information within the Line Column Tracker (LCT). One of the CSA's major
+            responsibilities is transcoding an input text.
+            <!-- from some encoding format to near-output-ready UTF-16. --> During this process,
+            white-space normalization rules are applied and multi-code-unit and surrogate characters
+            are detected and validated. A <emphasis role="ital">line-feed bitstream</emphasis>,
+            which marks the positions of the normalized new lines characters, is a natural
+            derivative of this process. Using an optimized population count algorithm, the line
+            count can be summarized cheaply for each valid block of text.
+            <!-- The optimization delays the counting process .... --> Column position is more
+            difficult to calculate. It is possible to scan backwards through the bitstream of new
+            line characters to determine the distance (in code-units) between the position between
+            which an error was detected and the last line feed. However, this distance may exceed
+            than the actual character position for the reasons discussed in (2). To handle this, the
+            CSA generates a <emphasis role="ital">skip mask</emphasis> bitstream by ORing together
+            many relevant bitstreams, such as all trailing multi-code-unit and surrogate characters,
+            and any characters that were removed during the normalization process. When an error is
+            detected, the sum of those skipped positions is subtracted from the distance to
+            determine the actual column number. </para><para> The Markup Processor is a state-driven machine. As such, error detection within it
+            is very similar to Xerces. However, reporting the correct line/column is a much more
+            difficult problem. The Markup Processor parses the content stream, which is a series of
+            tagged UTF-16 strings. Each string is normalized in accordance with the XML
+            specification. All symbol data and unnecessary whitespace is eliminated from the stream;
+            thus its impossible to derive the current location using only the content stream. To
+            calculate the location, the Markup Processor borrows three additional pieces of
+            information from the Parabix Subsystem: the line-feed, skip mask, and a <emphasis role="ital">deletion mask stream</emphasis>, which is a bitstream denoting the
+            (code-unit) position of every datum that was suppressed from the source during the
+            production of the content stream. Armed with these, it is possible to calculate the
+            actual line/column using the same system as the Parabix Subsystem until the sum of the
+            negated deletion mask stream is equal to the current position. </para></section></section><section xml:id="multithread"><title>Multithreading with Pipeline Parallelism</title><para> As discussed in section <xref linkend="background-xerces"/>, Xerces can be considered a FSM
+         application. These are "embarrassingly
+         sequential."<citation linkend="Asanovic-EECS-2006-183"/> and notoriously difficult to
+         parallelize. However, icXML is designed to organize processing into logical layers. In
+         particular, layers within the Parabix Subsystem are designed to operate over significant
+         segments of input data before passing their outputs on for subsequent processing. This fits
+         well into the general model of pipeline parallelism, in which each thread is in charge of a
+         single module or group of modules. </para><para> The most straightforward division of work in icXML is to separate the Parabix Subsystem
+         and the Markup Processor into distinct logical layers into two separate stages. The
+         resultant application, <emphasis role="ital">icXML-p</emphasis>, is a course-grained
+         software-pipeline application. In this case, the Parabix Subsystem thread
+               <code>T<subscript>1</subscript></code> reads 16k of XML input <code>I</code> at a
+         time and produces the content, symbol and URI streams, then stores them in a pre-allocated
+         shared data structure <code>S</code>. The Markup Processor thread
+            <code>T<subscript>2</subscript></code> consumes <code>S</code>, performs well-formedness
+         and grammar-based validation, and the provides parsed XML data to the application through
+         the Xerces API. The shared data structure is implemented using a ring buffer, where every
+         entry contains an independent set of data streams. In the examples of
+	   <xref linkend="threads_timeline1"/>, the ring buffer has four entries. A
+         lock-free mechanism is applied to ensure that each entry can only be read or written by one
+         thread at the same time. In  <xref linkend="threads_timeline1"/> the processing time of
+               <code>T<subscript>1</subscript></code> is longer than
+         <code>T<subscript>2</subscript></code>; thus <code>T<subscript>2</subscript></code> always
+         waits for <code>T<subscript>1</subscript></code> to write to the shared memory.  
+	 <xref linkend="threads_timeline2"/> illustrates the scenario in which
+         <code>T<subscript>1</subscript></code> is faster and must wait for
+            <code>T<subscript>2</subscript></code> to finish reading the shared data before it can
+         reuse the memory space. </para><para>
+	<figure xml:id="threads_timeline1"><title>Thread Balance in Two-Stage Pipelines: Stage 1 Dominant</title><mediaobject><imageobject><imagedata format="png" fileref="../../../vol10/graphics/Cameron01/Cameron01-003.png" width="500cm"/></imageobject></mediaobject></figure>
+ 	<figure xml:id="threads_timeline2"><title>Thread Balance in Two-Stage Pipelines: Stage 2 Dominant</title><mediaobject><imageobject><imagedata format="png" fileref="../../../vol10/graphics/Cameron01/Cameron01-004.png" width="500cm"/></imageobject></mediaobject></figure>
+      </para><para> Overall, our design is intended to benefit a range of applications. Conceptually, we
+         consider two design points. The first, the parsing performed by the Parabix Subsystem
+         dominates at 67% of the overall cost, with the cost of application processing (including
+         the driver logic within the Markup Processor) at 33%. The second is almost the opposite
+         scenario, the cost of application processing dominates at 60%, while the cost of XML
+         parsing represents an overhead of 40%. </para><para> Our design is predicated on a goal of using the Parabix framework to achieve a 50% to
+         100% improvement in the parsing engine itself. In a best case scenario, a 100% improvement
+         of the Parabix Subsystem for the design point in which XML parsing dominates at 67% of the
+         total application cost. In this case, the single-threaded icXML should achieve a 1.5x
+         speedup over Xerces so that the total application cost reduces to 67% of the original.
+         However, in icXML-p, our ideal scenario gives us two well-balanced threads each performing
+         about 33% of the original work. In this case, Amdahl's law predicts that we could expect up
+         to a 3x speedup at best. </para><para> At the other extreme of our design range, we consider an application in which core
+         parsing cost is 40%. Assuming the 2x speedup of the Parabix Subsystem over the
+         corresponding Xerces core, single-threaded icXML delivers a 25% speedup. However, the most
+         significant aspect of our two-stage multi-threaded design then becomes the ability to hide
+         the entire latency of parsing within the serial time required by the application. In this
+         case, we achieve an overall speedup in processing time by 1.67x. </para><para> Although the structure of the Parabix Subsystem allows division of the work into
+         several pipeline stages and has been demonstrated to be effective for four pipeline stages
+         in a research prototype <citation linkend="HPCA2012"/>, our analysis here suggests that the further
+         pipelining of work within the Parabix Subsystem is not worthwhile if the cost of
+         application logic is little as 33% of the end-to-end cost using Xerces. To achieve benefits
+         of further parallelization with multi-core technology, there would need to be reductions in
+         the cost of application logic that could match reductions in core parsing cost. </para></section><section xml:id="performance"><title>Performance</title><para> We evaluate Xerces-C++ 3.1.1, icXML, icXML-p against two benchmarking applications: the
+         Xerces C++ SAXCount sample application, and a real world GML to SVG transformation
+         application. We investigated XML parser performance using an Intel Core i7 quad-core (Sandy
+         Bridge) processor (3.40GHz, 4 physical cores, 8 threads (2 per core), 32+32 kB (per core)
+         L1 cache, 256 kB (per core) L2 cache, 8 MB L3 cache) running the 64-bit version of Ubuntu
+         12.04 (Linux). </para><para> We analyzed the execution profiles of each XML parser using the performance counters
+         found in the processor. We chose several key hardware events that provide insight into the
+         profile of each application and indicate if the processor is doing useful work. The set of
+         events included in our study are: processor cycles, branch instructions, branch
+         mispredictions, and cache misses. The Performance Application Programming Interface (PAPI)
+         Version 5.5.0 <citation linkend="papi"/> toolkit was installed on the test system to facilitate the
+         collection of hardware performance monitoring statistics. In addition, we used the Linux
+         perf <citation linkend="perf"/> utility to collect per core hardware events. </para><section><title>Xerces C++ SAXCount</title><para> Xerces comes with sample applications that demonstrate salient features of the
+            parser. SAXCount is the simplest such application: it counts the elements, attributes
+            and characters of a given XML file using the (event based) SAX API and prints out the
+            totals. </para><para> <xref linkend="XMLdocs"/> shows the document characteristics of the XML input files
+            selected for the Xerces C++ SAXCount benchmark. The jaw.xml represents document-oriented
+            XML inputs and contains the three-byte and four-byte UTF-8 sequence required for the
+            UTF-8 encoding of Japanese characters. The remaining data files are data-oriented XML
+            documents and consist entirely of single byte encoded ASCII characters. 
+  <table xml:id="XMLdocs"><caption><para>XML Document Characteristics</para></caption><colgroup span="1"><col align="left" valign="top" span="1"/><col align="center" valign="top" span="1"/><col align="center" valign="top" span="1"/><col align="center" valign="top" span="1"/><col align="center" valign="top" span="1"/></colgroup><tbody><tr><td>File Name 		</td><td> jaw.xml	 	</td><td> road.gml 	</td><td> po.xml	</td><td> soap.xml </td></tr><tr><td>File Type 		</td><td> document 		</td><td> data		</td><td> data		</td><td> data	 </td></tr><tr><td>File Size (kB) 		</td><td> 7343 			</td><td> 11584 	</td><td> 76450		</td><td> 2717 </td></tr><tr><td>Markup Item Count 	</td><td> 74882 		</td><td> 280724  	</td><td> 4634110	</td><td> 18004 </td></tr><tr><td>Markup Density 		</td><td> 0.13 			</td><td> 0.57  	</td><td> 0.76		</td><td> 0.87	</td></tr></tbody></table>           
+</para><para> A key predictor of the overall parsing performance of an XML file is markup
+	   density<footnote><para>Markup Density: the ratio of markup bytes used to define the structure
+	     of the document vs. its file size.</para></footnote>. This metric has substantial influence on the
+            performance of traditional recursive descent XML parsers because it directly corresponds
+            to the number of state transitions that occur when parsing a document. We use a mixture
+            of document-oriented and data-oriented XML files to analyze performance over a spectrum
+            of markup densities. </para><para> <xref linkend="perf_SAX"/> compares the performance of Xerces, icXML and pipelined icXML
+            in terms of CPU cycles per byte for the SAXCount application. The speedup for icXML over
+            Xerces is 1.3x to 1.8x. With two threads on the multicore machine, icXML-p can achieve
+            speedup up to 2.7x. Xerces is substantially slowed by dense markup but icXML is less
+            affected through a reduction in branches and the use of parallel-processing techniques.
+            icXML-p performs better as markup-density increases because the work performed by each
+            stage is well balanced in this application. </para><para>
+	<figure xml:id="perf_SAX"><title>SAXCount Performance Comparison</title><mediaobject><imageobject><imagedata format="png" fileref="../../../vol10/graphics/Cameron01/Cameron01-005.png" width="500cm"/></imageobject></mediaobject></figure>
+         </para></section><section><title>GML2SVG</title><para>	 As a more substantial application of XML processing, the GML-to-SVG (GML2SVG) application
+was chosen.   This application transforms geospatially encoded data represented using 
+an XML representation in the form of Geography Markup Language (GML) <citation linkend="lake2004geography"/> 
+into a different XML format  suitable for displayable maps: 
+Scalable Vector Graphics (SVG) format <citation linkend="lu2007advances"/>. In the GML2SVG benchmark, GML feature elements 
+and GML geometry elements tags are matched. GML coordinate data are then extracted 
+and transformed to the corresponding SVG path data encodings. 
+Equivalent SVG path elements are generated and output to the destination 
+SVG document.  The GML2SVG application is thus considered typical of a broad
+class of XML applications that parse and extract information from 
+a known XML format for the purpose of analysis and restructuring to meet
+the requirements of an alternative format.</para><para>Our GML to SVG data translations are executed on GML source data 
+modelling the city of Vancouver, British Columbia, Canada. 
+The GML source document set 
+consists of 46 distinct GML feature layers ranging in size from approximately 9 KB to 125.2 MB 
+and with an average document size of 18.6 MB. Markup density ranges from approximately 0.045 to 0.719 
+and with an average markup density of 0.519. In this performance study, 
+213.4 MB of source GML data generates 91.9 MB of target SVG data.</para><figure xml:id="perf_GML2SVG"><title>Performance Comparison for GML2SVG</title><mediaobject><imageobject><imagedata format="png" fileref="../../../vol10/graphics/Cameron01/Cameron01-006.png" width="500cm"/></imageobject></mediaobject></figure><para><xref linkend="perf_GML2SVG"/> compares the performance of the GML2SVG application linked against
+the Xerces, icXML and icXML-p.   
+On the GML workload with this application, single-thread icXML
+achieved about a 50% acceleration over Xerces, 
+increasing throughput on our test machine from 58.3 MB/sec to 87.9 MB/sec.   
+Using icXML-p, a further throughput increase to 111 MB/sec was recorded, 
+approximately a 2X speedup.</para><para>An important aspect of icXML is the replacement of much branch-laden
+sequential code inside Xerces with straight-line SIMD code using far
+fewer branches.  <xref linkend="branchmiss_GML2SVG"/> shows the corresponding
+improvement in branching behaviour, with a dramatic reduction in branch misses per kB.
+It is also interesting to note that icXML-p goes even further.   
+In essence, in using pipeline parallelism to split the instruction 
+stream onto separate cores, the branch target buffers on each core are
+less overloaded and able to increase the successful branch prediction rate.</para><figure xml:id="branchmiss_GML2SVG"><title>Comparative Branch Misprediction Rate</title><mediaobject><imageobject><imagedata format="png" fileref="../../../vol10/graphics/Cameron01/Cameron01-007.png" width="500cm"/></imageobject></mediaobject></figure><para>The behaviour of the three versions with respect to L1 cache misses per kB is shown
+in <xref linkend="cachemiss_GML2SVG"/>.   Improvements are shown in both instruction-
+and data-cache performance with the improvements in instruction-cache
+behaviour the most dramatic.   Single-threaded icXML shows substantially improved
+performance over Xerces on both measures.   
+Although icXML-p is slightly worse with respect to data-cache performance, 
+this is more than offset by a further dramatic reduction in instruction-cache miss rate.
+Again partitioning the instruction stream through the pipeline parallelism model has 
+significant benefit.</para><figure xml:id="cachemiss_GML2SVG"><title>Comparative Cache Miss Rate</title><mediaobject><imageobject><imagedata format="png" fileref="../../../vol10/graphics/Cameron01/Cameron01-008.png" width="500cm"/></imageobject></mediaobject></figure><para>One caveat with this study is that the GML2SVG application did not exhibit 
+a relative balance of processing between application code and Xerces library
+code reaching the 33% figure.  This suggests that for this application and
+possibly others, further separating the logical layers of the
+icXML engine into different pipeline stages could well offer significant benefit.
+This remains an area of ongoing work.</para></section></section><section xml:id="conclusion"><title>Conclusion and Future Work</title><para> This paper is the first case study documenting the significant performance benefits
+         that may be realized through the integration of parallel bitstream technology into existing
+         widely-used software libraries. In the case of the Xerces-C++ XML parser, the combined
+         integration of SIMD and multicore parallelism was shown capable of dramatic producing
+         dramatic increases in throughput and reductions in branch mispredictions and cache misses.
+         The modified parser, going under the name icXML is designed to provide the full
+         functionality of the original Xerces library with complete compatibility of APIs. Although
+         substantial re-engineering was required to realize the performance potential of parallel
+         technologies, this is an important case study demonstrating the general feasibility of
+         these techniques. </para><para> The further development of icXML to move beyond 2-stage pipeline parallelism is
+         ongoing, with realistic prospects for four reasonably balanced stages within the library.
+         For applications such as GML2SVG which are dominated by time spent on XML parsing, such a
+         multistage pipelined parsing library should offer substantial benefits. </para><para> The example of XML parsing may be considered prototypical of finite-state machines
+         applications which have sometimes been considered "embarassingly
+         sequential" and so difficult to parallelize that "nothing
+         works." So the case study presented here should be considered an important data
+         point in making the case that parallelization can indeed be helpful across a broad array of
+         application types. </para><para> To overcome the software engineering challenges in applying parallel bitstream
+         technology to existing software systems, it is clear that better library and tool support
+         is needed. The techniques used in the implementation of icXML and documented in this paper
+         could well be generalized for applications in other contexts and automated through the
+         creation of compiler technology specifically supporting parallel bitstream programming.
+      </para><para>Given the success of the icXML development, there is a strong case for continued
+	    development of the Parabix framework as well as for the application of Parabix
+	    to other important XML technology stacks.   In particular, an important area for further 
+	    work is to extend the benefits of SIMD and multicore parallelism to the acceleration
+	    of Java-based XML processors. 
+      </para></section><bibliography><title>Bibliography</title><bibliomixed xml:id="CameronHerdyLin2008" xreflabel="Parabix1 2008">Cameron, Robert D., Herdy, Kenneth S. and Lin, Dan. High performance XML parsing using parallel bit stream technology. CASCON'08: Proc. 2008 conference of the center for advanced studies on collaborative research. Richmond Hill, Ontario, Canada. 2008.</bibliomixed><bibliomixed xml:id="papi" xreflabel="PAPI">Innovative Computing Laboratory, University of Texas. Performance Application Programming Interface. <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://icl.cs.utk.edu/papi/</link></bibliomixed><bibliomixed xml:id="perf" xreflabel="perf">Eranian, Stephane, Gouriou, Eric, Moseley, Tipp and Bruijn, Willem de. Linux kernel profiling with perf. <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">https://perf.wiki.kernel.org/index.php/Tutorial</link></bibliomixed><bibliomixed xml:id="Cameron2008" xreflabel="u8u16 2008">Cameron, Robert D.. A case study in SIMD text processing with parallel bit streams: UTF-8 to UTF-16 transcoding. Proc. 13th ACM SIGPLAN Symposium on Principles and Practice of Parallel Programming. Salt Lake City, USA. 2008. doi:<biblioid class="doi">10.1145/1345206.1345222</biblioid>.</bibliomixed><bibliomixed xml:id="ParaDOM2009" xreflabel="Shah and Rao 2009">Shah, Bhavik, Rao, Praveen, Moon, Bongki and Rajagopalan, Mohan. A Data Parallel Algorithm for XML DOM Parsing. Database and XML Technologies. 2009.</bibliomixed><bibliomixed xml:id="XMLSSE42" xreflabel="Lei 2008">Lei, Zhai. XML Parsing Accelerator with Intel Streaming SIMD Extensions 4 (Intel SSE4). <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Intel Software Network</link>.  2008.</bibliomixed><bibliomixed xml:id="Cameron2009" xreflabel="Balisage 2009">Cameron, Rob, Herdy, Ken and Amiri, Ehsan Amiri. Parallel Bit Stream Technology as a Foundation for XML Parsing Performance. Int'l Symposium on Processing XML Efficiently: Overcoming Limits on Space, Time, or Bandwidth. Montreal, Quebec, Canada.  2009. doi:<biblioid class="doi">10.4242/BalisageVol4.Cameron01</biblioid>.</bibliomixed><bibliomixed xml:id="HilewitzLee2006" xreflabel="Hilewitz and Lee 2006">Hilewitz, Yedidya and Lee, Ruby B.. Fast Bit Compression and Expansion with Parallel Extract and Parallel Deposit Instructions. ASAP '06: Proc. IEEE 17th Int'l Conference on Application-specific Systems, Architectures and Processors. Steamboat Springs, Colorado, USA.  2006.</bibliomixed><bibliomixed xml:id="Asanovic-EECS-2006-183" xreflabel="Asanovic et al. 2006">Asanovic, Krste and others. The Landscape of Parallel Computing Research: A View from Berkeley. EECS Department, University of California, Berkeley.  2006.</bibliomixed><bibliomixed xml:id="GRID2006" xreflabel="Lu and Chiu 2006">Lu, Wei, Chiu, Kenneth and Pan, Yinfei. A Parallel Approach to XML Parsing. Proceedings of the 7th IEEE/ACM International Conference on Grid Computing. Barcelona, Spain.  2006.</bibliomixed><bibliomixed xml:id="cameron-EuroPar2011" xreflabel="Parabix2 2011">Cameron, Robert D., Amiri, Ehsan, Herdy, Kenneth S., Lin, Dan, Shermer, Thomas C. and Popowich, Fred P.. Parallel Scanning with Bitstream Addition: An XML Case Study. Euro-Par 2011, LNCS 6853, Part II.  Bordeaux, Frane. 2011.</bibliomixed><bibliomixed xml:id="HPCA2012" xreflabel="Lin and Medforth 2012">Lin, Dan, Medforth, Nigel, Herdy, Kenneth S., Shriraman, Arrvindh and Cameron, Rob. Parabix: Boosting the efficiency of text processing on commodity processors. International Symposium on High-Performance Computer Architecture. New Orleans, LA. 2012. doi:<biblioid class="doi">10.1109/HPCA.2012.6169041</biblioid>.</bibliomixed><bibliomixed xml:id="HPCC2011" xreflabel="You and Wang 2011">You, Cheng-Han and Wang, Sheng-De. A Data Parallel Approach to XML Parsing and Query. 10th IEEE International Conference on High Performance Computing and Communications. Banff, Alberta, Canada. 2011.</bibliomixed><bibliomixed xml:id="E-SCIENCE2007" xreflabel="Pan and Zhang 2007">Pan, Yinfei, Zhang, Ying, Chiu, Kenneth and Lu, Wei. Parallel XML Parsing Using Meta-DFAs. International Conference on e-Science and Grid Computing.   Bangalore, India.  2007.</bibliomixed><bibliomixed xml:id="ICWS2008" xreflabel="Pan and Zhang 2008a">Pan, Yinfei, Zhang, Ying and Chiu, Kenneth. Hybrid Parallelism for XML SAX Parsing. IEEE International Conference on Web Services. Beijing, China.  2008.</bibliomixed><bibliomixed xml:id="IPDPS2008" xreflabel="Pan and Zhang 2008b">Pan, Yinfei, Zhang, Ying and Chiu, Kenneth. Simultaneous transducers for data-parallel XML parsing. International Parallel and Distributed Processing Symposium. Miami, Florida, USA.  2008.</bibliomixed><bibliomixed xml:id="HackersDelight" xreflabel="Warren 2002">Warren, Henry S.. Hacker's Delight. Addison-Wesley Professional. 2003.</bibliomixed><bibliomixed xml:id="lu2007advances" xreflabel="Lu and Dos Santos 2007">Lu, C.T., Dos Santos, R.F., Sripada, L.N. and Kou, Y.. Advances in GML for geospatial applications. Geoinformatica 11:131-157.  2007. doi:<biblioid class="doi">10.1007/s10707-006-0013-9</biblioid>.</bibliomixed><bibliomixed xml:id="lake2004geography" xreflabel="Lake and Burggraf 2004">Lake, R., Burggraf, D.S., Trninic, M. and Rae, L.. Geography mark-up language (GML) [foundation for the geo-web]. Wiley.  Chichester.  2004.</bibliomixed></bibliography></article>

@@ -1,0 +1,1555 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?><classedDocument><article xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink" class="po-hcontainer e0 e0" version="5.0-subset Balisage-1.3"><title class="po-block e1 e1"><textual class="po-textual">JXON: an Architecture for Schema and Annotation Driven JSON/XML Bidirectional
+		Transformations</textual></title><info class="po-record e2 e2"><confgroup class="po-record e3 e3"><conftitle class="po-field e4 e4"><textual class="po-textual">Balisage: The Markup Conference 2011</textual></conftitle><confdates class="po-field e5 e5"><textual class="po-textual">August 2 - 5, 2011</textual></confdates></confgroup><abstract class="po-container e6 e6"><para class="po-block e7 e7"><textual class="po-textual">JSON and XML are seen by some as competing markup formats for content and data.
+				JSON has become predominant in the mobile and browser domains while XML dominates
+				the Server, Enterprise and Document domains. Where these domains meet and need to
+				exchange information there is pressure for one domain to impose on the other their
+				markup format. JXON is an architecture that addresses this problem by providing for
+				high quality bidirectional transformations between XML and JSON. Previous approaches
+				provide for only a single mapping intended to cover all cases, but generally cover
+				few cases well. JXON uses Schema and annotations to allow highly customizable
+				transformations that can be tuned for individual schemas, elements, attributes and
+				types yet still be easily configured.</textual></para></abstract><author class="po-record e8 e8"><personname class="po-record e9 e9"><firstname class="po-field e10 e10"><textual class="po-textual">David</textual></firstname><surname class="po-field e11 e11"><textual class="po-textual">Lee</textual></surname></personname><personblurb class="po-container e12 e12"><para class="po-block e13 e13"><textual class="po-textual">David Lee has over 25 years experience in the software industry responsible
+					for many major projects in small and large companies including Sun Microsystems,
+					IBM, Centura Software (formerly Gupta.), Premenos, Epiphany (formerly
+					RightPoint), WebGain, Nexstra, Epocrates. As senior principal software engineer
+					at Epocrates, Inc., Mr Lee is responsible for managing data integration,
+					storage, retrieval, and processing of clinical knowledge databases for the
+					leading clinical information provider.</textual></para><para class="po-block e14 e14"><textual class="po-textual">Key career contributions include Real-time AIX OS extensions for optimizing transmission
+					of real-time streaming video (IBM), secure encrypted EDI over internet email
+					(Premenos), porting the Centura Team Desktop system to Solaris (Gupta, Centura),
+					optimizations of large Enterprise CRM systems (Epiphany), author of xmlsh (</textual><link class="po-inline e15 e15" xlink:actuate="onRequest" xlink:href="http://www.xmlsh.org/" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://www.xmlsh.org</textual></link><textual class="po-textual"> ) an open
+					source scripting language for XML.</textual></para></personblurb><affiliation class="po-record e16 e16"><jobtitle class="po-field e17 e17"><textual class="po-textual">Senior Principal Software Engineer</textual></jobtitle><orgname class="po-block e18 e18"><textual class="po-textual">Epocrates, Inc.</textual></orgname></affiliation><email class="po-field e19 e19"><textual class="po-textual">dlee@epocrates.com</textual></email></author><legalnotice class="po-container e20 e20"><para class="po-block e21 e21"><textual class="po-textual">Copyright © 2011 David A. Lee</textual></para></legalnotice></info><section class="po-hcontainer e22 e22"><title class="po-block e23 e23"><textual class="po-textual">Introduction - JXON</textual></title><para class="po-block e24 e24"><textual class="po-textual">JXON is both a design architecture and a reference implementation of a tool for JSON</textual><footnote class="po-popup e25 e25"><para class="po-block e26 e26"><textual class="po-textual">JSON JavaScript Object Notation </textual><link class="po-inline e27 e27" xlink:actuate="onRequest" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://www.json.org</textual></link><textual class="po-textual">
+				</textual></para></footnote><textual class="po-textual">/XML </textual><footnote class="po-popup e28 e28"><para class="po-block e29 e29"><textual class="po-textual">XML - Extensible Markup Language (XML) </textual><link class="po-inline e30 e30" xlink:actuate="onRequest" xlink:href="http://www.w3.org/XML/" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://www.w3.org/XML/</textual></link><textual class="po-textual">
+				</textual></para></footnote><textual class="po-textual"> transformations. Unlike other XML/JSON transformation architectures and
+			tools, JXON attempts to fulfill the needs of both XML and JSON authors and developers
+			equally. </textual></para><para class="po-block e31 e31"><textual class="po-textual">JXON provides the ability to easily describe both unidirectional and bidirectional XML/JSON
+			transformations that produce markup which authors of that particular format would like
+			to use.</textual></para></section><section class="po-hcontainer e32 e32"><title class="po-block e33 e33"><textual class="po-textual">Diving In</textual></title><para class="po-block e34 e34"><textual class="po-textual">To get a quick idea of the problem that JXON is attempting to solve consider the following
+			pair of documents representing the same information in </textual><emphasis class="po-inline e35 e35"><textual class="po-textual">XML</textual></emphasis><textual class="po-textual"> and JSON.</textual></para><para class="po-block e36 e36"><textual class="po-textual">
+			</textual><programlisting class="po-block e37 e37" xml:space="preserve"><textual class="po-textual">&lt;BOOKS&gt;
+  &lt;BOOK id="1"&gt;
+    &lt;TITLE&gt;My Favorite Book&lt;/TITLE&gt;
+    &lt;PRICE&gt;1.23&lt;/PRICE&gt;
+  &lt;/BOOK&gt;
+  &lt;BOOK id="1a"&gt;
+    &lt;TITLE&gt;XML for Dummies&lt;/TITLE&gt;
+    &lt;PRICE&gt;5.25&lt;/PRICE&gt;
+  &lt;/BOOK&gt;
+  &lt;BOOK id="3"&gt;
+    &lt;TITLE&gt;JSON for Dummies&lt;/TITLE&gt;
+    &lt;PRICE&gt;200.95&lt;/PRICE&gt;
+  &lt;/BOOK&gt;
+&lt;/BOOKS&gt;</textual></programlisting><textual class="po-textual">
+		</textual></para><para class="po-block e38 e38"><textual class="po-textual">
+			</textual><programlisting class="po-block e39 e39" xml:space="preserve"><textual class="po-textual">{ "BOOKS" : [ 
+  { "id" : "1"  , "title": "My Favorite Book" , "price" : 1.23 },
+  { "id" : "1a" , "title": "XML for Dummies"  , "price" : 5.25},
+  { "id" : "3"  , "title": "JSON for Dummies" , "price" : 200.95 }
+]}
+</textual></programlisting><textual class="po-textual">
+		</textual></para><para class="po-block e40 e40"><textual class="po-textual">The XML and JSON are both in styles which a native author of that markup type may wish to
+			use. It appears that there is an obvious and simple mapping between the formats, and in
+			fact there should be a simple reversible lossless transformation so that given a
+			document in either XML or JSON it could be transformed to the other format and back and
+			end up identical. This seems like such a simple problem not even worth discussing. But
+			in reality there are no existing tools which can actually do this generically without
+			hand coding a transformation, both directions, in one or more programming languages. The
+			resulting code in say </textual><emphasis class="po-inline e41 e41"><textual class="po-textual">XSLT</textual></emphasis><footnote class="po-popup e42 e42"><para class="po-block e43 e43"><textual class="po-textual">XSLT - XSL Transformations (XSLT) Version 2.0 </textual><link class="po-inline e44 e44" xlink:actuate="onRequest" xlink:href="http://www.w3.org/TR/xslt20/" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://www.w3.org/TR/xslt20/</textual></link></para></footnote><textual class="po-textual"> or JAVA</textual><footnote class="po-popup e45 e45"><para class="po-block e46 e46"><textual class="po-textual">JAVA </textual><link class="po-inline e47 e47" xlink:actuate="onRequest" xlink:href="http://www.java.com/" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://www.java.com</textual></link></para></footnote><textual class="po-textual">
+			could be very large and tedious to write. Furthermore
+			such code may not easily be reused for a new document schema.</textual></para><para class="po-block e48 e48"><textual class="po-textual">There are many subtleties to this problem. Just a few to think about that highlight the
+			issues:</textual></para><para class="po-block e49 e49"><textual class="po-textual">
+			</textual><itemizedlist class="po-table e50 e50"><listitem class="po-container e51 e51"><para class="po-block e52 e52"><textual class="po-textual">How would a translation know to consistently use a string value for "id" and "title" but
+						a numeric value for "price"?</textual></para></listitem><listitem class="po-container e53 e53"><para class="po-block e54 e54"><textual class="po-textual">Where does the "BOOK" element come from when translating to XML?</textual></para></listitem><listitem class="po-container e55 e55"><para class="po-block e56 e56"><textual class="po-textual">How does the JSON to XML transformation code know to make "id" into an attribute in XML
+						but not price or title? </textual></para></listitem><listitem class="po-container e57 e57"><para class="po-block e58 e58"><textual class="po-textual">How does the XML to JSON translation know to construct an array in JSON?</textual></para></listitem><listitem class="po-container e59 e59"><para class="po-block e60 e60"><textual class="po-textual">Where does the name conversion rule for "TITLE" vs "title" and "PRICE" vs "price"
+						occur?</textual></para></listitem></itemizedlist><textual class="po-textual">
+		</textual></para><para class="po-block e61 e61"><textual class="po-textual">As a comparison the default XML to JSON transformation from json.org produces the
+				following JSON </textual><programlisting class="po-block e62 e62" xml:space="preserve"><textual class="po-textual">
+{
+ "childNodes": [
+  {
+   "childNodes": [
+    {
+     "childNodes": ["My Favorite Book"],
+     "tagName": "TITLE"
+    },
+    {
+     "childNodes": [1.23],
+     "tagName": "PRICE"
+    }
+   ],
+   "id": 1,
+   "tagName": "BOOK"
+  },
+  {
+   "childNodes": [
+    {
+     "childNodes": ["XML for Dummies"],
+     "tagName": "TITLE"
+    },
+    {
+     "childNodes": [5.25],
+     "tagName": "PRICE"
+    }
+   ],
+   "id": "1a",
+   "tagName": "BOOK"
+  },
+  {
+   "childNodes": [
+    {
+     "childNodes": ["JSON for Dummies"],
+     "tagName": "TITLE"
+    },
+    {
+     "childNodes": [200.95],
+     "tagName": "PRICE"
+    }
+   ],
+   "id": 3,
+   "tagName": "BOOK"
+  }
+ ],
+ "tagName": "BOOKS"
+}</textual></programlisting><textual class="po-textual">
+			</textual></para><para class="po-block e63 e63"><textual class="po-textual">Note some non-ideal artifacts of this transformation (which are common among
+				existing tools)</textual></para><para class="po-block e64 e64"><textual class="po-textual">
+				</textual><itemizedlist class="po-table e65 e65"><listitem class="po-container e66 e66"><para class="po-block e67 e67"><textual class="po-textual">Inconsistent typing of the "id" value</textual></para></listitem><listitem class="po-container e68 e68"><para class="po-block e69 e69"><textual class="po-textual">Very verbose and complex JSON representation</textual></para></listitem><listitem class="po-container e70 e70"><para class="po-block e71 e71"><textual class="po-textual">JSON arrays where simple values should be used</textual></para></listitem><listitem class="po-container e72 e72"><para class="po-block e73 e73"><textual class="po-textual">Pairs of 'name/value' members where native JSON member names should be
+							used. </textual></para></listitem><listitem class="po-container e74 e74"><para class="po-block e75 e75"><textual class="po-textual">Unnecessary distinctions between how attributes and child elements are
+							serialized.</textual></para></listitem></itemizedlist><textual class="po-textual">
+			</textual></para><para class="po-block e76 e76"><textual class="po-textual">Other existing tools attempt to solve this problem various ways, optimizing for
+				either XML or JSON and often making simplifying assumptions which are valid for only
+				some kinds of documents. The results can be good for some special cases but overall
+				there is no existing solution that provides good transformations that work equally
+				well in both directions for a wide variety of documents and produce markup close to
+				what a human author would want to create or use.</textual></para><section class="po-hcontainer e77 e77"><title class="po-block e78 e78"><textual class="po-textual">JXON attempts to solve this problem</textual></title><para class="po-block e79 e79"><textual class="po-textual">As an example, the following is an RNG</textual><footnote class="po-popup e80 e80"><para class="po-block e81 e81"><textual class="po-textual">Relax NG - </textual><link class="po-inline e82 e82" xlink:actuate="onRequest" xlink:href="http://relaxng.org/" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://relaxng.org</textual></link></para></footnote><textual class="po-textual"> Compact Notation schema which fully describes both the schema and rules
+				for the bidirectional lossless transformation for the example above. This is all
+				that is needed for JXON to produce both XML to JSON and JSON to XML transformations.</textual><programlisting class="po-block e83 e83" xml:space="preserve"><textual class="po-textual">default namespace = ""
+#&lt;jxon:pattern name="simple"/&gt;
+grammar {
+start =  Books
+
+#&lt;jxon:children wrap="array"/&gt;
+Books = element BOOKS { Book+ }
+
+#&lt;jxon:json_name omit="true"/&gt;
+Book = element BOOK {
+      attribute id { xsd:NMTOKEN },
+      Title, 
+      Price
+}
+#&lt;jxon:json_name name="title"/&gt;
+Title =    element TITLE { text }
+
+#&lt;jxon:json_name name="price"/&gt;
+Price = element PRICE { xsd:decimal }
+}</textual></programlisting><textual class="po-textual">And the equivalent schema in XSD using Annotations instead of comments.</textual></para><para class="po-block e84 e84"><textual class="po-textual">
+		</textual><programlisting class="po-block e85 e85" xml:space="preserve"><textual class="po-textual">&lt;xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified"  xmlns:jxon="http://www.xmlsh.org/jxon"&gt;
+  &lt;xs:annotation&gt; &lt;xs:appinfo&gt;
+      &lt;jxon:pattern name="simple"/&gt;
+    &lt;/xs:appinfo&gt;
+   &lt;/xs:annotation&gt;
+  
+  &lt;xs:element name="BOOKS"&gt;
+    &lt;xs:annotation &gt; &lt;xs:appinfo&gt;
+        &lt;jxon:children wrap="array"/&gt;
+      &lt;/xs:appinfo&gt;
+     &lt;/xs:annotation&gt;
+    &lt;xs:complexType&gt;
+      &lt;xs:sequence&gt;
+        &lt;xs:element maxOccurs="unbounded" ref="BOOK"/&gt;
+      &lt;/xs:sequence&gt;
+    &lt;/xs:complexType&gt;
+  &lt;/xs:element&gt;
+  
+  &lt;xs:element name="BOOK"&gt;
+    &lt;xs:annotation&gt; &lt;xs:appinfo&gt;
+        &lt;jxon:json_name omit="true"/&gt;
+      &lt;/xs:appinfo&gt;&lt;/xs:annotation&gt;
+    &lt;xs:complexType&gt;
+      &lt;xs:sequence&gt;
+        &lt;xs:element ref="TITLE"/&gt;
+        &lt;xs:element ref="PRICE"/&gt;
+      &lt;/xs:sequence&gt;
+      &lt;xs:attribute name="id" use="required" type="xs:NMTOKEN"/&gt;
+    &lt;/xs:complexType&gt;
+  &lt;/xs:element&gt;
+  
+  &lt;xs:element name="TITLE" type="xs:string"&gt;
+    &lt;xs:annotation&gt; &lt;xs:appinfo&gt;
+        &lt;jxon:json_name name="title"/&gt;
+      &lt;/xs:appinfo&gt;&lt;/xs:annotation&gt;
+  &lt;/xs:element&gt;
+  
+  &lt;xs:element name="PRICE" type="xs:decimal"&gt;
+    &lt;xs:annotation&gt; &lt;xs:appinfo&gt;
+        &lt;jxon:json_name name="price"/&gt;
+      &lt;/xs:appinfo&gt;
+   &lt;/xs:annotation&gt;
+  &lt;/xs:element&gt;
+&lt;/xs:schema&gt;
+</textual></programlisting><textual class="po-textual">
+</textual></para></section></section><section class="po-hcontainer e86 e86"><title class="po-block e87 e87"><textual class="po-textual">JSON/XML what's the problem?</textual></title><para class="po-block e88 e88"><textual class="po-textual">JSON has become a very popular and useful markup language among some developers and
+			use cases, particularly in browser and mobile applications. These developers require
+			JSON to be delivered from and to services which often use XML as their back end data
+			model. This support requires clean and robust transformations of XML to and from JSON.
+			Because of subtle but significant differences in both the data model and the
+			serialization format this transformation is either done by hand coding, or by
+			sacrificing the clarity of the markup on either the JSON or the XML.</textual></para><para class="po-block e89 e89"><textual class="po-textual">JSON and XML are conceptually similar. They are both text based markup languages designed to
+			represent data in a format which is human readable, interchangeable across environments
+			and parseable by most programming languages. On the surface they seem quite similar,
+			with the major apparent difference being a slightly terser notation for JSON for simple
+			things (lack of end tags). There are many mappings between JSON and XML, and programs
+			that implement those mappings. This, in theory, allows one to choose the markup and
+			tool-set of your choice and transform it to the other at will. Servers that store XML
+			data can produce JSON data for clients that need it, and visa-versa.</textual></para><para class="po-block e90 e90"><textual class="po-textual">Reality, unfortunately, is not so simple. JSON and XML are fundamentally (and often
+			subtly) incompatible in their abstract data models. They are both sufficiently rich that
+			they can describe each other's data model, so creating a mapping from arbitrary XML to
+			JSON and visa-versa is </textual><emphasis class="po-inline e91 e91"><textual class="po-textual">possible</textual></emphasis><textual class="po-textual"> but the result can be very complex.
+			This has led people to design mappings which accommodate only a subset of XML or
+			tailored to particular schemas.</textual></para><section class="po-hcontainer e92 e92"><title class="po-block e93 e93"><textual class="po-textual">Anonymous values</textual></title><para class="po-block e94 e94"><textual class="po-textual">JSON values are anonymous. They only acquire names by being referenced in an object (map).
+				For example, the following is a valid JSON
+				document.</textual><programlisting class="po-block e95 e95" xml:space="preserve"><textual class="po-textual">
+	"Hello World"	
+</textual></programlisting><textual class="po-textual"> The analogous XML
+				document would need a root element with child text content or perhaps an
+				attribute.</textual><programlisting class="po-block e96 e96" xml:space="preserve"><textual class="po-textual">	&lt;root&gt;Hello World&lt;/root&gt;
+or
+	&lt;root value="Hello World"/&gt;</textual></programlisting></para><para class="po-block e97 e97"><textual class="po-textual"> In the degenerate case this means entire JSON documents can be composed of single
+				(or arrays of) anonymous values which have no direct mapping to the XML data
+				model.</textual></para><para class="po-block e98 e98"><textual class="po-textual">When mapping JSON to XML this additional markup cannot generally be derived from
+				the JSON data itself, but rather needs external rules to decide on the approach.
+				When mapping XML to JSON the presence of an element with text children or attribute
+				value may not necessarily imply creation of an anonymous JSON value, but rather the
+				element and attribute names are commonly used to create named members of JSON
+				objects such as
+				</textual><programlisting class="po-block e99 e99" xml:space="preserve"><textual class="po-textual">
+	{ "root" : "Hello World" }
+					or
+	{"root" : { "value" : "Hello World" }}
+</textual></programlisting><textual class="po-textual">
+			</textual></para></section><section class="po-hcontainer e100 e100"><title class="po-block e101 e101"><textual class="po-textual">Arrays</textual></title><para class="po-block e102 e102"><textual class="po-textual">JSON has a native representation of arrays which does not exist as native types in
+				XML. XSD Schema has support for values which can be interpreted as tokenized lists,
+				but there is no direct markup for an array of objects. Arrays can be represented in
+				XML in several ways ; repeated elements, repeated elements grouped by a common
+				parent, usefully named attributes, usefully named elements and tokenized strings. </textual></para><para class="po-block e103 e103"><textual class="po-textual">For example the following JSON array </textual></para><para class="po-block e104 e104"><programlisting class="po-block e105 e105" xml:space="preserve"><textual class="po-textual">
+	[ 1 , "String" ]
+</textual></programlisting><textual class="po-textual"> Could be represented in XML as any of
+				the following (and many other ways) </textual></para><para class="po-block e106 e106"><textual class="po-textual">
+				</textual><programlisting class="po-block e107 e107" xml:space="preserve"><textual class="po-textual">
+	&lt;array&gt;1 String&lt;/array&gt;
+	
+	&lt;array&gt;&lt;entry&gt;1&lt;/entry&gt;&lt;entry&gt;String&lt;/entry&gt;&lt;array&gt;
+	
+	&lt;array entry1="1" entry2="String"/&gt;
+	
+	&lt;entry&gt;1&lt;/entry&gt;&lt;entry&gt;String&lt;/entry&gt;
+</textual></programlisting><textual class="po-textual">
+			</textual></para><para class="po-block e108 e108"><textual class="po-textual">Mapping XML to JSON arrays is possible but since there is no single mapping, and since XML
+				semantics by itself doesnt indicate array representation, one must know via external
+				information to treat specific XML markup as a JSON array. Given any of the above
+				examples, its not obvious that they should be mapped to a JSON array as opposed to
+				some other JSON structure (such as a simple value or object).</textual></para></section><section class="po-hcontainer e109 e109"><title class="po-block e110 e110"><textual class="po-textual">Implicit Types (e.g. "Duck Typing")</textual></title><para class="po-block e111 e111"><textual class="po-textual">JSON values make use of implicit types which can be inferred by the serialization
+				format. For example </textual><code class="po-atom e112 e112"><textual class="po-textual">1</textual></code><textual class="po-textual"> is a Numeric type, while </textual><code class="po-atom e113 e113"><textual class="po-textual">"1"</textual></code><textual class="po-textual"> is
+				String type. This is common in programming languages, but not as common in markup
+				languages. In XML, without a schema, the token </textual><code class="po-atom e114 e114"><textual class="po-textual">1</textual></code><textual class="po-textual"> is xs:anyType and it's
+				up the application to infer a type (possibly using a schema, or up to application
+				logic).</textual></para><para class="po-block e115 e115"><textual class="po-textual">This leads to problems mapping XML to JSON. When a plain character string value
+				from XML is mapped, what JSON type should be used? It's tempting to use the value
+				instance to deduce the type, but this could be very dangerous. An application may be
+				expecting string types and if one instance happens to translate </textual><code class="po-atom e116 e116"><textual class="po-textual">1</textual></code><textual class="po-textual"> to a
+				numeric type because it looks like one, and another translates "one" to a string
+				this could break the application.</textual></para><para class="po-block e117 e117"><textual class="po-textual">Translating atomic values from JSON to XML is not as problematic as generally
+				typing can simply be ignored because the serialization format for string and numbers
+				is the same in XML, although other atomic types like boolean, dates etc can be more
+				problematic.</textual></para></section><section class="po-hcontainer e118 e118"><title class="po-block e119 e119"><textual class="po-textual">Identifiers</textual></title><para class="po-block e120 e120"><textual class="po-textual">JSON allows any string as a identifier (Object member name). XML is much more restrictive
+				for identifiers. Translation of XML identifiers (element and attribute names) to
+				JSON member names causes few problems, but the reverse can lead to invalid XML. For
+				example "a value" is a valid member name in JSON but not a valid attribute or
+				element name in XML</textual></para></section><section class="po-hcontainer e121 e121"><title class="po-block e122 e122"><textual class="po-textual">Namespaces</textual></title><para class="po-block e123 e123"><textual class="po-textual">XML supports namespaces, while JSON does not. Mapping QNames in XML with
+				namespaces to member names in JSON can lead to ambiguous, complex or duplicate
+				names. Translating member names in JSON to XML QName may lose namespaces.</textual></para></section><section class="po-hcontainer e124 e124"><title class="po-block e125 e125"><textual class="po-textual">Processing Instructions</textual></title><para class="po-block e126 e126"><textual class="po-textual">XML supports Processing Instructions, which are absent from the JSON data
+				model.</textual></para></section><section class="po-hcontainer e127 e127"><title class="po-block e128 e128"><textual class="po-textual">Attributes</textual></title><para class="po-block e129 e129"><textual class="po-textual">JSON has no concept or representation for Attributes (as distinct from other
+				values).</textual></para><para class="po-block e130 e130"><textual class="po-textual">When mapping XML to JSON, attributes are often translated to named object members
+				(along with child elements). When mapping JSON to XML it requires external knowledge
+				to determine when to map members to attributes.</textual></para></section><section class="po-hcontainer e131 e131"><title class="po-block e132 e132"><textual class="po-textual">Character Set</textual></title><para class="po-block e133 e133"><textual class="po-textual">JSON supports a broader set of text characters (Unicode code points) then XML. For
+				example JSON supports the NUL character ('\0') whereas NUL is invalid in XML even if
+				encoded as an entity (&amp;#0;). This implies that JSON character data cannot be
+				mapped to XML character data losslessly without application specific
+				encodings.</textual></para></section><section class="po-hcontainer e134 e134"><title class="po-block e135 e135"><textual class="po-textual">Comments</textual></title><para class="po-block e136 e136"><textual class="po-textual">XML directly supports comments while JSON does not. Comments were originally
+				allowed in JSON but Douglas Crockford removed them </textual><footnote class="po-popup e137 e137"><para class="po-block e138 e138"><textual class="po-textual">
+						</textual><link class="po-inline e139 e139" xlink:actuate="onRequest" xlink:href="http://developer.yahoo.com/yui/theater/video.php?v=crockford-json" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://developer.yahoo.com/yui/theater/video.php?v=crockford-json</textual></link></para><para class="po-block e140 e140"><textual class="po-textual">The main reason I took comments out was that I saw people who were trying
+						to control what the parser would do based on what was in the comments, and
+						that totally broke interoperability. There's no way I could control the way
+						they were using comments, so the most effective fix was to take the comments
+						out.</textual></para></footnote></para><para class="po-block e141 e141"><textual class="po-textual">Comments could be encoded in JSON using special object member names (such as
+				"_comment") requiring application support to understand these were comments and not
+				data.</textual></para><para class="po-block e142 e142"><textual class="po-textual">A common case is to simply strip comments from XML when mapping to JSON, and to
+				not insert comments when mapping JSON to XML.</textual></para></section><section class="po-hcontainer e143 e143"><title class="po-block e144 e144"><textual class="po-textual">Document Node</textual></title><para class="po-block e145 e145"><textual class="po-textual">JSON does not have a Document Node, where XML does. This is generally not problem in
+				practice as the XML Document Node is usually implicitly created in the model, and
+				has no textual representation.</textual></para></section><section class="po-hcontainer e146 e146"><title class="po-block e147 e147"><textual class="po-textual">Serialization</textual></title><para class="po-block e148 e148"><textual class="po-textual">The text Serialization format for JSON and XML differ significantly. Often the
+				serialization format is the main focus of JSON vs. XML mappings. I assert that the
+				serialization format is completely irrelevant for purposes of mapping and
+				transformations; the formats are well defined and there exist a large number of
+				implementations which can parse and serialize XML and JSON. If one focuses instead
+				on the abstract data model, the issue of serialization (both parsing and generation)
+				becomes a trivial implementation issue.</textual></para></section><section class="po-hcontainer e149 e149"><title class="po-block e150 e150"><textual class="po-textual">Encodings</textual></title><para class="po-block e151 e151"><textual class="po-textual">Related to the Serialization format, encodings for JSON and XML can differ. JSON is defined
+				to support only the UTF-8 encoding while XML can use many different encodings. Like
+				serialization, I assert that encoding is irrelevant. If one works with the JSON and
+				XML abstract data Models instead of their serialization and encoding formats these
+				issues disappear. </textual></para></section></section><section class="po-hcontainer e152 e152"><title class="po-block e153 e153"><textual class="po-textual">Existing Designs and Implementations</textual></title><para class="po-block e154 e154"><textual class="po-textual">There are many existing models, designs, and implementations for translating XML to
+			JSON, JSON to XML or both. The advantages and limitations were considered in the design
+			of JXON. These include (but not limited to) the following</textual><itemizedlist class="po-table e155 e155"><listitem class="po-container e156 e156"><para class="po-block e157 e157"><textual class="po-textual">The JSON to XML converter from json.org </textual><xref class="po-milestone e158 e158" linkend="jsonorg"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref></para></listitem><listitem class="po-container e159 e159"><para class="po-block e160 e160"><textual class="po-textual">JSONx </textual><xref class="po-milestone e161 e161" linkend="jsonx"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref></para></listitem><listitem class="po-container e162 e162"><para class="po-block e163 e163"><textual class="po-textual">Badgerfish </textual><xref class="po-milestone e164 e164" linkend="badgerfish"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref></para></listitem><listitem class="po-container e165 e165"><para class="po-block e166 e166"><textual class="po-textual">Rabbitfish </textual><xref class="po-milestone e167 e167" linkend="rabbitfish"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref></para></listitem><listitem class="po-container e168 e168"><para class="po-block e169 e169"><textual class="po-textual">JSON Markup Language (JsonML) </textual><xref class="po-milestone e170 e170" linkend="jsonml"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref></para></listitem><listitem class="po-container e171 e171"><para class="po-block e172 e172"><textual class="po-textual">XSLTJSON, XML to JSON using XSLT </textual><xref class="po-milestone e173 e173" linkend="xsltjson"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref></para></listitem><listitem class="po-container e174 e174"><para class="po-block e175 e175"><textual class="po-textual">XML to JSON jQuery Plugin </textual><xref class="po-milestone e176 e176" linkend="jquery"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref></para></listitem><listitem class="po-container e177 e177"><para class="po-block e178 e178"><textual class="po-textual">Boomerang - A bidirectional programming language for ad-hoc, textual data.
+							</textual><xref class="po-milestone e179 e179" linkend="boomerang"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref></para></listitem><listitem class="po-container e180 e180"><para class="po-block e181 e181"><textual class="po-textual">XSugar - Dual Syntax for XML Languages </textual><xref class="po-milestone e182 e182" linkend="xsugar"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref></para></listitem><listitem class="po-container e183 e183"><para class="po-block e184 e184"><textual class="po-textual">OGF Standards: Data Format Description Language (DFDL) </textual><xref class="po-milestone e185 e185" linkend="dfdl"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">
+					</textual></para></listitem><listitem class="po-container e186 e186"><para class="po-block e187 e187"><textual class="po-textual">MLJSON - An XML Facade over JSON</textual><xref class="po-milestone e188 e188" linkend="mljson"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref></para></listitem></itemizedlist></para><section class="po-hcontainer e189 e189"><title class="po-block e190 e190"><textual class="po-textual">Limitations of existing implementations</textual></title><para class="po-block e191 e191"><textual class="po-textual">Existing implementations and designs share many common limitations which make them
+				less then ideal for many use cases. The existing models tend to fall into these use
+				cases.</textual></para><itemizedlist class="po-table e192 e192"><listitem class="po-container e193 e193"><para class="po-block e194 e194"><textual class="po-textual">Represent arbitrary JSON in an XML format</textual></para></listitem><listitem class="po-container e195 e195"><para class="po-block e196 e196"><textual class="po-textual">Represent arbitrary XML in a JSON format</textual></para></listitem><listitem class="po-container e197 e197"><para class="po-block e198 e198"><textual class="po-textual">Convert XML to JSON in a JSON friendly format</textual></para></listitem><listitem class="po-container e199 e199"><para class="po-block e200 e200"><textual class="po-textual">Convert JSON to XML in a XML friendly format</textual></para></listitem></itemizedlist><para class="po-block e201 e201"><textual class="po-textual">In cases where round tripping is a goal inevitably either the JSON or the XML end
+				up being very "non friendly". Conversely mappings to "friendly" formats tend to lose
+				too much information to support round tripping (or only in a small subset of
+				documents).</textual></para><para class="po-block e202 e202"><textual class="po-textual">All investigated designs have fixed rules that apply either globally, or if
+				configurable, to an entire document. None of the designs can adjust the mapping
+				rules localized to portions of a document.</textual></para><para class="po-block e203 e203"><textual class="po-textual">The major limitations which JXON attempts to address include the following.</textual><itemizedlist class="po-table e204 e204"><listitem class="po-container e205 e205"><para class="po-block e206 e206"><textual class="po-textual">Single model for all documents and parts of documents</textual></para><para class="po-block e207 e207"><textual class="po-textual">Most implementations impose a single model for transformation for all
+							documents and parts of documents. They attempt to fit a single pattern
+							for all uses. This "one size fits all" approach ends up being "one size
+							fits nothing", as every mapping imposes some compromises, whether its
+							information loss, usability or applicability to a particular use. Since
+							different use cases may accept different sets of compromises, trying to
+							fit a single transformation mapping for a large set of use cases ends up
+							with a poor fit for most of them.</textual></para></listitem><listitem class="po-container e208 e208"><para class="po-block e209 e209"><textual class="po-textual">JSON or XML Centric</textual></para><para class="po-block e210 e210"><textual class="po-textual">Some designs focus on producing JSON from arbitrary XML, others on
+							producing XML from arbitrary JSON. The result is that one side or the
+							other is "stuck" with the artifacts of the mapping and do not end up
+							with a document in a format which would be natural for markup developers
+							in that language. JXON attempts to produce bidirectional transformations
+							to "friendly" formats in each directly equally.</textual></para></listitem></itemizedlist></para></section></section><section class="po-hcontainer e211 e211"><title class="po-block e212 e212"><textual class="po-textual">Rationale and Use Cases</textual></title><para class="po-block e213 e213"><textual class="po-textual">JXON is based on the assumption that there are real world needs for a JSON/XML
+			transformation. Why is there such a need? Many existing systems work just fine using XML
+			or JSON by itself with no need of an alternative representation for data. The problems
+			which JXON is intended to address arise when data crosses domains. Due to technical and
+			as well social reasons domains have evolved which embrace either XML or JSON almost
+			exclusively. XML has largely been adopted by the enterprise and content storage domains,
+			as well as enterprise messaging. JSON has evolved into the browser and mobile space
+			which started using XML but have changed over the last decade to be almost entirely JSON
+			based. The problem is when these domains need to exchange data. One solution is to
+			simply produce data in the format required at the point of request. This is a feasible
+			solution when the data is dynamically generated (computed data, simple messaging, data
+			residing in-memory in native language structures), or exists in an entirely separate
+			format to begin with (such as relational data). In many cases, however, data already
+			exists in XML or JSON in one domain and needs to be exchanged with another domain. For
+			example a document may exist in XML form on a server and needs to be deployed to a
+			browser or mobile device in JSON format. One approach to this problem is to try to
+			"push" one's domain format into the other's domain. For example, if clients require JSON
+			documents then simply store the JSON format on the server. This can work when there is
+			really no compelling reason to have XML on the server in the first place, and has
+			spawned the growth of JSON databases. Alternatively one can try to force clients to
+			accept XML because that is the format on the server. </textual></para><para class="po-block e214 e214"><textual class="po-textual">I argue that it is preferable in many cases to accept that there are compelling
+			reasons for each domain to want data in its own format, and to provide for a
+			transformation from one format to another closest to the point of the domain boundary.
+			This allows the tools already in use in the particular domain to work with their
+			'native' format and to minimize the impact of format differences to domain boundary
+			layer. This way neither domain needs to make compromises in design and implementation to
+			satisfy issues of a different domain. </textual></para><para class="po-block e215 e215"><textual class="po-textual">JXON is designed to make that boundary crossing as easy as possible and with as few
+			compromises as possible.</textual></para><section class="po-hcontainer e216 e216"><title class="po-block e217 e217"><textual class="po-textual">Categories of Transformations</textual></title><para class="po-block e218 e218"><textual class="po-textual">There are several major categories of JSON/XML transformation problems which are
+				really subsets of functionality. Not all use cases require all levels of
+				functionality but by supporting the most stringent requirements implicitly creates
+				support for the rest. In general there is a correlation between information fidelity
+				and the category of transformation. For example a unidirectional XML to JSON
+				transformation may lose significant amounts of information (and yet still be
+				useful). While a full round trippable transformation, by its very nature, must
+				maintain a maximum amount of information in either the instance documents or the
+				transformation logic. Note that these transformation categories are not specific to
+				XML and JSON but apply equally well to any kind of document formats.</textual></para><figure class="po-container e219 e219" xml:id="categories"><title class="po-block e220 e220"><textual class="po-textual">Types JSON/XML transformations</textual></title><mediaobject class="po-container e221 e221"><imageobject class="po-container e222 e222"><imagedata class="po-meta e223 e223" fileref="../../../vol7/graphics/Lee01/Lee01-001.jpg" format="jpg" width="75%"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></imagedata></imageobject></mediaobject><caption class="po-container e224 e224"><para class="po-block e225 e225"><textual class="po-textual">Types of JSON/XML transformations</textual></para></caption></figure><section class="po-hcontainer e226 e226"><title class="po-block e227 e227"><textual class="po-textual">Unidirectional Transformations</textual></title><para class="po-block e228 e228"><textual class="po-textual">Some transformations are </textual><emphasis class="po-inline e229 e229"><textual class="po-textual">unidirectional</textual></emphasis><textual class="po-textual">; information goes
+					only one way. Unidirectional transformations may have a wide range of
+					information fidelity, but are often useful with significant information loss.
+					Some unidirectional transformations are generic, that is the rules are static
+					and do not depend on the source or target schemas. Other transformations may be
+					tailored for specific source and target document schemas.</textual></para></section><section class="po-hcontainer e230 e230"><title class="po-block e231 e231"><textual class="po-textual">Bi-directional Transformations</textual></title><para class="po-block e232 e232"><textual class="po-textual">Bi-directional support transforming in both directions (from XML to JSON or
+					JSON to XML).</textual></para></section><section class="po-hcontainer e233 e233"><title class="po-block e234 e234"><textual class="po-textual">Round trip transformations</textual></title><para class="po-block e235 e235"><textual class="po-textual">Round trip transformations are a special kind of bi-directional
+					transformations that attempt to produce semantically equivalent documents after
+					transforming from one format to another then back.</textual></para></section></section><section class="po-hcontainer e236 e236" xml:id="usecases"><title class="po-block e237 e237"><textual class="po-textual">Use Cases for XML/JSON transformations</textual></title><para class="po-block e238 e238"><textual class="po-textual">There are several use cases that require or benefit by one of the categories of
+				XML/JSON transformations. The more useful cases are where the data in a domain not
+				only is desired in a specific format, but also persist or may be manipulated by
+				tools specialized for that format and that the data needs to be exchanged with
+				another domain using a different format. Examples of good use cases for
+				transformations include the following.</textual></para><section class="po-hcontainer e239 e239"><title class="po-block e240 e240"><textual class="po-textual">Message passing</textual></title><para class="po-block e241 e241"><textual class="po-textual">Many enterprise systems operate on XML based messages. If these are to be sent
+					to a domain needing JSON then the messages must be transformed from XML to JSON.
+					Responses may come back in JSON and need to be transformed back to XML. In this
+					case unidirectional transformations may be sufficient (one for requests and one
+					for responses), although if the request and response correspond to the same
+					schema then a bidirectional transformation may be better suited.</textual></para></section><section class="po-hcontainer e242 e242"><title class="po-block e243 e243"><textual class="po-textual">XML Content Databases</textual></title><para class="po-block e244 e244"><textual class="po-textual">If data is stored in an XML Content database and JSON is required by a JSON
+					consumer then transformation from XML to JSON is needed. If JSON producer
+					requires data to be stored in an XML Content database then it needs to
+					transformed to XML. The transformations may or may not require round trip
+					(lossless) transformations depending on the needs of the application.</textual></para></section><section class="po-hcontainer e245 e245"><title class="po-block e246 e246"><textual class="po-textual">HTML/XHTML</textual></title><para class="po-block e247 e247"><textual class="po-textual">If data is in HTML format there are tools available to transform it to XHTML
+					format. If that data is required in JSON then a XML to JSON transformation is
+					required. The reverse is also possible, generating HTML from JSON.</textual></para></section><section class="po-hcontainer e248 e248"><title class="po-block e249 e249"><textual class="po-textual">XML Schemas</textual></title><para class="po-block e250 e250"><textual class="po-textual">A schema language for JSON is being developed </textual><link class="po-inline e251 e251" linkend="jsonschema" xlink:actuate="onRequest" xlink:show="new" xlink:type="simple"><textual class="po-textual">JSON
+						schema</textual></link><textual class="po-textual"> but implementations at the time of this writing are sparse and
+					the technology is immature. If a high quality JSON to XML transformation is
+					available then XML Schema validation could be used to validate JSON documents.
+					This would leverage the mature technologies for XML Schemas without having to
+					reinvent them specific to JSON.</textual></para></section><section class="po-hcontainer e252 e252"><title class="po-block e253 e253"><textual class="po-textual">Using XML technologies with JSON data</textual></title><para class="po-block e254 e254"><textual class="po-textual">Many XML technologies are very mature and powerful. Equivalent JSON
+					technologies are only starting to be developed. There is simply no equivalent to
+					tools like XSLT, XQuery</textual><footnote class="po-popup e255 e255"><para class="po-block e256 e256"><textual class="po-textual">XQuery 1.0: An XML Query Language </textual><link class="po-inline e257 e257" xlink:actuate="onRequest" xlink:href="http://www.w3.org/TR/xquery/" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://www.w3.org/TR/xquery/</textual></link></para></footnote><textual class="po-textual">
+					, XProc</textual><footnote class="po-popup e258 e258"><para class="po-block e259 e259"><textual class="po-textual">XProc: An XML Pipeline Language </textual><link class="po-inline e260 e260" xlink:actuate="onRequest" xlink:href="http://www.w3.org/TR/xproc/" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://www.w3.org/TR/xproc/</textual></link><textual class="po-textual">
+						</textual></para></footnote><textual class="po-textual">
+					, Schematron</textual><footnote class="po-popup e261 e261"><para class="po-block e262 e262"><textual class="po-textual">Schematron </textual><link class="po-inline e263 e263" xlink:actuate="onRequest" xlink:href="http://www.schematron.com/" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://www.schematron.com/</textual></link></para></footnote><textual class="po-textual">
+					for JSON.</textual></para><para class="po-block e264 e264"><textual class="po-textual">Use of a high quality XML/JSON transformation could allow use of XML
+					technologies on JSON data without having to reinvent the entire XML ecosystem
+					for JSON. This may require bidirectional transformations but not necessary round
+					trip (lossless) transformations depending on the needs of the application. In
+					the case where the source and target data are different schemas, a pair of
+					unidirectional transformations is needed instead of a bidirectional
+					transformation.</textual></para></section><section class="po-hcontainer e265 e265"><title class="po-block e266 e266"><textual class="po-textual">Preexisting data</textual></title><para class="po-block e267 e267"><textual class="po-textual">There exists 'in the wild' a huge amount of preexisting content in XML format.
+					This content could be made available to JSON oriented domains by the use of XML
+					to JSON transformations instead of having to re-author the content directly in
+					JSON. In cases where there is existing JSON content, or processes that produce
+					JSON content only, that content can be made available to XML oriented domains by
+					the use of a JSON to XML transformation instead of re-authoring the content.
+				</textual></para></section><section class="po-hcontainer e268 e268"><title class="po-block e269 e269"><textual class="po-textual">XML Standard Schemas</textual></title><para class="po-block e270 e270"><textual class="po-textual">There is a large body of XML standard schemas which have evolved over the last
+					decade. They span a huge section of industry, research, academia and publishing.
+					These schemas took significant effort to develop. By using a XML to JSON
+					transformation this body of knowledge can be leveraged into a new markup
+					technology without having to start from scratch.</textual></para></section><section class="po-hcontainer e271 e271"><title class="po-block e272 e272"><textual class="po-textual">Developer Familiarity</textual></title><para class="po-block e273 e273"><textual class="po-textual">One of the big reasons for the different domains which have adopted JSON or
+					XML is developer familiarity. Web and browser developers, having experience with
+					JavaScript are more comfortable with JSON even on platforms where XML support is
+					equal or even better. Similarly server and data processing developers are often
+					more comfortable with XML even in use cases where JSON is well supported. If
+					there is a technology which bridges XML and JSON easily and accurately then
+					developers don't need to leave their area of familiarity.</textual></para></section></section></section><section class="po-hcontainer e274 e274"><title class="po-block e275 e275"><textual class="po-textual">Design</textual></title><section class="po-hcontainer e276 e276"><title class="po-block e277 e277"><textual class="po-textual">Goals</textual></title><para class="po-block e278 e278"><textual class="po-textual">The goals of this design are to address many of the limitations of existing
+				implementations and to provide a simple method for customizing the transformation.
+				At the same time it's recognized that not all limitations can be addressed, nor
+				necessarily need be addressed, and that this design may not meet the objectives of
+				everyone. The use cases </textual><emphasis class="po-inline e279 e279" role="ital"><textual class="po-textual">See</textual></emphasis><textual class="po-textual">
+				</textual><xref class="po-milestone e280 e280" linkend="usecases"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual"> were of particular use in focusing the design
+				goals.</textual></para><section class="po-hcontainer e281 e281"><title class="po-block e282 e282"><textual class="po-textual">Primary Objectives</textual></title><para class="po-block e283 e283"><textual class="po-textual">The following are the primary design objectives. Not all objectives can
+					necessarily be met with the same transformation.</textual></para><para class="po-block e284 e284"><textual class="po-textual">
+					</textual><itemizedlist class="po-table e285 e285"><listitem class="po-container e286 e286"><para class="po-block e287 e287"><textual class="po-textual">Unidirectional and bidirectional transformations from a instance
+								of a JSON document to an instance of an XML document.</textual></para></listitem><listitem class="po-container e288 e288"><para class="po-block e289 e289"><textual class="po-textual">The option of lossless round trip transformations.</textual></para></listitem><listitem class="po-container e290 e290"><para class="po-block e291 e291"><textual class="po-textual">The XML and JSON instances should be in a form which is desirable
+								by XML and JSON developers respectively. </textual></para></listitem><listitem class="po-container e292 e292"><para class="po-block e293 e293"><textual class="po-textual">A simple method of modifying the transformation rules for parts of
+								a document as well as the whole document for a class of
+								documents.</textual></para></listitem><listitem class="po-container e294 e294"><para class="po-block e295 e295"><textual class="po-textual">A pattern based rule system to allow specifying common patterns
+								for mappings instead of having to code explicit details.</textual></para></listitem><listitem class="po-container e296 e296"><para class="po-block e297 e297"><textual class="po-textual">Implicit mappings of JSON and XSD atomic types and common
+								structures by leveraging XML Schema information.</textual></para></listitem></itemizedlist><textual class="po-textual">
+				</textual></para></section></section><section class="po-hcontainer e298 e298"><title class="po-block e299 e299"><textual class="po-textual">Design Overview</textual></title><figure class="po-container e300 e300" xml:id="figure1"><title class="po-block e301 e301"><textual class="po-textual">JXON Processor</textual></title><mediaobject class="po-container e302 e302"><imageobject class="po-container e303 e303"><imagedata class="po-meta e304 e304" fileref="../../../vol7/graphics/Lee01/Lee01-002.jpg" format="jpg" width="50%"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></imagedata></imageobject></mediaobject><caption class="po-container e305 e305"><para class="po-block e306 e306"><textual class="po-textual">Figure 1. JXON Processor data flow</textual></para></caption></figure><figure class="po-container e307 e307" xml:id="fig_xml2json"><title class="po-block e308 e308"><textual class="po-textual">XML to JSON</textual></title><mediaobject class="po-container e309 e309"><imageobject class="po-container e310 e310"><imagedata class="po-meta e311 e311" fileref="../../../vol7/graphics/Lee01/Lee01-003.jpg" format="jpg" width="50%"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></imagedata></imageobject></mediaobject><caption class="po-container e312 e312"><para class="po-block e313 e313"><textual class="po-textual">Transforming XML to JSON data flow</textual></para></caption></figure><figure class="po-container e314 e314" xml:id="fig_json2xml"><title class="po-block e315 e315"><textual class="po-textual">JSON to XML</textual></title><mediaobject class="po-container e316 e316"><imageobject class="po-container e317 e317"><imagedata class="po-meta e318 e318" fileref="../../../vol7/graphics/Lee01/Lee01-004.jpg" format="jpg" width="50%"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></imagedata></imageobject></mediaobject><caption class="po-container e319 e319"><para class="po-block e320 e320"><textual class="po-textual">Transforming JSON to XML data flow</textual></para></caption></figure><section class="po-hcontainer e321 e321"><title class="po-block e322 e322"><textual class="po-textual">Transformation of the Object Model</textual></title><para class="po-block e323 e323"><textual class="po-textual">As mentioned previously, the text format of XML vs. JSON tends to get a great deal of
+					focus, while I assert it is actually a trivial issue. This design performs all
+					transformation logic at the Object Model level not at the text format level. To
+					accomplish this a very simple XML schema is used which represents the JSON
+					Object Model precisely. This implementation uses the JXML schema (</textual><link class="po-inline e324 e324" xlink:actuate="onRequest" xlink:href="http://xml.calldei.com/JsonXML" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://xml.calldei.com/JsonXML</textual></link><textual class="po-textual">) to represent the JSON object model
+					and the conversion tools supplied by xmlsh (</textual><link class="po-inline e325 e325" xlink:actuate="onRequest" xlink:href="http://www.xmlsh.org" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://www.xmlsh.org</textual></link><textual class="po-textual">). In particular the json2xml (</textual><link class="po-inline e326 e326" xlink:actuate="onRequest" xlink:href="http://www.xmlsh.org/CommandXml2json" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://www.xmlsh.org/CommandXml2json</textual></link><textual class="po-textual">) and xml2json (</textual><link class="po-inline e327 e327" xlink:actuate="onRequest" xlink:href="http://www.xmlsh.org/CommandJson2xml" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://www.xmlsh.org/CommandJson2xml</textual></link><textual class="po-textual"> ) commands. Other schemas and
+					tools could just as easily be used as long as they provide a precise
+					representation of the JSON object model in XML (such as JSONx </textual><xref class="po-milestone e328 e328" linkend="jsonx"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual"> ).</textual></para><para class="po-block e329 e329"><textual class="po-textual">Transformation at the Object Model level provides the following
+					benefits:</textual></para><para class="po-block e330 e330"><textual class="po-textual">
+					</textual><itemizedlist class="po-table e331 e331"><listitem class="po-container e332 e332"><para class="po-block e333 e333"><textual class="po-textual">Reduces the problem to an XML-to-XML transformation problem
+								instead of a Markup-to-Markup problem.</textual></para></listitem><listitem class="po-container e334 e334"><para class="po-block e335 e335"><textual class="po-textual">Decouples transformation logic from serialization logic</textual></para></listitem><listitem class="po-container e336 e336"><para class="po-block e337 e337"><textual class="po-textual">Allows all processing to be implemented with XML tools which are
+								mature and feature full.</textual></para></listitem><listitem class="po-container e338 e338"><para class="po-block e339 e339"><textual class="po-textual">Allows focus on the transformation logic instead of serialization
+								logic.</textual></para></listitem><listitem class="po-container e340 e340"><para class="po-block e341 e341"><textual class="po-textual">Provides for some schema validation of the generated JSON to check
+								for JSON well-formedness prior to serializing as JSON.</textual></para></listitem></itemizedlist><textual class="po-textual">
+				</textual></para></section><section class="po-hcontainer e342 e342"><title class="po-block e343 e343"><textual class="po-textual">Patterns and Rule Properties</textual></title><para class="po-block e344 e344"><textual class="po-textual">A major problem with XML/JSON transformation is that there are many ways to do it. These
+					can be classified into 'patterns' which define the rules for bidirectional
+					transformation of a given set of terms.</textual></para><para class="po-block e345 e345"><textual class="po-textual">Patterns are defined in a global configuration file which defines specific named patterns
+					which can be referenced by the annotations, and configuration properties of each
+					pattern which can be selectively overwritten in a specific annotation. The
+					properties of a pattern define basic building blocks of transformation such as
+					element and attribute wrapping, name translations, handling of namespaces and
+					typing of atomic values. The code to implement a pattern can be very complex,
+					especially if reverse transformation is desired. By having the framework
+					predefine patterns, a developer can simply tag an element, attribute, or type
+					with a pattern name and the rules will be applied to that element (and
+					optionally its derived and contained types).</textual></para><para class="po-block e346 e346"><textual class="po-textual">This is intended to be extensible so that new patterns can be added to the
+					code to enrich the range of transformation options, and need only be identified
+					by name to be applied. At present there are two patterns supported "full" and
+					"simple". These are intended to demonstrate extremes between transformation
+					categories. More patterns are in development.</textual></para><para class="po-block e347 e347"><textual class="po-textual">Patterns are applied to items (documents, elements, attributes, types) by using
+					the annotation  </textual><emphasis class="po-inline e348 e348"><textual class="po-textual">&lt;jxon:pattern name="pattern name"/&gt;</textual></emphasis><textual class="po-textual">
+					This applies all the rule properties associated with that pattern as applicable
+					to the item type.  It also applies the properties to the derived and contained
+					types.   For example applying a pattern at the schema root applies the pattern
+					to all items.   Applying to an element affects the element, its attributes, and
+					all local element declarations.   Applying a pattern to a type affects the type
+					and all derived types.</textual></para><para class="po-block e349 e349"><emphasis class="po-inline e350 e350"><textual class="po-textual">See </textual><xref class="po-milestone e351 e351" linkend="patterns"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref></emphasis></para></section><section class="po-hcontainer e352 e352"><title class="po-block e353 e353"><textual class="po-textual">Markup Agnostic but XML Based </textual></title><para class="po-block e354 e354"><textual class="po-textual">While a primary goal of the design is to provide a transformation which is
+					markup agnostic ( treats XML and JSON as equals). The reality is that the tools
+					for processing markup are much more mature and feature full in the XML space
+					than the JSON space. This practical issue lead to a design which is "XML Based"
+					but also "markup agnostic". The technologies used are primarily XML based, and
+					the design itself is based on XML Schema, Annotations in schema, XQuery and XSLT
+					processing. This does force a compromise in design which is definitely XML
+					oriented, but still providing the end result (input and output of the
+					transformations) markup agnostic.</textual></para></section><section class="po-hcontainer e355 e355"><title class="po-block e356 e356"><textual class="po-textual">Schema and annotation based transformations</textual></title><para class="po-block e357 e357"><textual class="po-textual">Analysis of the existing implementation limitations and the primary objectives
+					lead to the conclusion that a Schema and associated annotations could provide
+					much of the external information needed guide the transformations in both
+					directions.</textual></para><para class="po-block e358 e358"><textual class="po-textual"> For example on generating JSON, Schema type information can inform the choice
+					of which JSON types to generate. On generating XML, Schema can provide the
+					missing pieces of structure which may have been omitted in the JSON, for example
+					the correct element names, wrapping elements, namespaces etc.</textual></para><para class="po-block e359 e359"><textual class="po-textual">Schema Annotations allow specifying ancillary information which is to apply
+					only to a specific element, attribute or type without having to add addressing
+					to the rule-set. The addressing is implicit by the location of the annotation.
+					Since types can be annotated as well as specific elements and attributes,
+					patterns can applied to all elements/attributes of that type in one location.
+					Similarly type hierarchies can be annotated by placing the annotations at the
+					appropriate location in the type hierarchy.</textual></para><para class="po-block e360 e360"><textual class="po-textual">Individual properties of patterns can be overridden at any location, which
+					acts similarly to object derivation. For example the "simple" pattern can be
+					used for the document as a whole, while on an individual element its JSON name
+					can be modified via annotation while inheriting all other derived properties of
+					the pattern.</textual></para><section class="po-hcontainer e361 e361"><title class="po-block e362 e362"><textual class="po-textual">XSD Schema</textual></title><para class="po-block e363 e363"><textual class="po-textual">The initial implementation directly supports XSD Schema only. This is an
+						implementation artifact derived by use of the Apace Schema API, not a design
+						restriction. XSD Annotations may inserted into any schema item (document,
+						element, type etc) which will override either the current in-effect pattern
+						or any of the pattern rules. JXON annotation must occur within the "appinfo"
+						XSD annotation element. Only elements within the jxon namespace are
+						processed, the rest are ignored.</textual></para><para class="po-block e364 e364"><textual class="po-textual">The following at the beginning of a schema indicates that the entire
+						document defaults to the "full" pattern</textual></para><programlisting class="po-block e365 e365" xml:space="preserve"><textual class="po-textual">&lt;xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:jxon="http://www.xmlsh.org/jxon"&gt;
+	&lt;xs:annotation&gt;
+		&lt;xs:appinfo&gt;
+			&lt;jxon:pattern  name="full"/&gt;
+		&lt;/xs:appinfo&gt;
+	&lt;/xs:annotation&gt;
+	...</textual></programlisting><para class="po-block e366 e366"><textual class="po-textual">The following indicates that the ITEM element and all its child elements
+						use the "simple" pattern and that the ITEM element itself will be
+						represented by the JSON Name "BOOK". </textual><note class="po-container e367 e367"><para class="po-block e368 e368"><textual class="po-textual">Note that the "json_name" element is a sibling, not a child of "pattern". This
+								indicates that the name only applies to this element, not to its
+								descendant local elements.</textual></para></note><textual class="po-textual">
+					</textual></para><programlisting class="po-block e369 e369" xml:space="preserve"><textual class="po-textual">&lt;xs:element name="ITEM"&gt;
+		&lt;xs:annotation&gt;
+			&lt;xs:appinfo&gt;
+				&lt;jxon:pattern  name="simple"/&gt;
+				&lt;jxon:json_name name="BOOK"/&gt;
+			&lt;/xs:appinfo&gt;
+		&lt;/xs:annotation&gt;
+...</textual></programlisting></section><section class="po-hcontainer e370 e370"><title class="po-block e371 e371"><textual class="po-textual">RNG Schema</textual></title><para class="po-block e372 e372"><textual class="po-textual">The design supports use of any XML schema which can be annotated. However
+						the current implementation only directly supports XSD.</textual></para><para class="po-block e373 e373"><textual class="po-textual">RelaxNG (both Compact and XML formats) is indirectly supported by the use of comments in
+						RNG and translating the RNG into XSD and the comments into XSD
+						annotations.</textual></para><para class="po-block e374 e374"><textual class="po-textual">The following RNG compact syntax uses comments starting with</textual><emphasis class="po-inline e375 e375"><textual class="po-textual"> #&lt;jxon:
+						</textual></emphasis><textual class="po-textual">to map a different JSON name to an element</textual></para><programlisting class="po-block e376 e376" xml:space="preserve"><textual class="po-textual">#&lt;jxon:json_name  name="TITLE"/&gt;
+element NAME { xs:string }</textual></programlisting><para class="po-block e377 e377"><textual class="po-textual">This is converted to the following XSD notation.</textual></para><programlisting class="po-block e378 e378" xml:space="preserve"><textual class="po-textual">&lt;xs:element name="NAME"&gt;
+		&lt;xs:annotation&gt;
+			&lt;xs:appinfo&gt;
+				&lt;jxon:json_name name="TITLE"/&gt;
+			&lt;/xs:appinfo&gt;
+		&lt;/xs:annotation&gt;
+...</textual></programlisting><para class="po-block e379 e379"><textual class="po-textual">Similarly comments in the RNG XML syntax are supported in the same
+						way.</textual></para></section></section><section class="po-hcontainer e380 e380"><title class="po-block e381 e381"><textual class="po-textual">Rule Generation</textual></title><para class="po-block e382 e382"><textual class="po-textual">A pair of transformation rules (XSLT files) for a class of documents is
+					generated.</textual></para><para class="po-block e383 e383"><textual class="po-textual">The XML Schema (for the XML document) is read along with the global configuration. The
+					schema is traversed and a XSLT file is produced for each direction (JSON to XML
+					and XML to JSON) based on each element, attribute, and type defined in the
+					schema. Schema Annotations are used to choose which pattern applies to each
+					term, and provides optional customization to the patterns for that item.
+					Patterns can be applied recursively, or only to targeted items.</textual></para><para class="po-block e384 e384"><textual class="po-textual">The result is a pair of XSLT files.</textual></para></section><section class="po-hcontainer e385 e385"><title class="po-block e386 e386"><textual class="po-textual">Transformation</textual></title><para class="po-block e387 e387"><textual class="po-textual">The XSLT files produced by the rule generation can be used without any
+					ancillary information. Reference to the schema or configuration information is
+					not needed. </textual></para><para class="po-block e388 e388"><textual class="po-textual">Running a transformation from JSON to XML requires converting the JSON to JXML
+					format then running XSLT. Schema validation can be applied after the
+					transformation. </textual></para><para class="po-block e389 e389"><textual class="po-textual">Running a transformation from XML to JSON requires running the XSLT then
+					converting from the result JXML to JSON. Schema validation can be applied to the
+					input prior to running the transformation, and to the JXML after transformation
+					to validate JSON well-formedness.</textual></para></section><section class="po-hcontainer e390 e390"><title class="po-block e391 e391"><textual class="po-textual">Bidirectional ("Round Tripping")</textual></title><para class="po-block e392 e392"><textual class="po-textual">JXON is intended for bidirectional transformations ("Round Tripping"), although the same
+					architecture and implementation could be used for unidirection transformations
+					(XML to JSON or JSON to XML). A bidirectional transformation can be either
+					Lossless or Lossy (or somewhere in between). This can depend on the patterns
+					being used, the schema, and actual instances of documents. </textual></para><para class="po-block e393 e393"><textual class="po-textual">The definition of "Lossless" and "Lossy" depends on what one considers
+					"important information", although the terms do convey some meaning. Consider a
+					scale measuring the results of a round trip transformation with one side exact
+					byte for byte bidirectional transformation for every document instance
+					transformed ("Lossless"), and the other side no correlation whatsoever between
+					the two documents ("Unidirectional"), with "Lossy" being somewhere in between.
+					Even this linear scale is misleading because some document instances
+					corresponding to the same schema may have different translation characteristics
+					then others. The design goals of JXON are to provide reasonably defined
+					translation characteristics. Choosing a particular pattern or configuration
+					attributes of a pattern will effect the translation, and it is up to the
+					developer to determine the importance of the specific effects.</textual></para><para class="po-block e394 e394"><textual class="po-textual">The JXON architecture does not attempt to implement "Purely Lossless" transformations at
+					the text serialization (byte sequence) level. </textual></para><section class="po-hcontainer e395 e395"><title class="po-block e396 e396"><textual class="po-textual">Acceptable Losses</textual></title><para class="po-block e397 e397"><textual class="po-textual">The JXON architecture does not attempt to preserve some characteristics of XML or JSON at
+						all. These are considered "Acceptable Losses" for this project and for the
+						purposes of definitions do not contribute to the meaning of "Lossless". </textual></para><para class="po-block e398 e398"><textual class="po-textual">The following XML information is not attempted to be preserved.</textual></para><para class="po-block e399 e399"><textual class="po-textual">
+						</textual><itemizedlist class="po-table e400 e400"><listitem class="po-container e401 e401"><para class="po-block e402 e402"><textual class="po-textual">Serialization Format</textual></para><para class="po-block e403 e403"><textual class="po-textual">The Text Serialization format of XML is not considered.
+									Transformations are done at the XDM abstraction level so
+									characteristics such as encoding, ignorable whitespace,
+									character entities, CDATA etc are not considered as a
+									significant characteristic.</textual></para></listitem><listitem class="po-container e404 e404"><para class="po-block e405 e405"><textual class="po-textual">External Entities</textual></para><para class="po-block e406 e406"><textual class="po-textual">External entities in XML are expanded as part of the XML parsing and are not
+									represented in JSON as entities.  They are not converted to
+									external entities when generating XML from JSON.</textual></para></listitem><listitem class="po-container e407 e407"><para class="po-block e408 e408"><textual class="po-textual">DTD and Schema</textual></para><para class="po-block e409 e409"><textual class="po-textual">DTD and Schema references in XML are not retained as part of
+									the transformation. They may be reconstructed as part of the XML
+									generation but no attempt is made at representing DTD or Schema
+									information in the JSON output.</textual></para></listitem><listitem class="po-container e410 e410"><para class="po-block e411 e411"><textual class="po-textual">Comments</textual></para><para class="po-block e412 e412"><textual class="po-textual">Comments are removed during XML processing. They exist as part
+									of the XDM model but in the current implementation they are
+									ignored. </textual></para></listitem><listitem class="po-container e413 e413"><para class="po-block e414 e414"><textual class="po-textual">Processing Instructions</textual></para><para class="po-block e415 e415"><textual class="po-textual">Processing instructions are removed during XML processing.
+									They exist as part of the XDM model but in the current
+									implementation they are ignored. </textual></para></listitem><listitem class="po-container e416 e416"><para class="po-block e417 e417"><textual class="po-textual">Application level XML markup</textual></para><para class="po-block e418 e418"><textual class="po-textual">XML markup which has meaning by application specific
+									processors is not explicitly preserved, or may be partially
+									preserved. For example XInclude processing (like External
+									Entities) may be merged into the XDM model during parsing so is
+									not transfered into the JSON markup explicitly. XLink and
+									XPointer markup is not attempted to be processed specially. </textual></para><para class="po-block e419 e419"><textual class="po-textual">XML markup which has specific meaning to an application may
+									not have any related meaning in JSON.. For example an XSLT file
+									translated to JSON looses its meaning in that the resultant JSON
+									document has no supporting processors for XSLT.</textual></para></listitem></itemizedlist><textual class="po-textual">
+					</textual></para></section><section class="po-hcontainer e420 e420"><title class="po-block e421 e421"><textual class="po-textual">Optional Losses</textual></title><para class="po-block e422 e422"><textual class="po-textual">Sometimes perfect Lossless bidirectional transformation is not important. JXON provides
+						the ability to perform Lossy transformations which can still produce useful
+						results. A simple example is value typing. If there is no schema or
+						annotation to describe the type of a value then transformations can lose
+						that type. A numeric type in JSON round tripped may become a String type.
+						This change of type information may or may not matter to the
+						application.</textual></para><para class="po-block e423 e423"><textual class="po-textual">Another case is where attributes or elements are requested to be ignored
+						(in JSON or XML). This obviously causes problems unidirectional as well as
+						bidirectional transformations. Omitted elements and attributes could be
+						regenerated on reverse transformation according to the schema (or
+						annotations) but the values cannot be extracted from the document
+						instance.</textual></para><para class="po-block e424 e424"><textual class="po-textual">A more subtle type of losses can occur when assumptions are made about
+						documents which is not explicit in the schema or the JXON annotation. For
+						example the "simple" pattern translates XML elements and attributes to JSON
+						members. This pattern can round trips losslessly as long as there are no
+						repeated element children or duplicate element or attribute names. However
+						given an XML document that doesn't conform to the assumptions can produce
+						invalid JSON, or the round trip may be produce ambiguous results.</textual></para><para class="po-block e425 e425"><textual class="po-textual">Future enhancements could detect and warn the developers of the sort of
+						losses or errors which could be expected.</textual></para></section></section><section class="po-hcontainer e426 e426"><title class="po-block e427 e427"><textual class="po-textual">Implicit Information</textual></title><para class="po-block e428 e428"><textual class="po-textual">The JXON architecture makes significant use of "Implicit Information". Since
+					an XSLT file is generated for both directions of mapping, not all information
+					needed to build the documents during transformation need to be in the documents
+					themselves. This allows many features not available with other JSON/XML designs
+					. </textual></para><para class="po-block e429 e429"><textual class="po-textual">A simple example is naming. Suppose a XML document has an element
+					&lt;my_element&gt; and we wish to create a JSON document with an object member "The
+					Element". This can be specified as a name attribute to the pattern for
+					"my_element" (via annotation in the schema) and will be encoded into both XSLT
+					files. The resulting JSON document has no explicit reference to the XML element
+					name, yet via the XSLT will create the correct element name. The same concept
+					solves a large number of issues usually considered deficient in many XML/JSON
+					mapping tools such as:</textual></para><para class="po-block e430 e430"><textual class="po-textual">
+					</textual><itemizedlist class="po-table e431 e431"><listitem class="po-container e432 e432"><para class="po-block e433 e433"><textual class="po-textual">Namespaces</textual></para><para class="po-block e434 e434"><textual class="po-textual">XML Namespaces can be preserved round-tripped through JSON without
+								encoding the namespace itself in the JSON file. JSON objects can
+								produce elements and attributes with namespaces without having the
+								namespace information in the JSON document itself.</textual></para></listitem><listitem class="po-container e435 e435"><para class="po-block e436 e436"><textual class="po-textual">Element and Attribute distinction</textual></para><para class="po-block e437 e437"><textual class="po-textual">Some patterns map elements and attributes both to named JSON
+								members. The distinction between element and attribute is not
+								present in the JSON document. On the reverse transformation the
+								elements and attributes can be reconstructed.</textual></para></listitem><listitem class="po-container e438 e438"><para class="po-block e439 e439"><textual class="po-textual">JSON Arrays</textual></para><para class="po-block e440 e440"><textual class="po-textual">JSON arrays can be created from various XML structures. The
+								resultant JSON may lose the original XML element or attribute names,
+								but on the reverse translation these items are reconstructed.
+								Starting from JSON, arrays can be wrapped in generated XML elements
+								or into a tokenized list value.</textual></para></listitem><listitem class="po-container e441 e441"><para class="po-block e442 e442"><textual class="po-textual">Value type Information</textual></para><para class="po-block e443 e443"><textual class="po-textual">When translating XML to JSON the value type can be lost ( e.g. </textual><code class="po-atom e444 e444"><textual class="po-textual">"value" : 1</textual></code><textual class="po-textual">
+								vs. </textual><code class="po-atom e445 e445"><textual class="po-textual"> &lt;value&gt;1&lt;/value&gt;</textual></code><textual class="po-textual">)</textual></para><para class="po-block e446 e446"><textual class="po-textual">When translating back from XML to JSON the type information can be
+								restored even though it is not present in the instance
+								document.</textual></para></listitem><listitem class="po-container e447 e447"><para class="po-block e448 e448"><textual class="po-textual">Constructed or deleted elements</textual></para><para class="po-block e449 e449"><textual class="po-textual">Some patterns construct or delete markup, yet are reversible. For
+								example wrapping elements may be removed when XML is converted to
+								JSON. On the reverse transformation they can be reconstructed.
+								Anonymous JSON objects (such as the root document) can have elements
+								synthesized.</textual></para></listitem><listitem class="po-container e450 e450"><para class="po-block e451 e451"><textual class="po-textual">Composed Values</textual></para><para class="po-block e452 e452"><textual class="po-textual">XSD "list" items in XML are a single atomic value. When translated
+								to JSON they can be split into Array notation (separate JSON
+								objects). On the reverse transformation they can be reformed back
+								into a single atomic value.</textual></para></listitem></itemizedlist><textual class="po-textual">
+				</textual></para></section></section></section><section class="po-hcontainer e453 e453"><title class="po-block e454 e454"><textual class="po-textual">JXON Transformations</textual></title><para class="po-block e455 e455"><textual class="po-textual">The current JXON design and implementation supports the following types of
+			transformations. Since JXON is still in development these will likely change as
+			experience is gained and the implementation matures. A primary goal of choosing the
+			types of transformations is to find the right level of control of the mapping logic
+			which is both implementable and not too difficult for the user to control. The rules use
+			information from the schema as well as allow configuration properties externally (via
+			the configuration file and inline schema annotations). These transformation rules, and
+			their properties, are then grouped into "patterns" which can be applied 'as is' or
+			overridden with specific changes.</textual></para><section class="po-hcontainer e456 e456"><title class="po-block e457 e457"><textual class="po-textual">Atomic Types</textual></title><para class="po-block e458 e458"><textual class="po-textual">JXON uses the schema type declarations for simple types to attempt to determine
+				the proper JSON type. The XSD schema type hierarchy is searched until a matching
+				known type is found. If a matching type is found then the corresponding JSON type is
+				used, otherwise the String type is used.</textual></para><para class="po-block e459 e459"><textual class="po-textual">Any type derived from xs:double, xs:float or xs:decimal are mapped to a JSON
+				Number.</textual></para><para class="po-block e460 e460"><textual class="po-textual">Any type derived from xs:boolean is mapped to a JSON Boolean literal.</textual></para><para class="po-block e461 e461"><textual class="po-textual">All other types are mapped to a JSON String.</textual></para><para class="po-block e462 e462"><textual class="po-textual">Empty XML elements are mapped a JSON null.</textual><table class="po-container e463 e463" frame="box" rules="all"><caption class="po-container e464 e464"><para class="po-block e465 e465"><textual class="po-textual">Example Atomic Type Conversion</textual></para></caption><thead class="po-container e466 e466"><tr class="po-table e467 e467"><th class="po-field e468 e468"><textual class="po-textual">xs:type</textual></th><th class="po-field e469 e469"><textual class="po-textual">XML</textual></th><th class="po-field e470 e470"><textual class="po-textual">JSON</textual></th></tr></thead><tbody class="po-table e471 e471"><tr class="po-table e472 e472"><td class="po-block e473 e473"><textual class="po-textual">xs:integer</textual></td><td class="po-block e474 e474"><textual class="po-textual">1</textual></td><td class="po-block e475 e475"><textual class="po-textual">1</textual></td></tr><tr class="po-table e476 e476"><td class="po-block e477 e477"><textual class="po-textual">xs:boolean</textual></td><td class="po-block e478 e478"><textual class="po-textual">true</textual></td><td class="po-block e479 e479"><textual class="po-textual">true</textual></td></tr><tr class="po-table e480 e480"><td class="po-block e481 e481"><textual class="po-textual">xs:string</textual></td><td class="po-block e482 e482"><textual class="po-textual">John Doe</textual></td><td class="po-block e483 e483"><textual class="po-textual">"John Doe"</textual></td></tr><tr class="po-table e484 e484"><td class="po-block e485 e485"><textual class="po-textual">empty</textual></td><td class="po-block e486 e486"><textual class="po-textual">&lt;empty/&gt;</textual></td><td class="po-block e487 e487"><textual class="po-textual">null</textual></td></tr></tbody></table></para><section class="po-hcontainer e488 e488"><title class="po-block e489 e489"><textual class="po-textual">value element</textual></title><para class="po-block e490 e490"><textual class="po-textual">In the JXON schema the "value" element controls how atomic values are
+					transformed. In the following example, the value element specifies that schema
+					information should be used for both the value transformation as well as
+					determine JSON array mapping</textual></para><para class="po-block e491 e491"><textual class="po-textual">
+					</textual><programlisting class="po-block e492 e492" xml:space="preserve"><textual class="po-textual">
+	&lt;value wrap="schema" type="schema" /&gt;
+</textual></programlisting><textual class="po-textual">
+				</textual></para><para class="po-block e493 e493"><textual class="po-textual"> The following overrides default behaviour and specifies that the JSON Number type should
+					be used with no wrapping </textual><programlisting class="po-block e494 e494" xml:space="preserve"><textual class="po-textual">
+	&lt;value type="number" /&gt;
+</textual></programlisting><textual class="po-textual">
+				</textual></para></section></section><section class="po-hcontainer e495 e495"><title class="po-block e496 e496"><textual class="po-textual">Structured Types</textual></title><para class="po-block e497 e497"><textual class="po-textual">JXON maps XSD "list" types (and derived types such as IDTOKENS) to JSON arrays and
+				on reverse maps the associated arrays back to a space separated atomic value. </textual></para><para class="po-block e498 e498"><textual class="po-textual">
+				</textual><table class="po-container e499 e499" frame="box" rules="all"><caption class="po-container e500 e500"><para class="po-block e501 e501"><textual class="po-textual">Example list type conversions</textual></para></caption><thead class="po-container e502 e502"><tr class="po-table e503 e503"><th class="po-field e504 e504"><textual class="po-textual">xs:type</textual></th><th class="po-field e505 e505"><textual class="po-textual">XML</textual></th><th class="po-field e506 e506"><textual class="po-textual">JSON</textual></th></tr></thead><tbody class="po-table e507 e507"><tr class="po-table e508 e508"><td class="po-block e509 e509"><textual class="po-textual">xs:NMTOKENS</textual></td><td class="po-block e510 e510"><textual class="po-textual">Hi There</textual></td><td class="po-block e511 e511"><textual class="po-textual">[ "Hi","There"]</textual></td></tr><tr class="po-table e512 e512"><td class="po-block e513 e513"><textual class="po-textual">xs:IDREFS</textual></td><td class="po-block e514 e514"><textual class="po-textual">id1 id2 id3</textual></td><td class="po-block e515 e515"><textual class="po-textual">[ "id2" , "id2" , "id3"]</textual></td></tr><tr class="po-table e516 e516"><td class="po-block e517 e517"><textual class="po-textual">&lt;xs:list itemType="xs:integer"/&gt;</textual></td><td class="po-block e518 e518"><textual class="po-textual">1 2 3 4</textual></td><td class="po-block e519 e519"><textual class="po-textual">[ 1 , 2 , 3 , 4]</textual></td></tr></tbody></table><textual class="po-textual">
+			</textual></para><para class="po-block e520 e520"><textual class="po-textual"> The value element can be used to force wrapping by a JSON array even if the
+				schema does not identify a value as a list type. For example the following overrides
+				the schema information and tells the JXON processor to wrap the value with a JSON
+				array of strings. </textual><programlisting class="po-block e521 e521" xml:space="preserve"><textual class="po-textual">
+	&lt;value type="string" wrap="array"/&gt;
+</textual></programlisting><textual class="po-textual">
+			</textual></para></section><section class="po-hcontainer e522 e522"><title class="po-block e523 e523"><textual class="po-textual">Naming and namespaces</textual></title><para class="po-block e524 e524"><textual class="po-textual">JXON provides a flexible method for configuring name transformations. JSON and XML names
+				can differ significantly in possible characters and practical use. The default
+				configuration is to ignore namespaces and use the same name for XML elements and
+				attributes as JSON members. Although namespaces are not present in the JSON document
+				they are reconstructed when translating JSON to XML. Thie naming rule can be
+				overridden on a type, element or attribute basis (and child items) by supplying a
+				regular expression which translates the full XML name (in Clark notation</textual><footnote class="po-popup e525 e525"><para class="po-block e526 e526"><textual class="po-textual">"Clark Notation" is an informal name given to the proposal by James Clark for a simple represtntation of QNames </textual><link class="po-inline e527 e527" xlink:actuate="onRequest" xlink:href="http://www.jclark.com/xml/xmlns.htm" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://www.jclark.com/xml/xmlns.htm</textual></link></para></footnote><textual class="po-textual">) to the
+				JSON name. This allows the uri and localname portions of a QName to be used in
+				generation of a JSON name. Since the document instance is not avaiable during rule
+				generation, namespace prefixes are not known so are not accounted for in the naming
+				rules. You do not have to supply the reverse regex for reverse mappings, in fact the
+				mappings can be lossy while still being fully reversable because the naming
+				information is stored in the XSLT files. The JSON member names have to be unique
+				within a JSON object, however, in order to be able to match the corresponding XSLT
+				rule (and XML name). It is interesting to note that even if namespace information is
+				not mapped into the JSON output, that namespaces are not lost on reverse mapping. It
+				is only in the case where multiple element or attributes with the same name but in
+				different namespaces are used within a single schema and document instance that
+				namespaces need be considered at all in the nameing mappings to provide for lossless
+				round tripping.</textual></para><para class="po-block e528 e528"><textual class="po-textual">This naming rule can also be used to get around the problem of same-named
+				attributes and elements in XML by assigning them unique names in JSON.</textual></para><para class="po-block e529 e529"><textual class="po-textual">
+				</textual><table class="po-container e530 e530"><col class="po-meta e531 e531" span="1" width="35%"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></col><col class="po-meta e532 e532" span="1" width="31%"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></col><col class="po-meta e533 e533" span="1" width="34%"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></col><thead class="po-container e534 e534"><tr class="po-table e535 e535"><th class="po-field e536 e536"><textual class="po-textual">Name rule</textual></th><th class="po-field e537 e537"><textual class="po-textual">Clark Name</textual></th><th class="po-field e538 e538"><textual class="po-textual">JSON Name</textual></th></tr></thead><tbody class="po-table e539 e539"><tr class="po-table e540 e540"><td class="po-block e541 e541"><textual class="po-textual">&lt;json_name search="\{([^}]*)\}?(.+)$" replace="$2"/&gt;</textual></td><td class="po-block e542 e542"><textual class="po-textual">{http://www.myorg.org}name</textual></td><td class="po-block e543 e543"><textual class="po-textual">name</textual></td></tr><tr class="po-table e544 e544"><td class="po-block e545 e545"><textual class="po-textual">&lt;json_name name="Json Name"/&gt;</textual></td><td class="po-block e546 e546"><textual class="po-textual">{http://www.myorg.org}name</textual></td><td class="po-block e547 e547"><textual class="po-textual">Json Name</textual></td></tr><tr class="po-table e548 e548"><td class="po-block e549 e549"><textual class="po-textual">&lt;json_name search="\{([^}]*)\}?(.+)$" replace="1_$2"/&gt;</textual></td><td class="po-block e550 e550"><textual class="po-textual">{http://www.myorg.org}name</textual></td><td class="po-block e551 e551"><textual class="po-textual">1_name</textual></td></tr></tbody></table><textual class="po-textual">
+			</textual></para></section><section class="po-hcontainer e552 e552"><title class="po-block e553 e553"><textual class="po-textual">Elements and Attributes</textual></title><para class="po-block e554 e554"><textual class="po-textual">XML Elements and Attributes are both mapped to JSON Object members. JSON Object
+				members must be a direct child of a JSON Object. This implies that all XML Elements
+				and Attributes must be placed as direct children of a JSON Object (must not be
+				parent-less or a direct child of a JSON Array.). The Element and Attribute rules
+				interact with the Wrapping Rules to enforce this constraint as well as provides
+				variants on how elements and attributes are placed within the containing object. </textual></para><section class="po-hcontainer e555 e555"><title class="po-block e556 e556"><textual class="po-textual">children element</textual></title><para class="po-block e557 e557"><textual class="po-textual">The children element in JXON specifies how to encode XML element children in
+					JSON. The following declaration in the "full" pattern specifies that child
+					elements should be wrapped in a JSON object as the "_children" member </textual></para><programlisting class="po-block e558 e558" xml:space="preserve"><textual class="po-textual">
+	&lt;children wrap="object" name="_children" /&gt;
+</textual></programlisting><para class="po-block e559 e559"><textual class="po-textual">The following declaration used in the "simple" pattern specifies that child
+					elements are transformed into JSON members without wrapping</textual><programlisting class="po-block e560 e560" xml:space="preserve"><textual class="po-textual">
+	&lt;children wrap="none" /&gt;
+</textual></programlisting><textual class="po-textual"> Of course this will only produce valid JSON if there are no repeated elements
+					or are duplicates of unwrapped attributes. </textual></para></section><section class="po-hcontainer e561 e561"><title class="po-block e562 e562"><textual class="po-textual">attributes element</textual></title><para class="po-block e563 e563"><textual class="po-textual">The attributes element in JXON specifies how to encode XML attributes in JSON.
+					The following declaration in the "full" pattern specifies that attributes are
+					wrapped in a JSON object as the "_attributes" member. </textual><programlisting class="po-block e564 e564" xml:space="preserve"><textual class="po-textual">
+
+	&lt;attributes wrap="object" name="_attributes" /&gt;
+</textual></programlisting></para><para class="po-block e565 e565"><textual class="po-textual">The following declaration used in the "simple" pattern specifies that
+					attributes are transformed into JSON members without wrapping</textual><programlisting class="po-block e566 e566" xml:space="preserve"><textual class="po-textual">
+	&lt;attributes wrap="none" /&gt;
+</textual></programlisting><textual class="po-textual">
+				</textual></para></section></section><section class="po-hcontainer e567 e567"><title class="po-block e568 e568"><textual class="po-textual">Text elements</textual></title><para class="po-block e569 e569"><textual class="po-textual">Text elements can be treated as simple values or as objects. They can be wrapped
+				along with child elements, or in their own member. The JXON text element determines
+				the behaviour. </textual></para><para class="po-block e570 e570"><textual class="po-textual">The following example from the "simple" pattern wraps all text into an object
+				member named "_text".</textual></para><programlisting class="po-block e571 e571" xml:space="preserve"><textual class="po-textual">
+	&lt;text wrap="object" name="_text" /&gt;
+</textual></programlisting><para class="po-block e572 e572"><textual class="po-textual">The following example from the "full" pattern treats text the same as child
+				elements (putting each text element as a separate value in the _children
+				array)</textual></para><programlisting class="po-block e573 e573" xml:space="preserve"><textual class="po-textual">
+	&lt;text wrap="none"/&gt;
+</textual></programlisting></section></section><section class="po-hcontainer e574 e574"><title class="po-block e575 e575"><textual class="po-textual">Implementation</textual></title><para class="po-block e576 e576"><textual class="po-textual">The current JXON implementation is an experimental prototype with the intent of exploring
+			the design and usefulness of the architecture. The intent is to become a production
+			quality tool, but at the time of this writing it is still in prototype phase; functional
+			but not yet feature complete. The code is entirely open source, uses only open source
+			libraries and is licensed with the "Simplified BSD License".</textual><footnote class="po-popup e577 e577"><para class="po-block e578 e578"><link class="po-inline e579 e579" xlink:actuate="onRequest" xlink:href="http://www.freebsd.org/copyright/freebsd-license.html" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://www.freebsd.org/copyright/freebsd-license.html</textual></link><textual class="po-textual"> "Simplified BSD License" also known as the "2 clause BSD License" and
+					the "FreeBSD License"</textual></para></footnote><textual class="po-textual"> It is distributed as part of the JSON extension module for xmlsh </textual><link class="po-inline e580 e580" xlink:actuate="onRequest" xlink:href="http://www.xmlsh.org/ModuleJson" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://www.xmlsh.org/ModuleJson</textual></link><textual class="po-textual">.
+			The code can run within xmlsh itself or as an independant command or embedded in a java
+			application.</textual></para><para class="po-block e581 e581"><textual class="po-textual">As described in the Design Overview, JXON produces a pair of XSLT files from a schema
+			and a configuration file. These XSLT files can then be used for transformations without
+			further reference to the schema or the JXON processor. Input and output to the XSLT
+			files are XML. On the JSON side this is XML in JXML format which can be converted to and
+			from JSON losslessly, or converted to other lossless formats such as JSONX</textual><xref class="po-milestone e582 e582" linkend="jsonx"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">.</textual></para><figure class="po-container e583 e583" xml:id="jsonxslt"><title class="po-block e584 e584"><textual class="po-textual">JXON Processor implementation</textual></title><mediaobject class="po-container e585 e585"><imageobject class="po-container e586 e586"><imagedata class="po-meta e587 e587" fileref="../../../vol7/graphics/Lee01/Lee01-005.jpg" format="jpg" width="50%"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></imagedata></imageobject></mediaobject><caption class="po-container e588 e588"><para class="po-block e589 e589"><textual class="po-textual">JXON Processor implementation internals</textual></para></caption></figure><para class="po-block e590 e590"><textual class="po-textual">The resulting XSLT is produced as XSLT 2.0 for a non-schema-aware processor so that the
+			entire process may be executed entirely with open source software. </textual></para><section class="po-hcontainer e591 e591"><title class="po-block e592 e592"><textual class="po-textual">JXON Processor</textual></title><para class="po-block e593 e593"><textual class="po-textual">The JXON processor (</textual><xref class="po-milestone e594 e594" linkend="figure1"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">) is run once per schema to produce the pair
+				of transformation XSLT files. The program (called "jsonxslt" </textual><xref class="po-milestone e595 e595" linkend="jsonxslt"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">.) is written partially in Java and partially in XQuery. The
+				Java portion parses command line arguments, reads the Schema (using the Apache
+				implementation of the XML Schema API) and generates a much simpler form of the
+				schema and annotations in XML form. The intermediary schema format corresponds to
+				the same schema as the configuration format as well as the annotation (JXON). This
+				allows the configuration data to be cleanly merged with the annotation and the
+				resulting document and internal representations all having the same namespace and
+				sharing the same meaning for items. </textual></para><para class="po-block e596 e596"><textual class="po-textual">Java is used for this component because parsing, and particularly comprehending
+				XSD schema is a challenging task suited well to reusing an existing API. The
+				simplified schema and the global configuration file is then passed to the XQuery
+				component, once each for conversion to XSLT for the JSON to XML translation and
+				again for producing the XML to JSON. XQuery was chosen for this component because it
+				is a good fit for XQuery. The process is largely that of querying and producing XML
+				(XSLT) output from a complex set of algorithms. The two XQuery programs are tightly
+				coupled (and share common modules). This is necessary because the specifics of the
+				XSLT rules generated for one direction need to match exactly the rules generated for
+				the reverse direction in order to achieve round trip transformations. </textual></para><para class="po-block e597 e597"><textual class="po-textual">The result is 2 XSLT files which have encoded all the rules, augmented by the annotations,
+				into a set of XSLT templates. These templates match every element and attribute of
+				the input (Either XML or JXML), apply the encoded transformation and output the
+				transformed XML.  (</textual><emphasis class="po-inline e598 e598"><textual class="po-textual">See </textual></emphasis><xref class="po-milestone e599 e599" linkend="apendex_xslt"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref></para><section class="po-hcontainer e600 e600"><title class="po-block e601 e601"><textual class="po-textual">Parsing Schema</textual></title><para class="po-block e602 e602"><textual class="po-textual"> </textual></para><section class="po-hcontainer e603 e603"><title class="po-block e604 e604"><textual class="po-textual">RNG Support</textual></title><para class="po-block e605 e605"><textual class="po-textual">Ideally native support for RelaxNG will be built into the project but for
+						now support is by means of the </textual><emphasis class="po-inline e606 e606"><textual class="po-textual">trang </textual><xref class="po-milestone e607 e607" linkend="trang"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref></emphasis><textual class="po-textual"> converter and a transformation which converts XSD comments
+						into XSD Annotations. Comments are used instead of RNG annotations because
+						trang does not sufficiently support translating RNG annotations to XSD
+						annotations.</textual></para></section></section></section><section class="po-hcontainer e608 e608" xml:id="jxml"><title class="po-block e609 e609"><textual class="po-textual">Converting between JSON and JXML</textual></title><para class="po-block e610 e610"><textual class="po-textual">As described in the design, the JXON processor consumes and produces JSON in JXML
+				format. This could in theory be any other full fidelity JSON representation in
+				XML.</textual></para><para class="po-block e611 e611"><textual class="po-textual">This JXML format may be useful by itself as it can be converted to other JSON XML
+				formats such as JSONX </textual><xref class="po-milestone e612 e612" linkend="jsonx"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">or used as an input to other processors
+				that operate purely on the JSON Object Model as apposed to the JSON Serialized Text
+				form.</textual></para><para class="po-block e613 e613"><textual class="po-textual">To convert from JSON to JXML and reverse, two tools are used from xmlsh command
+				library (json2xml, xml2json). These tools are very simple and can be run standalone
+				(outside the xmlsh environment), or could be re-implemented easily. Source code is
+				available for these tools as well as all of xmlsh, also licensed using the
+				Simplified BSD License. The json2xml tool makes use of the JSON API available from
+				json.org, with some minor enhancements, mainly to preserve the order of object
+				members while parsing JSON. The xml2json tool does not use the JSON API because of
+				severe limits to that library, rather the serialization was written from
+				scratch.</textual></para><para class="po-block e614 e614"><textual class="po-textual">Neither of these tools are particularly complicated and could be replaced by user
+				written code. The techniques for parsing and serializing JSON are well known and
+				many implementations are available. You can see from the sample below that the JXML
+				format is extremely verbose, but its advantage is it directly models the JSON data
+				model.</textual></para></section><section class="po-hcontainer e615 e615"><title class="po-block e616 e616"><textual class="po-textual">XSLT processing</textual></title><para class="po-block e617 e617"><textual class="po-textual">Once the JXON process is complete the 2 resulting XSLT files can be used at any
+				time. One file is used to transform JSON as represented in JXML to the target XML
+					</textual><emphasis class="po-inline e618 e618" role="ital"><textual class="po-textual">See</textual></emphasis><textual class="po-textual">
+				</textual><xref class="po-milestone e619 e619" linkend="fig_json2xml"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">. </textual></para><para class="po-block e620 e620"><textual class="po-textual">The other file is used to transform XML to JXML </textual><emphasis class="po-inline e621 e621" role="ital"><textual class="po-textual">See</textual></emphasis><textual class="po-textual">
+				</textual><xref class="po-milestone e622 e622" linkend="fig_xml2json"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">.</textual></para><para class="po-block e623 e623"><textual class="po-textual">The conversion between JXON and JSON is performed using the json2xml and xml2json
+				tools </textual><emphasis class="po-inline e624 e624" role="ital"><textual class="po-textual">See</textual></emphasis><textual class="po-textual">
+				</textual><xref class="po-milestone e625 e625" linkend="jxml"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref></para><para class="po-block e626 e626"><textual class="po-textual">The XSLT files are currently created to run with any XSLT 2.0 non-schema aware
+				processor. The implementation uses Saxon</textual><footnote class="po-popup e627 e627"><para class="po-block e628 e628"><textual class="po-textual">SAXON - The XSLT and XQuery Processor</textual><link class="po-inline e629 e629" xlink:actuate="onRequest" xlink:href="http://saxon.sourceforge.net/" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://saxon.sourceforge.net/</textual></link></para></footnote><textual class="po-textual">
+			</textual></para></section></section><section class="po-hcontainer e630 e630"><title class="po-block e631 e631"><textual class="po-textual">Retrospective; Limitations and Lessons</textual></title><para class="po-block e632 e632"><textual class="po-textual">JXON began as an experiment to explore the feasibility of intelligent cross markup
+			transformations. Key to this experiment is the recognition that Markup Schema contains
+			significant information which can be used to aid cross markup transformation.
+			Recognizing this I assert that in essence cross markup transformation is fundamentally a
+			Schema oriented issue, not a document instance issue. Lack of JSON Schema places a
+			severe limit in the amount of automated decision making possible leaving one side only
+			with schema information. This limit did make many design decisions easier, although less
+			ideal, in particular to focus on the XML schema as the source of transformation logic. </textual></para><section class="po-hcontainer e633 e633"><title class="po-block e634 e634"><textual class="po-textual">Use of XSD Schema</textual></title><para class="po-block e635 e635"><textual class="po-textual">Recognizing that Schema was a core concept in the design, XSD Schema was chosen for the
+				implementation. In concept any schema language should work, but XSD was chosen due
+				to its prevalence and the availability of API's which can query the schema (XML
+				Schema API). XSD Schema is complex. The fact that an API is needed to query it to
+				get meaningful information (instead of say using XQuery directly on the schema), is
+				an indication of how complex it is. Even the API itself is complex. This decision
+				required the use of a Java component instead of relying entirely on XML tools. </textual></para><para class="po-block e636 e636"><textual class="po-textual">Ideally any XML Schema language should be able to be able to be used. Since the source
+				schema is only used early on in the work-flow (to generate a simpler intermediate
+				document), supporting alternative schemas such as RNG natively should not be that
+				difficult and may be introduced in a later version of the implementation.  The
+				current support for RNG via translation to XSD is a viable alternative.</textual></para><section class="po-hcontainer e637 e637"><title class="po-block e638 e638"><textual class="po-textual">Requires an XML Schema</textual></title><para class="po-block e639 e639"><textual class="po-textual">Since the transformation generation is Schema based, this implies you must
+					have an XML Schema to define a transformation. If you are starting with XML
+					there are many tools to generate a schema based on sample XML. But if you are
+					starting with JSON there are no such tools. This is an area which could use
+					improvement. For now you are forced to create a schema which matches up with how
+					the JSON would be generated using one of the existing patterns. Perhaps a
+					schema-less transformation mode would be useful to bootstrap this
+					process.</textual></para></section><section class="po-hcontainer e640 e640"><title class="po-block e641 e641"><textual class="po-textual">Recursive structures</textual></title><para class="po-block e642 e642"><textual class="po-textual">JXON allows for recursive structures insomuch as XSD does. Since rules are
+					associated with a specific element declaration you cannot target different rules
+					for different levels of recursion.</textual></para></section><section class="po-hcontainer e643 e643"><title class="po-block e644 e644"><textual class="po-textual">Local Elements</textual></title><para class="po-block e645 e645"><textual class="po-textual">JXON allows for local elements in XSD. Local elements of the same name as
+					other local or global elements can be targeted individually. This allows
+					samed-named XML elements to map to differently named JSON elements. However, as
+					in recursion, it is only supported in the same fashion as XSD. If a document
+					instance references the same element in different contexts they cannot be
+					targeted differently unless it is a local element declaration.</textual></para></section></section><section class="po-hcontainer e646 e646"><title class="po-block e647 e647"><textual class="po-textual">Use of Schema Annotations</textual></title><para class="po-block e648 e648"><textual class="po-textual">The choice of using XML Schema (particularly XSD) then led to the decision to put
+				the human augmented information into the XML schema document itself (as
+				annotations). This decision is definitely debatable. </textual></para><para class="po-block e649 e649"><textual class="po-textual">The advantage of annotating the schema itself instead of using an external "rules file" is
+				that information can be associated directly to the specific item (type, element,
+				attribute) without having to target that item externally with perhaps XPath or type
+				references. The transformation logic then resides right with the item definitions in
+				the schema and contains a minimal amount of extra information. On the other hand,
+				this forces editing of the schema in order to modify the transformation logic.
+				Different transformations for the same class of documents then requires separate
+				schemas. This means that different schemas may need to be maintained that differ
+				only in the JXON annotations. While JXON does not require that instance documents
+				use the same schema during transformation as was used during the generation process,
+				this can be a problem as changes to the authoritative schema require editing the
+				schemas used for the JXON configurations. </textual></para><para class="po-block e650 e650"><textual class="po-textual">Another issue of annotating schema directly is that it requires duplication of
+				information if the same properties are to be applied to different items. This is
+				mitigated by the use of "patterns" which group properties and allow you to specify
+				only the pattern name. However if the rules were in an external file they could use
+				a single definition for common properties and use instead multiple targets (e.g
+				XPaths) to apply the properties to multiple items. </textual></para></section><section class="po-hcontainer e651 e651"><title class="po-block e652 e652"><textual class="po-textual">Intermediate file (JXON document) generation in Java</textual></title><para class="po-block e653 e653"><textual class="po-textual">Use of the Apache implementation of the XML Schema API requires use of a Java component for
+				part of the generation process. To minimize the reliance on Java coding an
+				intermediate XML file is generated with a simplified version of the schema along
+				with the annotations. This worked out fairly well as it separated the logic for
+				parsing the schema from the rest of the processing. One problem is that the format
+				for the intermediate is a moving target. Exactly what constitutes a "minimal
+				simplified representation of the schema" depends on the needs of downstream
+				processing. Adding new features and making changes to the XSLT generation code often
+				requires going back to the Java code to add or change the content of the
+				intermediate file.</textual></para><para class="po-block e654 e654"><textual class="po-textual">Once the initial stage is complete then the rest of the XSLT generation can be
+				done using pure XML tools. This allowed for easier development and debugging. </textual></para><para class="po-block e655 e655"><textual class="po-textual">Use of an intermediate representation for the schema also benefits from being
+				schema language agnostic. A different input schema language (such as RelaxNG) could
+				be used while generating the same JXON intermediate format and leaving the rest of
+				the processing unchanged.</textual></para></section><section class="po-hcontainer e656 e656"><title class="po-block e657 e657"><textual class="po-textual">XQuery for XSLT generation</textual></title><para class="po-block e658 e658"><textual class="po-textual">XQuery is used to generate the XSLT output given the intermediate schema file and a
+				configuration file. Choice of XQuery seems a good fit for the problem. The input and
+				output is entirely XML and the processing logic is query and data oriented logic
+				operations. This fits the XQuery use case quite well. Certainly XSLT or Java could
+				have been used for this component, but the choice of XQuery worked well.</textual></para></section><section class="po-hcontainer e659 e659"><title class="po-block e660 e660"><textual class="po-textual">XSLT for transformation</textual></title><para class="po-block e661 e661"><textual class="po-textual">The output of the JXON processor is a pair of XSLT files. These XSLT files are
+				used for the actual transformations. Choice of XSLT seems an obvious match. The
+				transformation is a collection of matching templates along with generation rules.
+				This fits the XSLT model very well. </textual></para><section class="po-hcontainer e662 e662"><title class="po-block e663 e663"><textual class="po-textual">Auto generation of XSLT</textual></title><para class="po-block e664 e664"><textual class="po-textual">In practice the resultant XSLT can be both large and non-ideal. For example
+					the XSLT for Docbook is over 10,000 templates. XSLT 2.0 without schema support
+					was chosen for the initial implementation. The rationale is to provide an
+					implementation which is entirely "open source" and can be run without licensing.
+					However since the problem is fundamentally a schema problem, making use of a
+					schema-aware XSLT may have significant value. For example when a rule applies to
+					a type, templates are generated for every possible occurrence of that type.
+					Using a schema aware XSLT processor could optimize this to matching on types
+					instead of names (at least for the XML to JSON conversion). </textual></para><para class="po-block e665 e665"><textual class="po-textual">Generation of the XSLT code is also quite tricky and difficult to debug which
+					limits ease of adding transformation rules. In particular writing the code that
+					generates XSLT which can transform bidirectionally is quite tedious. This is
+					definitely an area that could use significantly improvement and
+					optimization.</textual></para></section></section><section class="po-hcontainer e666 e666"><title class="po-block e667 e667"><textual class="po-textual">Naming and namespaces</textual></title><para class="po-block e668 e668"><textual class="po-textual">The mechanism for customizing name and namespace mappings is based on regular
+				expressions. This is quite powerful but may not be powerful enough. The reason
+				regular expressions were chosen is an artifact of the implementation; is that its
+				the most flexible string manipulation feature in XQuery which doesn't require an
+				"eval". This area could use enhancements.</textual></para><para class="po-block e669 e669"><textual class="po-textual">The naming rules only have access to the localname and URI of the QName. This means that
+				prefixes cannot be used as part of the name mappings. When generating XML from JSON
+				prefixes are constructed and namespace declarations are added as needed. The
+				resulting XML will most likely have a different lexical representation then a source
+				XML after round tripping due to the difference in prefixes and locations of
+				namespace declarations. Possibly making use of the prefix bindings in the XSD would
+				be useful although there is no guarantee these same prefixes would be used in
+				instance documents.</textual></para><para class="po-block e670 e670"><textual class="po-textual">Using the default naming rules which ignore the namespace when generating JSON can lead to
+				ambiguity problems if two QNames from different namespaces are allowed as attribute
+				or child element names in a given element. This is resolved by overriding the naming
+				rule for one of the ambiguous names.</textual></para><para class="po-block e671 e671"><textual class="po-textual">Better control over prefix assignment and namespace declaration placement would be
+				a useful enhancement.</textual></para></section><section class="po-hcontainer e672 e672"><title class="po-block e673 e673"><textual class="po-textual">Character Set</textual></title><para class="po-block e674 e674"><textual class="po-textual">JXON uses JXML's handling of non-XML representable characters such as \0 by
+				keeping them in JSON escaped format when mapped to XML. While this is losses, it is
+				non-ideal as it takes application logic to parse these values correctly. I know of
+				no better solution to this problem as XML simply cannot encode the full Unicode
+				code-set which is allowed in JSON.</textual></para></section></section><appendix class="po-hcontainer e675 e675"><title class="po-block e676 e676"><textual class="po-textual">Appendix</textual></title><section class="po-hcontainer e677 e677" xml:id="patterns"><title class="po-block e678 e678"><textual class="po-textual">Patterns</textual></title><para class="po-block e679 e679"><textual class="po-textual">The following is the JXON global configuration markup of the "full" and "simple"
+				patterns.</textual></para><programlisting class="po-block e680 e680" xml:space="preserve"><textual class="po-textual">
+&lt;patterns xmlns="http://www.xmlsh.org/jxon" default="full"&gt;
+	&lt;pattern name="full"&gt;
+		&lt;element&gt;
+			&lt;!-- Wrap all child text and elements in an object --&gt;
+			&lt;children wrap="object" name="_children" /&gt;
+			
+			&lt;!-- Wrap all attributes in an object --&gt;
+			&lt;attributes wrap="object" name="_attributes" /&gt;
+
+			&lt;!-- Do not wrap text by itself, it is in the _children --&gt;
+			&lt;text wrap="none"/&gt;
+
+			&lt;!-- Values are typed and wrapped according to schema --&gt;
+			&lt;value wrap="schema" type="schema" /&gt;
+			&lt;json_name	search="\{([^}]*)\}?(.+)$" replace="$2"/&gt;
+		&lt;/element&gt;
+
+		&lt;attribute&gt;
+			&lt;value wrap="schema" type="schema" /&gt;
+			&lt;json_name	search="\{([^}]*)\}?(.+)$" replace="$2"/&gt;
+		&lt;/attribute&gt;
+
+	&lt;/pattern&gt;
+
+	&lt;pattern name="simple"&gt;
+		&lt;element&gt;
+			&lt;children wrap="none" /&gt;
+			&lt;attributes wrap="none" /&gt;
+			&lt;text wrap="object" name="_text" /&gt;
+			&lt;value wrap="schema" type="schema" /&gt;
+			&lt;json_name	search="\{([^}]*)\}?(.+)$" replace="$2"/&gt;
+			&lt;override/&gt;
+		&lt;/element&gt;
+		&lt;attribute&gt;
+			&lt;value wrap="schema" type="schema" /&gt;
+			&lt;json_name	search="\{([^}]*)\}?(.+)$" replace="$2"/&gt;
+		&lt;/attribute&gt;
+	&lt;/pattern&gt;
+
+&lt;/patterns&gt; 
+</textual></programlisting></section><section class="po-hcontainer e681 e681" xml:id="jsontojxml"><title class="po-block e682 e682"><textual class="po-textual">Example of JSON file converted into JXML</textual></title><para class="po-block e683 e683"><textual class="po-textual">JSON Sample</textual></para><programlisting class="po-block e684 e684" xml:space="preserve"><textual class="po-textual">{
+	"id": "0001",
+	"type": "donut",
+	"name": "Cake",
+	"ppu": 0.55,
+
+	"topping":
+		[
+			{ "id": "5001", "type": "None" },
+			{ "id": "5002", "type": "Glazed" },
+			{ "id": "5005", "type": "Sugar" },
+		]
+}</textual></programlisting><para class="po-block e685 e685"><textual class="po-textual">JXML Sample</textual></para><programlisting class="po-block e686 e686" xml:space="preserve"><textual class="po-textual">&lt;object xmlns="http://www.xmlsh.org/jxml"&gt;
+   &lt;member name="id"&gt;
+      &lt;string&gt;0001&lt;/string&gt;
+   &lt;/member&gt;
+   &lt;member name="type"&gt;
+      &lt;string&gt;donut&lt;/string&gt;
+   &lt;/member&gt;
+   &lt;member name="name"&gt;
+      &lt;string&gt;Cake&lt;/string&gt;
+   &lt;/member&gt;
+   &lt;member name="ppu"&gt;
+      &lt;number&gt;0.55&lt;/number&gt;
+   &lt;/member&gt;
+   &lt;member name="topping"&gt;
+      &lt;array&gt;
+         &lt;object&gt;
+            &lt;member name="id"&gt;
+               &lt;string&gt;5001&lt;/string&gt;
+            &lt;/member&gt;
+            &lt;member name="type"&gt;
+               &lt;string&gt;None&lt;/string&gt;
+            &lt;/member&gt;
+         &lt;/object&gt;
+         &lt;object&gt;
+            &lt;member name="id"&gt;
+               &lt;string&gt;5002&lt;/string&gt;
+            &lt;/member&gt;
+            &lt;member name="type"&gt;
+               &lt;string&gt;Glazed&lt;/string&gt;
+            &lt;/member&gt;
+         &lt;/object&gt;
+         &lt;object&gt;
+            &lt;member name="id"&gt;
+               &lt;string&gt;5005&lt;/string&gt;
+            &lt;/member&gt;
+            &lt;member name="type"&gt;
+               &lt;string&gt;Sugar&lt;/string&gt;
+            &lt;/member&gt;
+         &lt;/object&gt;
+      &lt;/array&gt;
+   &lt;/member&gt;
+&lt;/object&gt;</textual></programlisting></section><section class="po-hcontainer e687 e687"><title class="po-block e688 e688"><textual class="po-textual">Full example</textual></title><para class="po-block e689 e689"><textual class="po-textual">The following is a full example of a bidirectional round trip JSON/XML
+				transformation using a variant of the "BOOKS" schema</textual></para><section class="po-hcontainer e690 e690"><title class="po-block e691 e691"><textual class="po-textual">XSD Schema</textual></title><para class="po-block e692 e692"><textual class="po-textual">The XSD schema marked up with JXON annotations</textual></para><programlisting class="po-block e693 e693" xml:space="preserve"><textual class="po-textual">&lt;xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:jxon="http://www.xmlsh.org/jxon"&gt;
+	&lt;!-- Default document pattern is "full" --&gt;
+	&lt;xs:element name="BOOKLIST"&gt;
+	&lt;xs:annotation&gt;
+		&lt;!--BOOKLIST and decendants follow "simple" pattern --&gt;
+		&lt;xs:appinfo&gt;
+			&lt;jxon:pattern name="simple" /&gt;
+		&lt;/xs:appinfo&gt;
+	&lt;/xs:annotation&gt;
+		&lt;xs:complexType&gt;
+			&lt;xs:sequence&gt;
+				&lt;xs:element ref="BOOKS"/&gt;
+				&lt;xs:element ref="CATEGORIES"/&gt;
+			&lt;/xs:sequence&gt;
+		&lt;/xs:complexType&gt;
+	&lt;/xs:element&gt;
+
+	&lt;xs:element name="BOOKS"&gt;
+		&lt;xs:annotation&gt;
+		&lt;xs:appinfo&gt;
+			&lt;!-- Wrap all child elements in a JSON Array --&gt;
+			&lt;jxon:children wrap="array" /&gt;
+		&lt;/xs:appinfo&gt;
+	&lt;/xs:annotation&gt;
+		&lt;xs:complexType&gt;
+			&lt;xs:sequence&gt;
+				&lt;xs:element ref="ITEM" maxOccurs="unbounded"/&gt;
+			&lt;/xs:sequence&gt;
+		&lt;/xs:complexType&gt;
+	&lt;/xs:element&gt;
+
+	&lt;xs:element name="CATEGORIES"&gt;
+
+		
+		&lt;xs:complexType mixed="true"&gt;
+			&lt;xs:sequence minOccurs="0" maxOccurs="unbounded"&gt;
+				&lt;xs:element ref="CATEGORY"/&gt;
+			&lt;/xs:sequence&gt;
+			&lt;xs:attribute name="DESC" type="xs:string" use="required"/&gt;
+		&lt;/xs:complexType&gt;
+	&lt;/xs:element&gt;
+	&lt;xs:element name="CATEGORY"&gt;
+		&lt;xs:annotation&gt;
+			&lt;!-- CATEGORY and children use the simple pattern --&gt;
+			&lt;xs:appinfo&gt;
+				&lt;jxon:pattern  name="simple"/&gt;
+			&lt;/xs:appinfo&gt;
+		&lt;/xs:annotation&gt;
+		&lt;xs:complexType&gt;
+			&lt;xs:attribute name="CODE" type="xs:ID" use="required"/&gt;
+			&lt;xs:attribute name="DESC" type="xs:string" use="required"&gt;
+
+			&lt;/xs:attribute&gt;
+			&lt;xs:attribute name="NOTE" type="xs:string" use="optional"/&gt;
+		&lt;/xs:complexType&gt;
+	&lt;/xs:element&gt;
+
+	&lt;xs:element name="ITEM"&gt;
+	&lt;xs:annotation&gt;
+		&lt;xs:appinfo&gt;
+			&lt;!-- ITEM and children use the simple pattern --&gt;
+			&lt;jxon:pattern name="simple" /&gt;
+			&lt;!-- Rename the XML ITEM element to BOOK in JSON --&gt;
+			&lt;jxon:json_name name="BOOK"/&gt;
+
+		&lt;/xs:appinfo&gt;
+	&lt;/xs:annotation&gt;
+		&lt;xs:complexType&gt;
+			&lt;xs:sequence&gt;
+				&lt;xs:element name="TITLE" type="xs:string" minOccurs="1"&gt;
+				&lt;/xs:element&gt;
+				&lt;xs:element name="AUTHOR" type="xs:string"/&gt;
+				&lt;xs:element name="PUBLISHER" type="xs:string"/&gt;
+				&lt;xs:element name="PUB-DATE" type="xs:date"/&gt;
+				&lt;xs:element name="LANGUAGE" type="languageType"/&gt;
+				&lt;xs:element name="PRICE" type="moneyType"&gt;
+				&lt;/xs:element&gt;
+				&lt;xs:element name="QUANTITY" type="xs:integer"/&gt;
+				&lt;xs:element name="ISBN" type="ISBNType"/&gt;
+				&lt;xs:element name="PAGES" type="xs:integer"&gt;
+				&lt;xs:annotation&gt;
+						&lt;xs:appinfo&gt;
+							&lt;!-- Demonstrate we can override the default JSON type with string --&gt;
+							&lt;jxon:value  type="string"/&gt;
+						&lt;/xs:appinfo&gt;
+				&lt;/xs:annotation&gt;
+				&lt;/xs:element&gt;
+				&lt;xs:element name="DIMENSIONS" type="dimensionsType"&gt;
+					&lt;xs:annotation&gt;
+						&lt;xs:appinfo&gt;
+							&lt;!-- Wrap dimension children in an object member named "value" --&gt;
+							&lt;jxon:text wrap="object" name="value" /&gt;
+						&lt;/xs:appinfo&gt;
+					&lt;/xs:annotation&gt;
+					
+				&lt;/xs:element&gt;
+				&lt;xs:element name="WEIGHT" type="weightType"&gt;
+					&lt;xs:annotation&gt;
+					&lt;xs:appinfo&gt;
+						&lt;!-- wrap WEIGHT text in an object member named "amount" --&gt;
+						&lt;jxon:text wrap="object" name="amount"/&gt;
+					&lt;/xs:appinfo&gt;
+				&lt;/xs:annotation&gt;
+				&lt;/xs:element&gt;
+			&lt;/xs:sequence&gt;
+			&lt;xs:attribute name="CAT" type="xs:IDREF" use="required"/&gt;
+			&lt;xs:attribute name="TAX" type="xs:NMTOKEN" use="optional" default="V"/&gt;
+		&lt;/xs:complexType&gt;
+	&lt;/xs:element&gt;
+
+	&lt;xs:simpleType name="languageType"&gt;
+		&lt;xs:restriction base="xs:string"&gt;
+			&lt;xs:enumeration value="English"/&gt;
+			&lt;xs:enumeration value="French"/&gt;
+			&lt;xs:enumeration value="German"/&gt;
+			&lt;xs:enumeration value="Spanish"/&gt;
+		&lt;/xs:restriction&gt;
+	&lt;/xs:simpleType&gt;
+
+	&lt;xs:complexType name="moneyType"&gt;
+		&lt;xs:simpleContent&gt;
+			&lt;xs:extension base="xs:decimal"&gt;
+				&lt;xs:attribute name="currency" type="currencyType"/&gt;
+			&lt;/xs:extension&gt;
+		&lt;/xs:simpleContent&gt;
+	&lt;/xs:complexType&gt;
+
+	&lt;xs:simpleType name="currencyType"&gt;
+		&lt;xs:restriction base="xs:string"&gt;
+			&lt;xs:enumeration value="USD"/&gt;
+			&lt;xs:enumeration value="GBP"/&gt;
+			&lt;xs:enumeration value="EUR"/&gt;
+			&lt;xs:enumeration value="CAD"/&gt;
+		&lt;/xs:restriction&gt;
+	&lt;/xs:simpleType&gt;
+
+	&lt;xs:simpleType name="ISBNType"&gt;
+		&lt;xs:restriction base="xs:string"&gt;
+			&lt;xs:pattern value="[0-9]{9}[0-9X]"/&gt;
+		&lt;/xs:restriction&gt;
+	&lt;/xs:simpleType&gt;
+
+	&lt;xs:complexType name="dimensionsType"&gt;
+		&lt;xs:simpleContent&gt;
+			&lt;xs:extension base="dimensionsContentType"&gt;
+				&lt;xs:attribute name="UNIT" type="lengthUnitType"&gt;
+				&lt;/xs:attribute&gt;
+			&lt;/xs:extension&gt;
+		&lt;/xs:simpleContent&gt;
+	&lt;/xs:complexType&gt;
+
+	&lt;xs:simpleType name="dimensionsContentType"&gt;
+		&lt;xs:restriction&gt;
+			&lt;xs:simpleType&gt;
+				&lt;xs:list itemType="dimensionType"/&gt;
+			&lt;/xs:simpleType&gt;
+			&lt;xs:length value="3"/&gt;
+		&lt;/xs:restriction&gt;
+	&lt;/xs:simpleType&gt;
+
+	&lt;xs:simpleType name="lengthUnitType"&gt;
+		&lt;xs:restriction base="xs:string"&gt;
+			&lt;xs:enumeration value="in"/&gt;
+			&lt;xs:enumeration value="cm"/&gt;
+		&lt;/xs:restriction&gt;
+	&lt;/xs:simpleType&gt;
+
+	&lt;xs:simpleType name="dimensionType"&gt;
+		&lt;xs:restriction base="xs:decimal"&gt;
+			&lt;xs:minExclusive value="0.00"/&gt;
+		&lt;/xs:restriction&gt;
+	&lt;/xs:simpleType&gt;
+
+	&lt;xs:complexType name="weightType"&gt;
+		&lt;xs:simpleContent&gt;
+					
+			&lt;xs:extension base="xs:decimal"&gt;
+				&lt;xs:attribute name="UNIT" type="weightUnitType"/&gt;
+
+			&lt;/xs:extension&gt;
+		&lt;/xs:simpleContent&gt;
+	&lt;/xs:complexType&gt;
+
+	&lt;xs:simpleType name="weightUnitType"&gt;
+		&lt;xs:restriction base="xs:string"&gt;
+			&lt;xs:enumeration value="oz"/&gt;
+			&lt;xs:enumeration value="g"/&gt;
+		&lt;/xs:restriction&gt;
+	&lt;/xs:simpleType&gt;
+&lt;/xs:schema&gt;
+</textual></programlisting></section><section class="po-hcontainer e694 e694"><title class="po-block e695 e695"><textual class="po-textual">BOOKS XML</textual></title><para class="po-block e696 e696"><textual class="po-textual">The BOOKS xml file</textual></para><programlisting class="po-block e697 e697" xml:space="preserve"><textual class="po-textual">&lt;BOOKLIST&gt;
+&lt;BOOKS&gt;
+	&lt;ITEM CAT="MMP"&gt;
+    	&lt;TITLE&gt;Pride and Prejudice&lt;/TITLE&gt;
+    	&lt;AUTHOR&gt;Jane Austen&lt;/AUTHOR&gt;
+    	&lt;PUBLISHER&gt;Modern Library&lt;/PUBLISHER&gt;
+    	&lt;PUB-DATE&gt;2002-12-31&lt;/PUB-DATE&gt;
+    	&lt;LANGUAGE&gt;English&lt;/LANGUAGE&gt;
+    	&lt;PRICE&gt;4.95&lt;/PRICE&gt;
+    	&lt;QUANTITY&gt;187&lt;/QUANTITY&gt;
+    	&lt;ISBN&gt;0679601686&lt;/ISBN&gt;
+    	&lt;PAGES&gt;352&lt;/PAGES&gt;
+    	&lt;DIMENSIONS UNIT="in"&gt;8.3 5.7 1.1&lt;/DIMENSIONS&gt;
+    	&lt;WEIGHT UNIT="oz"&gt;6.1&lt;/WEIGHT&gt;
+	&lt;/ITEM&gt;
+	&lt;ITEM CAT="P"&gt;
+		&lt;TITLE&gt;Wuthering Heights&lt;/TITLE&gt;
+		&lt;AUTHOR&gt;Charlotte Bront&amp;#xeb;&lt;/AUTHOR&gt;
+		&lt;PUBLISHER&gt;Penguin Classics&lt;/PUBLISHER&gt;
+		&lt;PUB-DATE&gt;2002-12-31&lt;/PUB-DATE&gt;
+		&lt;LANGUAGE&gt;English&lt;/LANGUAGE&gt;
+		&lt;PRICE&gt;6.58&lt;/PRICE&gt;
+		&lt;QUANTITY&gt;113&lt;/QUANTITY&gt;		
+		&lt;ISBN&gt;0141439556&lt;/ISBN&gt;
+		&lt;PAGES&gt;430&lt;/PAGES&gt;
+    &lt;DIMENSIONS UNIT="in"&gt;1 5.2 7.8&lt;/DIMENSIONS&gt;
+		&lt;WEIGHT UNIT="oz"&gt;11.2&lt;/WEIGHT&gt;
+	&lt;/ITEM&gt;
+	&lt;ITEM CAT="P"&gt;
+		&lt;TITLE&gt;Tess of the d'Urbervilles&lt;/TITLE&gt;
+		&lt;AUTHOR&gt;Thomas Hardy&lt;/AUTHOR&gt;
+		&lt;PUBLISHER&gt;Bantam Classics&lt;/PUBLISHER&gt;
+		&lt;PUB-DATE&gt;1984-05-01&lt;/PUB-DATE&gt;
+		&lt;LANGUAGE&gt;English&lt;/LANGUAGE&gt;
+		&lt;PRICE&gt;4.95&lt;/PRICE&gt;
+		&lt;QUANTITY&gt;85&lt;/QUANTITY&gt;		
+		&lt;ISBN&gt;0553211684&lt;/ISBN&gt;
+		&lt;PAGES&gt;480&lt;/PAGES&gt;
+    &lt;DIMENSIONS UNIT="in"&gt;6.8 4.2 0.8&lt;/DIMENSIONS&gt;
+		&lt;WEIGHT UNIT="oz"&gt;7.7&lt;/WEIGHT&gt;
+	&lt;/ITEM&gt;
+	&lt;ITEM CAT="P"&gt;
+		&lt;TITLE&gt;Jude the Obscure&lt;/TITLE&gt;
+		&lt;AUTHOR&gt;Thomas Hardy&lt;/AUTHOR&gt;
+		&lt;PUBLISHER&gt;Penguin Classics&lt;/PUBLISHER&gt;
+		&lt;PUB-DATE&gt;1998-09-01&lt;/PUB-DATE&gt;
+		&lt;LANGUAGE&gt;English&lt;/LANGUAGE&gt;
+		&lt;PRICE&gt;4.95&lt;/PRICE&gt;
+		&lt;QUANTITY&gt;129&lt;/QUANTITY&gt;		
+		&lt;ISBN&gt;0140435387&lt;/ISBN&gt;
+		&lt;PAGES&gt;528&lt;/PAGES&gt;
+    &lt;DIMENSIONS UNIT="in"&gt;7.8 5.2 0.9&lt;/DIMENSIONS&gt;
+		&lt;WEIGHT UNIT="oz"&gt;10.9&lt;/WEIGHT&gt;
+	&lt;/ITEM&gt;
+	&lt;ITEM CAT="H"&gt;
+		&lt;TITLE&gt;The Big Over Easy&lt;/TITLE&gt;
+		&lt;AUTHOR&gt;Jasper Fforde&lt;/AUTHOR&gt;
+		&lt;PUBLISHER&gt;Hodder &amp;amp; Stoughton&lt;/PUBLISHER&gt;
+		&lt;PUB-DATE&gt;2005-07-11&lt;/PUB-DATE&gt;
+		&lt;LANGUAGE&gt;English&lt;/LANGUAGE&gt;
+		&lt;PRICE&gt;16.47&lt;/PRICE&gt;
+		&lt;QUANTITY&gt;129&lt;/QUANTITY&gt;		
+		&lt;ISBN&gt;0340835672&lt;/ISBN&gt;
+		&lt;PAGES&gt;346&lt;/PAGES&gt;
+    &lt;DIMENSIONS UNIT="cm"&gt;22.5 18 3.5&lt;/DIMENSIONS&gt;
+		&lt;WEIGHT UNIT="g"&gt;390&lt;/WEIGHT&gt;
+	&lt;/ITEM&gt;
+	&lt;ITEM CAT="P"&gt;
+		&lt;TITLE&gt;The Eyre Affair&lt;/TITLE&gt;
+		&lt;AUTHOR&gt;Jasper Fforde&lt;/AUTHOR&gt;
+		&lt;PUBLISHER&gt;Penguin&lt;/PUBLISHER&gt;
+		&lt;PUB-DATE&gt;2003-02-25&lt;/PUB-DATE&gt;
+		&lt;LANGUAGE&gt;English&lt;/LANGUAGE&gt;
+		&lt;PRICE&gt;16.47&lt;/PRICE&gt;
+		&lt;QUANTITY&gt;129&lt;/QUANTITY&gt;		
+		&lt;ISBN&gt;0142001805&lt;/ISBN&gt;
+		&lt;PAGES&gt;384&lt;/PAGES&gt;
+    &lt;DIMENSIONS UNIT="in"&gt;7.8 5 0.9&lt;/DIMENSIONS&gt;
+		&lt;WEIGHT UNIT="oz"&gt;9&lt;/WEIGHT&gt;
+	&lt;/ITEM&gt;
+
+&lt;/BOOKS&gt;
+&lt;CATEGORIES DESC="Miscellaneous categories"&gt;
+    &lt;CATEGORY CODE="P" DESC="Paperback"/&gt;
+    &lt;CATEGORY CODE="MMP" DESC="Mass-market Paperback"/&gt;
+    &lt;CATEGORY CODE="H" DESC="Hard Cover"/&gt;
+&lt;/CATEGORIES&gt;
+&lt;/BOOKLIST&gt;
+		</textual></programlisting></section><section class="po-hcontainer e698 e698"><title class="po-block e699 e699"><textual class="po-textual">BOOKS JSON</textual></title><para class="po-block e700 e700"><textual class="po-textual">The BOOKS JSON document</textual></para><programlisting class="po-block e701 e701" xml:space="preserve"><textual class="po-textual">{
+  "BOOKLIST":
+   {
+    "BOOKS":
+     [
+      {
+       "BOOK":
+        {
+         "CAT":"MMP",
+         "TITLE":"Pride and Prejudice",
+         "AUTHOR":"Jane Austen",
+         "PUBLISHER":"Modern Library",
+         "PUB-DATE":"2002-12-31",
+         "LANGUAGE":"English",
+         "PRICE":4.95,
+         "QUANTITY":187,
+         "ISBN":"0679601686",
+         "PAGES":"352",
+         "DIMENSIONS":
+          {
+           "UNIT":"in",
+           "value":
+            [8.3,5.7,1.1]
+          },
+         "WEIGHT":
+          {
+           "UNIT":"oz",
+           "amount":6.1
+          }
+        }
+      },
+      {
+       "BOOK":
+        {
+         "CAT":"P",
+         "TITLE":"Wuthering Heights",
+         "AUTHOR":"Charlotte BrontÃ«",
+         "PUBLISHER":"Penguin Classics",
+         "PUB-DATE":"2002-12-31",
+         "LANGUAGE":"English",
+         "PRICE":6.58,
+         "QUANTITY":113,
+         "ISBN":"0141439556",
+         "PAGES":"430",
+         "DIMENSIONS":
+          {
+           "UNIT":"in",
+           "value":
+            [1,5.2,7.8]
+          },
+         "WEIGHT":
+          {
+           "UNIT":"oz",
+           "amount":11.2
+          }
+        }
+      },
+      {
+       "BOOK":
+        {
+         "CAT":"P",
+         "TITLE":"Tess of the d'Urbervilles",
+         "AUTHOR":"Thomas Hardy",
+         "PUBLISHER":"Bantam Classics",
+         "PUB-DATE":"1984-05-01",
+         "LANGUAGE":"English",
+         "PRICE":4.95,
+         "QUANTITY":85,
+         "ISBN":"0553211684",
+         "PAGES":"480",
+         "DIMENSIONS":
+          {
+           "UNIT":"in",
+           "value":
+            [6.8,4.2,0.8]
+          },
+         "WEIGHT":
+          {
+           "UNIT":"oz",
+           "amount":7.7
+          }
+        }
+      },
+      {
+       "BOOK":
+        {
+         "CAT":"P",
+         "TITLE":"Jude the Obscure",
+         "AUTHOR":"Thomas Hardy",
+         "PUBLISHER":"Penguin Classics",
+         "PUB-DATE":"1998-09-01",
+         "LANGUAGE":"English",
+         "PRICE":4.95,
+         "QUANTITY":129,
+         "ISBN":"0140435387",
+         "PAGES":"528",
+         "DIMENSIONS":
+          {
+           "UNIT":"in",
+           "value":
+            [7.8,5.2,0.9]
+          },
+         "WEIGHT":
+          {
+           "UNIT":"oz",
+           "amount":10.9
+          }
+        }
+      },
+      {
+       "BOOK":
+        {
+         "CAT":"H",
+         "TITLE":"The Big Over Easy",
+         "AUTHOR":"Jasper Fforde",
+         "PUBLISHER":"Hodder &amp; Stoughton",
+         "PUB-DATE":"2005-07-11",
+         "LANGUAGE":"English",
+         "PRICE":16.47,
+         "QUANTITY":129,
+         "ISBN":"0340835672",
+         "PAGES":"346",
+         "DIMENSIONS":
+          {
+           "UNIT":"cm",
+           "value":
+            [22.5,18,3.5]
+          },
+         "WEIGHT":
+          {
+           "UNIT":"g",
+           "amount":390
+          }
+        }
+      },
+      {
+       "BOOK":
+        {
+         "CAT":"P",
+         "TITLE":"The Eyre Affair",
+         "AUTHOR":"Jasper Fforde",
+         "PUBLISHER":"Penguin",
+         "PUB-DATE":"2003-02-25",
+         "LANGUAGE":"English",
+         "PRICE":16.47,
+         "QUANTITY":129,
+         "ISBN":"0142001805",
+         "PAGES":"384",
+         "DIMENSIONS":
+          {
+           "UNIT":"in",
+           "value":
+            [7.8,5,0.9]
+          },
+         "WEIGHT":
+          {
+           "UNIT":"oz",
+           "amount":9
+          }
+        }
+      }],
+    "CATEGORIES":
+     {
+      "_attributes":
+       {
+        "DESC":"Miscellaneous categories"
+       },
+      "_children":
+       ["\n    ",
+        {
+         "CATEGORY":
+          {
+           "CODE":"P",
+           "DESC":"Paperback"
+          }
+        },"\n    ",
+        {
+         "CATEGORY":
+          {
+           "CODE":"MMP",
+           "DESC":"Mass-market Paperback"
+          }
+        },"\n    ",
+        {
+         "CATEGORY":
+          {
+           "CODE":"H",
+           "DESC":"Hard Cover"
+          }
+        },"\n"]
+     }
+   }
+ }
+</textual></programlisting></section></section><section class="po-hcontainer e702 e702" xml:id="apendex_xslt"><title class="po-block e703 e703"><textual class="po-textual">Example XSLT generation</textual></title><para class="po-block e704 e704"><textual class="po-textual">The markup for ITEM/DIMENSIONS in the above XSD produces these sets of XSLT patterns.
+				Note that this code generation is in progress and is a prime target for change and
+				optimization.</textual></para><para class="po-block e705 e705"><textual class="po-textual">XSLT to convert XML to JSON</textual></para><programlisting class="po-block e706 e706" xml:space="preserve"><textual class="po-textual">
+
+&lt;xsl:template priority="1" match="ITEM/DIMENSIONS"&gt;
+      &lt;member name="DIMENSIONS"&gt;
+         &lt;xsl:choose&gt;
+         &lt;!-- No attributes or child elements - jump to text  --&gt;
+           &lt;xsl:when test="empty(@*|*)"&gt;
+               &lt;array&gt;
+                  &lt;xsl:for-each select="tokenize(.,' ')"&gt;
+                     &lt;number&gt;
+                        &lt;xsl:value-of select="."/&gt;
+                     &lt;/number&gt;
+                  &lt;/xsl:for-each&gt;
+               &lt;/array&gt;
+              &lt;/xsl:when&gt;
+              &lt;!-- Otherwise need to make an object out of this --&gt;
+              &lt;xsl:otherwise&gt;
+               &lt;object&gt;
+					&lt;!-- For each element and attribute make a member --&gt;
+				  &lt;xsl:for-each select="@*|*"&gt;
+                     &lt;xsl:apply-templates select="."/&gt;
+                  &lt;/xsl:for-each&gt;
+                  &lt;!-- Wrap text in a _text node only for simple types --&gt;
+				  &lt;xsl:if test="string(.)"&gt;
+                     &lt;member name="value"&gt;
+                        &lt;array&gt;
+                           &lt;xsl:for-each select="tokenize(.,' ')"&gt;
+                              &lt;number&gt;
+                                 &lt;xsl:value-of select="."/&gt;
+                              &lt;/number&gt;
+                           &lt;/xsl:for-each&gt;
+                        &lt;/array&gt;
+                     &lt;/member&gt;
+                  &lt;/xsl:if&gt;
+               &lt;/object&gt;
+            &lt;/xsl:otherwise&gt;
+         &lt;/xsl:choose&gt;
+      &lt;/member&gt;
+   &lt;/xsl:template&gt;
+&lt;xsl:template priority="1" match="ITEM/DIMENSIONS" mode="wrap"&gt;
+      &lt;object&gt;
+         &lt;xsl:apply-templates select="."/&gt;
+      &lt;/object&gt;
+&lt;/xsl:template&gt;
+&lt;xsl:template priority="1" match="ITEM/DIMENSIONS/text()" mode="#all"&gt;
+      &lt;array&gt;
+         &lt;xsl:for-each select="tokenize(.,' ')"&gt;
+            &lt;number&gt;
+               &lt;xsl:value-of select="."/&gt;
+            &lt;/number&gt;
+         &lt;/xsl:for-each&gt;
+      &lt;/array&gt;
+ &lt;/xsl:template&gt;
+&lt;xsl:template priority="2" match="ITEM/DIMENSIONS/@UNIT" mode="#all"&gt;
+      &lt;member name="UNIT"&gt;
+         &lt;string&gt;
+            &lt;xsl:value-of select="."/&gt;
+         &lt;/string&gt;
+      &lt;/member&gt;
+ &lt;/xsl:template&gt;
+ </textual></programlisting><para class="po-block e707 e707"><textual class="po-textual">XSLT to convert JSON to XML</textual></para><programlisting class="po-block e708 e708" xml:space="preserve"><textual class="po-textual">
+&lt;xsl:template priority="1"
+                 match="member[@name='BOOK']/object/member[@name='DIMENSIONS']/object"&gt;
+      &lt;xsl:apply-templates select="*"/&gt;
+   &lt;/xsl:template&gt;
+   &lt;xsl:template priority="1"
+                 match="member[@name='BOOK']/object/member[@name='DIMENSIONS']/string |
+                        member[@name='BOOK']/object/member[@name='DIMENSIONS']/number"&gt;
+      &lt;xsl:value-of select="string()"/&gt;
+&lt;/xsl:template&gt;
+   &lt;xsl:template priority="1" match="member[@name='BOOK']/object/member[@name='DIMENSIONS']"&gt;
+      &lt;xsl:element name="DIMENSIONS" namespace=""&gt;
+         &lt;xsl:apply-templates select="*"/&gt;
+      &lt;/xsl:element&gt;
+   &lt;/xsl:template&gt;
+   &lt;xsl:template priority="1"
+                 match="member[@name='BOOK']/object/member[@name='DIMENSIONS']/object/member[@name='value']"&gt;
+      &lt;xsl:copy-of select="string-join( array/(number|string) , ' ')"/&gt;
+ &lt;/xsl:template&gt;
+
+&lt;xsl:template priority="2"
+                 match="member[@name='BOOK']/object/member[@name='DIMENSIONS']/object/member[@name='UNIT']/string |
+                        member[@name='BOOK']/object/member[@name='DIMENSIONS']/object/member[@name='UNIT']/number"&gt;
+      &lt;xsl:value-of select="string()"/&gt;
+&lt;/xsl:template&gt;
+&lt;xsl:template priority="2"
+                 match="member[@name='BOOK']/object/member[@name='DIMENSIONS']/object/member[@name='UNIT']"&gt;
+      &lt;xsl:attribute name="UNIT" namespace=""&gt;
+         &lt;xsl:apply-templates select="*"/&gt;
+      &lt;/xsl:attribute&gt;
+ &lt;/xsl:template&gt;
+ </textual></programlisting></section></appendix><bibliography class="po-hcontainer e709 e709"><title class="po-block e710 e710"><textual class="po-textual">References</textual></title><bibliomixed class="po-block e711 e711" xml:id="jsonorg" xreflabel="JSONORG"><textual class="po-textual"> The JSON to XML converter from json.org
+				</textual><link class="po-inline e712 e712" xlink:actuate="onRequest" xlink:href="http://www.json.org/javadoc/org/json/XML.html" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://www.json.org/javadoc/org/json/XML.html</textual></link><textual class="po-textual">
+		</textual></bibliomixed><bibliomixed class="po-block e713 e713" xml:id="jsonx"><textual class="po-textual"> JSONx is an IBM® standard format to represent JSON as XML </textual><link class="po-inline e714 e714" xlink:actuate="onRequest" xlink:href="http://publib.boulder.ibm.com/infocenter/wsdatap/v3r8m1/index.jsp?topic=/xs40/convertingbetweenjsonandjsonx05.htm" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://publib.boulder.ibm.com/infocenter/wsdatap/v3r8m1/index.jsp?topic=/xs40/convertingbetweenjsonandjsonx05.htm</textual></link><textual class="po-textual">
+		</textual></bibliomixed><bibliomixed class="po-block e715 e715" xml:id="badgerfish"><textual class="po-textual">The Badgerfish notation for XML in JSON. The normative site
+				</textual><link class="po-inline e716 e716" xlink:actuate="onRequest" xlink:href="http://badgerfish.ning.com/" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://badgerfish.ning.com/</textual></link><textual class="po-textual"> has
+			vanished off the web but many references still remain including XSLTJSON</textual></bibliomixed><bibliomixed class="po-block e717 e717" xml:id="rabbitfish"><textual class="po-textual">The Rabbitfish notation for XML in JSON. References are
+			made to rabbitfish notation in XSLTJSON </textual></bibliomixed><bibliomixed class="po-block e718 e718" xml:id="xsltjson" xreflabel="XSLTJSON"><textual class="po-textual">XSLTJSON, XML to JSON using XSLT </textual><link class="po-inline e719 e719" xlink:actuate="onRequest" xlink:href="http://www.bramstein.com/projects/xsltjson/" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://www.bramstein.com/projects/xsltjson/</textual></link></bibliomixed><bibliomixed class="po-block e720 e720" xml:id="jsonml" xreflabel="JSONML"><textual class="po-textual"> JSON Markup Language (JsonML)</textual><link class="po-inline e721 e721" xlink:actuate="onRequest" xlink:href="http://jsonml.org/" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://jsonml.org/</textual></link><textual class="po-textual">
+		</textual></bibliomixed><bibliomixed class="po-block e722 e722" xml:id="jquery" xreflabel="JQUERY"><textual class="po-textual"> jQuery XML to JSON Plugin </textual><link class="po-inline e723 e723" xlink:actuate="onRequest" xlink:href="http://www.fyneworks.com/jquery/xml-to-json/" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://www.fyneworks.com/jquery/xml-to-json/</textual></link><textual class="po-textual">
+		</textual></bibliomixed><bibliomixed class="po-block e724 e724" xml:id="boomerang" xreflabel="BOOMERANG"><textual class="po-textual">Boomerang - A bidirectional
+			programming language for ad-hoc, textual data. </textual><link class="po-inline e725 e725" xlink:actuate="onRequest" xlink:href="http://www.seas.upenn.edu/~harmony/" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://www.seas.upenn.edu/~harmony/</textual></link><textual class="po-textual">
+		</textual></bibliomixed><bibliomixed class="po-block e726 e726" xml:id="xsugar" xreflabel="XSUGAR"><textual class="po-textual"> XSugar - Dual Syntax for XML Languages
+				</textual><link class="po-inline e727 e727" xlink:actuate="onRequest" xlink:href="http://www.brics.dk/xsugar/" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://www.brics.dk/xsugar/</textual></link><textual class="po-textual">
+		</textual></bibliomixed><bibliomixed class="po-block e728 e728" xml:id="jsonschema" xreflabel="JSONSCHEMA"><textual class="po-textual"> JSON Schema </textual><link class="po-inline e729 e729" xlink:actuate="onRequest" xlink:href="http://json-schema.org/" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://json-schema.org//</textual></link><textual class="po-textual">
+		</textual></bibliomixed><bibliomixed class="po-block e730 e730" xml:id="dfdl" xreflabel="DFDL"><textual class="po-textual">OGF Standards: Data Format Description Language
+			(DFDL) </textual><link class="po-inline e731 e731" xlink:actuate="onRequest" xlink:href="http://www.ogf.org/dfdl/" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://www.ogf.org/dfdl/</textual></link><textual class="po-textual">
+		</textual></bibliomixed><bibliomixed class="po-block e732 e732" xml:id="apacheschema" xreflabel="APACHESCHEMA"><textual class="po-textual"> Apace Schema API implementation
+			of the XML Schema API </textual><link class="po-inline e733 e733" xlink:actuate="onRequest" xlink:href="http://www.w3.org/Submission/2004/SUBM-xmlschema-api-20040309/" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://www.w3.org/Submission/2004/SUBM-xmlschema-api-20040309/</textual></link></bibliomixed><bibliomixed class="po-block e734 e734" xml:id="trang" xreflabel="TRANG"><textual class="po-textual"> Trang - Multi-format schema converter based
+			on RELAX NG </textual><link class="po-inline e735 e735" xlink:actuate="onRequest" xlink:href="http://www.thaiopensource.com/relaxng/trang.html" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://www.thaiopensource.com/relaxng/trang.html</textual></link></bibliomixed><bibliomixed class="po-block e736 e736" xml:id="mljson" xreflabel="MLJSON"><textual class="po-textual">MLJSON provides a facade on top of MarkLogic for treating MarkLogic as a store for JSON documents and data. </textual><link class="po-inline e737 e737" xlink:actuate="onRequest" xlink:href="http://developer.marklogic.com/code/mljson" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://developer.marklogic.com/code/mljson</textual></link></bibliomixed></bibliography></article></classedDocument>

@@ -1,0 +1,748 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?><classedDocument><article xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink" class="po-hcontainer e0 e0" version="5.0-subset Balisage-1.2" xml:id="HR-23632987-8973"><title class="po-block e1 e1"><textual class="po-textual">Parser Possibilities: Why Write A Markup Parser</textual></title><info class="po-record e2 e2"><confgroup class="po-record e3 e3"><conftitle class="po-field e4 e4"><textual class="po-textual">Balisage: The Markup Conference 2008</textual></conftitle><confdates class="po-field e5 e5"><textual class="po-textual">August 12 - 15, 2008</textual></confdates></confgroup><abstract class="po-container e6 e6"><para class="po-block e7 e7"><textual class="po-textual">
+ In the early days of XML, there seemed to be a new XML parser just about
+ every week. This was in stark contrast to SGML where there might be half a
+ dozen working parsers ever written. As XML matured and SAX became the first defacto XML
+ parser API, the new parser stream pretty much slowed to a trickle.
+ Once robust XML parsers, such as Expat,
+ became widely available, there seemed little reason left to write you own parser.
+ Expat is robust, fast, and still provides the XML under pinnings for many programming
+ languages.
+</textual></para><para class="po-block e8 e8"><textual class="po-textual">I believe there remain many valid reasons for writing your own markup
+	 language parser. This paper identifies reasons you might want to write a custom
+	 parser and examines the choices I made writing mlParser.
+</textual></para></abstract><author class="po-record e9 e9"><personname class="po-record e10 e10"><firstname class="po-field e11 e11"><textual class="po-textual">Norman</textual></firstname><othername class="po-field e12 e12"><textual class="po-textual">Earl</textual></othername><surname class="po-field e13 e13"><textual class="po-textual">Smith</textual></surname></personname><personblurb class="po-container e14 e14"><para class="po-block e15 e15"><textual class="po-textual">Mr. Smith has been a software developer for 30+ years and involved with
+markup applications starting with SGML in 1990. He has worked for SAIC for 26
+years on a variety of projects ranging from automated document creation to
+robotics to web applications. He has authored 12 books including two on
+SGML/XML. Mr. Smith was selected as an SAIC Technical Fellow in 2004.</textual></para></personblurb><affiliation class="po-record e16 e16"><jobtitle class="po-field e17 e17"><textual class="po-textual">SAIC Technical Fellow and Assistant VP of Technology</textual></jobtitle><orgname class="po-block e18 e18"><textual class="po-textual">Science Applications International Corp.</textual></orgname></affiliation><email class="po-field e19 e19"><textual class="po-textual">smithno@saic.com</textual></email></author><legalnotice class="po-container e20 e20"><para class="po-block e21 e21"><textual class="po-textual">Copyright, Science Applications International Corporation. All rights reserved.  Unpublished rights reserved under copyright laws of the United States.</textual></para></legalnotice><keywordset class="po-table e22 e22" role="author"><keyword class="po-field e23 e23"><textual class="po-textual">parser</textual></keyword><keyword class="po-field e24 e24"><textual class="po-textual">XML</textual></keyword><keyword class="po-field e25 e25"><textual class="po-textual">SGML</textual></keyword></keywordset></info><section class="po-hcontainer e26 e26"><title class="po-block e27 e27"><textual class="po-textual">Introduction</textual></title><para class="po-block e28 e28"><textual class="po-textual">XML and SGML parsers are available that are mature, robust,
+		and widely used. It's not like the early days of XML when it seemed that every new
+		week brought a new parser. Soon, the first SAX-based XML parsers appeared,
+		followed by DOM (Document Object Model) parsers with standard APIs. Once
+		high-quality validating parsers, such as Expat and AElfred, became widely available,
+		the community seemed to lose interest in writing new parsers. Many of
+		the early XML parsers were non-validating because they were considerably easier to write
+		than validating parsers.</textual></para><para class="po-block e29 e29"><textual class="po-textual">SAX was originally patterned after the ESIS (Element Structure Information Set)
+        output from the SGMLS and NSGMLS
+		SGML parsers. (</textual><emphasis class="po-inline e30 e30" role="ital"><textual class="po-textual">See</textual></emphasis><textual class="po-textual"> </textual><xref class="po-milestone e31 e31" linkend="ClarkJ"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">)
+		DOM implementations usually use an underlying SAX parser to feed the
+		content to the DOM objects. SAX-based applications are generally faster and
+		require less memory than a DOM-based application. My experience is that an
+		event-based parsing model, like SAX, can easily handle 80% to 90% of XML applications.
+		Either are appropriate for the next 5% to 10% of applications, and the last 5%
+		of applications really need DOM or something similar.</textual></para><para class="po-block e32 e32"><textual class="po-textual">Even with numerous XML parser options, I have never been completely
+		satisfied with the available XML parsers because I still deal with SGML and other
+		markup languages. The remainder of this paper looks at reasons for
+		writing a parser. Questions that you should ask yourself before starting to write
+		a custom parser and the road to writing my own mlParser are also examined.</textual></para></section><section class="po-hcontainer e33 e33"><title class="po-block e34 e34"><textual class="po-textual">What's A Markup Parser</textual></title><para class="po-block e35 e35"><textual class="po-textual">A markup language, such as XML, is a language for writing application-level
+           markup languages. HTML and DocBook are examples of application-level
+		markup languages. The dual use of the term "markup language" is especially
+		confusing to non-technical people. Wikipedia's definition of SGML
+             (</textual><emphasis class="po-inline e36 e36" role="ital"><textual class="po-textual">See</textual></emphasis><textual class="po-textual"> </textual><xref class="po-milestone e37 e37" linkend="WikipediaSGML"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">) describes it
+		as "a metalanguage in which one can define markup languages" and I believe the
+		term metalanguage is appropriate. Wikipedia further defines markup language as "a
+		set of annotations to text that describe how it is to be structured, laid out,
+		or formatted."</textual></para><para class="po-block e38 e38"><textual class="po-textual">Both SGML and XML use "&lt;" and "&gt;" to delimit markup.  Common usage
+		has evolved to the point that just about any markup that uses "&lt;" and "&gt;"
+		is called XML. Notice that I have been using the term "markup language parser" instead
+		of "XML parser" for the most part so far. This is done on purpose. </textual></para><para class="po-block e39 e39"><textual class="po-textual">There are four types of markup language
+		in use that I know of:</textual></para><orderedlist class="po-table e40 e40" startingnumber="1"><listitem class="po-container e41 e41"><para class="po-block e42 e42"><textual class="po-textual">SGML</textual></para></listitem><listitem class="po-container e43 e43"><para class="po-block e44 e44"><textual class="po-textual">XML</textual></para></listitem><listitem class="po-container e45 e45"><para class="po-block e46 e46"><textual class="po-textual">WordML</textual></para></listitem><listitem class="po-container e47 e47"><para class="po-block e48 e48"><textual class="po-textual">*SP</textual></para></listitem></orderedlist><para class="po-block e49 e49"><textual class="po-textual">HTML and DocBook are not included in the list because they are
+	 XML/SGML application-level markup languages, not markup meta languages.
+	 WordML and *SP are not meta-markup lanugages. However, their syntax
+	 sufficiently differs from XML and SGML such that normal parsers don't handle
+	 them either. They are included to show markup that might require a
+	 custom parser to process, and because mlParser can handle both.
+	 </textual></para><para class="po-block e50 e50"><textual class="po-textual">SGML, or Standard Generalized Markup Language, is an ISO standard. Its
+		heritage is in the publishing industry and it has an IBM General Markup Language
+		(GML) lineage. Computers in the early days had limited processing power for the
+		individual, which translated to no SGML editor that performed real-time validation
+		and formatting. Therefore, SGML contained many features to minimize the
+		keystrokes required to enter content. For example, end tags could be declared optional.
+		The structure of an SGML document is defined by a Document Type Definition (DTD).
+		SGML is a markup metalanguage. My general belief is that SGML is still best for
+		defining publishing markup languages.</textual></para><para class="po-block e51 e51"><textual class="po-textual">XML, or eXtensible Markup Language, has its roots in the database
+		world. It is a direct result of Tim Bray's work at OpenText for handing
+		structured data that may or may not be SGML compliant. XML is also a markup
+		metalanguage. Element structure may be defined thru a variety of "languages"
+		including DTDs, Schemas, and RelaxNG. It is an SGML subset with just enough
+		syntax differences to prevent processing markup files with each other's tools.
+		I know because I tried for years to treat markup as SGML for some tools and the
+		same markup as XML with other tools with limited success. </textual></para><para class="po-block e52 e52"><textual class="po-textual">XML also introduced the concept of valid versus well-formed XML documents. A
+		valid document is one that has been validated successfully against its DTD or Schema with a
+		validating parser. A well-formed document is one that has matching start and
+		end tags and follows the other rules of XML markup syntax. A well-formed
+		document may or may not be valid. For that matter, it may or may not have a DTD
+		or Schema.</textual></para><para class="po-block e53 e53"><textual class="po-textual">There is no concept of well-formed documents in SGML, only
+		valid or not valid. Most SGML tools validate the document every time it is
+		used. A common real-world view is that a document only needs to be validated in
+		specific cases:</textual></para><itemizedlist class="po-table e54 e54"><listitem class="po-container e55 e55"><para class="po-block e56 e56"><textual class="po-textual">The document is edited by a human.</textual></para></listitem><listitem class="po-container e57 e57"><para class="po-block e58 e58"><textual class="po-textual">During program development, until you are sure that valid markup is
+			 generated.</textual></para></listitem><listitem class="po-container e59 e59"><para class="po-block e60 e60"><textual class="po-textual">When data is supplied from an external source, markup may or may not
+			 need to be validated on every data exchange depending on
+			 circumstances.</textual></para></listitem></itemizedlist><para class="po-block e61 e61"><textual class="po-textual">WordML is my name for the output from saving a Microsoft Word document
+		as Filtered HTML. The markup appears to follow some XML syntax rules, some SGML
+		syntax rules, and some of its own, unique syntax rules.
+		</textual><textual class="po-textual">
+		Much
+		Word-specific data is stored in comments. I have even run across a few WordML
+		documents that were not well formed! Few XML parsers can handle WordML.</textual></para><para class="po-block e62 e62"><textual class="po-textual">*SP represents the various Serve Page markup languages such as ASP and
+		JSP. It is not often that a Java developer attempts to run Java Server Pages
+		thru an external parser. The JSP compiler normally takes care of the parsing.
+		There are times when it can be very revealing. The output of the JSP compiler
+		is a Java program that generates an HTML page. Normally, the embedded Java code
+		generates dynamic values on the page. XML parsers do not normally handle
+		*SP files.</textual></para><para class="po-block e63 e63"><textual class="po-textual">Finally, the answer to the question "What's a markup parser?" A markup parser
+		basically reads data that contains application-level markup, extracts tags and
+		attributes from the markup, and generates some output. Validating parsers also
+		read the structure definition in the form of a DTD, Schema, or other format.
+		The output may range from structural error messages to ESIS output or anything
+		in between. Some parsers, like OmniMark have built-in programming languages.
+		Others provide SAX or DOM programming language interfaces. The possibilities
+		are limited only by the requirements of the application and imagination of the
+		developer. A markup parser may handle multiple types of
+		markup, not just XML or SGML, from the point of view presented here.</textual></para><para class="po-block e64 e64"><textual class="po-textual">ESIS is the primary output for
+		the SGMLS and NSGMLS parsers. It is a record-oriented format where the first
+		character on each line represents the markup event and the rest of the line is
+		data. For example, a start tag event is represented by an '(' event type and
+		the rest of the line is data. The tag name is the data in this case.
+		'(mytag' is the ESIS output generated for &lt;MYTAG&gt; in the input document.</textual></para><para class="po-block e65 e65"><textual class="po-textual">ESIS is very significant from a historical prospective. Back in prime
+		SGML days of the early 1990s, SGMLS was just about the only widely available
+		free SGML parser. Commercial SGML tools were all expensive because of the cost
+		of either writing or licensing an SGML parser to include in the tools. Taking
+		advantage of the SGMLS ESIS output was the only way to test-drive SGML without
+		spending a lot of money. ESIS format is easy to process and a good programmer
+		could do amazing things with ESIS output and a Perl script or two.
+		ESIS also contains the idea behind SAX. The call-back events in programs
+		logically work on an ESIS stream. </textual></para></section><section class="po-hcontainer e66 e66"><title class="po-block e67 e67"><textual class="po-textual">Why Write A Parser?</textual></title><para class="po-block e68 e68"><textual class="po-textual">With the parser background out of the way, let's take a look at reasons both to
+		write your own parser and reasons not to write your own parser. First, there are
+		good reasons for not writing a custom parser:</textual></para><itemizedlist class="po-table e69 e69"><listitem class="po-container e70 e70"><para class="po-block e71 e71"><textual class="po-textual">Writing a basic parser is a lot of work</textual></para></listitem><listitem class="po-container e72 e72"><para class="po-block e73 e73"><textual class="po-textual">Writing a validating parser is a lot more work</textual></para></listitem><listitem class="po-container e74 e74"><para class="po-block e75 e75"><textual class="po-textual">Implementing XSL/XSLT/X-Path/XQuery, etc., support is not practical for most
+			individual developers</textual></para></listitem><listitem class="po-container e76 e76"><para class="po-block e77 e77"><textual class="po-textual">Writing a parser, even a non-validating parser that implements SAX
+		        and/or DOM, is a huge effort
+			 </textual></para></listitem><listitem class="po-container e78 e78"><para class="po-block e79 e79"><textual class="po-textual">There are multiple, structure definition languages, such as DTD,
+		  	   Schema, RelaxNG, etc., needed for validation that are complex</textual></para></listitem></itemizedlist><para class="po-block e80 e80"><textual class="po-textual">Writing any markup parser is hard work. The additional complexity and
+	        effort required to write a validating parser instead of a
+	        non-validating/well-formed parser is significant. For many cases,
+	        it exceeds the point of diminishing returns . Writing a validating parser
+	        requires writing the
+		validating part, plus the code to parse a DTD or schema, and implement the code
+		to actually validate the element structure at each change-in-tag state.
+Are the benefits worth the effort?</textual></para><para class="po-block e81 e81"><textual class="po-textual">The "X" add-ons are also complex. They require a very sharp staff to
+		implement the standards. The resources to properly implement
+		XSL/XSLT/X-Path/XQuery is substantial. These are usually beyond the
+		average individual developer for short-term projects.
+		Complexity and the associated learning curve are the main
+		impediments.</textual></para><para class="po-block e82 e82"><textual class="po-textual">
+		Both the SAX and DOM API's are large and fairly complex, which means the
+		average developer won't implement them
+completely, if at all. I know from experience; I didn't
+		bother implementing either.
+A validating parser also requires the code to load allowable element
+		structure in order to be able to validate a document, with another increase in
+		code complexity and size.</textual></para><para class="po-block e83 e83"><textual class="po-textual">
+	    All of these items represent increased implementation effort that just
+		might not be worth the trouble if an existing parser meets most of your
+		requirements. You have to carefully gauge the value proposition for
+		each increase in effort that the next step brings. It may or may not be worth
+		the effort.
+	</textual></para><para class="po-block e84 e84"><textual class="po-textual">On the other hand, there are still many reasons for writing your own
+		markup parser. The rest of this section takes a look as some of those reasons.
+		They include:</textual></para><itemizedlist class="po-table e85 e85"><listitem class="po-container e86 e86"><para class="po-block e87 e87"><textual class="po-textual">The learning experience.</textual></para></listitem><listitem class="po-container e88 e88"><para class="po-block e89 e89"><textual class="po-textual">No existing parser meets your specific requirements.</textual></para></listitem><listitem class="po-container e90 e90"><para class="po-block e91 e91"><textual class="po-textual">You have complete control.</textual></para></listitem><listitem class="po-container e92 e92"><para class="po-block e93 e93"><textual class="po-textual">You can mix and match markup languages, i.e., SGML, XML,
+			 etc.</textual></para></listitem><listitem class="po-container e94 e94"><para class="po-block e95 e95"><textual class="po-textual">Not tied to existing APIs.</textual></para></listitem><listitem class="po-container e96 e96"><para class="po-block e97 e97"><textual class="po-textual">You need to create documents with "live" content. </textual></para></listitem></itemizedlist><para class="po-block e98 e98"><textual class="po-textual">The following paragraphs expand these points. </textual></para><para class="po-block e99 e99"><emphasis class="po-inline e100 e100" role="ital"><textual class="po-textual">The learning experience.</textual></emphasis><textual class="po-textual"> Writing a markup parser, even a
+		"simple" non-validating parser, is always a learning experience. There are a
+		number of learning experience possibilities, such as:</textual></para><itemizedlist class="po-table e101 e101"><listitem class="po-container e102 e102"><para class="po-block e103 e103"><textual class="po-textual">Learning about markup languages. Writing a parser will teach you
+			 about markup language rules. Having to account for every possible condition
+			 in the markup will quickly enlighten you!</textual></para></listitem><listitem class="po-container e104 e104"><para class="po-block e105 e105"><textual class="po-textual">Learning about software state machines. I have used the state
+			 machine technique for writing a parser more than once. It is a straight-forward
+			 way to work thru the program. An in depth knowledge of the rules of the markup
+			 language is required. There is a basic state machine for parsing SGML published
+			 in the </textual><emphasis class="po-inline e106 e106" role="ital"><textual class="po-textual">Practical Guide To SGML And XML Filters.</textual></emphasis><textual class="po-textual">
+			 (</textual><emphasis class="po-inline e107 e107" role="ital"><textual class="po-textual">See</textual></emphasis><textual class="po-textual"> </textual><xref class="po-milestone e108 e108" linkend="SmithN"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">)
+			 If you don't know
+             what a State Transition Diagram is, you will learn a lot of new things
+			 writing a markup parser.</textual></para></listitem><listitem class="po-container e109 e109"><para class="po-block e110 e110"><textual class="po-textual">Providing a vehicle to learn a new language. I wrote the first implementation
+			 of mlParser because I needed to write a non-trivial program to learn
+			 Java and I already understood the ins and outs of SGML.
+			 This allowed me to concentrate
+			 on learning the programming language and not the application.</textual></para></listitem></itemizedlist><para class="po-block e111 e111"><textual class="po-textual">As you can see, there are many things that can be learned from the
+		experience of writing a parser.</textual></para><para class="po-block e112 e112"><emphasis class="po-inline e113 e113" role="ital"><textual class="po-textual">No existing parser meets your specific requirements.</textual></emphasis><textual class="po-textual"> This is
+		not an unusual occurrence, especially if your application is a little
+		non-standard. Reasons include:</textual></para><itemizedlist class="po-table e114 e114"><listitem class="po-container e115 e115"><para class="po-block e116 e116"><textual class="po-textual">Need a light-weight parser</textual></para></listitem><listitem class="po-container e117 e117"><para class="po-block e118 e118"><textual class="po-textual">Need to parse multiple markup meta languages</textual></para></listitem><listitem class="po-container e119 e119"><para class="po-block e120 e120"><textual class="po-textual">The programming language for an application is incompatible with
+		  existing parsers</textual></para></listitem></itemizedlist><para class="po-block e121 e121"><textual class="po-textual">Robert Bajzat (</textual><emphasis class="po-inline e122 e122" role="ital"><textual class="po-textual">See</textual></emphasis><textual class="po-textual"> </textual><xref class="po-milestone e123 e123" linkend="Bajzat"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">)
+        needed a light-weight XML parser for his Thinlet package,
+		which is a small (39k) Java windowing framework aimed at cell phones. The
+		on-screen widgets for a Thinlet-based application are in simple XML. The Thinlet
+		XML parser handles its slightly restricted XML syntax. Comments
+		not spanning a line is an example restrictions.
+		The Thinlet parser also is closely tied to the application
+		and knows how to handle just the widget markup. The Thinlet parser is an
+		integral part of the framework, and the short cuts in syntax make it tiny! </textual></para><para class="po-block e124 e124"><textual class="po-textual">Incompatibility with existing parsers usually means the markup data
+		buries information within comments, does not follow the syntax rules, or mixes
+		and matches syntax rules from different markup meta languages. WordML is a good
+		example of this. WordML is what I call the result of saving a Word document as
+		"Filtered HTML." It appears to follow some SGML rules, some XML rules, invents
+		a few rules, and puts a great deal of information into comments. Few parsers
+		can handle this markup.</textual></para><para class="po-block e125 e125"><emphasis class="po-inline e126 e126" role="ital"><textual class="po-textual">You have complete control.</textual></emphasis><textual class="po-textual">
+	        This is the real reason most people write their
+		own version of an application. Tailoring a program to meet your system
+		requirements has a strong draw for many people. I would rather write a
+		hand-tuned set of Java classes to represent markup data, for example,
+		than use one of the
+		canned frameworks that seems to create hundreds of classes/methods when three
+		or four well-designed classes are easier to understand and more efficient.
+        </textual></para><para class="po-block e127 e127"><textual class="po-textual">
+		Control extends to which markup features are supported. The parser may not
+		need to handle attributes at all if the data does not
+		contain attributes and is record-oriented. The
+		parser may do simple transforms as the input stream goes by that will
+		significantly simplify downstream code. The parser
+		doesn't always have to stop on
+		errors. </textual></para><para class="po-block e128 e128"><emphasis class="po-inline e129 e129" role="ital"><textual class="po-textual">You can mix and match markup languages.</textual></emphasis><textual class="po-textual"> I started out using
+		SGML around 1990. I have been thru the start of XML and the rise of Server Page
+		languages such as JSP and ASP. There have been plenty of times when I wanted
+		to mix and match SGML and XML files, in particular. Writing your own parser
+		makes this practical. </textual></para><para class="po-block e130 e130"><emphasis class="po-inline e131 e131" role="ital"><textual class="po-textual">Not tied to existing APIs.</textual></emphasis><textual class="po-textual"> The existing SAX and DOM APIs are
+		large and complex. If you go back and examine ESIS closely, basic markup
+		processing can be done with a much simpler subset API. But once you make the
+		leap that you don't have to implement existing APIs, you are free to build what
+		meets your application requirements. That said, I firmly believe that this is
+		the least acceptable reason in my list for writing a parser.</textual></para><para class="po-block e132 e132"><emphasis class="po-inline e133 e133" role="ital"><textual class="po-textual">You need to create documents with "live" content.</textual></emphasis><textual class="po-textual"> A favorite
+		application technique of mine is creating a live document. By live, I mean that
+		some portion of the content is dynamically generated. Executing an external
+		script, nesting the output of another parse, running an SQL query, or retrieving
+		a URN are some of the many things that can be incorporated transparently with a
+		custom parser. The data just shows up in the data to the downstream processing
+		programs. A great deal of extra functionality can be transparently dropped into
+		a markup-based application by including the ability to execute arbitrary
+		programs/code on a parsing event.</textual></para></section><section class="po-hcontainer e134 e134"><title class="po-block e135 e135"><textual class="po-textual">The Road To mlParser</textual></title><para class="po-block e136 e136"><textual class="po-textual">I initially wrote my markup language parser, mlParser, in 2002. The
+		journey from being thrown into the SGML ocean in 1990 to the birth of mlParser
+		and its subsequent evolution into a multi, meta-markup language parser was a
+		long road. In the early SGML days, SGML tools were expensive. My customer wanted to
+		use SGML as the exchange format for bibliographic data and could not justify
+		the expense of purchasing SGML tools without being sure of success. We
+		developed small-scale applications around SGMLS using
+		Perl scripts to process ESIS output. It worked well, and I
+		learned a lot about processing an ESIS stream. </textual></para><para class="po-block e137 e137"><textual class="po-textual">The following markup file is used as input for sample code for the examples
+	       that follow:</textual></para><programlisting class="po-block e138 e138" xml:space="preserve"><textual class="po-textual">
+&lt;RECORDS&gt;
+&lt;RECORD&gt;
+  &lt;NAME&gt;John Doe&lt;/NAME&gt;
+  &lt;PHONE&gt;555-123-4567&lt;/PHONE&gt;
+  &lt;EMAIL&gt;JDoe@anymail.com&lt;/EMAIL&gt;
+  &lt;STATE&gt;Confusion&lt;/STATE&gt;
+&lt;/RECORD&gt;
+&lt;RECORD&gt;
+  &lt;NAME&gt;Jane Smith&lt;/NAME&gt;
+  &lt;PHONE&gt;555-345-9876&lt;/PHONE&gt;
+  &lt;EMAIL&gt;smithj@anymail.com&lt;/EMAIL&gt;
+  &lt;STATE&gt;Nirvana&lt;/STATE&gt;
+&lt;/RECORD&gt;
+&lt;/RECORDS&gt;
+</textual></programlisting><para class="po-block e139 e139"><textual class="po-textual">The ESIS output from mlParser for the above markup is:</textual></para><programlisting class="po-block e140 e140" xml:space="preserve"><textual class="po-textual">
+# mlParser (c) Science Applications International Corporation, 2002, 2006, 2007.
+All rights reserved.
+(records
+-\n
+(record
+-\n
+(name
+-John Doe
+)name
+-\n
+(phone
+-555-123-4567
+)phone
+-\n
+(email
+-JDoe@anymail.com
+)email
+-\n
+(state
+-Confusion
+)state
+-\n
+)record
+-\n
+(record
+-\n
+(name
+-Jane Smith
+)name
+-\n
+(phone
+-555-345-9876
+)phone
+-\n
+(email
+-smithj@anymail.com
+)email
+-\n
+(state
+-Nirvana
+)state
+-\n
+)record
+)records
+C
+Done
+</textual></programlisting><para class="po-block e141 e141"><textual class="po-textual">The code described in the following paragraphs produces this output:
+		</textual></para><programlisting class="po-block e142 e142" xml:space="preserve"><textual class="po-textual">
+ Name: John Doe   Email: JDoe@anymail.com
+ Name: Jane Smith   Email: smithj@anymail.com
+</textual></programlisting><para class="po-block e143 e143"><textual class="po-textual">Over the years, I wrote two other parsers. The first was part of a Forth
+ (</textual><emphasis class="po-inline e144 e144" role="ital"><textual class="po-textual">See</textual></emphasis><textual class="po-textual"> </textual><xref class="po-milestone e145 e145" linkend="Forth"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">)
+	interpreter. The only restriction on Forth function names is that the name
+	cannot contain white space. Therefore, a function name can be a tag name. So,
+	&lt;RECORD&gt; is both a tag and a function. A function
+	definition begins with ':' and ends
+	with ';'. Forth is a stack-oriented language that has a Reverse Polish syntax,
+	which means that parameters come before the function name and no parens are
+	necessary. A function is called by simply referencing its name.</textual></para><para class="po-block e146 e146"><textual class="po-textual">The application implementation approach was:</textual></para><itemizedlist class="po-table e147 e147"><listitem class="po-container e148 e148"><para class="po-block e149 e149"><textual class="po-textual">Define a function for each tag</textual></para></listitem><listitem class="po-container e150 e150"><para class="po-block e151 e151"><textual class="po-textual">Each function must consume characters up to the
+		next tag/end tag</textual></para></listitem><listitem class="po-container e152 e152"><para class="po-block e153 e153"><textual class="po-textual">A document processed itself when fed to the
+		  Forth interpreter</textual></para></listitem></itemizedlist><para class="po-block e154 e154"><textual class="po-textual">The document effectively executed itself. It was an interesting idea
+		that never got past the toy stage. The following is a snippet of
+		Forth code used to
+		process the markup file described above:</textual></para><programlisting class="po-block e155 e155" xml:space="preserve"><textual class="po-textual">
+ String content
+ : &lt;NAME&gt;
+      " Name:" print
+      content collect ;  \ Read the content for &lt;name&gt;
+ : &lt;/NAME&gt;
+      content print ;
+ : &lt;EMAIL&gt;
+      " E-Mail: " print
+      content collect ;
+ : &lt;/EMAIL&gt;
+      content print
+      " \n" print ;
+ " test.xml" cload
+</textual></programlisting><para class="po-block e156 e156"><textual class="po-textual">The </textual><emphasis class="po-inline e157 e157" role="bold"><textual class="po-textual">cload</textual></emphasis><textual class="po-textual"> function loads and interprets the filename
+		</textual><emphasis class="po-inline e158 e158" role="bold"><textual class="po-textual">test.xml</textual></emphasis><textual class="po-textual">.
+	the </textual><emphasis class="po-inline e159 e159" role="bold"><textual class="po-textual">collect</textual></emphasis><textual class="po-textual"> function consumes
+	the charcters up to the next '&lt;' and store it in
+	</textual><emphasis class="po-inline e160 e160" role="bold"><textual class="po-textual">content.</textual></emphasis><textual class="po-textual">
+	The document executes itself generating the
+		output. The parser was implemented as a state machine.
+	 </textual></para><para class="po-block e161 e161"><textual class="po-textual">My next parser was a Perl library, which was based completely on regular
+		expressions. The primary functions were:</textual></para><programlisting class="po-block e162 e162" xml:space="preserve"><textual class="po-textual">
+ $content = &amp;get_XML_field($string,"tag");
+ @results = &amp;get_next_XML_field($string,"tag");
+</textual></programlisting><para class="po-block e163 e163"><textual class="po-textual">
+            </textual><emphasis class="po-inline e164 e164" role="bold"><textual class="po-textual">get_XML_field()</textual></emphasis><textual class="po-textual"> returns the contents
+            of &lt;TAG&gt; from the string of markup. It is useful when processing
+            record oriented markup one record at a time.
+            </textual><emphasis class="po-inline e165 e165" role="bold"><textual class="po-textual">get_next_XML_field()</textual></emphasis><textual class="po-textual"> extracts a
+            repeating tag from the markup string, returning a status, the tag
+            contents, and the remainder of the markup string. Typically, the whole
+            file is read into a string and </textual><emphasis class="po-inline e166 e166" role="bold"><textual class="po-textual">get_next_XML_field()</textual></emphasis><textual class="po-textual">
+            extracts the next record to operate on. Then calls to
+            </textual><emphasis class="po-inline e167 e167" role="bold"><textual class="po-textual">get_XML_field()</textual></emphasis><textual class="po-textual"> pull out the fields
+            individually for processing.
+         </textual></para><para class="po-block e168 e168"><textual class="po-textual">The approach for using this parser was:</textual></para><itemizedlist class="po-table e169 e169"><listitem class="po-container e170 e170"><para class="po-block e171 e171"><textual class="po-textual">Read data into a string</textual></para></listitem><listitem class="po-container e172 e172"><para class="po-block e173 e173"><textual class="po-textual">Extract a "wrapper" element into another string</textual></para></listitem><listitem class="po-container e174 e174"><para class="po-block e175 e175"><textual class="po-textual">Extract individual fields from the wrapper string</textual></para></listitem><listitem class="po-container e176 e176"><para class="po-block e177 e177"><textual class="po-textual">Do whatever processing is needed</textual></para></listitem></itemizedlist><para class="po-block e178 e178"><textual class="po-textual">The following Perl code snippet generates the example output:</textual></para><programlisting class="po-block e179 e179" xml:space="preserve"><textual class="po-textual">
+ require "xml.pl";
+
+ my $file;
+ my $record;
+ my $name;
+ my $email;
+ my $template ="Name: \$name   Email: \$email\n";
+
+ $/ = "&lt;/RECORD&gt;";
+
+ while(&lt;STDIN&gt;){   # Read a record
+      $record = $_;
+      $name   = &amp;get_XML_field($record,"NAME");
+      $email  = &amp;get_XML_field($record,"EMAIL");
+      eval("print \"$template\"");
+ }
+ exit;
+</textual></programlisting><para class="po-block e180 e180"><textual class="po-textual">This Perl parsing library has been used successfully in several production
+		applications. The constraints are that the markup does not contain attributes
+		and that huge records have to fit in memory. </textual></para><para class="po-block e181 e181"><textual class="po-textual">Both of these solutions worked for a small subset of applications with
+		simplified markup. They handle start tags, content, and end tags and that's
+		about it. Neither ever grew into a robust, general purpose parser.
+		The Perl library has found its way into several production
+		applications though.
+</textual></para><para class="po-block e182 e182"><textual class="po-textual">The following code snippet is part of the mlParser program to
+        process the sample input file. It has the call-backs for the parser
+        output events. The simple nature of the input markup, makes for an
+        extremely simple Java example. </textual></para><programlisting class="po-block e183 e183" xml:space="preserve"><textual class="po-textual">
+    ...
+    HashMap element = new HashMap();
+    String  content = "";
+    ...
+    public void writeStartTag(String sTag)
+    {
+        String tag     = sTag.toLowerCase();
+
+        if(tag.equals("record"){
+            element.clear();    // Wipe the hash for each record.
+        }
+    }
+   ...
+    public void writeEndTag(String eTag)
+   	{
+   	    String tag     = eTag.toLowerCase();
+        if(tag.equals("record")){
+            system.out.print("Name: "    + element.get("name")  +
+                             "  Email: " + element.get("email") + "\n";
+        }else{
+            element.put(tag, content);  // Collect all element content in a Hash
+        }
+   	}
+</textual></programlisting><para class="po-block e184 e184"><textual class="po-textual">Assume that the content callback happens and leaves the
+         content in the </textual><emphasis class="po-inline e185 e185" role="ital"><textual class="po-textual">content</textual></emphasis><textual class="po-textual"> global variable.
+         The only processing needed in the </textual><emphasis class="po-inline e186 e186" role="bold"><textual class="po-textual">writeStartTag()</textual></emphasis><textual class="po-textual">
+         method clears the </textual><emphasis class="po-inline e187 e187" role="ital"><textual class="po-textual">element</textual></emphasis><textual class="po-textual"> hash. All of
+         the other processing occurs in </textual><emphasis class="po-inline e188 e188" role="bold"><textual class="po-textual">writeEndTag().</textual></emphasis><textual class="po-textual"> When
+         the end tag is &lt;/RECORD&gt;, we know that all of the fields in the
+         record have been collected. Simply putting the content in a hash with
+         the tag as the key is a convenient way to collect the data without
+         testing for each tag as it passes by. </textual></para></section><section class="po-hcontainer e189 e189"><title class="po-block e190 e190"><textual class="po-textual">Mixing SGML And XML</textual></title><para class="po-block e191 e191"><textual class="po-textual">I am an old-time SGMLer who was as skeptical as the next person about XML
+		when it first came out of the closet at the 1996 SGML Conference. The false
+		promise that got a lot of the SGML community on the XML train was that "XML is
+		just SGML without DTDs" and XML is a subset of SGML. I had often wished to
+		process SGML files without a DTD. The implication I misread into the original
+		XML discussions was being able to process SGML markup with XML tools. </textual></para><para class="po-block e192 e192"><textual class="po-textual">Not being able to do much without a DTD was always an SGML issue for two
+		reasons. First, I never saw the need to validate an SGML file every time it
+		was touched. An SGML file only needs to be validated when modified. Second, I
+		received SGML files from external sources without a DTD with enough regularity
+		that having to reverse engineer a DTD in order to be able to use SGML tools
+		became a real annoyance. Most of the time, only a handful of tags were
+		processed. Writing what was essentially a throw-away DTD always rubbed me the
+		wrong way. </textual></para><para class="po-block e193 e193"><textual class="po-textual">An XML well-formed document versus a valid document was the leap that was
+		supposed to enable the "SGML without DTDs" concept. Well, that didn't quite
+		happen. By the time XML hit the streets, minor syntax changes and the fact that
+		non-validating parsers threw errors when processing virtually every SGML file made
+		feeding an SGML file to a non-validating XML parser a waste of CPU cycles.
+		Error examples include:</textual></para><itemizedlist class="po-table e194 e194"><listitem class="po-container e195 e195"><para class="po-block e196 e196"><textual class="po-textual">The first line of the file had to be the XML declaration
+		(&lt;?xml version="1.0" encoding="UTF-8"?&gt;),
+		which is a processing instruction in SGML.</textual></para></listitem><listitem class="po-container e197 e197"><para class="po-block e198 e198"><textual class="po-textual">The SGML empty tag representation causes
+                          the document not to be well-formed and
+                          therefore causes parsing problems.</textual></para></listitem><listitem class="po-container e199 e199"><para class="po-block e200 e200"><textual class="po-textual">Any entity reference not in the default XML set (&lt;, &gt;, and
+		  &amp;) threw errors. </textual></para></listitem></itemizedlist><para class="po-block e201 e201"><textual class="po-textual">I eventually found xmln, which seemed to be the answer
+		for a while. The C source was available and it generated an ESIS-like output
+		stream, which meant it could be utilized by programs
+		such as the Perl scripts I had already written
+		to use the
+		ESIS output from SGMLS. I thought I could modify xmln to handle SGML files as
+		well but could never track down one of the C header files, which forced an end
+		to my customization attempts.</textual></para><para class="po-block e202 e202"><textual class="po-textual">I attempted to use markup interchangeably as SGML and XML for a couple
+		of years. I finally threw in the towel when a couple of developers started using
+		Java XML tools on a project. Since then, I consider SGML and XML
+		cousins at best. XML is not
+		a subset of SGML as originally advertised!</textual></para><para class="po-block e203 e203"><textual class="po-textual">
+		I work with some systems that started life as SGML applications. Eventually,
+		the data and code will be migrated to XML data and tools. In the meantime,
+		wouldn't it be convenient to mix SGML data and XML data transparently rather
+		than have to do a conversion? I believe this is still a valid requirement for
+		mixing XML and SGML interchangeably and a good reason to write a custom
+		parser.
+	 </textual></para><para class="po-block e204 e204"><textual class="po-textual">This section discusses my frustration mixing SGML and XML and
+	        the road to writing my own parser. mlParser
+		did not happen directly as a result, rather the knowledge gained along the way
+		was applied to its initial implementation and eventual evolution.</textual></para></section><section class="po-hcontainer e205 e205"><title class="po-block e206 e206"><textual class="po-textual">mlParser</textual></title><para class="po-block e207 e207"><textual class="po-textual">In 2002, my next project required that I be fluent in Java. I had done
+		light Java maintenance up to that point. The project seemed pretty important, so
+		I needed to be productive on day one! I knew several programming
+		languages at that point - getting up to speed did not seem impossible. The
+		obvious approach was writing a non-trivial Java program. </textual></para><para class="po-block e208 e208"><textual class="po-textual">I decided to implement the parser described by the software finite state
+		machine from
+		</textual><emphasis class="po-inline e209 e209" role="ital"><textual class="po-textual">Practical Guide To SGML/XML Filters</textual></emphasis><textual class="po-textual">.
+		 (</textual><emphasis class="po-inline e210 e210" role="ital"><textual class="po-textual">See</textual></emphasis><textual class="po-textual"> </textual><xref class="po-milestone e211 e211" linkend="SmithN"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">) Having experimented
+		with both state machines and simple parsers in the past, I knew the technique
+		and subject area. This allowed me to concentrate on the learning Java aspect in
+		writing the parser. </textual></para><para class="po-block e212 e212"><textual class="po-textual">The initial implementation started as a simple, pretty-much exact
+		implementation from the book. The parser generated an ESIS output stream. I
+		verified the output by comparing the mlParser ESIS output
+		with the NSGMLS output. The
+		first implementation was much easier than I had expected. </textual></para><para class="po-block e213 e213"><textual class="po-textual">The second version implemented a few of the XML syntax differences, such
+		as the </textual><emphasis class="po-inline e214 e214" role="ital"><textual class="po-textual">&lt;TAG/&gt;</textual></emphasis><textual class="po-textual"> empty tag. By the time I
+                got the parser digesting basic SGML
+		and XML, I began to see the potential for my own parser! </textual></para><para class="po-block e215 e215"><textual class="po-textual">The third iteration was a restructuring of the code with interfaces for
+		input processing, the parsing engine, and the output call-back class. My
+		thinking was: </textual></para><itemizedlist class="po-table e216 e216"><listitem class="po-container e217 e217"><para class="po-block e218 e218"><emphasis class="po-inline e219 e219" role="ital"><textual class="po-textual">Input Interface.</textual></emphasis><textual class="po-textual"> The assumption was
+                         a developer could supply
+			 a markup stream from any source, not just a file. The default input interface
+			 class handles the file as a stream, which was a good choice because of the
+			 large number of input types that can be mapped into a stream. There has been no
+			 need to implement another input class, but I still see the
+			 potential for custom
+			 input classes.</textual></para></listitem><listitem class="po-container e220 e220"><para class="po-block e221 e221"><emphasis class="po-inline e222 e222" role="ital"><textual class="po-textual">Parsing Engine.</textual></emphasis><textual class="po-textual"> The interface makes it possible to replace
+			 the default state machine with some other parsing engine. The state machine is the
+			 heart of mlParser and its ability to parse multiple meta-markup languages is
+			 an important capability for me, so I don't see replacing current the state machine.
+			 However, it is possible.</textual></para></listitem><listitem class="po-container e223 e223"><para class="po-block e224 e224"><emphasis class="po-inline e225 e225" role="ital"><textual class="po-textual">Output Call-Backs.</textual></emphasis><textual class="po-textual"> Each markup event triggers a call-back
+			 to an interface-defined method. The interface is organized around ESIS events
+			 plus a couple, such as document start and end. The interface is reminiscent of
+			 SAX, only a great deal simpler. This interface is the hook to embed mlParser into
+			 applications.</textual></para></listitem></itemizedlist><para class="po-block e226 e226"><textual class="po-textual">Two additional implementation cycles added a couple of significant
+		capabilities, parsing WordML and *SP files. Not long after SGML and XML parsing
+		were stable, I saved a Microsoft Word document
+                as </textual><emphasis class="po-inline e227 e227" role="ital"><textual class="po-textual">Filtered HTML</textual></emphasis><textual class="po-textual"> and
+		fed it to mlParser. mlParser did not get very far. I was disappointed, but not
+		surprised. There was no immediate requirement to parse Word output. I wanted
+		mlParser to handle all common markup types transparently by this time. </textual></para><para class="po-block e228 e228"><textual class="po-textual">Examination of a WordML file reveals that it follows some SGML rules,
+		some XML rules, and invents a few of its own. Additionally, a great deal of
+		formatting data is stored in comments. I wrote a program to convert WordML to a
+		very generic HTML as an excuse to keep tweaking the parser. Successfully
+		parsing WordML became an obsession and mlParser was a time-consuming hobby
+		at this point. </textual></para><para class="po-block e229 e229"><textual class="po-textual">I volunteered to convert Word documents to HTML many times over the next
+		couple of years. Each document seemed to present some unaccounted-for nuance
+		that required a code tweak to the state machine class. The mlParser and WordML
+		converter program now handles most Word documents, although the generated HTML
+		is often ugly. The HTML is usually good enough to pass a validating parser with
+		no significant validation errors.</textual></para><para class="po-block e230 e230"><textual class="po-textual">I put some thought into what additional features would be necessary to
+		make mlParser useful in a production application. The obvious items
+		included:</textual></para><itemizedlist class="po-table e231 e231"><listitem class="po-container e232 e232"><para class="po-block e233 e233"><textual class="po-textual">Identifying empty tags without a DTD or Schema</textual></para></listitem><listitem class="po-container e234 e234"><para class="po-block e235 e235"><textual class="po-textual">Simple entity resolution</textual></para></listitem><listitem class="po-container e236 e236"><para class="po-block e237 e237"><textual class="po-textual">Setting most options via the command line</textual></para></listitem><listitem class="po-container e238 e238"><para class="po-block e239 e239"><textual class="po-textual">The option to stop on errors or continue processing a file</textual></para></listitem><listitem class="po-container e240 e240"><para class="po-block e241 e241"><textual class="po-textual">Implementing additional input data sources such as strings and
+		  URNs</textual></para></listitem><listitem class="po-container e242 e242"><para class="po-block e243 e243"><textual class="po-textual">Allowing nested parsing</textual></para></listitem></itemizedlist><para class="po-block e244 e244"><textual class="po-textual">SGML and XML have different markup syntax for empty elements.
+                XML uses the form &lt;Tag/&gt; and SGML just uses a start tag
+                and no end tag. The XML form enables recognizing an empty element
+                without a DTD or Schema. The SGML requires that empty tags be
+                explicitly identified. The mlParser approach is simply a file
+                that identifies empty elements that get loaded into a hash at
+                startup. It's simple and effective. When a missing end tag is
+                detected, a check of the hash determines whether or not it is an
+                empty element, and the processing handles the
+                condition correctly. This approach allows
+                SGML files that contain empty elements to work properly. </textual></para><para class="po-block e245 e245"><textual class="po-textual">
+	       Simple entity substitution is a similar problem to empty
+               elements; how do you represent entity values without a DTD
+               or Schema?  The mlParser solution is a simple Java properties
+               file with the entity string as the name and the substitution
+               value as the value. The default entity translation file looks
+               like this:</textual></para><programlisting class="po-block e246 e246" xml:space="preserve"><textual class="po-textual"> &amp;amp;=&amp;
+ &amp;lt;=&lt;
+ &amp;gt;=&gt;
+</textual></programlisting><para class="po-block e247 e247"><textual class="po-textual">If no entity property file is specified, a default set is used. Entities not
+		found in the property file are passed thru unchanged
+		instead of generating an error. </textual></para><para class="po-block e248 e248"><textual class="po-textual">Some applications, such as a browser or building a document,
+                may require that a markup parser continue even when errors occur.
+                Other applications may need to stop on each error so they can be
+                corrected. mlParser can do either and allows the user to specify
+                the behavior as a command-line option. Applications that embed
+                mlParser can set the option via a setter method.</textual></para><para class="po-block e249 e249"><textual class="po-textual">A definite requirement for using mlParser in several of my
+               applications is the ability to launch nested parses. Instantiating
+               another parser object is straightforward and adds almost no complication
+               to application code.</textual></para><para class="po-block e250 e250"><textual class="po-textual">The Java JSP compiler is pretty forgiving, and as long as it can parse the
+		Java code out of "&lt;%" and "%&gt;" delimiters, it is happy. What happens when
+		the JSP compiler is successful and there is a missing angle bracket or two
+		in the HTML markup? The result is usually
+		unexplained "stuff" on the generated HTML page. What do you do? You
+		use mlParser, which can handle the server page
+		syntax, and parse the problem JSP file. Even if the parser only checks that the
+		file is well formed, you may find problems. This actually happened on one project.
+		mlParser showed the JSP file to not be well formed. When the markup was fixed in
+		the JSP file, the unexplained "stuff" went away.</textual></para><para class="po-block e251 e251"><textual class="po-textual">At this point, mlParser is mature with the capabilities identified above
+		and is used in multiple production applications on multiple projects.</textual></para><para class="po-block e252 e252"><textual class="po-textual">The remainder of this section gives a brief overview of the Software
+		Finite State Machine that is the mlParser parsing engine. I first ran across
+		state machines about 20 years ago in a presentation about navigation in an
+		Adventure game where the current state represented room or location on the adventure
+		map. The direction selection by the user caused the state to transition to a
+		new location. State machines have fascinated me ever since and I have managed to use
+		them a few times over the years. Markup parsers are close to an ideal
+		state machine application. </textual></para><para class="po-block e253 e253"><textual class="po-textual">The following State Transition Diagram shows the states for a simple
+		SGML parser:</textual></para><figure class="po-container e254 e254" floatstyle="1" xml:id="StateDiagram" xreflabel="SGML State Transistion Diagram"><mediaobject class="po-container e255 e255"><imageobject class="po-container e256 e256"><imagedata class="po-meta e257 e257" fileref="../../../vol1/graphics/Smith01/Smith01-001.jpg" format="jpg" width="100%"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></imagedata></imageobject><caption class="po-container e258 e258"><para class="po-block e259 e259"><textual class="po-textual">Simple SGML State Transition Diagram</textual></para></caption></mediaobject></figure><para class="po-block e260 e260"><textual class="po-textual">The state machine has to handle every character in the input stream. The
+		initial state is TEXT. State changes often correspond to parsing events, although
+		the State Transition Diagram does not show the call-back points. All parsing
+		states eventually return to the TEXT state.</textual></para><para class="po-block e261 e261"><textual class="po-textual">Two characters are significant in the TEXT state - the Start Tag Open
+		(STAGO), which is '&lt;' and Entity Reference Open (ERO), which is '&amp;'.
+		STAGO fires a call-back to the Content method and changes the state to TAG. </textual></para><para class="po-block e262 e262"><textual class="po-textual">ERO changes to the ENTITY state to handle collection and substitution of
+		the entity. A ';' or white-space character triggers transition back into the TEXT
+		state. All other characters do not cause the state machine to exit the ENTITY
+		state and are accumulated to form the entity name.</textual></para><para class="po-block e263 e263"><textual class="po-textual">The TAG state is entered from the TEXT state via the '&lt;' character. A
+	        white-space
+		character triggers transition into ATTRIBUTE Name state. The Tag Close (TAGC)
+		character '&gt;' exits TAG state back to TEXT state and fires a call-back to
+		the start tag method. Call-backs to the attribute method fire at the end of
+		each attribute. This is one difference between mlParser and SAX. mlParser fires
+		a call-back for each attribute and SAX returns the attributes in an
+		</textual><emphasis class="po-inline e264 e264" role="ital"><textual class="po-textual">Attributes</textual></emphasis><textual class="po-textual"> object. Attributes are available when the start tag method
+		call-back executes in both.</textual></para><para class="po-block e265 e265"><textual class="po-textual">There are two sub-states for collecting attributes: Attribute Name and
+		Attribute Value. The top level state is ATTRIBUTE. The need for sub-states may
+		not be obvious, but works well. The attribute name ends with either an '='
+		character or a '&gt;' character. In either case, a state change is triggered.
+		The Attribute Value sub-state is a little complicated because the value may be
+		enclosed in quotes or simply terminated by white space. The end of Attribute
+		Value sub-state also signals the end of ATTRIBUTE. The current state changes
+		back to TAG because the TAGC character will eventually be found.
+		In practice, there are sub-states for several states. A global
+		variable keeps track of the current state. </textual></para><para class="po-block e266 e266"><textual class="po-textual">The ability to look ahead one
+		character simplifies the state machine code significantly. Reading the next
+		character needs to be a method and not just a read loop around the state cases.
+		The sub-states certainly contribute to needing to be able to read characters at
+		any point, and I believe a read character method is the right approach for this
+		type of state machine application.</textual></para><para class="po-block e267 e267"><textual class="po-textual">The state transition diagram certainly helps to think thru a state
+		machine implementation at its start. I usually draw
+		these diagrams during design. I then prepare
+		a State Transition Table by the time I start coding. It speeds up the coding
+		process significantly. The following State Transition Table corresponds to the
+		State Transition diagram above:</textual></para><table border="1" cellpadding="2" cellspacing="0" class="po-container e268 e268"><caption class="po-container e269 e269"><para class="po-block e270 e270"><textual class="po-textual">State Transition Table</textual></para></caption><thead class="po-container e271 e271"><tr class="po-table e272 e272"><th class="po-field e273 e273"><textual class="po-textual">Current State</textual></th><th class="po-field e274 e274" colspan="7"><textual class="po-textual">Character</textual></th></tr></thead><tbody class="po-table e275 e275"><tr class="po-table e276 e276"><td class="po-block e277 e277"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></td><td class="po-block e278 e278"><textual class="po-textual">STAGO (&lt;)</textual></td><td class="po-block e279 e279"><textual class="po-textual">Whitespace</textual></td><td class="po-block e280 e280"><textual class="po-textual">TAGC (&gt;)</textual></td><td class="po-block e281 e281"><textual class="po-textual"> = </textual></td><td class="po-block e282 e282"><textual class="po-textual">ERO(&amp;)</textual></td><td class="po-block e283 e283"><textual class="po-textual">ERC(;)</textual></td><td class="po-block e284 e284"><textual class="po-textual">Other</textual></td></tr><tr class="po-table e285 e285"><td class="po-block e286 e286"><textual class="po-textual">Text</textual></td><td class="po-block e287 e287"><textual class="po-textual">Tag</textual></td><td class="po-block e288 e288"><textual class="po-textual">Text</textual></td><td class="po-block e289 e289"><textual class="po-textual">Text</textual></td><td class="po-block e290 e290"><textual class="po-textual">Text</textual></td><td class="po-block e291 e291"><textual class="po-textual">Entity</textual></td><td class="po-block e292 e292"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></td><td class="po-block e293 e293"><textual class="po-textual">Text</textual></td></tr><tr class="po-table e294 e294"><td class="po-block e295 e295"><textual class="po-textual">Tag</textual></td><td class="po-block e296 e296"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></td><td class="po-block e297 e297"><textual class="po-textual">Attribute</textual></td><td class="po-block e298 e298"><textual class="po-textual">Text</textual></td><td class="po-block e299 e299"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></td><td class="po-block e300 e300"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></td><td class="po-block e301 e301"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></td><td class="po-block e302 e302"><textual class="po-textual">Tag</textual></td></tr><tr class="po-table e303 e303"><td class="po-block e304 e304"><textual class="po-textual">Attribute</textual></td><td class="po-block e305 e305"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></td><td class="po-block e306 e306"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></td><td class="po-block e307 e307"><textual class="po-textual">Tag</textual></td><td class="po-block e308 e308"><textual class="po-textual">Switch sub-states</textual></td><td class="po-block e309 e309"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></td><td class="po-block e310 e310"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></td><td class="po-block e311 e311"><textual class="po-textual">Attribute</textual></td></tr><tr class="po-table e312 e312"><td class="po-block e313 e313"><textual class="po-textual">Entity</textual></td><td class="po-block e314 e314"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></td><td class="po-block e315 e315"><textual class="po-textual">Text</textual></td><td class="po-block e316 e316"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></td><td class="po-block e317 e317"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></td><td class="po-block e318 e318"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></td><td class="po-block e319 e319"><textual class="po-textual">Text</textual></td><td class="po-block e320 e320"><textual class="po-textual">Entity</textual></td></tr></tbody></table><para class="po-block e321 e321"><textual class="po-textual">The table contains more details than the diagram. The table also points
+		out potential error conditions. Any cell without an entry
+                usually represents an error
+		condition that should be examined closely before
+                deciding if it is truly an error condition
+		or if it can be ignored. For example, the cell at TEXT state and TAGC was blank
+		in the initial version. The cell should have had TEXT because a lone '&gt;' is
+		just another text character. The
+                empty cell at TAG state and STAGO
+		is definitely an error and must be handled.</textual></para><para class="po-block e322 e322"><textual class="po-textual">A software finite state machine is the ideal implementation technique
+		for a markup parser. There are a relatively small number of states, a limited
+		number of state change conditions, and the implementation is not overly
+		complex. The current State Machine class in mlParser is about 1800 lines of
+		heavily commented Java. The whole parser is about 3000
+                lines and the compiled mlParser JAR file is only 22K.</textual></para></section><section class="po-hcontainer e323 e323"><title class="po-block e324 e324"><textual class="po-textual">mlParser Today</textual></title><para class="po-block e325 e325"><textual class="po-textual">This section covers mlParser in its present form. Design choices I made
+		and implemented features are discussed. mlParser has grown and
+		evolved a great deal since that first Java implementation. It is a
+		robust markup parsing tool that is at the heart of several internal
+		applications and is being used on multiple projects. The most significant
+		mlParser use is as the core for an integrated software documentation tool where
+		it has displaced OmniMark applications.</textual></para><para class="po-block e326 e326"><textual class="po-textual">Early sections of this paper identified reasons for writing a parser and
+		design choices to make before you get too far into the effort. My initial
+		reason for writing mlParser was learning Java. My reasons for continuing
+		development evolved almost as much as the code itself. My current list
+		is:</textual></para><itemizedlist class="po-table e327 e327"><listitem class="po-container e328 e328"><para class="po-block e329 e329"><textual class="po-textual">Mixing different markup meta-languages</textual></para></listitem><listitem class="po-container e330 e330"><para class="po-block e331 e331"><textual class="po-textual">An application development framework</textual></para></listitem><listitem class="po-container e332 e332"><para class="po-block e333 e333"><textual class="po-textual">An easily customizable parsing package when XML-type markup just
+			 won't work</textual></para></listitem><listitem class="po-container e334 e334"><para class="po-block e335 e335"><textual class="po-textual">Fullfilling the "SGML without DTDs" vision</textual></para></listitem><listitem class="po-container e336 e336"><para class="po-block e337 e337"><textual class="po-textual">Replacing all my OmniMark code</textual></para></listitem></itemizedlist><para class="po-block e338 e338"><textual class="po-textual">The integrated software documentation tool has been in use for several
+		years; there are thousands of SGML files across many projects. The software
+		will eventually migrate completely to XML;
+		however, the legacy SGML files will never be converted
+		to XML. There will be a period where
+                documents will be built from some SGML files and
+		some XML files. The system must handle the legacy SGML on demand for the
+		foreseeable future. mlParser enables this mixed markup environment. </textual></para><para class="po-block e339 e339"><textual class="po-textual">An application development framework has grown up with mlparser. The
+		output call-back interface forms the basis for mlParser application
+		development. A new application can often be implemented with just two classes.
+		One class is the main program that collects command line arguments, registers
+		the output call-back class, and launches the parsing engine. Starting the
+		parsing process is done by simply invoking the state machine class. Simple
+		applications usually do not require additional classes. Applications that
+		handle multiple document types will need to invoke multiple parser objects with
+		associated, output call-back classes. Each document type should have its own
+		parsing object.</textual></para><para class="po-block e340 e340"><textual class="po-textual">My intimate knowledge of the internals, especially the state machine,
+		allows me to customize the parser for specific applications. For example, there
+		is an application that uses an HTML subset plus a handful of extra tags. I want
+		to use generic, out-of-the-box OpenOffice as the editor so the user never
+		sees a tag. We tried processing instructions in
+		place of the extra tags without success. For OpenOffice to work as the editor
+		for this application, editing must be done in normal WYSIWYG mode. Our solution
+		was to include the extra three or four tags in the document with '{' and '}' as tag
+		delimiters instead the normal '&lt;' and '&gt;'. It turned out to be a simple
+		solution from both the developer's and user's points of view. The developer was
+		happy because no extra code was required to be able to use OpenOffice, and the
+		user was happy because he didn't have to deal with tags
+                for the most part. OpenOffice happily
+		passes around the </textual><emphasis class="po-inline e341 e341" role="ital"><textual class="po-textual">special</textual></emphasis><textual class="po-textual">
+                tags unmodified, and the application code sees
+		them as normal tags. Tweaking mlParser was straightforward and the result was
+		a major editing improvement from the user's perspective without
+                affecting application code.</textual></para><para class="po-block e342 e342"><textual class="po-textual">The "XML is just SGML without DTDs" sales pitch from the XML faction at
+		the 1996 SGML Conference convinced me and the SGML community at large that
+		XML was worth pursuing. I envisioned XML as a true SGML subset where I could
+		transparently use the expensive SGML tools that I fought so hard to purchase
+		over the years. New XML
+		tools would certainly be less expensive and compatible. By the time that the
+		XML 1.0 standard hit the streets, that fantasy was crushed. I never gave up the
+		dream of transparent markup though. I wanted to be able to treat markup as SGML
+		to use SGML tools and XML to use XML tools transparently. mlParser essentially
+		allows me to treat both XML and SGML as just </textual><emphasis class="po-inline e343 e343" role="ital"><textual class="po-textual">markup.</textual></emphasis><textual class="po-textual"> The mlParser
+		parsing engine recognizes the syntax differences between the two, and therefore
+		fulfills the "XML is just SGML without DTDs" as "XML and SGML are just markup,"
+		which is even better!</textual></para><para class="po-block e344 e344"><textual class="po-textual">mlParser is built around the following design/features:</textual></para><itemizedlist class="po-table e345 e345"><listitem class="po-container e346 e346"><para class="po-block e347 e347"><textual class="po-textual">Runs either from the command line or embedded in an
+			 application</textual></para></listitem><listitem class="po-container e348 e348"><para class="po-block e349 e349"><textual class="po-textual">Generates an ESIS output stream by default</textual></para></listitem><listitem class="po-container e350 e350"><para class="po-block e351 e351"><textual class="po-textual">Handles simple entity character substitution</textual></para></listitem><listitem class="po-container e352 e352"><para class="po-block e353 e353"><textual class="po-textual">Non-validating parser</textual></para></listitem><listitem class="po-container e354 e354"><para class="po-block e355 e355"><textual class="po-textual">Handles both SGML and XML empty elements</textual></para></listitem><listitem class="po-container e356 e356"><para class="po-block e357 e357"><textual class="po-textual">Allows nested parsing</textual></para></listitem><listitem class="po-container e358 e358"><para class="po-block e359 e359"><textual class="po-textual">Sets most parsing options from the command line</textual></para></listitem><listitem class="po-container e360 e360"><para class="po-block e361 e361"><textual class="po-textual">Handles multiple types of markup transparently (XML, SGML,
+			 WordML)</textual></para></listitem><listitem class="po-container e362 e362"><para class="po-block e363 e363"><textual class="po-textual">Can include or exclude comments from the output stream</textual></para></listitem><listitem class="po-container e364 e364"><para class="po-block e365 e365"><textual class="po-textual">Handles CDATA</textual></para></listitem><listitem class="po-container e366 e366"><para class="po-block e367 e367"><textual class="po-textual">Does not implement marked sections</textual></para></listitem><listitem class="po-container e368 e368"><para class="po-block e369 e369"><textual class="po-textual">Includes the option to stop on parsing errors or continue when
+			 possible</textual></para></listitem><listitem class="po-container e370 e370"><para class="po-block e371 e371"><textual class="po-textual">Built around ESIS events</textual></para></listitem><listitem class="po-container e372 e372"><para class="po-block e373 e373"><textual class="po-textual">Based on a relatively simple software state machine</textual></para></listitem><listitem class="po-container e374 e374"><para class="po-block e375 e375"><textual class="po-textual">Includes a sample output call-back class that implements a jump
+			 table for "document" applications</textual></para></listitem><listitem class="po-container e376 e376"><para class="po-block e377 e377"><textual class="po-textual">Supports multiple input sources</textual></para></listitem></itemizedlist><para class="po-block e378 e378"><textual class="po-textual">The same Java JAR file is used for both the stand-alone program and when
+		embedded in an application. Simple entity substitution is driven via a
+		Java properties file. If no entity property file
+		is specified, a default set is used. Entities not
+		found in the property file are passed thru unchanged. A full-blown entity
+		implementation seemed to be almost as much effort as the rest of the parser; and
+		for me, simple entity substitution is sufficient.</textual></para><para class="po-block e379 e379"><textual class="po-textual">Several of my applications require nested parsing with different DTDs.
+		An application simply invokes another parser object, handles the output from
+		the nested parser object, and picks up where it left off in the original input
+		stream.</textual></para><para class="po-block e380 e380"><textual class="po-textual">The need to stop on a parsing error or continue transparently is
+		application specific. Stopping on an error is the default behavior for
+		stand-alone parser operation. An application
+		processing a document may want to simply
+		unwind the element stack, fire end tag call-backs and keep going. This works
+		reasonably well for missing end tags, but can create a mess with a missing
+		start tag. mlParser provides the option to stop or continue when errors
+		are detected.
+		</textual></para><para class="po-block e381 e381"><textual class="po-textual">Multiple input sources is a useful feature. Markup traditionally comes
+		from files and must be complete. mlParser accepts files, strings, or URNs.
+		Parsing a string implies well-formed markup, but no &lt;!DOCTYPE and no XML
+		declaration. Transparently handling URNs allows an application to
+		parse markup directly from the web or some external source such as a
+		Subversion repository. Building a multi-file document directly from a
+		Subversion repository ensures that the output document contains the latest
+		checked-in files without a process to manually extract and process them.</textual></para><para class="po-block e382 e382"><textual class="po-textual">The default output call-back interface for handling documents is
+		constructed around two jump tables and Java Reflection. There is one jump table
+		for start tags and one for end tags. The jump tables are constructed as
+		HashMaps with the tag as the key, and the value is the Java method via
+		Reflection. This approach creates a level of indirection between the tags and
+		the code that processes them:</textual></para><itemizedlist class="po-table e383 e383"><listitem class="po-container e384 e384"><para class="po-block e385 e385"><textual class="po-textual">One method can handle multiple tags. For example, the same method
+			 can be used for dropping a tag and its contents or for passing the tag
+			 unchanged.</textual></para></listitem><listitem class="po-container e386 e386"><para class="po-block e387 e387"><textual class="po-textual">Only tags of interest have to be accounted for; all others can be
+			 automatically ignored. An unexpected tag will not cause an exception to be
+			 thrown or the program to bomb.</textual></para></listitem><listitem class="po-container e388 e388"><para class="po-block e389 e389"><textual class="po-textual">The source code does not contain page-after-page of nested
+			 </textual><emphasis class="po-inline e390 e390" role="ital"><textual class="po-textual">if</textual></emphasis><textual class="po-textual"> statements to determine which method to call to process a specific
+			 tag. </textual></para></listitem></itemizedlist><para class="po-block e391 e391"><textual class="po-textual">The following start tag call-back method uses the jump table approach:</textual></para><programlisting class="po-block e392 e392" xml:space="preserve"><textual class="po-textual">
+   	public void writeStartTag(String sTag)
+   	{
+            String key     = sTag.toLowerCase();
+            try{
+                myMethod = (Method)sTagAction.get(key);
+                myMethod.invoke(this,new Object[] {});
+            }
+            catch(Exception e){
+                performDefaultStart();
+            }
+   	}
+</textual></programlisting><para class="po-block e393 e393"><textual class="po-textual">
+		Handling a new tag requires no code change here. Instead, a new entry
+		is simply added to the Start Tag Action hash.  I find the jump table approach
+		clean, flexible, and elegant. The jump
+		table approach can be used with any SAX-based parser, not just mlParser.
+		</textual></para><para class="po-block e394 e394"><textual class="po-textual">mlParser has evolved over the years from a learning exercise with
+		potential to a major part of my markup applications. The thought of
+		implementing the current
+		mlParser from scratch is a daunting one. Starting small and adding capabilities
+		as needed is a doable job. </textual></para></section><section class="po-hcontainer e395 e395"><title class="po-block e396 e396"><textual class="po-textual">Summary</textual></title><para class="po-block e397 e397"><textual class="po-textual">
+		This paper discusses reasons to write your own markup parser and
+		documents my journey to writing my own parser. mlParser
+		started with very modest beginnings and has evolved into a
+		primary tool in my markup application toolkit. I use it to generate ESIS
+		streams that are processed by Perl scripts, for the core of
+		an integrated software documentation tool, and for
+		markup conversion applications.
+	 </textual></para><para class="po-block e398 e398"><textual class="po-textual">
+		I don't believe that I would have tackled writing a parser with
+		all of the features and capabilities that are currently in
+		mlParser. Starting with a small, simple, and flexible base
+		allowed me to evolve a useful and capable parsing tool!
+	 </textual></para><para class="po-block e399 e399"><textual class="po-textual">I found out along the way that while XML is king for record-oriented
+		markup, I still prefer SGML for documents. SGML's inclusions,
+		exclusions, and default attribute values make a developer's life
+		much less stressful for document-centric applications. </textual></para><para class="po-block e400 e400"><textual class="po-textual">
+		The experience has shown that there are still many valid reasons
+		to write a markup parser. This paper has identified and explored
+		many of these reasons. Not finding a parser that meets your needs
+		is what most of the reasons boil down to. Don't be afraid to
+		follow the path to your own parser!
+	</textual></para></section><bibliography class="po-hcontainer e401 e401"><title class="po-block e402 e402"><textual class="po-textual">Bibliography</textual></title><bibliomixed class="po-block e403 e403" xml:id="Bajzat" xreflabel="Bajzat"><textual class="po-textual">Bajzat, Robert,
+		   </textual><emphasis class="po-inline e404 e404" role="ital"><textual class="po-textual">Thinlet Home Page,</textual></emphasis><textual class="po-textual">
+           </textual><link class="po-inline e405 e405" xlink:actuate="onRequest" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://www.thinlet.com/index.html</textual></link><textual class="po-textual">.
+		</textual></bibliomixed><bibliomixed class="po-block e406 e406" xml:id="ClarkJ" xreflabel="ClarkJ"><textual class="po-textual">Clark, James,
+		   </textual><emphasis class="po-inline e407 e407" role="ital"><textual class="po-textual">Nsgmls Output Format,</textual></emphasis><textual class="po-textual">
+           </textual><link class="po-inline e408 e408" xlink:actuate="onRequest" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://www.jclark.com/sp/</textual></link><textual class="po-textual">.
+		</textual></bibliomixed><bibliomixed class="po-block e409 e409" xml:id="SmithN" xreflabel="Smith1998"><textual class="po-textual">Smith, Norman E.,
+		   </textual><emphasis class="po-inline e410 e410" role="ital"><textual class="po-textual">Practical Guide to SGML/XML Filters,</textual></emphasis><textual class="po-textual">
+           Wordware Publishing, Inc., ISBN 1-55622-587-3, © July 1998.
+           </textual><link class="po-inline e411 e411" xlink:actuate="onRequest" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://www.wordware.com</textual></link><textual class="po-textual">.
+		</textual></bibliomixed><bibliomixed class="po-block e412 e412" xml:id="Forth" xreflabel="Smith1997"><textual class="po-textual">Smith, Norman E.,
+		   </textual><emphasis class="po-inline e413 e413" role="ital"><textual class="po-textual">Write Your Own Programming Language Using C++, 2nd Edition,</textual></emphasis><textual class="po-textual">
+           Wordware Publishing, Inc., ISBN 1-55622-492-3, © 1997.
+           </textual><link class="po-inline e414 e414" xlink:actuate="onRequest" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://www.wordware.com</textual></link><textual class="po-textual">.
+		</textual></bibliomixed><bibliomixed class="po-block e415 e415" xml:id="WikipediaMU" xreflabel="WikipediaMU"><textual class="po-textual">Wikipedia,
+		   </textual><emphasis class="po-inline e416 e416" role="ital"><textual class="po-textual">Markup Language Definition,</textual></emphasis><textual class="po-textual">
+           </textual><link class="po-inline e417 e417" xlink:actuate="onRequest" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://en.wikipedia.org/wiki/Markup_language</textual></link><textual class="po-textual">.
+		</textual></bibliomixed><bibliomixed class="po-block e418 e418" xml:id="WikipediaSGML" xreflabel="WikipediaSGML"><textual class="po-textual">Wikipedia,
+		   </textual><emphasis class="po-inline e419 e419" role="ital"><textual class="po-textual">SGML Definition,</textual></emphasis><textual class="po-textual">
+           </textual><link class="po-inline e420 e420" xlink:actuate="onRequest" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://en.wikipedia.org/wiki/SGML</textual></link><textual class="po-textual">.
+		</textual></bibliomixed></bibliography></article></classedDocument>

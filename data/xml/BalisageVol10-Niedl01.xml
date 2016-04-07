@@ -1,0 +1,486 @@
+<?xml version="1.0" encoding="UTF-8"?><article xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink" version="5.0-subset Balisage-1.3" xml:id="HR-23632987-8973"><title>Processing XForms in HTML5-Enabled Browsers</title><info><confgroup><conftitle>Balisage: The Markup Conference 2013</conftitle><confdates>August 6 - 9, 2013</confdates></confgroup><abstract><para>Forms technology for the World Wide Web has developed along two lines. The XForms
+                strain has worked for a cleaner separation of concerns and supports more complex
+                bindings between user interface and data. The HTML strain has focused on the user
+                interface, defining new widgets and in HTML5 adding type definitions to form
+                elements to enable native in-form validation. Some XForms implementations translate
+                XForms elements into HTML widgets plus executable code. But HTML5 also defines new
+                Javascript APIs browsers should support. The new facilities of HTML5-enabled
+                browsers can be used to support XForms near-natively. We explain how.</para></abstract><author><personname><firstname>Tobias</firstname><surname>Niedl</surname></personname><personblurb><para>Has studied computer science at the TU München and works today as Software
+                    Engineer in Munich. XML was one of his major field of study during his Master
+                    course. The introduced XForms processor was developed as part of his Master
+                    Thesis. </para></personblurb><affiliation><jobtitle>Software Engineer</jobtitle></affiliation><email>niedl@in.tum.de</email></author><author><personname><firstname>Anne</firstname><surname>Brüggemann-Klein</surname></personname><personblurb><para/></personblurb><affiliation><jobtitle/><orgname>Technische Universität München</orgname></affiliation><email>brueggem@in.tum.de</email></author><legalnotice><para>Copyright ©  2013 by the authors. Used with permission.</para></legalnotice><keywordset role="author"><keyword>xf.js</keyword><keyword>XForms</keyword><keyword>HTML5</keyword><keyword>Forms</keyword></keywordset></info><section><title>Introduction</title><para>Forms offer a structured interface to users for entering or editing information which
+            is eventually submitted to some system for further processing. Forms play a crucial role
+            on the Web. Early form technology enables interactivity on the Web beyond hyperlinking:
+            With forms in a Web browser, users can activate services on the Web, after setting
+            service parameters, and they will receive service results in the browser in a
+            request-response cycle. Another use case is data entry, with forms in a Web browser
+            acting as masks for database input. Recently, Sperberg-McQueen in personal discussion
+            and workshop announcements has framed forms on the Web as padded-cell editors that
+            allow for specialized editing of XML documents and data in a Web browser in a safe and
+            easy-to-learn manner.</para><para>How has forms technology for the Web evolved over time? There are two lines of
+            development:</para><para>The HTML strain has focused on the user interface. The forms module of HTML defines a
+            set of widget or control elements; an HTML form contains a number of widgets and a
+            target URL to which form data are to be submitted. HTML browsers display form widgets,
+            support data entry and encode form data, transferring them to the form's target URL when
+            submission of a form is activated.</para><para>The most recent version of HTML, namely HTML5, has expanded the set of widgets and has
+            added type definitions to form elements, enabling native in-form data validation.</para><para>The XForms strain has brought data into focus. XForms separates the data of a form
+            from its user interface; form data in XForms are XML documents that can be loaded into a
+            form, edited via widgets and submitted to external services. An XForms processor
+            supports the binding between a form's widgets and data, handles form events and executes
+            form actions including load and submit of data.</para><para>XForms needs to be embedded into a host language, which most commonly is HTML.
+            Nevertheless, in contrast to HTML forms, which are part of the W3C HTML Recommendation,
+            Web browsers are not obliged to support XForms natively. Attempts to make XForms a true
+            part of HTML in XHTML 2 have been abandoned by the W3C together with XHTML 2
+            in favor of HTML5. In fact, none of the current mainstream browsers support XForms
+            natively. Browser plug-ins come closest to native XForms support. There used to be a
+            Firefox plug-in Mozilla XForms that has no developer's support any more and is no longer
+            compatible with current versions of Firefox. FormsPlayer, a plug-in XForms processor for
+            Internet Explorer, is also no longer supported. Current XForms implementations
+            (XSLTForms, BetterForms, Orbeon Forms) translate an XForms form into an HTML form and
+            JavaScript code. There are purely client-side, purely server-side and distributed
+            architectures for both the translator and the form execution code.</para><para>Tobias Niedl, the first author of this paper, has explored under supervision of the
+            second author, as part of his Master Thesis at TU München, JavaScript and the new
+            APIs that an HTML5-enabled Web browser provides as an implementation platform for an
+            XForms processor. It turns out that the new facilities of HTML5-enabled browsers can be
+            used to support XForms more natively. In a similar way as the plug-in solutions the code
+            which executes the form is programmed directly, not generated. This removes a level of
+            indirection in the interest of clarity and maintenance. But in contrast to plug-in
+            solutions, it is platform independent, relying only on the APIs and the JavaScript that
+            an HTML5-conformant browser supplies. For its reach, it capitalizes on the market power
+            of the major browser vendors in the WHATWG<footnote><para>Web Hypertext Application Technology Working Group
+                        <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.whatwg.org/</link></para></footnote>, who stand behind HTML5.</para><para>Tobias Niedl has designed and implemented an XForms processor on the platform of an
+            HTML5-enabled Web browser. A JavaScript program called xf.js sets up some data
+            structures when an HTML page with an embedded XForms form is loaded and acts as an
+            XForms processor during the lifetime of the document in the browser, making use of APIs
+            that an HTML5-enabled Web browser must support.</para><para>The remainder of this paper is organized as follows: First, we derive the requirements
+            for an XForms processor from the core features of XForms in <xref linkend="s1-requirements"/>. Since our target implementation platforms are Web
+            browsers, we relate XForms features and XForms processor requirements to HTML
+            forms.</para><para>In <xref linkend="s2-building-blocks"/> we discuss which building blocks an
+            HTML5-enabled Web browser does or does not provide, in view of our requirements.</para><para>Finally, we discuss in <xref linkend="s3-xf.js"/> core principles, architecture and
+            limitations of our implementation, illustrated with examples and screenshots.</para></section><section xml:id="s1-requirements"><title>Requirements for an XForms processor</title><para>Form systems share core functionality: A form offers a structured interface to users
+            for entering or editing information which may then be further processed outside the
+            form. In the realm of the Web, HTML has enabled data capture and interactivity beyond
+            hyperlinking via forms since version 2. As its name implies, XForms leverages XML
+            and related technologies. XForms extends HTML forms in providing essential innovations
+            (cf. <xref linkend="XFormsEssentials"/>):</para><itemizedlist><listitem><para><emphasis role="bold">Data model:</emphasis> An XForms form holds its data in
+                    an explicitly defined, XML encoded data container, which is called the form's
+                    data model. A key point of XForms is that a form's data model is independent of
+                    its user interface.</para></listitem><listitem><para><emphasis role="bold">Data types:</emphasis> Textual values in the data model
+                    can be declared to be of specific data types; XML Schema's predefined or
+                    user-defined data types (simple types) may be used.</para></listitem><listitem><para><emphasis role="bold">Events:</emphasis> XForms builds on the W3C
+                    Recommendation XML Events. Form events, their targets and associated actions are
+                    declaratively represented by XML elements and attributes.</para></listitem><listitem><para><emphasis role="bold">Widgets:</emphasis> XForms defines a rich set of widgets
+                    that has only recently been matched by the newest version of HTML, namely
+                    HTML5.</para></listitem><listitem><para><emphasis role="bold">Repetitions:</emphasis> XForms has a number of container
+                    form controls, for repetitions, groupings and switching. XForms is the only
+                    forms technology on the Web that natively supports repeating groups of widgets
+                    under action control.</para></listitem></itemizedlist><para>These innovations, whose value is discussed elsewhere
+            <xref linkend="w3.xforms"/><xref linkend="XFormsEssentials"/><xref linkend="FormsNG"/>
+            imply requirements for any XForms processor. We discuss these
+            implications in detail below, contrasting them with the lesser requirements of HTML
+            forms.</para><section><title>Data model</title><para>Form systems deal with data that initialize a form, are edited using the form and
+                are eventually submitted to external systems for further processing. </para><para>XForms distinguishes between a data model, which carries the form's information,
+                and the user interface, which makes the data model accessible to an XForms user. On
+                submission, the data model (or a part of it) is transferred to an external service.
+                The data model itself is encoded in XML. It can be seen as a structure of nodes
+                carrying data (text nodes and attribute nodes in the XDM data model for XML).</para><para>XForms facilitates editing of data in the model in two alternative ways: The
+                obvious first possibility is to use widget elements that are connected to nodes in
+                the data model. Changing a widget's value in the user interface changes the value of
+                the corresponding node in the model. The XForms processor propagates value changes
+                to all widgets that might be connected to the same node, in Model-View-Controller
+                fashion. The second and less obvious possibility to change the data model is by
+                action elements which act as event handlers for form events. An action element is
+                connected to a node (or a set of nodes) in the data model in the same way as a
+                widget element. In both cases the connection to a node in the model, called a
+                reference, is expressed by an XPath expression.</para><para>In contrast, HTML forms do not have explicit, separate data models. The model of
+                an HTML form is implicitly defined by the widget elements in the form. It is a flat
+                set of name-value pairs, implicitly ordered by the sequence of the widgets in the
+                form. The model is generated on the fly when the form is submitted.</para><para>Hence, HTML forms do not separate data and input facilities the way XForms does.
+                In addition, further processing of form data that originate from an HTML form
+                usually necessitates data translation, whereas XForms data can be directly processed
+                using XML technologies as in the zero-translation XRX<footnote><para>XForms REST XQuery</para></footnote> architecture.</para><para>It is immediately apparent that an XForms processor needs to support building,
+                changing and serializing of XML structures and dynamic evaluation of XPath
+                expressions.</para></section><section><title>Data types and data model validation</title><para>Form systems that support data types can offer type-specific data entry support
+                such as date pickers and data validation without custom scripting. XForms offers a
+                small number of proprietary data types and supports the built-in simple types of XML
+                Schema. On top of that, the data model of a form can be constrained by an external
+                schema with XML Schema custom data types (simple types) and also complex types. This
+                ensures that not only updates to data values but also changes in the structure of
+                the data model via actions are schema conformant.</para><para>Earlier versions of HTML forms did not provide type support. All data values were
+                considered as text, for which custom validation rules could be scripted. HTML5 knows
+                a small number of pre-defined data types, which can be customized declaratively by a
+                few parameters and regular expressions, similar to restricting XML Schema simple
+                types with facets. HTML5 data types are validated in conformant browsers. This is
+                the big advantage of HTML5 over earlier versions of HTML with respect to
+                forms.</para><para>A fully conformant XForms processor must be able to do XML Schema validation
+                dynamically, also selectively for parts of the document.</para></section><section><title>Events</title><para>Form systems handle events or signals that are activated in a form internally or
+                under user control. For example, events can cause parts of a form to expand or
+                collapse or value changes to be propagated to formulas that need to be re-evaluated,
+                spreadsheet-like.</para><para>As to events, both HTML forms and XForms are based on the DOM Events W3C Recommendation<footnote><para><link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/DOM-Level-3-Events/</link></para></footnote>. DOM Events defines the structure of and processing rules for browser
+                events. XForms goes beyond HTML forms in that it utilizes an XML encoding layer for
+                DOM events, according to the W3C Recommendation XML Events<footnote><para><link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/2003/REC-xml-events-20031014/</link></para></footnote>.</para><para>A form reacts to an event by executing an action. In HTML forms, actions are
+                custom-programmed pieces of script, often JavaScript; actions are associated with
+                events by HTML-specific attributes (such as <code>onclick</code>) or by registration
+                mechanisms that are specific to the scripting language in use. In contrast, XForms
+                has predefined actions (such as <code>message</code>, <code>setvalue</code> or
+                    <code>delete</code>). XForms also specifies events beyond DOM Events. Most
+                importantly, it uses the standardized XML encoding of XML Events to associate events
+                with actions. XML Events defines how to encode event-related information in XML.
+                With XML Events and XForms' predefined actions, the processing of specific events
+                can be defined declaratively, reducing the need for scripting.</para><para>Consequently, an XForms processor needs to implement the predefined XForms actions
+                and specific XForms events, and it must be able to interprete XML Event definitions,
+                in addition to supporting DOM events and their processing model.</para></section><section xml:id="innovations.widgets"><title>Widgets</title><para>The most prominent feature of a form system is the set of widgets that is
+                available for data entry. In this respect, XForms and HTML5 are basically
+                equivalent, while earlier versions of HTML are slightly weaker [<xref linkend="w3.pemberton"/>].</para></section><section><title>Repetitions</title><para>Forms need to display repeated data that can be manipulated with actions, such as
+                repeating rows in a database table view. XForms provides the user-interface element
+                    <code>repeat</code>, which contains a template of inner widgets that will be
+                instantiated for each portion of the block of data in the form's data that the
+                    <code>repeat</code> is connected with. Early versions of HTML do not support
+                repetitions natively. Interestingly enough, repetition functionality has been a part
+                of Webforms 2<footnote><para><link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.whatwg.org/specs/web-forms/current-work/</link></para></footnote>, a tributary to HTML5 that has been inspired by XForms, but has not made
+                it into HTML5. Hence, no version of HTML forms supports repetitions, but XForms
+                processors must support the <code>repeat</code> element.</para><para>To summarize, an XForms processor needs to satisfy the following requirements
+                beyond those of a simple HTML forms processor:</para><itemizedlist><listitem><para>Handling of XML data, including load and transmit.</para></listitem><listitem><para>Dynamic evaluation of XPath expressions.</para></listitem><listitem><para>Dynamic evaluation of (parts of) XML data against XML Schema.</para></listitem><listitem><para>Support for XForms widgets.</para></listitem><listitem><para>Support for the <code>repeat</code> element.</para></listitem><listitem><para>Implementation of XForms actions.</para></listitem><listitem><para>Support for XForms events.</para></listitem><listitem><para>Interpretation of XML Event definitions.</para></listitem></itemizedlist></section></section><section xml:id="s2-building-blocks"><title>XForms building blocks on a Web browser</title><para>The implementation platform for our XForms processor xf.js is the HTML5-enabled
+            browser. Referring back to the requirements for an XForms processor, we discuss in this
+            section, which building blocks of an XForms processor an HTML5-enabled browser provides
+            and what needs to be built in xf.js from scratch.</para><section><title>XML</title><para>Today's Web browsers can parse XML files and translate them into data structures
+                of a higher level of abstraction. Web browsers make these data structures available
+                to programming languages via the standardized Document Object Model (DOM) interface.
+                Furthermore, new DOM objects can be created in a Web browser under JavaScript
+                control. JavaScript programs that run in the browser can read, modify and extend XML
+                data in the browser via DOM. HTML5-enabled browsers support an advanced version of
+                DOM that is specified by WHATWG and also addresses parsing and serialization of XML
+                documents to and from DOM<footnote><para><link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://domparsing.spec.whatwg.org/</link></para></footnote>. The XMLHttpRequest specification<footnote><para><link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/XMLHttpRequest/</link></para></footnote> enables modern Web browsers to transfer DOM objects or XML-encoded
+                strings.</para></section><section><title>XPath</title><para>With Document Object Model (DOM) Level 3 XPath Specification<footnote><para><link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/DOM-Level-3-XPath/</link></para></footnote>, W3C defines an interface to query a DOM object with an XPath 1.0
+                expression. The interface provides, among others, the following two methods:</para><itemizedlist><listitem><para>The method <code>evaluate()</code> evaluates an XPath expression against a
+                        DOM node.</para></listitem><listitem><para>The method <code>createNSResolver()</code> generates a namespace resolver
+                        object for all namespace definitions that are in scope at a specific DOM
+                        node.</para></listitem></itemizedlist><para>Modern Web browsers support this specification and its JavaScript binding.</para></section><section><title>XML Events and XML Schema</title><para>Current Web browsers support neither XML Events nor XML Schema.</para></section><section><title>Documents and XML submission</title><para>In a Web browser new DOM document objects can be created on the fly using
+                JavaScript. As XForms requires to handle each data model as an independent document,
+                browsers meet the requirements of XForms here. </para><para>A data model (or rather the document representing it) can be submitted as a XML
+                string according to the XForms specification. Most Web browsers implement the XMLHttpRequest<footnote><para><link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/XMLHttpRequest/</link></para></footnote> interface which provides (a)synchronous communication to a Web server
+                out of a JavaScript program. The data to be sent can be a String, a Document object
+                or another type according to XMLHttpRequest specification. As each data model is
+                handled as an independent DOM Document, and the XMLHttpRequest specification enables
+                a browser to transfer such a Document without conversion, the combination of
+                Document and XMLHttpRequest fits well for the mentioned XForms requirements.</para></section><section><title>Widgets</title><para>Widgets in XForms and HTML5 have the same functional range but different names.
+                Thus, an XForms processor can utilize HTML5 widgets after mapping, as shown in the
+                following table. It can also utilize the data entry support and validation
+                facilities of an HTML5-enabled browser, compensating at least partially for lacking
+                XML Schema support.</para><table xml:id="widgets-mapping"><col align="left" valign="top" span="1"/><col align="left" valign="top" span="1"/><col align="left" valign="top" span="1"/><thead><tr valign="top"><th>XForms</th><th>HTML5</th><th>Details</th></tr></thead><tbody><tr><td><code>input</code></td><td><code>input</code></td><td>At default the XForms input widget <quote>enables free-form data
+                                entry</quote> (cf. <xref linkend="w3.xforms"/>). The same is
+                            provided in HTML5 when the type attribute is not set or set to <emphasis role="ital">text</emphasis>.</td></tr><tr><td><code>output</code></td><td><code>output</code></td><td>-</td></tr><tr><td><code>label</code></td><td><code>label</code></td><td>-</td></tr><tr><td><code>trigger</code></td><td><code>input</code>, <code>button</code></td><td>In HTML5: The type attribute on the <code>input</code> element has to be
+                            set to <emphasis role="ital">button</emphasis>.</td></tr><tr><td><code>submit</code></td><td><code>input</code></td><td>In HTML5: The type attribute has to be set to <emphasis role="ital">submit</emphasis>.</td></tr><tr><td><code>secret</code></td><td><code>input</code></td><td>In HTML5: The type attribute has to be set to <emphasis role="ital">password</emphasis>.</td></tr><tr><td><code>textarea</code></td><td><code>textarea</code></td><td>-</td></tr><tr><td><code>upload</code></td><td><code>input</code></td><td>In HTML5: The type attribute has to be set to <emphasis role="ital">file</emphasis>. But see restrictions in xf.js below.</td></tr><tr><td><code>range</code></td><td><code>input</code></td><td>This is the only widget that needs HTML5 beyond earlier HTML versions.
+                            In HTML5: The type attribute has to be set to <emphasis role="ital">range</emphasis>. The values of additional attributes can be mapped
+                            as follows: <itemizedlist><listitem><para><emphasis role="ital">start</emphasis> (HTML5) to
+                                            <emphasis role="ital">min</emphasis> (XForms)</para></listitem><listitem><para><emphasis role="ital">end</emphasis> (HTML5) to <emphasis role="ital">max</emphasis> (XForms)</para></listitem><listitem><para><emphasis role="ital">step</emphasis> (HTML5) to <emphasis role="ital">step</emphasis> (XForms)</para></listitem></itemizedlist>
+                        </td></tr><tr><td><code>select1</code> (full)</td><td><code>input</code></td><td>In HTML5: The type attribute has to be set to <emphasis role="ital">radio</emphasis>. In XForms there is one <code>select1</code>
+                            containing a list of options. In HTML5 there must be one
+                                <code>input</code> element per option.</td></tr><tr><td><code>select1</code> (compact)</td><td><code>option</code></td><td>In HTML5: The size attribute has to be set to a value greater than "1".
+                            A browser will display it as a listbox.</td></tr><tr><td><code>select1</code> (minimal)</td><td><code>option</code></td><td>In HTML5: The size attribute has to be set to "1". A browser will
+                            display it as a drop down selection box.</td></tr><tr><td><code>select</code> (full)</td><td><code>input</code></td><td>In HTML5: The type attribute has to be set to <emphasis role="ital">checkbox</emphasis>. In XForms there is one <code>select</code>
+                            containing a list of options. In HTML5 there must be one
+                                <code>input</code> element per option.</td></tr><tr><td><code>select</code> (compact)</td><td><code>option</code></td><td>In HTML5: The size attribute has to be set to a value greater than "1".
+                            Additional the multiple attribute has to be set. </td></tr><tr><td><code>select</code> (minimal)</td><td><code>option</code></td><td>In HTML5: The size attribute has to be set "1". Additional the multiple
+                            attribute has to be set.</td></tr></tbody></table></section><section><title>Repetitions</title><para>HTML5-enabled browsers have no native support for repetitions in forms.</para><para>In conclusion, on the positive side, HTML5-enabled Web browsers have a good
+                support for XML via the DOM interface. An XML document is made accessible through a
+                DOM interface and nodes in the DOM can be accessed using XPath expressions. New DOM
+                document objects can be created and edited. Browsers also provide widget elements
+                which cover the functionality required by XForms.</para><para>On the negative side, even HTML5-enabled Web browsers do not support XML Events
+                nor XML Schema nor repetitions in the user interface. An XForms processor running on
+                the HTML5-enabled bowser platform either has to implement its own support for these
+                technologies or has to neglect them, giving up some required functionality.</para></section></section><section xml:id="s3-xf.js"><title>The XForms processor xf.js</title><para>This section describes the implementation of the prototypical pure JavaScript XForms
+            processor called xf.js. The goal of the implementation was not to provide full support
+            for XForms but to evaluate the capabilities of Web browsers with HTML5 as platform for a
+            XForms processor.</para><section><title>Principles</title><para>As the goal was to discover browser capabilities, an easy to handle architecture
+                was chosen. The xf.js processor implements a class for every supported XForms
+                element (except the <code>label</code> element). These classes provide methods and
+                class members for the specified attributes of the corresponding XForms element. When
+                an object is instantiated, these members are initialized with the default values
+                according to the XForms specification.</para><para>As Web browsers do not know the semantics of XForms widget elements, the DOM nodes
+                of these elements are replaced by their HTML5 counterparts as shown in <xref linkend="widgets-mapping"/>.</para><para>The initialization of all objects, their relationships and the replacement of the
+                widgets is done in a general parsing function, which is called after the browser has
+                finished loading the document. </para></section><section><title>Architecture</title><para>The following section introduces the architecture of the xf.js processor by
+                introducing the class model.</para><para>The following image shows the underlaying class model of the xf.js processor. For
+                simplicity the classes in the image do not contain method identifiers.</para><figure xml:id="class-model"><title>The class model of the xf.js processor</title><mediaobject><imageobject><imagedata format="png" fileref="../../../vol10/graphics/Niedl01/Niedl01-001.png" width="100%"/></imageobject></mediaobject><para>The functionality of the more important classes is described in the following
+                    sections.</para></figure><section><title>xfModel class</title><para>The core of the processor is the xfModel object which belongs to a
+                        <code>model</code> element in the document. The object has connections to
+                    all objects of elements which are related to the <code>model</code> node in the
+                    document. This relations can be expressed in different ways. Child elements of
+                    the <code>model</code> element are related in a direct way (e.g.
+                        <code>instance</code> or <code>bind</code>). Widget and action elements can
+                    point to a <code>model</code> element by usage of the <emphasis role="ital">model</emphasis> attribute which contains the ID of a corresponding
+                        <code>model</code> element. Finally Widget and action elements can be
+                    implicit related to the first <code>model</code> element defined in the
+                    document, if they have no <emphasis>model</emphasis> attribute defined. </para><para>The xfModel class holds a reference to the DOM node of the corresponding
+                        <code>model</code> element and to the HTML5 <code>form</code> element which
+                    is generated during the parsing process. </para><para>The class also provides methods for operations on the model. The most
+                    important method is evaluate(), a central interface to evaluate XPath
+                    expressions concerning the data models hold by dedicated <code>instance</code>
+                    elements. XForms augments the XPath specification with its own functions. These
+                    XForms specific functions are of course not provided by the Web browser's XPath
+                    interface. Thus the xf.js processor has to handle them by itself and can not
+                    pass it through. Therefore a central evaluation method provides a good place to
+                    implement these additional XForms functions. The processor supports the
+                    additional functions instance() and index(). The evaluation method is also a
+                    well fitting place for another XPath related feature which is still not
+                    implemented: the implicit data model. If a node in the data model is referenced,
+                    which does not exist, it is created by the XForms processor according to the
+                    specification. The XPath interface of Web browsers does not provide such
+                    functionality. But the evaluate method of xfModel could easily provide this
+                    feature. If a XPath evaluation does not return any value, the next step should
+                    be to check on every part of that expression if a corresponding node exists. If
+                    this is not the case, the corresponding node could be generated by using the DOM
+                    interface.</para><para>For each xfModel object an HTML5 <code>form</code> element is created in the
+                    document. This form is an anchor to all HTML5 widgets which are created to
+                    replace the XForms widget elements. Each xfModel object holds a reference to its
+                        <code>form</code> element.</para></section><section><title>xfInstance class</title><para>The xfInstance class is used to handle <code>instance</code> elements which
+                    carry the data model of a form. In the processor one xfInstance object is
+                    generated for every <code>instance</code> element. At the current state of the
+                    implementation each xfInstance object holds a reference to the DOM node of the
+                        <code>instance</code> element to perform read and write operations on the
+                    data model. The XForms specification requests to handle all data models as
+                    independent documents. Thus operations should not take place in the main
+                    document itself. This feature would also be possible in a Web browser based
+                    XForms implementation, as browsers implement the createDocument() interface as
+                    defined in DOM Level 3 specification<footnote><para><link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/DOM-Level-3-Core/</link></para></footnote>. Thus a new XML document could be created and filled with the nodes
+                    defined inside the instance node. The xfInstance class provides also methods to
+                    serialize the data model. For the submission of the data model as XML, the
+                    implementation utilizes the XMLSerializer<footnote><para><link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://domparsing.spec.whatwg.org/#the-xmlserializer-interface</link></para></footnote> to generate a XML string. For submission as name-value pairs the
+                    getDataAsHashMap() method flattens the model data down as specified by XForms
+                    before submission.</para></section><section><title>xfSubmission and xfWidgetSubmit</title><para>A xfSubmission object is responsible for the transmission of a data model.
+                    Each xfSubmission object is bidirectional attached to one xfModel object and
+                    thus has indirect access to the xfInstance objects holding the data to send. The
+                    main method is doSubmit() which performs the submission according to the
+                    parameters set. A data model can be submitted as XML document, or as name-value
+                    pairs according to HTML forms. The submission can be done using the methods
+                        <emphasis role="ital">POST</emphasis>, <emphasis role="ital">GET</emphasis>,
+                        <emphasis role="ital">PUT</emphasis>, <emphasis role="ital">DELETE</emphasis> or <emphasis role="ital">URLENCODED-POST</emphasis> as
+                    defined by XForms. To control which part of a data model should be submitted and
+                    which one should be replaced the processor implements the attributes <emphasis role="ital">ref</emphasis>, <emphasis role="ital">replace</emphasis> and
+                        <emphasis role="ital">targetref</emphasis>.</para><para>To start a submission a xfWidgetSubmit object is needed which is connected to
+                    a xfSubmission object. The object is created for a XForms <code>submit</code>
+                    element and represented to the user as HTML5 button. When the user clicks the
+                    button, the event of that click is handled at the xfWidgetSubmit object which
+                    calls the doSubmit() method of the connected xfSubmission object.</para></section><section><title>xfBind</title><para>The xfBind class represents the XForms <code>bind</code> element. As XML
+                    Schema is not supported by browsers (and not implemented in the processor
+                    neither) xfBind allows type checking based on the HTML5 form check interface.
+                    The <emphasis role="ital">type</emphasis> attribute can be set to one of the
+                    following values as defined in HTML5: <emphasis role="ital">text</emphasis>,
+                        <emphasis role="ital">number</emphasis>, <emphasis role="ital">url</emphasis>, <emphasis role="ital">email</emphasis>, <emphasis role="ital">tel</emphasis>, <emphasis role="ital">date</emphasis>, <emphasis role="ital">time</emphasis>, <emphasis role="ital">datetime</emphasis>,
+                        <emphasis role="ital">datetime-local</emphasis>, <emphasis role="ital">month</emphasis>, <emphasis role="ital">week</emphasis> or <emphasis role="ital">color</emphasis>.</para><para>If a XForms input widget refers to a <code>bind</code> element with one of
+                    these type values, the <emphasis role="ital">type</emphasis> attribute of the
+                    generated HTML5 widget replacing the XForms widget will be set to this value
+                    leading to a deeper integration of XForms into HTML5. Before a data model is
+                    submitted, a check of the user input is done according to the type settings by
+                    usage of the checkValidity<footnote><para><link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.whatwg.org/specs/web-apps/current-work/multipage/forms.html#dom-form-checkvalidity</link></para></footnote> interface which was introduced in HTML5 on the <code>form</code>
+                    element.</para></section><section><title>Widgets</title><para>For every XForms widget element an appropriate xfWidget object is created,
+                    e.g. a xfWidgetTrigger object for a <code>trigger</code> element. As the browser
+                    does not know the semantics of the XForms widget elements they are replaced by
+                    their HTML5 counterparts according to <xref linkend="widgets-mapping"/>. Every
+                    xfWidget object holds a reference to the corresponding HTML5 widget.</para><para>To ensure a widget shows the actual value of the referenced node in the data
+                    model, the processor uses the <quote>Mutation observer</quote><footnote><para><link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://dom.spec.whatwg.org/#mutation-observers</link></para></footnote> interface. The Mutation observer is going to be introduced in DOM 4
+                    to replace the DOM Mutation Events. Every xfWidget object owns a mutation
+                    observer and a callback function which is executed by the observer. The observer
+                    is set to the referenced node in the data model and the callback function
+                    updates the widgets state to the current value of the node in the data
+                    model.</para><para>For simplicity the XForms label element is not handled as a own class. As a
+                    label element belongs to another widget element, the label's value is stored as
+                    attribute in the corresponding xfWidget object. Depending on the widget element
+                    the label's value is displayed as HTML5 <code>label</code> element, or on the
+                    widget element itself, e.g. as caption of a button.</para></section><section><title>xfRepeat and xfRepeatGroup</title><para>XForms provides the <code>repeat</code> element to display all child elements
+                    inside it multiple times. This functionality is given in the processor with the
+                    xfRepeat and xfRepeatGroup classes. The xfRepeat class represents the repeat
+                    element itself. </para><para>The <code>repeat</code> element refers to a nodeset in a data model. For every
+                    node in this set the elements inside the <code>repeat</code> element will be
+                    repeated. The xfRepeatGroup object is used to represent such a repeat. It
+                    contains a copy of all elements which are defined inside the <code>repeat</code>
+                    element of the superior xfRepeat object. Every xfRepeatGroup object also refers
+                    to one node of the repeat element's nodeset. </para><para>The processor supports the <emphasis role="ital">add</emphasis> and <emphasis role="ital">remove</emphasis> operations of such groups. When a new node is
+                    added to the nodeset, a new group is created and displayed. When a node is
+                    removed from the nodeset, the corresponding group is deleted and removed from
+                    the user interface.</para></section><section><title>Actions and events</title><para>The processor supports the action elements <code>insert</code>,
+                        <code>setvalue</code>, <code>delete</code> and <code>message</code> and the
+                    superior element <code>action</code> to group the others. Each element is
+                    represented by a xfAction class, e.g. xfActionMessage. Each object owns a class
+                    member <emphasis role="ital">event</emphasis> which contains the name of the
+                    event on which the object should react. In addition each object has a method
+                    perform() which implements the desired actions.</para><para>As Action elements belong to another XForms element, each xf class is able to
+                    hold references to one or more action objects. Each xf class also implements a
+                    method handleEvent(), a generic event handler for the underlying XForms element.
+                    When an event reaches the XForms element, the event handler is called which
+                    compares the event's name with the event name of each registered xfAction
+                    object. If the names match, the perform() method of the corresponding xfAction
+                    object is called. </para></section></section><section><title>Evaluation</title><para>As we have demonstrated, most of the XForms concepts can be implemented in a
+                browser native XForms processor. But some concepts can not be covered. The
+                restrictions can be divided into the following classes:</para><itemizedlist><listitem><para>Missing technology in an HTML5-enabled Web browser.</para></listitem><listitem><para>Limitations of the platform (browsers and HTML5).</para></listitem></itemizedlist><section><title>Missing technology</title><para>First of all, XML Schema support is missing completely as Web browsers today
+                    do not implement it. A solution for a browser based XForms processor would be to
+                    use a JavaScript based XML Schema implementation, as provided by
+                        <quote>xml.js</quote><footnote><para><link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://syssgx.github.com/xml.js/</link></para></footnote>.</para><para>The same holds for the support of XML Events. Mozilla seems to have had a XML
+                    Events implementation but it was rejected from core in 2012<footnote><para><link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">https://bugzilla.mozilla.org/show_bug.cgi?id=656311</link></para></footnote>. Therefore a XForms processor also has to implement the XML Events
+                    specification itself. The xf.js processor partially implements XML Events
+                    itself.</para></section><section><title>Limitations of the platform</title><para>To evaluate an XPath expression, a namespace resolver is needed which provides
+                    a mapping from namespace prefixes to their corresponding name. A namespace
+                    resolver can be build manually or by using the createNSResolver() method. It
+                    takes a DOM node <emphasis role="ital">n</emphasis> and builds a resolver which
+                    knows the namespaces and prefixes of all nodes from the document's root to the
+                    given node <emphasis role="ital">n</emphasis>. It is not possible to
+                    automatically generate a namespace resolver which knows the namespaces of the
+                    whole document (and not just a part of it). For the processor implementation
+                    this rises the question which node should be taken? It should be a node, at a
+                    very deep position in the document tree (to get as much namespace definitions as
+                    possible) and on a branch which will be evaluated by the XPath expression in the
+                    next step. But such a node can not be chosen without evaluating the XPath
+                    expression first. Therefore only the node of the instance element itself (or its
+                    first and only child node) can be taken as input for the createNSResolver
+                    function. This leads to the problem, that namespaces which are defined inside
+                    the data model can not be used and evaluating a XPath expression which contains
+                    such namespace prefixes will fail. </para><para>Another limitation is given at the document submission. XForms specifies both:
+                    synchronous and asynchronous submissions, whereas a synchronous submission means
+                    that the document holding the XForms is replaced by the server response. To
+                    provide the submission of XML data, the processor has to use the XMLHttpRequest
+                    interface. The interface is well suited for asynchronous data transfer (meaning
+                    that the document remains in the browser after a submit). But it does not
+                    provide functionality to replace the whole document with a server
+                    response.</para><para>As the xf.js processor is implemented in JavaScript all restrictions of the
+                    JavaScript interpreter in a Web browser also apply for the xf.js processor
+                    itself. </para><para>First, Web browsers do not permit access to the local file system to
+                    JavaScript programs. Thus saving a data model on the computer or opening an
+                    existing one cannot be implemented without using additional technologies, like
+                    Adobe Flash or another browser plug-in which is able to access the local file
+                    system. HTML5 defines the Web storage<footnote><para><link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.whatwg.org/specs/web-apps/current-work/multipage/webstorage.html#webstorage</link></para></footnote> interface which allows the storage of data on the local system in a
+                    key-value pair manner. But Web storage meets the requirements of XForms only
+                    partially as XForms allows the specification of a URL pointing into the local
+                    file system for storing the data model. Browsers providing the Web storage
+                    interface act as a simple database, but do not allow the user to choose the
+                    destination of the stored information.</para><para>Second, Web browsers prevent scripts from accessing other sites (with
+                    different host name, port, etc.). Thus the submission of data to an URL
+                    different from the one the current loaded document is not possible for security
+                    reasons.</para><para>The JavaScript restrictions also prevent a working upload widget element. In
+                    XForms the content of a file, which was selected using the upload widget, can be
+                    embedded into the data model as binary content. The HTML5 counterpart widget has
+                    no interface to fetch the file content via JavaScript. As the access to local
+                    files is not possible in general, a pure JavaScript based XForms processor lacks
+                    this feature. </para></section></section></section><section xml:id="s4-conclusion"><title>Summary</title><para>The xf.js processor uses a straight forward architecture. Each XForms element is
+            represented by a corresponding object. After loading the document, a parser instantiates
+            the needed objects and connects them in the desired way. In a second step each widget
+            element is replaced by its HTML5 counterpart. </para><para>The xf.js processor supports multiple <code>model</code> elements in a document and
+            multiple instances inside a <code>model</code> element. Nodes in the data model can
+            either be referenced directly with a XPath expression by using the appropriate attribute
+                (<emphasis role="ital">ref</emphasis> or <emphasis role="ital">nodeset</emphasis>)
+            or by using <code>bind</code> elements in the data model. A data model can be submitted
+            as XML or as name-value pairs according to form submission in HTML. </para><para>For this purposes the xf.js processor supports the following elements:
+                <code>model</code>, <code>instance</code>, <code>bind</code> and
+                <code>submission</code>. For the user interface, the elements <code>label</code>,
+                <code>input</code>, <code>output</code>, <code>trigger</code>, <code>submit</code>
+            and <code>repeat</code> are supported. To show the capabilities of Web browsers towards
+            events, the xf.js processor implements the Action elements <code>insert</code>,
+                <code>setvalue</code>, <code>delete</code>, <code>message</code> and the element
+                <code>action</code> itself to group multiple other Action elements. These elements
+            can react on events generated by the Web browser (implementation currently supports
+                <emphasis role="ital">DOMActivate</emphasis>) and on XForms specific events
+                (<emphasis role="ital">xforms-ready</emphasis> is implemented), which are generated
+            by the processor itself.</para><para>To validate user inputs the xf.js processor uses some of the types defined by HTML5,
+            e.g. <emphasis role="ital">number</emphasis>, <emphasis role="ital">text</emphasis>,
+                <emphasis role="ital">datetime</emphasis>, etc. These types can be used with a
+                <code>bind</code> element, like XML Schema types in other processors.</para></section><section><title>Outlook</title><para>As already mentioned, the xf.js processor has an easy to implement architecture where
+            each supported XForms element is represented as a class. Such a class is instantiated
+            for every XForms element used in a document. The members of the objects are filled with
+            the values given in the element attributes. This architecture has the draw back of
+            creating a shadow model of all information which are already present in the loaded
+            document and accessible via the DOM.</para><para>Therefore a new version of the processor is going to be implemented with a different
+            architecture. Instead of creating an object for every XForms node in the DOM the
+            existing DOM nodes should be used directly. This includes the enhancement of the DOM
+            nodes with a set of JavaScript functions which provide the needed functionality for
+            every node. E.g. the DOM node of a XForms <code>message</code> element node gets a
+            function perform() associated which displays the defined message to the user when
+            called.</para><para>An important functionality is the support of XML Schema which is not given at the
+            moment. It has to be checked if JavaScript implementations for XML Schema can be used
+            for the xf.js processor. </para><para>We plan to make the source code of the new version public as soon as it has reached
+            some kind of maturity.</para></section><appendix xml:id="appendix.screenshots"><title>Examples and screenshots</title><para>Finally we want to show the results of the implementation with a set of examples and
+            screenshots. The XForms source is given on each example.</para><section><title>Widget replacement</title><para>The first example shows how the document is modified when the XForms widget
+                elements are replaced by HTML5 widgets.</para><para>This XForms code:
+                <programlisting xml:space="preserve">&lt;body&gt;
+  &lt;xf:input ref="data"&gt; 
+    &lt;xf:label&gt;Input: &lt;/xf:label&gt;
+  &lt;/xf:input&gt; &lt;br /&gt;
+  &lt;xf:output value="data"&gt;
+    &lt;xf:label&gt;Result: &lt;/xf:label&gt; 
+  &lt;/xf:output&gt; 
+&lt;/body&gt;</programlisting>
+                Will result in the following XHTML5 code:
+                <programlisting xml:space="preserve">&lt;body&gt;
+  &lt;label&gt;Input: &lt;/label&gt;
+  &lt;input type="text" name="FNinput_Input" value="Back to the Future" form="FN_model1" /&gt;
+  &lt;br /&gt;	
+  &lt;label&gt;Output: &lt;/label&gt;
+  &lt;output name="output" form="FN_model1"&gt;Back to the Future&lt;/output&gt;
+  &lt;form id="FN_model1"&gt;&lt;/form&gt;
+&lt;/body&gt;</programlisting>
+            </para><para>It will be displayed as follows: </para><figure xml:id="input-output"><title>The user interface in the browser</title><mediaobject><imageobject><imagedata format="png" fileref="../../../vol10/graphics/Niedl01/Niedl01-002.png" width="50%"/></imageobject></mediaobject></figure></section><section><title>Changes in the data model</title><para>The data model can be changed using widget elements as in the previous example or
+                using action elements. The following shows the XForms code to set a value in the
+                data model after the user has clicked on a button:
+                <programlisting xml:space="preserve">&lt;head&gt;
+ ...         
+&lt;xf:model id="model2"&gt;
+  &lt;xf:instance&gt;
+    &lt;timeTravellers xmlns=""&gt;
+      &lt;name&gt;Marty McFly&lt;/name&gt;
+      &lt;name&gt;Dr. Emmet Brown&lt;/name&gt;
+      &lt;name&gt;Jennifer Parker&lt;/name&gt;
+    &lt;/timeTravellers&gt;
+  &lt;/xf:instance&gt;
+
+  &lt;xf:instance id="inst2"&gt;
+    &lt;timeMachine xmlns=""&gt;
+      &lt;name&gt;&lt;/name&gt;
+    &lt;/timeMachine&gt;
+  &lt;/xf:instance&gt;     
+&lt;/xf:model&gt;
+&lt;/head&gt;
+
+&lt;body&gt;
+  &lt;xf:trigger&gt;
+    &lt;xf:label&gt;Click me&lt;/xf:label&gt;
+    &lt;xf:setvalue ev:event="DOMActivate" ref="instance('inst2')/name" model="model2"&gt;DeLorean DMC-12&lt;/xf:setvalue&gt;
+  &lt;/xf:trigger&gt;
+  &lt;br /&gt;
+  &lt;xf:output ref="instance('inst2')/name" model="model2"&gt;
+    &lt;xf:label&gt;Time machine: &lt;/xf:label&gt;
+  &lt;/xf:output&gt;
+&lt;/body&gt;</programlisting>This
+                code will lead to the following behaviour in the browser:</para><figure xml:id="trigger-1"><title>Updating the data model with events: Before the click</title><mediaobject><imageobject><imagedata format="png" fileref="../../../vol10/graphics/Niedl01/Niedl01-003.png" width="75%"/></imageobject></mediaobject></figure><figure xml:id="trigger-2"><title>Updating the data model with events: After the click</title><mediaobject><imageobject><imagedata format="png" fileref="../../../vol10/graphics/Niedl01/Niedl01-004.png" width="75%"/></imageobject></mediaobject></figure></section><section><title>Repeating groups</title><para>The xf.js processor also provides support for the XForms <code>repeat</code>
+                element. We use the following XForms code as
+                example:<programlisting xml:space="preserve">&lt;body&gt;
+  &lt;div&gt;
+    &lt;xf:repeat id="carRepeat" nodeset="car"&gt;
+      &lt;xf:input ref="."&gt;
+        &lt;xf:label&gt;Car &lt;/xf:label&gt;
+      &lt;/xf:input&gt;
+      &lt;br /&gt;
+    &lt;/xf:repeat&gt;
+        
+    &lt;xf:trigger&gt;
+      &lt;xf:label&gt;Insert new car at beginning&lt;/xf:label&gt;
+      &lt;xf:action ev:event="DOMActivate"&gt;
+        &lt;xf:insert nodeset="car" at="1" position="before"/&gt;
+        &lt;xf:setvalue ref="car[1]/text()"&gt;Porsche&lt;/xf:setvalue&gt;
+      &lt;/xf:action&gt;  
+    &lt;/xf:trigger&gt;
+              
+    &lt;xf:trigger&gt;
+      &lt;xf:label&gt;Delete last car&lt;/xf:label&gt;
+      &lt;xf:delete ev:event="DOMActivate" nodeset="car" at="last()"/&gt;
+    &lt;/xf:trigger&gt;
+  &lt;/div&gt;  
+&lt;/body&gt;</programlisting></para><para>The following images show the website after initialization, after a click on the
+                    <quote>insert</quote> button and after a click on the <quote>delete</quote>
+                button:</para><figure xml:id="repeat-1"><title>The repeat group after initialization</title><mediaobject><imageobject><imagedata format="png" fileref="../../../vol10/graphics/Niedl01/Niedl01-005.png" width="75%"/></imageobject></mediaobject></figure><figure xml:id="repeat-2"><title>The repeat group after an insert operation</title><mediaobject><imageobject><imagedata format="png" fileref="../../../vol10/graphics/Niedl01/Niedl01-006.png" width="75%"/></imageobject></mediaobject></figure><figure xml:id="repeat-3"><title>The repeat group after a delete operation</title><mediaobject><imageobject><imagedata format="png" fileref="../../../vol10/graphics/Niedl01/Niedl01-007.png" width="75%"/></imageobject></mediaobject></figure></section></appendix><bibliography><title>Bibliography</title><bibliomixed xml:id="XFormsEssentials">Micah Dubinko: XForms Essentials. O'Reilly
+            2003.</bibliomixed><bibliomixed xml:id="FormsNG">Hofmann/Liebermann: XForms: The Next Generation of Internet
+            Interfaces. Augsburg 2004.</bibliomixed><bibliomixed xml:id="w3.pemberton" xreflabel="Pemberton 2003"> Steven Pemberton.
+                <quote>XForms for HTML Authors</quote>. [last accessed 24. Mar 2013].
+                <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/MarkUp/Forms/2003/xforms-for-html-authors.html</link>
+        </bibliomixed><bibliomixed xml:id="w3.xforms" xreflabel="XForms 1.1"> John M. Boyer [Editor].
+                <quote>XForms 1.1 W3C Recommendation 20 October 2009</quote>. [last accessed 24. Mar
+            2013]. <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/xforms/#ui-input</link>
+        </bibliomixed></bibliography></article>

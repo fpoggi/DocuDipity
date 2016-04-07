@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?><classedDocument><article xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink" class="po-hcontainer e0 e0" version="5.0-subset Balisage-1.2"><title class="po-block e1 e1"><textual class="po-textual">Investigating the streamability of XProc pipelines</textual></title><info class="po-record e2 e2"><confgroup class="po-record e3 e3"><conftitle class="po-field e4 e4"><textual class="po-textual">Balisage: The Markup Conference 2009</textual></conftitle><confdates class="po-field e5 e5"><textual class="po-textual">August 11 - 14, 2009</textual></confdates></confgroup><abstract class="po-container e6 e6"><para class="po-block e7 e7"><emphasis class="po-inline e8 e8"><textual class="po-textual">XProc: An XML Pipeline Language</textual></emphasis><textual class="po-textual"> is a
+specification being developed by the W3C for describing a sequence of
+XML operations performed over a set of input documents. Not all of the
+steps in XProc are known to streamable and consequently,
+the XProc specification does not require implementations to support
+streaming.</textual></para><para class="po-block e9 e9"><textual class="po-textual">It's an open question whether or not a streaming implementation
+would be likely to achieve significant performance improvements over a
+similar non-streaming implementation. Using data collected from
+real-world pipelines, this paper examines that question.</textual></para></abstract><author class="po-record e10 e10"><personname class="po-record e11 e11"><firstname class="po-field e12 e12"><textual class="po-textual">Norman</textual></firstname><surname class="po-field e13 e13"><textual class="po-textual">Walsh</textual></surname></personname><personblurb class="po-container e14 e14"><para class="po-block e15 e15"><textual class="po-textual">Norman Walsh is a Principal Technologist in the Information
+&amp; Media group at Mark Logic Corporation where he assists in the
+design and deployment of advanced content applications. Norm is also
+an active participant in a number of standards efforts worldwide: he
+is chair of the XML Processing Model Working Group at the W3C where he
+is also co-chair of the XML Core Working Group. At OASIS, he is chair
+of the DocBook Technical Committee.
+</textual></para><para class="po-block e16 e16"><textual class="po-textual">Before joining Mark Logic, he participated in XML-related
+projects and standards efforts at Sun Microsystems. With more than a
+decade of industry experience, Mr. Walsh is well known for his work on
+DocBook and a wide range of open source projets. He is the principle
+author of </textual><emphasis class="po-inline e17 e17"><textual class="po-textual">DocBook: The Definitive Guide</textual></emphasis><textual class="po-textual">
+</textual></para></personblurb><affiliation class="po-record e18 e18"><jobtitle class="po-field e19 e19"><textual class="po-textual">Principal Technologist</textual></jobtitle><orgname class="po-block e20 e20"><textual class="po-textual">Mark Logic Corporation</textual></orgname></affiliation></author><legalnotice class="po-container e21 e21"><para class="po-block e22 e22"><textual class="po-textual">Copyright © 2009 Norman Walsh</textual></para></legalnotice></info><section class="po-hcontainer e23 e23" xml:id="intro"><title class="po-block e24 e24"><textual class="po-textual">Introduction</textual></title><para class="po-block e25 e25"><textual class="po-textual">XProc is a language for expressing a pipeline of XML operations. One
+simple example of the sort of use cases that XProc is designed to meet is
+this pipeline:</textual></para><programlisting class="po-block e26 e26" xml:space="preserve"><textual class="po-textual">&lt;p:pipeline xmlns:p="http://www.w3.org/ns/xproc"&gt;
+  &lt;p:xinclude/&gt;
+  &lt;p:validate-with-xml-schema&gt;
+    &lt;p:input port="schema"&gt;
+      &lt;p:document href="/uri/of/schema.xsd"/&gt;
+    &lt;/p:input&gt;
+  &lt;/p:validate-with-xml-schema&gt;
+  &lt;p:xslt&gt;
+    &lt;p:input port="stylesheet"&gt;
+      &lt;p:document href="/uri/of/stylesheet.xsl"/&gt;
+    &lt;/p:input&gt;
+  &lt;/p:xslt&gt;
+&lt;/p:pipeline&gt;</textual></programlisting><para class="po-block e27 e27"><textual class="po-textual">This pipeline performs XInclude processing, validates the
+expanded document, applies a stylesheet to it, and returns the result
+of the transformation.</textual></para><section class="po-hcontainer e28 e28" xml:id="steps"><title class="po-block e29 e29"><textual class="po-textual">XProc steps</textual></title><para class="po-block e30 e30"><textual class="po-textual">The XProc specification defines 31 required and 10 optional steps,
+summarized in </textual><xref class="po-milestone e31 e31" linkend="tab.steps"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">.</textual></para><table class="po-container e32 e32" xml:id="tab.steps"><caption class="po-container e33 e33"><para class="po-block e34 e34"><textual class="po-textual">The XProc Standard Step Library</textual></para></caption><tr class="po-table e35 e35"><td class="po-block e36 e36"><textual class="po-textual">p:add-attribute</textual></td><td class="po-block e37 e37"><textual class="po-textual">p:http-request</textual></td><td class="po-block e38 e38"><textual class="po-textual">p:set-attributes</textual></td><td class="po-block e39 e39"><textual class="po-textual">p:wrap-sequence</textual></td></tr><tr class="po-table e40 e40"><td class="po-block e41 e41"><textual class="po-textual">p:add-xml-base</textual></td><td class="po-block e42 e42"><textual class="po-textual">p:identity</textual></td><td class="po-block e43 e43"><textual class="po-textual">p:sink</textual></td><td class="po-block e44 e44"><textual class="po-textual">p:wrap</textual></td></tr><tr class="po-table e45 e45"><td class="po-block e46 e46"><textual class="po-textual">p:compare</textual></td><td class="po-block e47 e47"><textual class="po-textual">p:insert</textual></td><td class="po-block e48 e48"><textual class="po-textual">p:split-sequence</textual></td><td class="po-block e49 e49"><textual class="po-textual">p:www-form-urldecode</textual><superscript class="po-atom e50 e50"><textual class="po-textual">*</textual></superscript></td></tr><tr class="po-table e51 e51"><td class="po-block e52 e52"><textual class="po-textual">p:count</textual></td><td class="po-block e53 e53"><textual class="po-textual">p:label-elements</textual></td><td class="po-block e54 e54"><textual class="po-textual">p:store</textual></td><td class="po-block e55 e55"><textual class="po-textual">p:www-form-urlencode</textual><superscript class="po-atom e56 e56"><textual class="po-textual">*</textual></superscript></td></tr><tr class="po-table e57 e57"><td class="po-block e58 e58"><textual class="po-textual">p:delete</textual></td><td class="po-block e59 e59"><textual class="po-textual">p:load</textual></td><td class="po-block e60 e60"><textual class="po-textual">p:string-replace</textual></td><td class="po-block e61 e61"><textual class="po-textual">p:xinclude</textual></td></tr><tr class="po-table e62 e62"><td class="po-block e63 e63"><textual class="po-textual">p:directory-list</textual></td><td class="po-block e64 e64"><textual class="po-textual">p:make-absolute-uris</textual></td><td class="po-block e65 e65"><textual class="po-textual">p:unescape-markup</textual></td><td class="po-block e66 e66"><textual class="po-textual">p:xquery</textual><superscript class="po-atom e67 e67"><textual class="po-textual">*</textual></superscript></td></tr><tr class="po-table e68 e68"><td class="po-block e69 e69"><textual class="po-textual">p:error</textual></td><td class="po-block e70 e70"><textual class="po-textual">p:namespace-rename</textual></td><td class="po-block e71 e71"><textual class="po-textual">p:unwrap</textual></td><td class="po-block e72 e72"><textual class="po-textual">p:xsl-formatter</textual><superscript class="po-atom e73 e73"><textual class="po-textual">*</textual></superscript></td></tr><tr class="po-table e74 e74"><td class="po-block e75 e75"><textual class="po-textual">p:escape-markup</textual></td><td class="po-block e76 e76"><textual class="po-textual">p:pack</textual></td><td class="po-block e77 e77"><textual class="po-textual">p:uuid</textual><superscript class="po-atom e78 e78"><textual class="po-textual">*</textual></superscript></td><td class="po-block e79 e79"><textual class="po-textual">p:xslt</textual></td></tr><tr class="po-table e80 e80"><td class="po-block e81 e81"><textual class="po-textual">p:exec</textual><superscript class="po-atom e82 e82"><textual class="po-textual">*</textual></superscript></td><td class="po-block e83 e83"><textual class="po-textual">p:parameters</textual></td><td class="po-block e84 e84"><textual class="po-textual">p:validate-with-relax-ng</textual><superscript class="po-atom e85 e85"><textual class="po-textual">*</textual></superscript></td></tr><tr class="po-table e86 e86"><td class="po-block e87 e87"><textual class="po-textual">p:filter</textual></td><td class="po-block e88 e88"><textual class="po-textual">p:rename</textual></td><td class="po-block e89 e89"><textual class="po-textual">p:validate-with-schematron</textual><superscript class="po-atom e90 e90"><textual class="po-textual">*</textual></superscript></td></tr><tr class="po-table e91 e91"><td class="po-block e92 e92"><textual class="po-textual">p:hash</textual><superscript class="po-atom e93 e93"><textual class="po-textual">*</textual></superscript></td><td class="po-block e94 e94"><textual class="po-textual">p:replace</textual></td><td class="po-block e95 e95"><textual class="po-textual">p:validate-with-xml-schema</textual><superscript class="po-atom e96 e96"><textual class="po-textual">*</textual></superscript></td></tr><tr class="po-table e97 e97"><td class="po-block e98 e98" colspan="4"><textual class="po-textual">
+</textual><superscript class="po-atom e99 e99"><textual class="po-textual">*</textual></superscript><textual class="po-textual"> An optional step.</textual></td></tr></table><para class="po-block e100 e100"><textual class="po-textual">For more details about the nature of XProc pipelines, see
+</textual><link class="po-inline e101 e101" xlink:actuate="onRequest" xlink:href="http://www.w3.org/TR/xproc/" xlink:show="new" xlink:type="simple"><textual class="po-textual">XProc: An XML Pipeline
+Language</textual></link><textual class="po-textual">.</textual></para></section></section><section class="po-hcontainer e102 e102" xml:id="streamability"><title class="po-block e103 e103"><textual class="po-textual">Streamability</textual></title><para class="po-block e104 e104"><textual class="po-textual">When XProc development first began, there were a lot of opinions
+about streamability. Some people suggested the constraint that all
+XProc steps must be streamable. Others suggested only that they should
+be streamable.</textual></para><para class="po-block e105 e105"><textual class="po-textual">In the end, the working group determined that it would impose no
+streamability constraints on implementations. Instead it would attempt
+to define steps such that it was (at least usually) possible to stream
+them and leave the actual streamability as a quality of implementation
+issue.</textual></para><para class="po-block e106 e106"><textual class="po-textual">There seems to be an informal consensus that a streaming
+implementation would be expected to outperform a similar non-streaming
+implementation. In the particular case of XProc, the author believes
+that this depends significantly on the extent to which real world
+pipelines are composed of streamable steps.</textual></para><para class="po-block e107 e107"><textual class="po-textual">The standard XProc steps can be divided roughly into three
+categories: those for which a streaming can always be achieved (e.g.,
+</textual><code class="po-atom e108 e108"><textual class="po-textual">p:identity</textual></code><textual class="po-textual">), those for which streaming can often be
+achieved (e.g., </textual><code class="po-atom e109 e109"><textual class="po-textual">p:delete</textual></code><textual class="po-textual">), and those for which no
+general, streaming implementation is known (e.g.,
+</textual><code class="po-atom e110 e110"><textual class="po-textual">p:xslt</textual></code><textual class="po-textual">).</textual></para><para class="po-block e111 e111"><textual class="po-textual">The distinction between the first and second catagories amounts
+to the question of XPath streamability. The </textual><code class="po-atom e112 e112"><textual class="po-textual">p:delete</textual></code><textual class="po-textual"> step,
+for example, is streamable precisely to the extent that the XPath
+expression used to select the nodes to be deleted is
+streamable.</textual></para><para class="po-block e113 e113"><textual class="po-textual">Taking an optimistic view, this paper assumes that if a step
+could be streamable then it is. This won't always be true, of course,
+but taking that view will establish an upper bound on the number of
+streamable pipelines.</textual></para><para class="po-block e114 e114"><textual class="po-textual">With that in mind, we assume that the following steps </textual><emphasis class="po-inline e115 e115"><textual class="po-textual">can
+not</textual></emphasis><textual class="po-textual"> be streamed:
+</textual><code class="po-atom e116 e116"><textual class="po-textual">p:exec</textual></code><textual class="po-textual">,
+</textual><code class="po-atom e117 e117"><textual class="po-textual">p:http-request</textual></code><textual class="po-textual">,
+</textual><code class="po-atom e118 e118"><textual class="po-textual">p:validate-with-relaxng</textual></code><textual class="po-textual">,
+</textual><code class="po-atom e119 e119"><textual class="po-textual">p:validate-with-schematron</textual></code><textual class="po-textual">,
+</textual><code class="po-atom e120 e120"><textual class="po-textual">p:validate-with-xml-schema</textual></code><textual class="po-textual">,
+</textual><code class="po-atom e121 e121"><textual class="po-textual">p:xquery</textual></code><textual class="po-textual">, and
+</textual><code class="po-atom e122 e122"><textual class="po-textual">p:xslt</textual></code><textual class="po-textual">. We assume that all other steps can be streamed.</textual></para></section><section class="po-hcontainer e123 e123" xml:id="calabash"><title class="po-block e124 e124"><textual class="po-textual">XML Calabash</textual></title><para class="po-block e125 e125"><link class="po-inline e126 e126" xlink:actuate="onRequest" xlink:href="http://xmlcalabash.com/" xlink:show="new" xlink:type="simple"><textual class="po-textual">XML Calabash</textual></link><textual class="po-textual">
+is the author's implementation of XProc. XML Calabash is written in
+Java and is built on top of the Saxon 9 APIs. The author's principle
+motivation for writing XML Calabash is to demonstrate a complete and
+correct implementation. Demonstrating at least two complete and
+correct implementations of every feature is a necessary prerequisite
+for getting XProc approved as a W3C Recommendation.</textual></para><para class="po-block e127 e127"><textual class="po-textual">At the present time, XML Calabash (version 0.9.13) evaluates all
+pipelines in a linear, non-streaming, single-threaded fashion. Future
+versions of XML Calabash may provide streaming and multi-threading,
+though high performance is not a stated goal at this time.</textual></para></section><section class="po-hcontainer e128 e128" xml:id="collecting-data"><title class="po-block e129 e129"><textual class="po-textual">Collecting data about real world pipelines</textual></title><para class="po-block e130 e130"><textual class="po-textual">XML Calabash has a feature for collecting information about
+actual pipelines that are being used. By default, XML Calabash sends a
+simple report about each pipeline that it runs back to a central
+server. This report includes some basic information about the pipeline
+and a list of each step that was run and the order in which they were
+run.</textual></para><para class="po-block e131 e131"><textual class="po-textual">In the interests of privacy, XML Calabash
+</textual><emphasis class="po-inline e132 e132"><textual class="po-textual">never</textual></emphasis><textual class="po-textual"> collects any information about the
+documents that are processed by the pipeline. Users who feel
+uncomfortable about this data collection service can disable it
+completely.</textual></para></section><section class="po-hcontainer e133 e133" xml:id="data"><title class="po-block e134 e134"><textual class="po-textual">Data collected</textual></title><para class="po-block e135 e135"><textual class="po-textual">This paper reports on the data collected by XML Calabash between
+21 Dec 2008 and 11 Jul 2009. During that period,
+data was collected on more than 294,000 pipeline runs.</textual></para><figure class="po-container e136 e136" xml:id="fig.data-runsperweek"><title class="po-block e137 e137"><textual class="po-textual">Runs per week</textual></title><mediaobject class="po-container e138 e138"><imageobject class="po-container e139 e139"><imagedata class="po-meta e140 e140" fileref="../../../vol3/graphics/Walsh01/Walsh01-001.png" format="png"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></imagedata></imageobject></mediaobject></figure><para class="po-block e141 e141"><textual class="po-textual">Ignoring the outliners, this data shows reasonably steady growth in
+XML Calabash usage.</textual></para><figure class="po-container e142 e142" xml:id="fig.runs-per-week"><title class="po-block e143 e143"><textual class="po-textual">Runs per week</textual></title><mediaobject class="po-container e144 e144"><imageobject class="po-container e145 e145"><imagedata class="po-meta e146 e146" fileref="../../../vol3/graphics/Walsh01/Walsh01-002.png" format="png" width="100%"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></imagedata></imageobject></mediaobject></figure></section><section class="po-hcontainer e147 e147" xml:id="aggregation"><title class="po-block e148 e148"><textual class="po-textual">Data aggregation</textual></title><para class="po-block e149 e149"><xref class="po-milestone e150 e150" linkend="fig.data"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual"> presents a summary of the raw data,
+showing for each step how many times it was used in the data
+collected.</textual></para><figure class="po-container e151 e151" xml:id="fig.data"><title class="po-block e152 e152"><textual class="po-textual">Summary of the raw data</textual></title><mediaobject class="po-container e153 e153"><imageobject class="po-container e154 e154"><imagedata class="po-meta e155 e155" fileref="../../../vol3/graphics/Walsh01/Walsh01-003.png" format="png"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></imagedata></imageobject></mediaobject></figure><para class="po-block e156 e156"><textual class="po-textual">Not shown in that table are the errors: 396 pipelines failed
+with static errors, 7778 failed with dynamic errors.</textual></para><para class="po-block e157 e157"><textual class="po-textual">The whole collection of pipeline reports includes many runs of
+the same pipeline. So while there are almost 300,000 runs over six
+months, there are no where near that many distinct pipelines. The
+reports have a very consistent structure. This consistency allows us
+to easily identify duplicate runs.</textual></para><para class="po-block e158 e158"><textual class="po-textual">What is a duplicate run? Two runs are considered to be the same
+if they come from the same IP address and perform the same steps in
+the same order at runtime. Note that this does not mean that the
+</textual><emphasis class="po-inline e159 e159"><textual class="po-textual">source pipelines</textual></emphasis><textual class="po-textual"> were necessarily the same,
+though it's certainly likely that most duplicate runs are from the
+same pipeline. Note also that the same pipeline might produce runs of
+different lengths when presented with different data.</textual></para><para class="po-block e160 e160"><textual class="po-textual">Our analysis reveals that there are 3,994 distinct runs in the
+data collected. Many pipelines run only a single step, but one
+pipeline ran 4,051 steps. (For an average of 73.8 steps/pipeline.)</textual></para><figure class="po-container e161 e161" xml:id="fig.run-length"><title class="po-block e162 e162"><textual class="po-textual">Length of pipeline run in steps</textual></title><mediaobject class="po-container e163 e163"><imageobject class="po-container e164 e164"><imagedata class="po-meta e165 e165" fileref="../../../vol3/graphics/Walsh01/Walsh01-004.png" format="png" width="100%"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></imagedata></imageobject></mediaobject></figure><para class="po-block e166 e166"><textual class="po-textual">Figure </textual><xref class="po-milestone e167 e167" linkend="fig.run-length"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual"> plots each unique pipeline
+against the length of its run, sorted by length of run. Plots of different
+ranges of this graph show a very similar structure.</textual></para><para class="po-block e168 e168"><textual class="po-textual">It's an open question whether analysis of the
+</textual><emphasis class="po-inline e169 e169"><textual class="po-textual">unique</textual></emphasis><textual class="po-textual"> runs is more or less valuable than
+analysis of all the runs. Using only the unique runs biases against
+pipelines that were run many times, for which performance could be an
+important factor. Using all the data baises against distinct runs that
+occurred only once.</textual></para><para class="po-block e170 e170"><textual class="po-textual">Since the focus of this paper is on the characteristics of XProc
+in general, and not the efficiencies of individual pipelines, the
+balance of this paper consideres only the set of unique pipeline
+runs.</textual></para></section><section class="po-hcontainer e171 e171" xml:id="analysis"><title class="po-block e172 e172"><textual class="po-textual">Data analysis</textual></title><para class="po-block e173 e173"><textual class="po-textual">Now let us consider the streamability of a pipeline. At one
+extreme, if a pipeline consists entirely of steps which cannot be
+streamed, then streaming offers no advantage for that pipeline. At the
+other extreme, if a pipeline consists entirely of streamable steps,
+then streaming would offer the most possible benefit for that
+pipeline. In the middle are those pipelines that contain a mixture of
+streamable and non-streamable steps.</textual></para><para class="po-block e174 e174"><textual class="po-textual">For a collection of pipeline runs that are “n” steps long, we
+can compute three values: the length of the longest streamable subpipeline,
+the length of the shortest streamable subpipeline, and the corresponding
+average length. From this data, we obtain
+</textual><xref class="po-milestone e175 e175" linkend="fig.stream-length"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">.</textual></para><figure class="po-container e176 e176" xml:id="fig.stream-length"><title class="po-block e177 e177"><textual class="po-textual">Streamable Subpipeline Length</textual></title><mediaobject class="po-container e178 e178"><imageobject class="po-container e179 e179"><imagedata class="po-meta e180 e180" fileref="../../../vol3/graphics/Walsh01/Walsh01-005.png" format="png" width="100%"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></imagedata></imageobject></mediaobject></figure><para class="po-block e181 e181"><textual class="po-textual">(A small number of runs consisting of thousands of steps significantly
+reduced the readability of the graph; they have been elided.)</textual></para><para class="po-block e182 e182"><xref class="po-milestone e183 e183" linkend="fig.stream-length-200"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual"> shows a magnified version of
+the first portion of this graph.</textual></para><figure class="po-container e184 e184" xml:id="fig.stream-length-200"><title class="po-block e185 e185"><textual class="po-textual">Streamable Subpipeline Length (for pipelines shorter than 200 steps)</textual></title><mediaobject class="po-container e186 e186"><imageobject class="po-container e187 e187"><imagedata class="po-meta e188 e188" fileref="../../../vol3/graphics/Walsh01/Walsh01-006.png" format="png" width="100%"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></imagedata></imageobject></mediaobject></figure><para class="po-block e189 e189"><textual class="po-textual">With respect to our earlier simlifying assumption that all steps
+that can be streamed are streamed, a casual inspection of the actual match
+patterns used revealed that to be true at least 80% of the time.</textual></para></section><section class="po-hcontainer e190 e190" xml:id="conclusions"><title class="po-block e191 e191"><textual class="po-textual">Conclusions</textual></title><para class="po-block e192 e192"><textual class="po-textual">The preliminary analysis performed when this paper was proposed
+suggested that less than half “real world” pipelines would benefit
+from a streaming implementation.</textual></para><para class="po-block e193 e193"><textual class="po-textual">The data above seems to indicate that the benefits may be
+considerably larger than that. Although it is clear that there are
+piplines for which streaming wouldn't offer significant advantages,
+it's equally clear that for essentially any set of pipelines of a
+given length, there are pipelines which would be almost entirely
+streamble.</textual></para><para class="po-block e194 e194"><textual class="po-textual">Perhaps the most interesting aspect of this analysis is the fact
+that as pipeline runs grow longer, they appear to become more and more
+amenable to streaming. That is to say, it appears that a pipeline that
+runs to 300 steps is, on average, more likely to benefit from
+streaming than one that's only 100 steps long.</textual></para><para class="po-block e195 e195"><textual class="po-textual">We have not yet had a chance to investigate why this is the case.
+</textual></para></section><section class="po-hcontainer e196 e196" xml:id="caveats"><title class="po-block e197 e197"><textual class="po-textual">Caveats</textual></title><para class="po-block e198 e198"><textual class="po-textual">In the interests of openness, it should
+be noted that there are several weaknesses in the data.</textual></para><orderedlist class="po-table e199 e199"><listitem class="po-container e200 e200"><para class="po-block e201 e201"><textual class="po-textual">The data is collected on an “opt-out” basis. That makes it very difficult
+to publish the raw data. Without explicit consent from users, I'm reluctant.
+On the other hand, it's likely that much less data would be available if an
+explicit, “opt-in” approach had been taken.</textual></para></listitem><listitem class="po-container e202 e202"><para class="po-block e203 e203"><textual class="po-textual">The XProc specification is currently a Candidate Recommendation.
+Today's users represent the very leading edge of adoption. It's not
+obvious that the usage patterns apparent in this data will accurately
+reflect the usage that occurs when XProc is widely adopted.</textual></para></listitem></orderedlist></section></article></classedDocument>

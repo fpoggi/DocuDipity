@@ -1,0 +1,839 @@
+<?xml version="1.0" encoding="UTF-8"?><article xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink" version="5.0-subset Balisage-1.2"><title>Performance of XML-based applications: a case-study</title><info><confgroup><conftitle>International Symposium on Processing XML Efficiently: Overcoming Limits on Space, Time, or Bandwidth</conftitle><confdates>August 10, 2009</confdates></confgroup><abstract><para>HighWire Press is the online publishing operation of the Stanford University Libraries,
+        and currently hosts online journals for over 140 separate publishers. HighWire has developed
+        and deployed a new XML-based publishing platform, codenamed H2O, and is in the process of
+        migrating all of its publishers to this new platform.</para><para>This paper describes four XML-based systems developed for our new H2O platform, and
+        describes some of the performance characteristics of each. We describe some limitations
+        encountered with these systems, and conclude with thoughts about our experience migrating to
+        an XML-based platform.</para></abstract><author><personname><firstname>James</firstname><othername>A.</othername><surname>Robinson</surname></personname><personblurb><para>Jim Robinson has been a systems developer at Stanford University HighWire Press for
+          over ten years. He's been interested in XML-based technology since 2005.</para></personblurb><affiliation><jobtitle>Information Systems Specialist</jobtitle><orgname>Stanford University HighWire Press</orgname></affiliation><email>jim.robinson@stanford.edu</email></author><legalnotice><para>Copyright © 2009 by the Board of Trustees of the Leland Stanford Junior
+        University. Used by permission.</para></legalnotice><keywordset role="author"><keyword>XML</keyword><keyword>XSLT</keyword><keyword>XQuery</keyword><keyword>Atom Publishing Protocol</keyword><keyword>publishing platform</keyword><keyword>performance case-study</keyword></keywordset></info><section><title>Introduction</title><para>In late 2006 HighWire had started internal discussions over whether or not we needed to
+      implement a radical overhaul of our publishing, parsing and content delivery system. We wanted
+      the system to be much more flexible when it came to incorporating new data, sharing data
+      between systems, and delivering new features.</para><para>At that time our system, which had been built up over the past decade, followed a fairly
+      traditional model consisting of a display layer, a business logic layer, and a
+      metadata/storage layer. Specifically, our original system could be described as a combination
+      of:</para><itemizedlist><listitem><para>Perl and Nsgmls based tools to process data supplied by file providers.</para></listitem><listitem><para>NFS servers to hold derivatives (e.g., SHTML or similar files).</para></listitem><listitem><para>Relational database servers, accessed via SQL, to hold metadata.</para></listitem><listitem><para>Java Mediators talking to the NFS and database servers.</para></listitem><listitem><para>Java Servlets with a custom templating language similar to JSP, named DTL, to build
+          pages for the browser.</para></listitem></itemizedlist><para>While this system has served us well, and continues to do so, there were some basic
+      problems we were finding difficult to overcome:</para><itemizedlist><listitem><para>The translation from the relational databases model into Java Objects, and then into
+          DTL objects for use in the final display layer, often forced the writing of new
+          application features to become a senior developer task. In order to handle new metadata,
+          the developer had to determine whether or not the existing relational tables were flexible
+          enough for the new data, or whether new tables were needed. Next would be the job of
+          extending, or creating, appropriate stored procedures to access the new metadata. Finally,
+          work would be needed in the Java layer to add object mapping support, including routines
+          to map the metadata into DTL.</para></listitem><listitem><para>Beyond the problem of mapping new metadata from the relational layer of the system to
+          the DTL layer, the introduction of completely new models was daunting. The original
+          database had been built to support journals whose primary components were modeled as
+          issues with articles, and articles with figures and tables. The original design of the
+          system had intended that we support new models by creating new relational tables, or
+          entire databases, and then building new Java mediators to handle the translation from the
+          database to the display layer. Unfortunately, the reality was that it was more difficult
+          than we would have liked to support customers who wanted different, non-traditional (to
+          us), models.</para></listitem><listitem><para>The original system hadn't been built with either XML or Unicode in mind. Much of the
+          core system had been developed in the late 1990s, around the same time XML 1.0 was
+          published, and before it was widely adopted. By the same token, the DTL system was
+          developed before Unicode was supported in mainstream browsers. These shortcomings meant it
+          was very difficult for us to properly ingest XML and produce valid XHTML with Unicode
+          support on the display side. Attempting to add Unicode support alone was a daunting task,
+          as it required careful vetting of all code which worked at the character level, beginning
+          with the Perl system, moving through to the database systems and filesystems, and ending
+          in the Java layers.</para></listitem></itemizedlist><para>What we decided to build:</para><itemizedlist><listitem><para>An end-to-end XML-based system. We would accept incoming XML, transform it into
+          different XML representations, store it as XML, query it as XML, and generate XML for the
+          end user.</para></listitem><listitem><para>We would encode certain types of oft-used relationship data up front, trying as much
+          as possible to compute it only once.</para></listitem><listitem><para>We decided to build everything following a RESTful [<xref linkend="fielding"/>] model,
+          with the idea that using a simple set of operators (GET/HEAD, POST, PUT, and DELETE),
+          using unique URIs (vs. SOAP documents submitted to a single URI shared by all resources),
+          and embedding hyperlink metadata into our documents would make it easier to spin off new
+          services.</para></listitem></itemizedlist><para>After about six months of discussions and prototyping, we had an outline of what we would
+      be building and which new software technologies we would be using. By January of 2007 we had
+      built a demonstration system which made use of XSLT and XQuery to transform incoming XML into
+      metadata and XHTML, and to deliver dynamically built XHTML pages.</para><para>After about fifteen months of work following this prototyping, HighWire had a beta site
+      operating, and was ready to announce its new platform, dubbed H2O. In the first week of July
+      of 2008 we launched our first migrated site, Proceedings of the National Academy of Sciences
+      of the United States of America (PNAS). Since that time we've launched 57 additional sites,
+      consisting of a mixture of new launches and migrations.</para><para>There are three primary tiers of XML-based technology in the H2O system:</para><itemizedlist><listitem><para>Firenze, a HighWire-developed XSLT 2.0 pipeline execution system used to build both
+          front-end sites and back-end data services.</para></listitem><listitem><para>Schema, Addressing, and Storage System (SASS), a data store implementing an internally
+          developed protocol, the HighWire Publishing Protocol (HPP) built on top of the Atom
+          Publishing Protocol (APP) [<xref linkend="atompub"/>] and Atom Syndication Format (ASF)
+            [<xref linkend="atom"/>]. SASS is used to manage and serve content, implemented in two
+          different technologies: XSLT 2.0 using Saxon-SA (read-only) and XQuery using MarkLogic
+          Server 3.x (read/write).</para></listitem><listitem><para>Babel XSLT, a HighWire-developed vector processing engine which we use to drive XSLT
+          2.0 transformations.</para></listitem></itemizedlist><para>In this paper we'll discuss how these systems work, and will examine their different
+      performance characteristics.</para></section><section><title>Firenze</title><para>The first layer of the H2O system we'll describe is the Firenze application framework. The
+      Firenze framework, written in 87,000 lines of code across 526 Java classes, is the core piece
+      of technology we run that services all dynamic page generation requests in our public-facing
+      H2O web servers. All of the dynamically generated content served by the public-facing sites
+      flows through this framework.</para><para>The bulk of Firenze is a vendor-agnostic set of classes which rely on various public
+      standard APIs, e.g., the Java Servlet API, JAXP, and HTTP handlers. An additional set of
+      classes are then needed to provide a vendor-specific service-provider to execute XSLT
+      Transformations, and to provide custom URI Resolver implementations. We've written about 30
+      additional Java classes which use Saxon-SA 9.x to implement this service-provider
+      functionality. The original implementation of Firenze used Saxon-SA 8.x APIs directly, but in
+      a subsequent rewrite we decided that we would benefit from abstracting the smaller
+      vendor-specific parts away from the larger, more general, framework.</para><para>A Firenze application pushes an incoming request through four basic stages to produce an
+      outgoing response:<orderedlist><listitem><para>It transforms an incoming HTTP request from the Java Servlet API into an XML
+            representation, <code>req:request</code>, based on an internal schema.</para></listitem><listitem><para>Firenze pushes the <code>req:request</code> through zero or more Filters which may
+            amend the <code>req:request</code> document, adding or removing data from the
+            body.</para></listitem><listitem><para>Next, Firenze pushes the amended <code>req:request</code> through a chain of one or
+            more XSLT Templates to produce an XML response representation,
+            <code>rsp:response</code>, which is also based on an internal schema.</para></listitem><listitem><para>Finally, Firenze transforms the <code>rsp:response</code> into appropriate calls
+            against the Java Servlet API to output an HTTP response to the client</para></listitem></orderedlist></para><para>The process of pushing these documents through the pipeline is handled via SAX2 events,
+      implemented by various event-handlers. As each event-handler is invoked it has a chance to
+      operate on parts of the <code>req:request</code> or <code>rsp:response</code> as the documents
+      flow through the pipeline. Once each handler completes its area of responsibility it is
+      removed from the execution stack, thereby reducing the number of SAX2 events fired across the
+      length of the pipeline. <figure xml:id="firenze-pipeline-1" floatstyle="1" xreflabel="Firenze Application Pipeline"><mediaobject><imageobject><imagedata format="png" width="90%" fileref="../../../vol4/graphics/Robinson01/Robinson01-001.png"/></imageobject></mediaobject><note><para>From Time 1 through Time 5, various handlers for Filters and Transforms complete
+            their tasks and are removed from the pipeline, reducing the number of SAX2 events which
+            have to be fired.</para></note></figure></para><para>The demarcation of responsibilities between Filters and Templates is fuzzy: both may amend
+        <code>req:request</code> documents in any fashion, and the decision whether to make the
+      process a specific Filter or part of the Template chain is up to the author. The Template
+      pipeline is then responsible for transforming the <code>req:request</code> into a final
+        <code>rsp:response</code> document. It may be interesting to note that almost all of the
+      Filters we've implemented are XSLT stylesheets. Only a few of the Filters have been
+      implemented directly in Java.</para><para>As an example of a pipeline operation, a request flowing through the pipeline might start
+      its life as a <code>req:request</code> document as built via the Java Servlet API: <programlisting xml:space="preserve">
+&lt;req:request
+  xmlns:req="http://schema.highwire.org/Service/Request"
+  xmlns:ctx="http://schema.highwire.org/Service/Context"
+  xmlns:msg="http://schema.highwire.org/Service/Message"
+ id="SltVIKtCeVIAAFFBoFQAAAT@"
+ protocol="HTTP/1.1"
+ client-host="171.66.232.30"
+ server-host="www.pnas.org"
+ server-port="80"
+ method="GET"
+ secure="false"
+ path="/content/106/27/10877.full"
+ service-path="/content"
+ extra-path="/106/27/10877.full"
+ xml:base="http://www.pnas.org/content/106/27/10877.full"&gt;
+  &lt;ctx:context server-info="Apache Tomcat/5.5.23" resource-root="jndi:/localhost/pnas/"&gt;
+     &lt;ctx:attribute
+       name="org.highwire.firenze.pipeline.cache"&gt;org.highwire.firenze.resolver.CachingOutputURIResolver@43861b3&lt;/ctx:attribute&gt;
+     &lt;ctx:attribute
+       name="org.apache.catalina.WELCOME_FILES"&gt;index.html, index.htm, index.jsp&lt;/ctx:attribute&gt;
+     &lt;ctx:attribute
+       name="org.apache.catalina.jsp_classpath"&gt;...&lt;/ctx:attribute&gt;
+      ...
+  &lt;/ctx:context&gt;
+  &lt;msg:header
+    name="host"&gt;www.pnas.org&lt;/msg:header&gt;
+  &lt;msg:header
+    name="user-agent"&gt;Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10.5; en-US; rv:1.9.0.11) Gecko/2009060214 Firefox/3.0.11&lt;/msg:header&gt;
+  &lt;msg:header
+    name="accept"&gt;text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8&lt;/msg:header&gt;
+  &lt;msg:header
+    name="accept-language"&gt;en-us,en;q=0.5&lt;/msg:header&gt;
+  &lt;msg:header
+    name="accept-encoding"&gt;gzip,deflate&lt;/msg:header&gt;
+  &lt;msg:header
+    name="accept-charset"&gt;ISO-8859-1,utf-8;q=0.7,*;q=0.7&lt;/msg:header&gt;
+  &lt;msg:header
+    name="keep-alive"&gt;300&lt;/msg:header&gt;
+  &lt;msg:header
+    name="connection"&gt;keep-alive&lt;/msg:header&gt;
+&lt;/req:request&gt;
+</programlisting></para><para>The initial <code>req:request</code> document describe the HTTP request in its entirety.
+      The first Filter handler which processes this <code>req:request</code> may then, for example,
+      add additional information about the resource being requested, shown here as an additional
+        <code>msg:attribute</code> element added to the end of the <code>req:request</code>
+      document: <programlisting xml:space="preserve">
+&lt;req:request
+  xmlns:req="http://schema.highwire.org/Service/Request"
+  xmlns:ctx="http://schema.highwire.org/Service/Context"
+  xmlns:msg="http://schema.highwire.org/Service/Message" ...&gt;
+  ...
+  &lt;msg:header name="keep-alive"&gt;300&lt;/msg:header&gt;
+  &lt;msg:header name="connection"&gt;keep-alive&lt;/msg:header&gt;
+  &lt;msg:attribute xmlns:msg="http://schema.highwire.org/Service/Message" name="content-peek"&gt;
+   &lt;content-response xmlns=""&gt;
+     &lt;content-request&gt;
+        &lt;corpus code="pnas"&gt;&lt;/corpus&gt;
+        &lt;content collection="/"&gt;
+           &lt;resource id="106/27/10877" specifiers="full" /&gt;
+        &lt;/content&gt;
+     &lt;/content-request&gt;
+     &lt;sdp:variant-info xmlns:sdp="http://xslt.highwire.org/Service/SASS/DataProvisioning"
+                       xmlns:c="http://schema.highwire.org/Compound"
+                       href="http://sass.highwire.org/pnas/106/27/10877.full"
+                       c:role="http://schema.highwire.org/variant/full-text"&gt;
+        &lt;sdp:role-selector&gt;full&lt;/sdp:role-selector&gt;
+        &lt;view xmlns="http://schema.highwire.org/Site" name="full-text" alias="full"
+              legacy-name="full"
+              display-name="Full Text"
+              variant-role="full-text"
+              variant-short-role="full"
+              type="application/xhtml+xml" /&gt;
+        &lt;sdp:entry&gt;http://sass.highwire.org/pnas/106/27/10877.atom&lt;/sdp:entry&gt;
+     &lt;/sdp:variant-info&gt;
+     &lt;content-ref xmlns:xlink="http://www.w3.org/1999/xlink" type="atom:entry" xlink:type="simple"
+                  xlink:href="http://sass.highwire.org/pnas/106/27/10877.atom?with-ancestors=yes" /&gt;
+   &lt;/content-response&gt;
+  &lt;/msg:attribute&gt;
+&lt;/req:request&gt;
+</programlisting></para><para>The <code>msg:attribute</code> element in this case, given a name
+        <code>content-peek</code>, provides detailed information about how to retrieve the requested
+      resource from the central data store, in this case via the URL
+        <code>http://sass.highwire.org/pnas/106/27/10877.atom?with-ancestors=yes</code>. A second
+      Filter may then consume this msg:attribute and use it to fill in the contents of that URL, in
+      this case a full text article with metadata about its ancestry (the issue it is in, its
+      volume, etc.) expanded in-line, by adding another msg:attribute to the end of the
+        <code>req:request</code> document: <programlisting xml:space="preserve">
+  &lt;req:request
+    xmlns:req="http://schema.highwire.org/Service/Request"
+    xmlns:ctx="http://schema.highwire.org/Service/Context"
+    xmlns:msg="http://schema.highwire.org/Service/Message" ...&gt;
+    ...
+            &lt;content-ref
+               xmlns:xlink="http://www.w3.org/1999/xlink"
+               type="atom:entry" xlink:type="simple"
+               xlink:href="http://sass.highwire.org/pnas/106/27/10877.atom?with-ancestors=yes" /&gt;
+         &lt;/content-response&gt;
+      &lt;/msg:attribute&gt;
+      &lt;msg:attribute xmlns:msg="http://schema.highwire.org/Service/Message" name="contents"&gt;
+         &lt;atom:entry xmlns:atom="http://www.w3.org/2005/Atom"
+                     xmlns:nlm="http://schema.highwire.org/NLM/Journal"
+                     xml:base="http://sass.highwire.org/pnas/106/27/10877.atom?with-ancestors=yes"
+                     nlm:article-type="article-commentary"&gt;
+            &lt;c:parent xmlns:c="http://schema.highwire.org/Compound" xml:base="/pnas/106/27.atom"&gt;
+               &lt;c:parent xml:base="/pnas/106.atom"&gt;
+                  &lt;c:parent xml:base="/pnas.atom"&gt;
+                     &lt;c:parent xml:base="/svc.atom"&gt;
+                        &lt;atom:category
+                          scheme="http://schema.highwire.org/Publishing#role"
+                            term="http://schema.highwire.org/Publishing/Service" /&gt;
+                        &lt;atom:id&gt;http://atom.highwire.org/&lt;/atom:id&gt;
+                        &lt;atom:title&gt;HighWire Atom Store&lt;/atom:title&gt;
+                        &lt;atom:author&gt;
+              ...
+            &lt;/c:parent&gt;
+            &lt;atom:category
+              scheme="http://schema.highwire.org/Publishing#role"
+                term="http://schema.highwire.org/Journal/Article" /&gt;
+            &lt;atom:category
+              scheme="http://schema.highwire.org/Journal/Article#has-earlier-version"
+                term="yes" /&gt;
+            &lt;atom:id&gt;tag:pnas@highwire.org,2009-07-02:0905722106&lt;/atom:id&gt;
+            &lt;atom:title&gt;Should Social Security numbers be replaced by modern,
+              more secure identifiers?&lt;/atom:title&gt;
+            ...
+       &lt;/atom:entry&gt;
+    &lt;/msg:attribute&gt;
+  &lt;/req:request&gt;
+</programlisting></para><para>In this fashion, Filters and Templates aggregate data from multiple sources until enough
+      information has been accumulated to produce the final response. It is probably obvious that
+      the amount of data produced within the pipeline over the lifetime of a request may greatly
+      exceed the final size of the response document sent to the client. For the example above, the
+      final <code>req:request</code> document produced by the pipeline exceeds 375 kilobytes of
+      serialized XML, while the final XHTML document sent to the user is a mere 60 kilobytes.</para><para>The public-facing H2O sites run almost entirely off of Firenze, executing a codebase
+      consisting of a little under 50,000 lines of XSLT 2.0 code (including comments and
+      whitespace), spread across a set of 160 stylesheets. This codebase is maintained under a
+      shared repository, with each site then applying overriding stylesheets for any site-specific
+      functionality. Currently each site has between 10 and 23 site-specific stylesheets, though
+      some of these only consist of a single include statement referencing a shared stylesheet. When
+      a context is deployed, a copy of the shared and local stylesheets are pushed out to its Tomcat
+      server, and the context compiles and caches a private set of Templates objects for execution.
+      This means that the shared development model for stylesheets doesn't get carried all the way
+      through to the runtime, and each site must allocate memory to compile and store a private copy
+      of all the stylesheets.</para><para>Firenze implements two levels of caching. The first is context-wide caching. Each
+      context-wide cache records all retrieved documents, e.g., JAXP Source and Templates objects,
+      as well as any documents generated and cached on-the-fly by the pipeline. These cached items
+      are available for any subsequent requests that execute in the context. Each context-wide cache
+      may have a specific cache-retention policy and algorithm associated with it, as well as its
+      own implementation of a backing store. Currently a memory-based store is used, but we are in
+      the processing of implementing a disk-based store as well (our intent is to create a two-tier
+      memory and disk cache).</para><para>Each context-wide cache then serves as a provider for request-specific caches. These
+      request-specific caches store items in memory for the duration of a given request. The
+      request-specific caches were originally developed to fulfill a contract implied by the XSLT
+      specification, which requires that a document, once read via functions like <code>doc</code>
+      or <code>doc-available</code>, remain immutable for the duration of the transformation. We've
+      extended this policy to require that any document read during the execution of a pipeline
+      remain unchanged for the duration of that request.</para><para>Currently the sites implement a very straightforward context-wide caching policy. Any
+      Templates object survives for the lifetime of the context, while most Source objects will
+      survive for a lifetime of 30 minutes, or until the cache size has reached a 1,000 item size
+      limit. Once the cache has reached its size limit, the addition of any new entries force the
+      oldest Source objects to be evicted. In some cases we fine-tune the policy for Source objects,
+      ensuring they will survive for the lifetime of the context, or by increasing or decreasing the
+      size of the cache. This level of caching has proved to be sufficient, if not ideal, for our
+      current level of traffic. The default cache policy is most effective for the scenario of a
+      user who is looking at an abstract and then the full text of the article, or the scenario of a
+      user scanning the abstracts of an Issue in sequential order, clicking from one abstract to the
+      next within a fairly short period of time.</para><para>To determine the response times for requests handled by Firenze, we examined 78 days'
+      worth of Apache access logs, consisting of 727 million requests. These requests cover all
+      types of requests, meaning it includes static file requests as well as dynamic page requests.
+      We found that 214 million requests were dynamic, meaning that Firenze would have handled them.
+      Examining the response times for those Firenze requests, we found the following response
+      times: <table><caption><para>Response Times for Firenze requests</para></caption><thead><tr><th>Seconds</th><th>Percent</th></tr></thead><tbody><tr><td align="right">&lt; 1</td><td align="right">84%</td></tr><tr><td align="right">1 - 2</td><td align="right">8%</td></tr><tr><td align="right">2 - 3</td><td align="right">3%</td></tr><tr><td align="right">3 - 4</td><td align="right">2%</td></tr><tr><td align="right">&gt; 4</td><td align="right">3%</td></tr></tbody></table></para><para>This means that 92% of Firenze requests took less than 2 seconds to complete, 5% took from
+      2 to 4 seconds to complete, and 3% took more than 4 seconds to complete. Our performance goal
+      is to be able to serve all dynamic page requests, and any associated static content, within
+      1.5 seconds, so we have not yet met our performance goals.</para><para>We've been hosting sets of 15 to 20 sites per load-balanced cluster, with each cluster
+      consisting of either two or five servers. Each server has 32 gigabytes of memory and between
+      four and eight CPU cores operating between 2.3 and 2.5 GHz. CPU on the clusters is not heavily
+      taxed; we routinely record only 15% to 25% CPU usage per server, even during peak traffic
+      periods.</para><para>By far the least efficient part of the Firenze system we've seen is its memory footprint.
+      What we've seen is that each 32-gigabyte server may use 9 gigabytes of memory during the
+      lowest traffic periods, up to 15 gigabytes of memory in normal traffic periods, and 30
+      gigabytes during very high traffic periods. During normal traffic periods, memory use can
+      cycle between 9 and 15 gigabytes within the space of a minute, with all the activity occurring
+      in the Eden and Survivor spaces of the JVM. The need to allocate between one and two gigabytes
+      of memory per site is a serious impediment to packing enough sites onto a machine to fully
+      utilize the CPUs.</para><para>In order to improve the response time of the Firenze layer, we are currently building
+      Cache-Channel [<xref linkend="cc"/>] support into Firenze, and are building a disk-based cache
+      implementation. The disk-based cache will allow us to store dynamically generated components
+      of pages for a longer period of time, and will be paired with the in-memory caches to take
+      advantage of optimized Source representations.</para><para>We also plan to implement an Adaptive Replacement Cache (ARC) [<xref linkend="arc"/>]
+      algorithm to replace the Least Recently Used (LRU) algorithm currently used by the in-memory
+      cache. The HighWire sites receive a steady stream of traffic from indexing web-crawlers, and
+      we've found that these crawlers tend to push highly-used resources out of cache when they
+      start crawling large amounts of archival content.</para></section><section><title>SASS</title><para>Firenze can be thought of as a framework designed to aggregate data from multiple sources,
+      and then to manipulate that aggregate data into a final form. We currently aggregate data from
+      many different services, gathering information for access control, running search requests,
+      gathering reference data, etc. One of the primary services that the sites use is the Schema,
+      Addressing, and Storage System (SASS). A SASS service is a data store that provides a unified
+      view of metadata and content for publications we host.</para><para>One of the first decisions we needed to make when we were building the replacement system
+      was how we would store metadata and related resources. Early on we mocked up a file-system
+      based set of XML files along with an XQuery prototype that combined these files dynamically,
+      feeding the combined resources to an XSLT-based display layer. These experiments proved to us
+      that the fairly simple concept of using a hierarchy of XML files could actually provide enough
+      flexibility and functionality for our needs. We decided we could replace some of the
+      relational databases of our original system with a hierarchy of XML files. Our implementation
+      of this, SASS, is the result of that decision.</para><para>A SASS service uses an HTTP-based protocol we've defined, named HighWire Publishing
+      Protocol (HPP), to handle requests. HPP is built on top of the Atom Publishing Protocol (APP),
+      which specifies much of the basic functionality we needed for a database system:<itemizedlist><listitem><para>It specifies how resources are created, retrieved, updated, and deleted.</para></listitem><listitem><para>It specifies the format of introspection documents, which provide configuration
+            information.</para></listitem><listitem><para>It specifies the output format for an aggregation of resources, using feeds of
+            entries.</para></listitem><listitem><para>It offers a flexible data model, allowing foreign namespaced elements and
+            attributes.</para></listitem></itemizedlist></para><para>After examining APP in detail, we decided we needed a little more functionality, and we
+      concluded that we would adopt APP and then extend it in three ways. Our extensions give us the
+      ability to:<itemizedlist><listitem><para>Add Atom entries with hierarchical parent/child relationships.</para></listitem><listitem><para>Create multiple alternative representations of an Atom entry, called variants.</para></listitem><listitem><para>Create relationship links between Atom entries.</para></listitem></itemizedlist></para><para>As with APP, we have defined a form of XML-based introspection document, similar to an APP
+      Service Document. These introspection documents define which collections exist and the types
+      of resources the collections will accept. Because our HPP system allows every single Atom
+      entry to potentially act as a service point to which new resources may be attached, every Atom
+      entry references a unique introspection document. Each introspection document describes which
+      content types and roles may be used for variant representations of the entry, and defines zero
+      or more collections for sub-entries, with constraints regarding the types and roles of
+      resources that may be added to each collection.</para><para>Both client and server examine the introspection document, the client being responsible
+      for evaluating which collection should best be used for a new resource it wishes to create,
+      and the server to evaluate whether or not to allow a particular operation. Once the server has
+      decided that a client's request to create a new resource is allowed, it further examines the
+      introspection document to:<itemizedlist><listitem><para>Determine how to name the new resource.</para></listitem><listitem><para>Determine what, if any, modifications need to be made to the new resource, e.g.,
+            creating server-managed hyperlinks to its parent.</para></listitem><listitem><para>Determine what other resources might need to be created or modified, e.g., creating
+            reciprocal hyperlinks between resources or creating a new Atom sub-entry for a media
+            resource.</para></listitem></itemizedlist></para><para>An example slice of resource paths in our data store shows a top level entry, a journal
+      entry (pnas), a volume (number 106) entry, an issue (number 27) entry and an article (page
+      10879) entry, and a child (Figure 1) of the article.
+      <programlisting xml:space="preserve">
+/svc.atom
+  /pnas.atom
+    /pnas/106.atom
+      /pnas/106/27.atom
+      /pnas/106/27.cover-expansion.html
+      /pnas/106/27.cover.gif
+      /pnas/106/27/local/ed-board.atom
+      /pnas/106/27/local/ed-board.pdf
+      /pnas/106/27/local/masthead.atom
+      /pnas/106/27/local/masthead.pdf
+      /pnas/106/27/focus/e3fd854717680e79.atom
+      /pnas/106/27/focus/528ef4747e7bd83a.atom
+      /pnas/106/27/focus/a596193d15fdf2f0.atom
+      /pnas/106/27/focus/05aacbb50196a10f.atom
+      /pnas/106/27/focus/c1e857a34ad4b0f3.atom
+        /pnas/106/27/10879.atom
+        /pnas/106/27/10879.full.pdf
+        /pnas/106/27/10879.full.html
+        /pnas/106/27/10879.source.xml
+        /pnas/106/27/10879.figures-only.html
+          /pnas/106/27/10879/F1.atom
+          /pnas/106/27/10879/F1.expansion.html
+          /pnas/106/27/10879/F1.small.gif
+          /pnas/106/27/10879/F1.medium.gif
+          /pnas/106/27/10879/F1.large.jpg          
+</programlisting></para><para>Examining the extensions of the paths above, you will see a number of media types
+      represented. The <code>.atom</code> files are metadata resources, while the <code>.xml</code>,
+        <code>.html</code>, <code>.gif</code>, <code>.jpg</code>, and <code>.pdf</code> files allow
+      us to serve alternative representations (variants) of those resources. SASS therefore provides a
+      unified system for serving metadata paired with an array of alternative
+      representations.</para><para>The system is intended to be flexible enough that we can model new relationships
+      relatively quickly, and once those relationships are defined we can immediately start creating
+      and serving the new resources and relationships. As an example, the hierarchy of relationships
+      we originally designed was, in part:<figure xml:id="sass-model-1" floatstyle="1" xreflabel="Initial SASS Journal Model"><mediaobject><imageobject><imagedata format="png" width="25%" fileref="../../../vol4/graphics/Robinson01/Robinson01-002.png"/></imageobject></mediaobject></figure></para><para>This model allows one or more Journals, each Journal may have one or more Volumes, each
+      Volume may have one or more Issues, etc. When we encountered a journal whose hierarchy didn't
+      match this model, we simply edited the templates for the introspection documents. In this
+      case, we edited it to allow for an Issue to be attached directly to a Journal:<figure xml:id="sass-model-2" floatstyle="1" xreflabel="Updated SASS Journal Model"><mediaobject><imageobject><imagedata format="png" width="50%" fileref="../../../vol4/graphics/Robinson01/Robinson01-003.png"/></imageobject></mediaobject></figure></para><para>When deciding how to implement SASS, we concluded early-on that we needed to provide both
+      a read-only and a read/write service. The read-only SASS services would be used by the
+      public-facing sites, and the read/write service would be used by our back-end publishing
+      system. Splitting the services this way would allow us to optimize each service for its
+      primary use-case: transactions and complicated searching would be needed in the read/write
+      SASS service, but would not be needed in the read-only SASS service.</para><section><title>Read-Only SASS</title><para>Based on our early prototyping work, we were confident that we could develop a
+        filesystem-based read-only implementation of the HPP protocol that would serve the needs of
+        the public-facing sites. Currently we've implemented a read-only version of SASS using
+        Firenze.</para><para>The description of SASS to this point has only described the basic hierarchical layout
+        of resources. To take advantage of this hierarchy, HPP defines ways to request an aggregated
+        view of the metadata and content representations for a resource. Specifically, a set of
+        parameters may be provided when requesting an Atom entry:<table><caption><para>HPP Expansion Parameters</para></caption><thead><tr><th>Parameter</th><th>Example values</th></tr></thead><tbody><tr><td>with-variant</td><td>no, yes, 1</td></tr><tr><td>variant-role</td><td>http://schema.highwire.org/variant/abstract,
+                http://schema.highwire.org/variant/full-text, <emphasis>...</emphasis></td></tr><tr><td>variant-type</td><td>application/xhtml+xml, application/pdf, application/*, video/*,
+                  <emphasis>...</emphasis></td></tr><tr><td>variant-lang</td><td>en, fr, de, <emphasis>...</emphasis></td></tr><tr><td>with-ancestors</td><td>no, yes, 1, 2, <emphasis>...</emphasis>, <emphasis>N</emphasis></td></tr><tr><td>with-ancestors-role</td><td>http://schema.highwire.org/Journal/Issue,
+                http://schema.highwire.org/Journal/Volume, <emphasis>...</emphasis></td></tr><tr><td>with-ancestors-content</td><td>alternate, inline, out-of-line</td></tr><tr><td>with-ancestors-variant</td><td>no, yes, 1, 2, <emphasis>...</emphasis>, <emphasis>N</emphasis></td></tr><tr><td>with-ancestors-variant-role</td><td>http://schema.highwire.org/variant/cover,
+                http://schema.highwire.org/variant/manifest, <emphasis>...</emphasis></td></tr><tr><td>with-ancestors-type</td><td>image/gif, image/*, application/xml, text/* <emphasis>...</emphasis></td></tr><tr><td>with-ancestors-lang</td><td>en, fr, de, <emphasis>...</emphasis></td></tr><tr><td>with-descendants</td><td>no, yes, 1, 2, <emphasis>...</emphasis>, <emphasis>N</emphasis></td></tr><tr><td>with-descendants-role</td><td>http://schema.highwire.org/Journal/Article,
+                http://schema.highwire.org/Journal/Fragment, <emphasis>...</emphasis></td></tr><tr><td>with-descendants-content</td><td>alternate, inline, out-of-line</td></tr><tr><td>with-descendants-variant</td><td>no, yes, 1, 2, <emphasis>...</emphasis>, <emphasis>N</emphasis></td></tr><tr><td>with-descendants-variant-role</td><td>http://schema.highwire.org/variant/abstract,
+                http://schema.highwire.org/variant/full-text</td></tr><tr><td>with-descendants-type</td><td>application/xhtml+xml, application/pdf, application/*, video/*,
+                  <emphasis>...</emphasis></td></tr><tr><td>with-descendants-lang</td><td>en, fr, de, <emphasis>...</emphasis></td></tr></tbody></table></para><para>These parameters may be combined in variations and some may be repeated. Taken together,
+        the parameters serve as a way to drive the expansion of a resource along its parent, child,
+        and variant axes, returning a compound document consisting of an appropriate slice of the
+        hierarchy. As an example, requesting
+          <code>http://sass.highwire.org/pnas/106/27/10877.atom</code> will retrieve the Atom entry
+        associated with PNAS Volume 106, Issue 27, Page 10877:<programlisting xml:space="preserve">
+
+  &lt;atom:entry xml:base="http://sass.highwire.org/pnas/106/27/10877.atom"
+    nlm:article-type="article-commentary"  ...&gt;
+     &lt;atom:link rel="http://schema.highwire.org/Compound#parent"
+      href="/pnas/106/27.atom"
+      c:role="http://schema.highwire.org/Journal/Issue"/&gt;
+     &lt;atom:category
+       scheme="http://schema.highwire.org/Publishing#role"
+         term="http://schema.highwire.org/Journal/Article"/&gt;
+     &lt;atom:category
+       scheme="http://schema.highwire.org/Journal/Article#has-earlier-version"
+         term="yes"/&gt;
+     &lt;atom:id&gt;tag:pnas@highwire.org,2009-07-02:0905722106&lt;/atom:id&gt;
+     &lt;atom:title&gt;Should Social Security numbers be replaced by modern, more secure identifiers?&lt;/atom:title&gt;
+     &lt;atom:author nlm:contrib-type="author"&gt;
+       &lt;atom:name&gt;William E. Winkler&lt;/atom:name&gt;
+       &lt;atom:email&gt;william.e.winkler@census.gov&lt;/atom:email&gt;
+       &lt;nlm:name name-style="western" hwp:sortable="Winkler William E."&gt;
+         &lt;nlm:surname&gt;Winkler&lt;/nlm:surname&gt;
+         &lt;nlm:given-names&gt;William E.&lt;/nlm:given-names&gt;
+       &lt;/nlm:name&gt;
+     &lt;/atom:author&gt;
+     ...
+     &lt;atom:link rel="alternate"
+       href="/pnas/106/27/10877.full.pdf"
+       c:role="http://schema.highwire.org/variant/full-text"  type="application/pdf"/&gt;
+     &lt;atom:link rel="http://schema.highwire.org/Publishing#edit-variant"
+       href="/pnas/106/27/10877.full.pdf"
+       c:role="http://schema.highwire.org/variant/full-text"    type="application/pdf"/&gt;
+     &lt;atom:link rel="alternate"
+       href="/pnas/106/27/10877.full.html"
+       c:role="http://schema.highwire.org/variant/full-text" type="application/xhtml+xml"/&gt;
+     &lt;atom:link rel="http://schema.highwire.org/Publishing#edit-variant"
+       href="/pnas/106/27/10877.full.html"
+       c:role="http://schema.highwire.org/variant/full-text"    type="application/xhtml+xml"/&gt;
+     ...
+   &lt;/atom:entry&gt;
+   </programlisting> while adding the parameter to expand its ancestry axis in full,
+          <code>http://sass.highwire.org/pnas/106/27/10877.atom?with-ancestors=yes</code>,
+        additionally expands the Atom entries for the article's Issue, its Volume, etc:<programlisting xml:space="preserve">
+   &lt;atom:entry xml:base="http://sass.highwire.org/pnas/106/27/10877.atom?with-ancestors=yes"
+     nlm:article-type="article-commentary" ...&gt;
+     &lt;c:parent xml:base="/pnas/106/27.atom"&gt;
+       &lt;c:parent xml:base="/pnas/106.atom"&gt;
+         &lt;c:parent xml:base="/pnas.atom"&gt;
+           &lt;c:parent xml:base="/svc.atom"&gt;
+             &lt;atom:category
+              scheme="http://schema.highwire.org/Publishing#role"
+                term="http://schema.highwire.org/Publishing/Service"/&gt;
+             &lt;atom:id&gt;http://atom.highwire.org/&lt;/atom:id&gt;
+             &lt;atom:title&gt;HighWire Atom Store&lt;/atom:title&gt;
+             ...
+            &lt;/c:parent&gt;
+           &lt;atom:category
+            scheme="http://schema.highwire.org/Publishing#role"
+              term="http://schema.highwire.org/Journal"/&gt;
+           &lt;atom:id&gt;doi:10.1073/pnas&lt;/atom:id&gt;
+           &lt;atom:title&gt;Proceedings of the National Academy of Sciences&lt;/atom:title&gt;
+           &lt;atom:author&gt;
+             &lt;atom:name&gt;National Academy of Sciences&lt;/atom:name&gt;
+           &lt;/atom:author&gt;
+           ...
+         &lt;/c:parent&gt;
+         &lt;atom:category
+          scheme="http://schema.highwire.org/Publishing#role"
+            term="http://schema.highwire.org/Journal/Volume"/&gt;
+         &lt;atom:id&gt;tag:pnas@highwire.org,2009-01-06:106&lt;/atom:id&gt;
+         &lt;atom:title&gt;106&lt;/atom:title&gt;
+         &lt;atom:author nlm:contrib-type="publisher"&gt;
+           &lt;atom:name&gt;National Academy of Sciences&lt;/atom:name&gt;
+         &lt;/atom:author&gt;
+         ...
+       &lt;/c:parent&gt;
+       &lt;atom:category
+        scheme="http://schema.highwire.org/Publishing#role"
+          term="http://schema.highwire.org/Journal/Issue"/&gt;
+       &lt;atom:id&gt;tag:pnas@highwire.org,2009-06-11:106/27&lt;/atom:id&gt;
+       &lt;atom:title&gt;106 (27)&lt;/atom:title&gt;
+       &lt;atom:author nlm:contrib-type="publisher"&gt;
+         &lt;atom:name&gt;National Academy of Sciences&lt;/atom:name&gt;
+       &lt;/atom:author&gt;
+       ...
+     &lt;/c:parent&gt;
+     &lt;atom:category
+      scheme="http://schema.highwire.org/Publishing#role"
+        term="http://schema.highwire.org/Journal/Article"/&gt;
+     &lt;atom:category
+      scheme="http://schema.highwire.org/Journal/Article#has-earlier-version"
+        term="yes"/&gt;
+     &lt;atom:id&gt;tag:pnas@highwire.org,2009-07-02:0905722106&lt;/atom:id&gt;
+     &lt;atom:title&gt;Should Social Security numbers be replaced by modern, more secure identifiers?&lt;/atom:title&gt;
+     &lt;atom:author nlm:contrib-type="author"&gt;
+       &lt;atom:name&gt;William E. Winkler&lt;/atom:name&gt;
+       &lt;atom:email&gt;william.e.winkler@census.gov&lt;/atom:email&gt;
+       &lt;nlm:name name-style="western" hwp:sortable="Winkler William E."&gt;
+         &lt;nlm:surname&gt;Winkler&lt;/nlm:surname&gt;
+         &lt;nlm:given-names&gt;William E.&lt;/nlm:given-names&gt;
+       &lt;/nlm:name&gt;
+     &lt;/atom:author&gt;
+    ...
+    &lt;atom:link rel="alternate"
+      href="/pnas/106/27/10877.full.pdf" type="application/pdf"
+      c:role="http://schema.highwire.org/variant/full-text"/&gt;
+    &lt;atom:link rel="http://schema.highwire.org/Publishing#edit-variant"
+      href="/pnas/106/27/10877.full.pdf"
+      c:role="http://schema.highwire.org/variant/full-text"   type="application/pdf"/&gt;
+    &lt;atom:link rel="alternate"
+      href="/pnas/106/27/10877.full.html"
+      c:role="http://schema.highwire.org/variant/full-text" type="application/xhtml+xml"/&gt;
+    &lt;atom:link rel="http://schema.highwire.org/Publishing#edit-variant"
+      href="/pnas/106/27/10877.full.html"
+      c:role="http://schema.highwire.org/variant/full-text" type="application/xhtml+xml"/&gt;
+    ...
+  &lt;/atom:entry&gt;  
+</programlisting></para><para>The difference between the two documents is that the parent link in the entry:<programlisting xml:space="preserve">
+
+     &lt;atom:link rel="http://schema.highwire.org/Compound#parent"
+       href="/pnas/106/27.atom" c:role="http://schema.highwire.org/Journal/Issue"/&gt;
+</programlisting> has been expanded into an element <programlisting xml:space="preserve">
+     &lt;c:parent xml:base="/pnas/106/27.atom"&gt;...&lt;/c:parent&gt;
+</programlisting></para><para>Because the with-ancestors value was <code>yes</code>, each entry has had its parent
+        link expanded into a <code>c:parent</code> element, pulling in metadata all the way up to
+        the root of the hierarchy.</para><para>Likewise, a client may also request <code>with-descendants</code>, and a common request
+        sent by the sites is for a Journal Issue with its ancestors expanded completely, and its
+        descendants expanded to a depth of one. This in effect gives them the metadata for the Issue
+        and its Article children, from which they may do things like build a Table of Contents
+        page.</para><para>In effect, these parameters allow us to perform operations somewhat like a join
+        operation in a relational database. If you think of the Atom entries as relational tables,
+        and atom:link elements as foreign keys, we have a limited ability to join documents
+        together on those keys.</para><para>The read-only SASS service hosts an Apache front-end, load-balancing requests to a set
+        of four Tomcat servers. Each Tomcat server uses two AMD 1210 cores, 8 gigabytes of memory,
+        and two local SATA disks. Each Tomcat server runs Firenze to execute the read-only SASS
+        service stylesheets. The stylesheets in turn pull data from a service named SASSFS, running
+        on an Apache-only server using four AMD 2218 CPU cores, 32 gigabytes of memory, and 3.7
+        terabytes of FC attached SATA storage. The SASSFS service holds a synchronized clone of the
+        read/write SASS service. The SASSFS system is, in effect, a network-based storage system for
+        SASS, accessed over HTTP instead of a more traditional NFS protocol.</para><para>The XSLT implementation of read-only SASS consists just under 5,000 lines of XSLT 2.0
+        code (including whitespace and comments), spread across a set of 13 stylesheets. About 2,000
+        of those lines of code are an interim prototype for disk-based caching.</para><para>Our initial version of the read-only SASS service used the default in-memory caching
+        available in Firenze. This default would store the most recent 1,000 resources requested
+        from SASSFS in memory as Source document (the underlying representation being a Saxon
+        TinyTree). This caching proved to be effective, and the service performed very well under
+        high load. While we were satisfied with the performance, we knew that we wanted to implement
+        a more effective caching algorithm for Firenze as a whole, and we decided to use the
+        read-only SASS service as a test-bed for prototyping part of this work.</para><para>Because HighWire hosts a great deal of material that does not change very often, we
+        wanted to implement a caching system that could take advantage of the fact that most of our
+        material is for all intents and purposes written once and then read many times. Our research
+        turned up the Cache-Channel specification, describing a method where clients could poll an
+        efficient service to detect when cached items were stale. If we implemented this system, we
+        could cache responses built by the SASS service and, for the most part, never have to update
+        them again. Thus, we could trade disk space for time, allowing us to short circuit almost
+        all processing within the Firenze system when we had a cached response available</para><para>To prototype this work, we implemented a set of extensions for Saxon that allowed us to
+        write serialized XML to a local disk partition. When an incoming request could be fulfilled
+        by the cache, we could simply stream the data from disk, bypassing the bulk of the XSLT
+        processing we would otherwise have to perform.</para><para>In the XSLT prototype, the <code>req:request</code> representation of the HTTP request
+        is processed via the following steps:<orderedlist><listitem><para>Examine the HTTP PATH of the <code>req:request</code> and check that the resource
+              is available on SASSFS; if it is not, return a not-found error code.</para></listitem><listitem><para>If the media type of the requested resource is not XML, stream the resource from
+              SASSFS to the client.</para></listitem><listitem><para>If the resource is not in cache, build the response. SASS reads resources from
+              SASSFS, storing the resources in local cache. Using the resources fetched from SASSFS,
+              the SASS service builds an XML <code>rsp:response</code>, and stores that response in
+              cache. Each resource written to the cache is accompanied by a corresponding XML
+              metadata file.</para></listitem><listitem><para>If the resource was in cache, check the metadata and perform HTTP HEAD requests
+              against SASSFS to see whether or not the item needs to be rebuilt. The rebuild would
+              be needed if any one of the constituent resources on SASSFS have changed. If nothing
+              has changed, stream the response from disk to the client. Otherwise a
+                <code>rsp:response</code> is built as in step #3.</para></listitem></orderedlist></para><para>For the XSLT-based prototype work, we decided not to implement the actual Cache-Channel
+        client or to hook into the in-memory cache of frequently used Source objects. We would
+        tackle these items later, when we implemented the caching logic in Java.</para><para>We expected this prototype to be slower than the original implementation, both because
+        Firenze would now need to be parsing XML from disk for every request, instead of simply
+        reusing cached Source objects, and because we would be polling SASSFS to see if a resource
+        had changed.</para><para>Our initial analysis of the prototype's performance simply examined the average response
+        time across all requests.  We were very unpleasantly surprised to find that for single Atom
+        entries the average response time jumped from 0.031 seconds to 0.21 seconds. The average
+        response times for compound entries jumped from 0.05 seconds to 0.26 seconds. Looking at
+        those averages, we decided we needed to know whether or not the slowdown was across the
+        board, or whether the averages reflected large outliers.</para><para>We examined response times for a day's worth of requests using each of the two caching
+        implementations, and sorted the requests into two categories. One category was for requests
+        that would return a single resource, effectively a transfer of a file from SASSFS to the
+        client via SASS, with some cleanup processing applied. The second category was for requests
+        that returned compound resources. These were resources built by SASS, using component
+        resources fetched from SASSFS. We examined the response time for these requests, and sorted
+        them into percentiles:<table><caption><para>SASS Response Times in Seconds per Cache implementation</para></caption><thead><tr><th> </th><th colspan="2">Native Firenze Cache</th><th colspan="2">XSLT Prototype Disk Cache</th></tr><tr><th>Percentile</th><th>Single</th><th>Compound</th><th>Single</th><th>Compound</th></tr></thead><tbody><tr><td align="right">25%</td><td align="right">0.0181</td><td align="right">0.0212</td><td align="right">0.0262</td><td align="right">0.0266</td></tr><tr><td align="right">50%</td><td align="right">0.0228</td><td align="right">0.0346</td><td align="right">0.0385</td><td align="right">0.0616</td></tr><tr><td align="right">75%</td><td align="right">0.0299</td><td align="right">0.0609</td><td align="right">0.0785</td><td align="right">0.1121</td></tr><tr><td align="right">95%</td><td align="right">0.0562</td><td align="right">0.0956</td><td align="right">0.7691</td><td align="right">1.0838</td></tr><tr><td align="right">99%</td><td align="right">0.1434</td><td align="right">0.2134</td><td align="right">4.3750</td><td align="right">4.7483</td></tr></tbody></table></para><para>This analysis shows that the disk-caching prototype was 1-2.5 times slower than the
+        memory-based cache for about 75% of the requests, but that performance was significantly
+        worse for the remaining 25% of the requests.</para><para>What we discovered were two bottlenecks occurring with the prototype. The first, and
+        most significant, bottleneck was the IO subsystem. The hardware on our machines couldn't
+        keep up with the level of read/write activity being asked of them. When measuring the disk
+        activity, we found it was operating at around 700 block writes per second and around 100
+        block reads per second. This level of activity was overwhelming the 7,200 rpm SATA disks
+        used by the servers, causing high IO wait times.</para><para>The second bottleneck turned out to be the portion of XSLT code responsible for
+        executing HTTP HEAD requests to determine whether or not a resource had changed. When we
+        profiled the application on a stand-alone machine (eliminating disk contention), we found
+        that the following snippet of code was responsible for 30% of the execution time:<programlisting xml:space="preserve">
+    &lt;xsl:sequence select="
+      some $m in $cache:metadata
+      satisfies cache:is-stale($m)" /&gt;
+</programlisting></para><para>The <code>cache:is-stale</code> function takes as an argument a small XML metadata
+        element storing a URL, a timestamp, and an HTTP ETag value. The function executes an HTTP
+        HEAD request against the URL to determine whether or not the resource has been modified.
+        As Saxon does not take heavy advantage of multi-threading, this XPath expression
+        ends up running serially. Because underlying resources don't change very often, the
+        algorithm usually ends up running through every metadata element only to find nothing has
+        changed.</para><para>These discoveries were actually good news to us, as we knew that we could both reduce
+        disk contention and parallelize the check for stale resources when we implemented the code
+        in Java as a native Firenze service. We're in the process of completing this work, and in
+        the meantime we have rolled the XSLT prototype code into active service.</para><para>Performance of the prototype has proven to be adequate. Examining 12 days of access logs
+        from read-only SASS, the service is handling an average of 5.9 million requests per day,
+        ranging from a low of 3.3 million requests to a high of 7.8 million requests. On average the
+        service is processing 70 requests per second, writing 3.5 megabytes per second to its
+        clients.</para><para>Overall the read-only SASS service is serving an average of 266 gigabytes per day.
+        Because SASS serves both XML markup and binary data, and because binary data may be streamed
+        directly from the SASSFS system without any intermediate processing by SASS, only a subset
+        of those 266 gigabytes is XML processed via Firenze. A breakdown of the two types of content
+        shows we serve an average of 166 gigabytes of XML data per day, and an average of 100
+        gigabytes of binary data:<table><caption><para>Gigabytes served per day by read-only SASS</para></caption><thead><tr><th>Date</th><th>XML</th><th>Binary</th><th>Total</th></tr></thead><tbody><tr><td align="right">2009-07-01</td><td align="right">193.05</td><td align="right">122.33</td><td align="right">315.38</td></tr><tr><td align="right">2009-07-02</td><td align="right">179.54</td><td align="right">114.36</td><td align="right">293.90</td></tr><tr><td align="right">2009-07-03</td><td align="right">132.53</td><td align="right">87.73</td><td align="right">220.26</td></tr><tr><td align="right">2009-07-04</td><td align="right">88.69</td><td align="right">60.18</td><td align="right">148.87</td></tr><tr><td align="right">2009-07-05</td><td align="right">111.07</td><td align="right">69.61</td><td align="right">180.68</td></tr><tr><td align="right">2009-07-06</td><td align="right">197.56</td><td align="right">124.15</td><td align="right">321.71</td></tr><tr><td align="right">2009-07-07</td><td align="right">221.43</td><td align="right">141.19</td><td align="right">362.61</td></tr><tr><td align="right">2009-07-08</td><td align="right">228.73</td><td align="right">142.96</td><td align="right">371.69</td></tr><tr><td align="right">2009-07-09</td><td align="right">215.75</td><td align="right">123.90</td><td align="right">339.65</td></tr><tr><td align="right">2009-07-10</td><td align="right">178.74</td><td align="right">97.77</td><td align="right">276.51</td></tr><tr><td align="right">2009-07-11</td><td align="right">115.11</td><td align="right">48.31</td><td align="right">163.42</td></tr><tr><td align="right">2009-07-12</td><td align="right">134.76</td><td align="right">67.93</td><td align="right">202.68</td></tr></tbody></table></para><para>It has proven difficult to compare these numbers against our older system because the
+        SASS service combines services that are spread out across multiple database and NFS servers
+        in the older system.</para></section><section><title>Read/Write SASS</title><para>In order to implement the read/write SASS service, we knew we needed to build a
+        transactional system. We had to be able to know that we could roll back any operation that
+        met with an error condition. In addition, we wanted a system that would allow us to search
+        the XML documents without needing to write custom code or build new indexes for every new
+        query we might come up with.</para><para>After exploring the available systems, we decided to license the XML server provided by
+        Mark Logic Corporation. In addition, since both the MarkLogic Server and its underlying
+        XQuery technology were new to us, we contracted with Mark Logic for consultants to work with
+        us to build an implementation of our HPP specification. HighWire staff provided details
+        regarding the specification and Mark Logic consultants wrote an implementation in XQuery.
+        The implementation was written in just under 7,600 lines of XQuery code, spread across 24
+        modules.</para><para>We're currently running MarkLogic Server version 3.2, which is a few years old, and
+        which uses a draft version of XQuery. Newer releases of MarkLogic implement the XQuery 1.0
+        specification, and we plan to eventually modify the XQuery implementation to take advantage
+        of the newer releases.</para><para>We are currently running the MarkLogic implementation on one dedicated production server
+        using four AMD 2218 CPU cores, 32 gigabytes of memory, and 3.7 terabytes of FC attached SATA
+        storage. This server is currently handling between 7 to 8 million requests per month, and is
+        used as the system of record for our production processing system. The break-down of those
+        requests for the months of April, May, and Jun in 2009 were:<table><caption><para>Number of requests to SASS read/write service</para></caption><thead><tr><th>Type</th><th>April</th><th>May</th><th>Jun</th></tr></thead><tbody><tr><td>GET (non-search)</td><td align="right">7,199,235</td><td align="right">5,852,764</td><td align="right">5,900,093</td></tr><tr><td>GET (search)</td><td align="right">642,681</td><td align="right">521,106</td><td align="right">751,463</td></tr><tr><td>GET (report)</td><td align="right">23,308</td><td align="right">10,461</td><td align="right">16,919</td></tr><tr><td>POST </td><td align="right">1,097,209</td><td align="right">730,489</td><td align="right">913,385</td></tr><tr><td>PUT </td><td align="right">21,214</td><td align="right">10,284</td><td align="right">26,905</td></tr><tr><td>DELETE </td><td align="right">9,989</td><td align="right">4,652</td><td align="right">35,143</td></tr><tr><th>Total Requests</th><td align="right">8,993,636</td><td align="right">7,129,756</td><td align="right">7,643,908</td></tr></tbody></table><orderedlist><listitem><para>GET (non-search) reflects the retrieval of a single Atom entry or variant</para></listitem><listitem><para>GET (search) reflects the execution of a search</para></listitem><listitem><para>GET (report) reflects the execution of custom reporting modules we've
+              written</para></listitem></orderedlist></para><para>What these numbers translate to is the loading of between 40,000 to 50,000 articles per
+        month, though in our first month of operations, when we were migrating PNAS, we loaded
+        93,829 articles that month alone.</para><para>As of Jun 18th 2009, the read/write SASS service held the following counts of resource
+        types (there are others, but these are the ones whose counts may be of general interest):<table><caption><para>read/write SASS service resource counts</para></caption><thead><tr><th>Resource Type</th><th>Count</th></tr></thead><tbody><tr><td>Journal/Volume</td><td align="right">2,735</td></tr><tr><td>Journal/Issue</td><td align="right">17,734</td></tr><tr><td>Journal/Article</td><td align="right">421,375</td></tr><tr><td>Journal/Fragment</td><td align="right">485,792</td></tr><tr><td>Adjunct</td><td align="right">99,121</td></tr><tr><td>All variants</td><td align="right">3,511,002</td></tr></tbody></table></para><para>In the table above, Journal/Volume, Journal/Issue, and Journal/Article resources
+        correspond to the obvious parts of a journal. Journal/Fragment resources indicate resources
+        extracted from an article to create a sub-resource, in this case they are representations of
+        figures and tables. Adjuncts are media resources that provide supplemental data to article
+        (e.g., raw data sets submitted along with an article). All variants consist of alternative
+        representations, including XHTML files, PDFs, images, etc.</para><para>In general we've found the performance of MarkLogic to be very good, and have not yet
+        reached the level of use that would require us to add additional servers. When we do reach
+        that point, an important advantage we see in MarkLogic was that we ought be able to increase
+        capacity by simply creating a MarkLogic cluster of multiple servers.</para><para>There are two areas where MarkLogic has had some trouble with our particular application:<itemizedlist><listitem><para>Complex DELETE operations are slow</para></listitem><listitem><para>Some ad-hoc XQuery reporting may be resource intensive depending on the
+              expressions used.</para></listitem></itemizedlist></para><para>In MarkLogic, individual delete transactions are very efficient, but to properly
+        implement a DELETE operation in SASS the application executes an expensive traversal
+        algorithm, building a list of resources, including:<orderedlist><listitem><para>Resources that are children of the targeted resource. </para></listitem><listitem><para>Resources that refer to the resource targeted for deletion or to any of its child
+              resources.</para></listitem></orderedlist>The application then needs to delete all the descendant resources and remove
+        all references to those deleted resources. Deleting a single article could require that the
+        application perform a dozen searches, delete fifty resources, and then update all Atom
+        entries that refer to those deleted resources. This algorithm is costly to execute, and it
+        makes DELETE far slower than the other operations.</para><para>For each type of HTTP operation a selection for 5,000 log entries were examined for
+        their execution times:<table><caption><para>Seconds to complete a request</para></caption><thead><tr><th colspan="4"> </th><th colspan="3" align="center">Percentiles</th></tr><tr><th>Type</th><th>Mean</th><th>Minimum</th><th>Maximum</th><th>50%</th><th>75%</th><th>99%</th></tr></thead><tbody><tr><td>GET (non-search)</td><td align="right">0.0397</td><td align="right">0.0073</td><td align="right">3.6032</td><td align="right">0.0133</td><td align="right">0.0328</td><td align="right">0.2670</td></tr><tr><td>GET (search)</td><td align="right">0.4611</td><td align="right">0.0098</td><td align="right">23.9744</td><td align="right">0.2342</td><td align="right">0.3818</td><td align="right">3.9794</td></tr><tr><td>POST</td><td align="right">0.0775</td><td align="right">0.0259</td><td align="right">0.5822</td><td align="right">0.0592</td><td align="right">0.0977</td><td align="right">0.1750</td></tr><tr><td>PUT</td><td align="right">0.1304</td><td align="right">0.0159</td><td align="right">4.3666</td><td align="right">0.0897</td><td align="right">0.1487</td><td align="right">0.6931</td></tr><tr><td>DELETE</td><td align="right">6.1802</td><td align="right">0.0084</td><td align="right">628.9670</td><td align="right">3.4020</td><td align="right">4.1776</td><td align="right">33.2024</td></tr></tbody></table><orderedlist><listitem><para>GET (non-search) reflects the retrieval of a single Atom entry or a variant</para></listitem><listitem><para>GET (search) reflects the execution of a search</para></listitem></orderedlist></para><para>Performance is excellent for the GET (non-search), POST, and PUT operations, and fairly
+        good for GET (search), but DELETE operations are far slower than any other operation. The
+        intrinsic problem with handling a DELETE is the complexity of the algorithm and the number
+        of documents that need to be searched and modified. In theory we ought to be able to
+        optimize how the searches are performed, implementing a more efficient algorithm, thereby
+        speeding up the execution. Because DELETE operations make up such a small number of the
+        requests we execute, we have not yet seriously investigated implementing such an
+        optimization.</para><para>The other problem area we've had with MarkLogic is constructing efficient ad-hoc
+        queries. MarkLogic automatically creates indexes for any XML that it stores, and while these
+        indexes cover many types of possible queries, it is possible to construct queries that do
+        not take advantage of these indexes. At various times we want to run ad-hoc reports against
+        the database, and we've found that some of these queries can time out if they are written
+        without applying some knowledge of how the server's query optimizer work. Given the
+        structure of our XML, for some of our ad-hoc queries, a challenge has been that our version
+        of MarkLogic Server will not use an index if the expression is within nested predicates. As
+        an example, if we have an index built on the two attributes <code>@scheme</code> and
+          <code>@term</code> for <code>atom:category</code> in an Atom entry, which together
+        function as a key/value pair:<itemizedlist><listitem><para>
+              <code>/atom:entry/atom:category/@scheme</code>
+            </para></listitem><listitem><para>
+              <code>/atom:entry/atom:category/@term</code>
+            </para></listitem></itemizedlist> as well as on the element:<itemizedlist><listitem><para>
+              <code>/atom:entry/nlm:issue-id</code>
+            </para></listitem></itemizedlist> then if we wanted to find those entries with the values represented by the
+        variables <code>$scheme</code>, <code>$term</code>, and <code>$issue-id</code>, the XPath
+        expression must be written along the lines of
+        <programlisting xml:space="preserve">
+  for $cat in /atom:entry[nlm:issue-id = $issue-id]/atom:category[@scheme eq $scheme and @term eq $term]
+  return $cat/parent::atom:entry
+</programlisting></para><para>Writing it in an alternative way, using nested predicates,
+        <programlisting xml:space="preserve">
+  /atom:entry[atom:category[@scheme eq $scheme and @term eq $term] and nlm:issue-id = $issue-id]
+</programlisting>
+        results in the server's not using the <code>@scheme</code> and <code>@term</code> indexes,
+        resulting in longer execution times. As more predicates are added to a query, it can become
+        very difficult to figure out how best to structure the query to take full advantage of the
+        indexes.</para><para>As an example, the following XQuery expression searches for Atom entries under a
+        specified $journal-root location, and identifies those Atom entries that match particular
+        atom:link and atom:category criteria. The nested predicates listed are required to ensure no
+        false positives are returned:
+        <programlisting xml:space="preserve">
+  xdmp:directory($journal-root, "infinity")/hw:doc
+    /atom:entry
+      [atom:link[@rel eq $hpp:rel.parent and @c:role = $hpp:model.journal]]
+      [atom:category[@scheme eq $hpp:role.scheme and @term eq $hpp:model.adjunct]]
+      [not(atom:link[@rel eq 'related' and @c:role = $hpp:model.adjunct.related])]
+</programlisting></para><para>This query takes some 472 seconds to run against a <code>$journal-root</code> which
+        contains a little over 1.8 million resources. Rewriting the query to first look for one half
+        of the criteria for each nested predicate listed above, thereby allowing the server to use
+        more indexes, reduces the execution time to around 4.6 seconds:
+        <programlisting xml:space="preserve">
+  for $entry in
+    xdmp:directory($journal-root, "infinity")/hw:doc
+      /atom:entry
+        [atom:link/@c:role = $hpp:model.journal]
+        [atom:category/@term = $hpp:model.adjunct]
+        [not(atom:link/@c:role = $hpp:model.adjunct.related)]
+  where
+    $entry/atom:category[@scheme eq $hpp:role.scheme and @term eq $hpp:model.adjunct]
+    and $entry/atom:link[@rel eq $hpp:rel.parent and @c:role = $hpp:model.journal]
+    and not($entry/atom:link[@rel eq 'related' and @c:role = $hpp:model.adjunct.related])
+  return
+    $entry
+</programlisting>Both
+        queries produce the correct results; it's just a matter of how quickly those results are
+        computed. Another way we could improve the performance of this query is to change the
+        structure of our XML to be better aligned with MarkLogic's indexes. For this application,
+        that was not an option.</para><para>MarkLogic Server is able to provide detailed information about which parts of a query
+        are using an index, and is able to provide very detailed statistics regarding cache hit
+        rates for a query. Many queries in MarkLogic can be fully evaluated out of the indexes, and
+        these queries are very efficient, usually returning in sub-second time. However, as queries
+        become more complex, the developer needs to understand the impact of the query's conditions
+        and the way they interact with the indexes. MarkLogic provides accurate responses to
+        queries, and as the query is made to make more use of the indexes, response times are
+        typically reduced.</para><para>As an example, the following query makes full uses of the indexes to identify those
+        resources that contain a given DOI value $doi, and MarkLogic can return results for this
+        type of query in less than 0.1
+        seconds:<programlisting xml:space="preserve">
+       for $doc in
+         xdmp:directory("/pnas/", "infinity")/hw:doc/
+           atom:entry/nlm:article-id[@pub-id-type eq "doi"][. eq $doi]
+       return
+         base-uri($doc)
+     </programlisting></para></section></section><section><title>Babel XSLT</title><para>The final component of the XML-based systems used in H2O is the Babel XSLT processing
+      engine. Babel XSLT is a batch processing engine that we use to transform incoming source XML
+      into resources for loading into the read/write SASS service. We've implemented an HPP aware
+      client in XSLT 2.0 (using Java extensions to allow XSLT programs to act as an HTTP client),
+      and we perform the bulk of our content loading using the Babel XSLT engine to POST the content
+      into the read/write SASS service.</para><para>Babel XSLT is an HTTP service that accepts XML documents describing a batch operation to
+      perform. A batch consists of an XSLT stylesheet to run, an optional set of XSLT parameters
+      (these parameters may be complex content, meaning they may contain document fragments or node
+      sequences), and one or more input sources to process, along with corresponding output targets.
+      When a batch is submitted, it is queued for processing until the server has free
+      capacity.</para><para>Once the server begins processing a batch, it draws from a pool of threads to apply the
+      specified stylesheet to each specified input source in parallel. Upon completion, a batch log
+      report is produced that indicates the start and stop time of each transformation, as well as
+      any <code>xsl:message</code> log events captured during the execution of the individual
+      transformations. As with the input parameters, the <code>xsl:message</code> log events may be
+      complex content.</para><para>An example batch input <programlisting xml:space="preserve">
+&lt;babel-xsl:batch xmlns:babel-xsl="http://schema.highwire.org/Babel/XSLT/Batch"
+  name="HWX.jmicro_iss_58_4.intake.StyleCheckPMC.runPMCArticleValidator"  
+  stylesheet="stylesheets/third-party/pmc-nlm-style/default/nlm-stylechecker.xsl"&gt;
+  &lt;babel-xsl:transform
+    source="file:/HWE1/process/intake/jmicro/jmicro_iss_58_4/TagTextFiles/StyleCheckPMC/dfp013.xml" 
+    result="file:/HWE1/process/intake/jmicro/jmicro_iss_58_4/TagTextFiles/StyleCheckPMC/dfp013.xml" /&gt;
+  &lt;babel-xsl:transform
+    source="file:/HWE1/process/intake/jmicro/jmicro_iss_58_4/TagTextFiles/StyleCheckPMC/dfp010.xml" 
+    result="file:/HWE1/process/intake/jmicro/jmicro_iss_58_4/TagTextFiles/StyleCheckPMC/dfp010.xml" /&gt;
+  &lt;babel-xsl:transform
+    source="file:/HWE1/process/intake/jmicro/jmicro_iss_58_4/TagTextFiles/StyleCheckPMC/dfp018.xml" 
+    result="file:/HWE1/process/intake/jmicro/jmicro_iss_58_4/TagTextFiles/StyleCheckPMC/dfp018.xml" /&gt;
+  &lt;babel-xsl:transform
+    source="file:/HWE1/process/intake/jmicro/jmicro_iss_58_4/TagTextFiles/StyleCheckPMC/dfp002.xml" 
+    result="file:/HWE1/process/intake/jmicro/jmicro_iss_58_4/TagTextFiles/StyleCheckPMC/dfp002.xml" /&gt;
+  &lt;babel-xsl:transform
+    source="file:/HWE1/process/intake/jmicro/jmicro_iss_58_4/TagTextFiles/StyleCheckPMC/dfp017.xml" 
+    result="file:/HWE1/process/intake/jmicro/jmicro_iss_58_4/TagTextFiles/StyleCheckPMC/dfp017.xml" /&gt;
+&lt;/babel-xsl:batch&gt;
+</programlisting> would apply the specified stylesheet in to all five
+        <code>babel-xsl:transform/@source</code> inputs in parallel, producing five result files and
+      a batch log:<programlisting xml:space="preserve">
+&lt;babel-xsl:log xmlns:babel-xsl="http://schema.highwire.org/Babel/XSLT/Batch"
+  name="2009/07/15/09/HWX.jmicro_iss_58_4.intake.StyleCheckPMC.runPMCArticleValidator" 
+  stylesheet="jndi:/localhost/babel-xslt-01/stylesheets/third-party/pmc-nlm-style/default/nlm-stylechecker.xsl"&gt;
+  &lt;babel-xsl:start time="2009-07-15T09:16:23.652-07:00" /&gt;
+  &lt;babel-xsl:transform-start time="2009-07-15T09:16:23.667-07:00" 
+    source="file:/HWE1/process/intake/jmicro/jmicro_iss_58_4/TagTextFiles/StyleCheckPMC/dfp013.xml" /&gt;
+  &lt;babel-xsl:transform-start time="2009-07-15T09:16:23.667-07:00" 
+    source="file:/HWE1/process/intake/jmicro/jmicro_iss_58_4/TagTextFiles/StyleCheckPMC/dfp010.xml" /&gt;
+  &lt;babel-xsl:transform-start time="2009-07-15T09:16:23.667-07:00" 
+    source="file:/HWE1/process/intake/jmicro/jmicro_iss_58_4/TagTextFiles/StyleCheckPMC/dfp018.xml" /&gt;
+  &lt;babel-xsl:transform-start time="2009-07-15T09:16:23.667-07:00" 
+    source="file:/HWE1/process/intake/jmicro/jmicro_iss_58_4/TagTextFiles/StyleCheckPMC/dfp017.xml" /&gt;
+  &lt;babel-xsl:transform-start time="2009-07-15T09:16:23.668-07:00" 
+    source="file:/HWE1/process/intake/jmicro/jmicro_iss_58_4/TagTextFiles/StyleCheckPMC/dfp002.xml" /&gt;
+  &lt;babel-xsl:transform-success time="2009-07-15T09:16:24.406-07:00" 
+    source="file:/HWE1/process/intake/jmicro/jmicro_iss_58_4/TagTextFiles/StyleCheckPMC/dfp018.xml" /&gt;
+  &lt;babel-xsl:transform-success time="2009-07-15T09:16:24.647-07:00" 
+    source="file:/HWE1/process/intake/jmicro/jmicro_iss_58_4/TagTextFiles/StyleCheckPMC/dfp002.xml" /&gt;
+  &lt;babel-xsl:transform-success time="2009-07-15T09:16:24.756-07:00" 
+    source="file:/HWE1/process/intake/jmicro/jmicro_iss_58_4/TagTextFiles/StyleCheckPMC/dfp010.xml" /&gt;
+  &lt;babel-xsl:transform-success time="2009-07-15T09:16:24.769-07:00" 
+    source="file:/HWE1/process/intake/jmicro/jmicro_iss_58_4/TagTextFiles/StyleCheckPMC/dfp013.xml" /&gt;
+  &lt;babel-xsl:transform-success time="2009-07-15T09:16:24.795-07:00" 
+    source="file:/HWE1/process/intake/jmicro/jmicro_iss_58_4/TagTextFiles/StyleCheckPMC/dfp017.xml" /&gt;
+  &lt;babel-xsl:success time="2009-07-15T09:16:24.795-07:00" /&gt;
+&lt;/babel-xsl:log&gt;
+</programlisting></para><para>The Babel XSLT service keeps a permanent cache of compiled Templates for the stylesheets
+      it is asked to execute. Because a batch requires the uniform application of any XSLT
+      parameters to every input source in a batch, the server is then able to set up its processing
+      workflow once and then apply that workflow en masse to all the inputs listed in the
+      batch.</para><para>We currently use Babel XSLT to produce and, via its HTTP and HPP client extensions, to
+      load and update almost all H2O content. The production process includes tasks such as applying
+      Schematron assertions to produce reports on the content, applying normalization routines to
+      the article source XML, enriching the article source XML to include extra metadata, and
+      converting those article source files into Atom entries and variant representations (e.g.,
+      XHTML). HighWire has written about 48,000 lines of XSLT 2.0 code (including comments and
+      whitespace), spread across 318 stylesheets, to perform this work.</para><para>We are currently running Babel XSLT on two servers. Each server uses two AMD 1210 cores, 8
+      gigabytes of memory, and various NFS mounted storage arrays. Across both servers we are
+      executing an average of 3,839 transformations per hour. At peak times we've run anywhere from
+      23,000 to 57,000 transformations in an hour. Transformation execution times range from a low
+      0.20 seconds to a high of 20.0 seconds, with 95% of transformations taking less than 7.0
+      seconds to complete.</para><para>The biggest efficiency headache we've encountered with the Babel XSLT service has been
+      related to its memory requirements. A large enough batch job can run into memory limits as it
+      converts the incoming batch into a JDOM object, runs its XSLT transformations, and uses JDOM
+      to produce the batch log report. The Babel XSLT servers have a minimum memory footprint
+      ranging from 200 to 300 megabytes, but can easily use up to 5 gigabytes of memory to process
+      their workloads. In the space of one minute, a server might jump from needing 500 megabytes to
+      needing 2.5 gigabytes of memory.</para><para>Currently HighWire uses a Perl-based framework to submit Babel XSLT jobs. The Perl code is
+      responsible for identifying which stylesheet and which input and output files need to be
+      submitted for a given batch, based on the phase of processing in a workflow. The Perl code is
+      responsible for producing a batch, submitting it to the Babel XSLT system, and then examining
+      the batch log report to determine whether or not the job was completed successfully, and to
+      report any messages emitted by the stylesheet.</para></section><section><title>Conclusion</title><para>By far our most challenging experience has been that of educating everyone within our
+      organization. Our developers are faced with new systems that make use of a bewildering array
+      of specifications and standards, and it has not been easy for everyone involved to come up to
+      speed on everything; our developers have demanded better documentation and clearer
+      explanations of how the new systems work.</para><para>In terms of performance, we've found the XML-based technologies to be adequate, if not
+      stellar. When we've needed to improve performance we've applied traditional techniques:<itemizedlist><listitem><para>Don't perform work if you don't need to (e.g., Firenze's ability to remove handlers
+            from the stack when the handler has completed its task).</para></listitem><listitem><para>Take advantage of optimized representations of your data, if available (e.g., using
+            compiled Templates, making use of optimized Source implementations).</para></listitem><listitem><para>Develop caching techniques at multiple layers, trading space for time.</para></listitem><listitem><para>Examine your algorithms to determine if they are the best fit for the
+            application.</para></listitem></itemizedlist></para><para>Applying these techniques, the XML-based technologies we've discussed here can be made
+        <emphasis>fast enough</emphasis> for most of our needs.</para><para>The advantages we see to using a unified, RESTful, XML data store paired with high-level
+      declarative programming languages like XSLT and XQuery are:<itemizedlist><listitem><para>It is easier to introduce changes to our data models.</para></listitem><listitem><para>There's no need to spend time writing code that converts data from one data model
+            into another (e.g., from relational form to an object-oriented form and back).</para></listitem></itemizedlist></para></section><section><title>Acknowledgements</title><para>I would like to thank Craig Jurney <email>cjurney@stanford.edu</email>, the architect and
+      developer of the Firenze system, and Jules Milner-Brage <email>jules@adakara.com</email>, the
+      primary architect of the SASS specification and the architect and developer of the Babel XSLT
+      system, for their comments and advice during the preparation of this paper.</para></section><bibliography><title>References</title><bibliomixed xml:id="fielding" xreflabel="Fielding2000">Roy Thomas Fielding,
+        <emphasis>Architectural Styles and the Design of Network-based Software
+        Architectures,</emphasis> Ph.D. Thesis, University of California, Irvine, Irvine,
+      California, 2000. [online]. [cited July 2009].
+        <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.ics.uci.edu/~fielding/pubs/dissertation/top.htm</link>.</bibliomixed><bibliomixed xml:id="atompub" xreflabel="AtomPub2007">Joe Gregorio, ed. and Bill de
+      Hóra, ed. <emphasis>The Atom Publishing Protocol,</emphasis> Internet RFC 2053,
+      October 2007. [online]. [cited July 2009].
+      <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://tools.ietf.org/html/rfc5023</link>.</bibliomixed><bibliomixed xml:id="atom" xreflabel="Atom2005">M. Nottingham, ed. and R. Sayre, ed.
+        <emphasis>The Atom Syndication Format,</emphasis> Internet RFC 4287, December 2005 [online].
+      [cited July 2009]. <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://tools.ietf.org/html/rfc4287</link>.</bibliomixed><bibliomixed xml:id="cc" xreflabel="Nottingham2007">M. Nottingham, <emphasis>HTTP Cache
+        Channels,</emphasis> October 2007. [online]. [cited July 2009].
+        <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://ietfreport.isoc.org/idref/draft-nottingham-http-cache-channels/</link>.</bibliomixed><bibliomixed xml:id="arc" xreflabel="Megiddo2003">Nimrod Megiddo and Dharmendra S. Modha,
+        <emphasis>ARC: A Self-Tuning, Low Overhead Replacement Cache</emphasis>, USENIX File and
+      Storage Technologies (FAST), March 31, 2003, San Francisco, CA. [online]. [cited July 2009].
+        <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.almaden.ibm.com/StorageSystems/projects/arc/arcfast.pdf</link>.</bibliomixed></bibliography></article>

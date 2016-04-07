@@ -1,0 +1,649 @@
+<?xml version="1.0" encoding="UTF-8"?><article xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink" version="5.0-subset Balisage-1.2" xml:id="HR-23632987-8973"><title>Methodology for the construction of multi-structured documents</title><info><confgroup><conftitle>Balisage: The Markup Conference 2009</conftitle><confdates>August 11 - 14, 2009</confdates></confgroup><abstract><para>We present the multi-structured documents problem and offer an overview of existing solutions. We then notice that they do not consider the problem of constructing such documents. In this context, we use our experience with philosophers who are building a digital edition of the work of Jean-Toussaint Desanti, in order to present a methodology for the construction of multi-structured documents. This methodology is based on the MSDM model in order to represent such documents. Moreover each step of the methodology has been implemented in the Haskell functional programming language.</para></abstract><author><personname><firstname>Pierre-Edouard</firstname><surname>Portier</surname></personname><personblurb><para>Pierre-Edouard Portier is a computer science engineer. He has graduated in September 2007 from INSA-Lyon school with a Master degree in computer science. He is continuing his studies at INSA-Lyon as a Ph.D student. He is working in the DRIM team of the LIRIS laboratory under the supervision of Sylvie Calabretto.</para></personblurb><affiliation><orgname>Université de Lyon, CNRS, INSA-Lyon, LIRIS, UMR5205, F-69621</orgname></affiliation><email>pierre-edouard.portier@insa-lyon.fr</email></author><author><personname><firstname>Sylvie</firstname><surname>Calabretto</surname></personname><personblurb><para>Sylvie Calabretto : Doctor in Computer Sciences of the « Institut National des Sciences Appliquées de Lyon » in 1993. Presently, Associate professor at the Institut National des Sciences Appliquées de Lyon (INSA-Lyon) and Researcher at the Laboratory of Images and Information Systems Engineering (LIRIS). Co-superviser of nine PhD dissertation. Has published one collective book and about 100 papers on various computing subjects among which Structured Document, Information Retrieval and Digital Libraries.</para></personblurb><affiliation><orgname>Université de Lyon, CNRS, INSA-Lyon, LIRIS, UMR5205, F-69621</orgname></affiliation><email>sylvie.calabretto@insa-lyon.fr</email></author><legalnotice><para>Copyright © 2009 by the authors.  Used with
+      permission.</para></legalnotice><keywordset role="author"><keyword>Digital libraries</keyword><keyword>overlapping hierarchies</keyword><keyword>XML</keyword><keyword>Haskell</keyword></keywordset></info><section><title>Introduction</title><para>We introduce a new problem: the construction of multi-structured documents. The multiple uses of a same document have led to a proliferation of documentary structures (physical, logical, semantic, …). The definition of multiple structures for a same document introduced the problem of <emphasis role="ital">multi-structured documents</emphasis> [<xref linkend="Multi"/>]. It has to be analysed in his historical context where the most used formalisms for documents representation (first SGML then XML) implied tree structures. That is why this problem is often known as the <emphasis role="ital">overlapping hierarchies</emphasis> problem [<xref linkend="overlap"/>].</para><para>By studying the construction of multi-structured documents we are close to the daily practices of users who are writing documents.  Our work is based on experience gained working with philosophers who are building a digital edition of the handwritten archives of French philosopher Jean-Toussaint Desanti (1914-2002). Desanti is known for his epistemological work on the development of the mathematical theory of real variables functions. Digital edition covers the whole editorial, scientific and critical process that leads to the publication of an electronic resource.  In the case of manuscripts, it mainly consists in the transcription and critical analysis of digital facsimiles. Exchanging with managers of other similar digital edition projects, we found that the construction of multi-structured documents was at the heart of their work. A multiplicity of structures is needed in order to access a document according to many points of view. As we can see, our work does not only consist in the conception of a model for the representation of multi-structured documents, but must of all in the development of a methodology that promotes the emergence of multiple structures in a multi-users context.</para><para>We illustrate our purpose with the <xref linkend="deuxpages"/> that represents a double page from some Desanti's notebook. On this image, the region named ZI represents a meaningful fragment of textual content that spans the two pages. So we face two concurrent hierarchies (that is to say two structures that cannot be represented through a single tree): the pages and the "regions of interest". We can also see equations (E1 and E2) that, even though they do not raise the technical issue of concurrent hierarchies, could belong to a third structure, the one of mathematical expressions. Thus, we not only have to offer a solution to the multiple hierarchies problem but also to conceive a methodology for the creation of multi-structured documents so as to assist the user in his modeling choices.</para><figure xml:id="deuxpages" xreflabel="Figure 1"><mediaobject><imageobject><imagedata format="jpg" fileref="../../../vol3/graphics/Portier01/Portier01-001.jpg" width="95%"/></imageobject><caption><para>Two pages from some Desanti's notebook</para></caption></mediaobject></figure><para>We propose a description of existing work for the representation of multi-structured documents. Then, we introduce with some details a peculiar model: MultiX². Finally, we use this model to propose a methodology for the construction of multi-structured documents.</para></section><section><title>Existing solutions for managing multi-structured documents</title><section><title>Approach</title><para>We divide into four classes the set of existing solutions for the
+representation of multi-structured documents. First, an historical
+solution: CONCUR, then ad-hoc solutions as proposed by the TEI (Text
+Encoding Initiative) consortium, next models that are not compatible with
+the XML language, finally those that are compatible with XML. This XML
+criterion, even though strictly technical, is very important since most
+communities working on the construction of documents and who could benefit
+from the new perspectives we introduce, are already using XML vocabularies
+and tools (they will, for example, follow the TEI recommendations).
+Finally, each solution is analysed according to six dimensions:
+<itemizedlist><listitem><para><emphasis role="ital">Expressiveness</emphasis> of the model determines if there is an explicitly
+defined model for the static representation of multi-structured documents.</para></listitem><listitem><para><emphasis role="ital">Genericity</emphasis> of the model determines, when a model exists, if
+it can be modified in order to manage problems outside of the initial scope of
+multi-structured documents representation.</para></listitem><listitem><para><emphasis role="ital">Quality</emphasis> of the implementation takes account of the care taken to develop an
+effective implementation</para></listitem><listitem><para><emphasis role="ital">Compatibility</emphasis> with XML tools determines if it is possible to integrate
+the solution with the numerous existing XML tools used to manage XML
+documents (especially typing tools such as XML Schemas, ...)</para></listitem><listitem><para><emphasis role="ital">Query mechanisms</emphasis> for multi-structured documents</para></listitem><listitem><para><emphasis role="ital">Change management</emphasis> in data or structures, determines if the model is
+robust to change</para></listitem></itemizedlist></para></section><section><title>An historical solution</title><para>CONCUR [<xref linkend="concur"/>] is an SGML option that allows multiple DTDs for the same
+content. In such an SGML document, every structure lives in a same file. In
+this file, a first structure is encoded in a standard way. For each
+additional structure, a prefix is added to opening tags, in order to
+determine which DTD defines this tag.</para><para>However, with the CONCUR option, we cannot establish relations
+between structures. Moreover, as stated in [<xref linkend="againstConcur"/>], if two
+elements from different DTDs describe the same region, tags order is
+indeterminable. That is why this solution is rarely implemented, and even
+Charles Goldfarb [<xref linkend="againstConcur"/>], the main architect of the SGML
+standard, recommends to avoid its use.</para><para>The CONCUR option answers most of the problems raised by multi-structured
+documents, but cannot establish relations between structures.
+However, as an SGML integrated option, it doesn't meet the genericity
+criterion. Moreover, there is no query mechanism. It should be noted, that
+since there is only one document, changes in structures or data are
+possible.</para></section><section><title>Ad-hoc solutions</title><para>The TEI (Text Encoding Initiative) [<xref linkend="Tei"/>] is a consortium developing
+and maintaining a standard for the representation of electronic texts.
+These recommendations are expressed as an extensible and well documented
+XML Schema. Inside the recommendations, for each instance of the
+multi-structured document problem, a local solution is proposed. Moreover,
+in the last version of the recommendations, an entire chapter is devoted to a synthesis of
+the ad-hoc solutions. They are four [<xref linkend="Rose"/>] [<xref linkend="Multi"/>]:</para><para>It is possible to duplicate the content for each tree structures … Poor
+solution that prevents evolutions of the document.</para><para>Empty tags can be used (line break, page break, etc.). But
+they prohibit us from using standard XML validation tools, or building a
+schema that specifies the structure with empty elements.</para><para>For two concurrent structures that do not form a tree, we can divide one of
+them into elements small enough to avoid overlapping with other
+structures. The original structure can be rebuilt through well-chosen
+attributes. As for the previous solutions, this one needs specific operations in
+order to rebuild the original structures and does not allow us to use XML
+typing tools.</para><para>Finally, we can isolate the content inside a so called <emphasis role="ital">base</emphasis> structure,
+and build the documentary structures on top of it. This solution is
+probably the most generic.</para></section><section><title>XML incompatible models</title><section><title>TexMECS</title><para>Instead of using existing languages, new syntaxes can be defined. MECS
+(Multi-Element Code System) [<xref linkend="mecs"/>] was the first language to allow
+overlapping of structures. TexMECS [<xref linkend="texmecs"/>], based on MECS,
+is much more expressive. It allows us to define complex structures where
+an element can have multiple parents. The MECS model is expressive enough
+to answer the classic problems raised by  multi-structured
+documents, but is too complex in order to satisfy the genericity criterion.
+Moreover, it does not come with query mechanisms.</para></section><section><title>LMNL</title><para>LMNL (Layered Markup and aNnotation Language) [<xref linkend="lmnl"/>] defines a
+specific syntax based on a notion of interval that allows the encoding of
+multiple structures with overlapping elements. This is only a syntactic
+solution that does not propose query mechanisms. As for the previous
+solution, since the structures are encoded inside a single document, change in
+data or structures is possible. These two solutions are quite complex
+and not compatible with the XML tools and remained at an experimental
+stage.</para></section><section><title>Annotation graphs</title><para>Annotation graphs [<xref linkend="annotationGraphs"/>] has been developed in order to
+model linguistics phenomena (phonetic, prosody, morphology, syntax, ...).
+If we consider these domains as distinct structures, then annotation graphs
+are a valid solution to the multi-structured documents problem. As shown on
+<xref linkend="graphe_annotations"/>, the same textual fragment can be annotated
+by elements from different structures.</para><figure xml:id="graphe_annotations" xreflabel="Figure 2"><mediaobject><imageobject><imagedata format="jpg" fileref="../../../vol3/graphics/Portier01/Portier01-002.jpg" width="95%"/></imageobject><caption><para>Annotation Graph</para></caption></mediaobject></figure><para>Nodes granularity is the word, or even the character if necessary. Labels on edges
+indicate the structure (eg S2:M for the words, S1:L for the lines).
+Since structures share the same graph, their update is not a problem.
+Moreover, a minimal query language has been developed for this kind of graph
+[<xref linkend="annotationGraphsQuery"/>]. The underlying model being a graph, it is
+expressive enough to answer the multi-structured documents problem. But, strongly oriented toward linguistic, it lacks genericity.</para></section><section><title>RDF graphs</title><para>The RDF (Resource Description Framework) graph formalism is able to
+represent multi-structured documents [<xref linkend="Rdf"/>]. This method is similar to
+the previous one, but relies on a generic graph model.
+Standard query tools for RDF graphs (eg SPARQL) can be used, but complex
+queries can be difficult to formulate. Although RDF is serializable in XML,
+the use of standard XML tools is problematic because they work on tree
+structures. Finally, change management is possible since structures and
+data share the same graph.</para></section></section><section><title>XML compatible models</title><section><title>MuLaX</title><para>MuLaX [<xref linkend="againstConcur"/>] is the adaptation of the SGML CONCUR option to
+the XML formalism. This is a documentary format that allows to unify XML
+documents sharing the same content in a single document. In order to
+differentiate annotations levels, the tags are prefixed by a structure
+identifier. This solution lacks genericity since a specific editor is
+needed in order to interpret the produced documents. As for the CONCUR
+option, changes in structures or data are possible since there is one
+single document. No query operators has been defined, but the authors
+explain that it should be possible to build path expressions similar to
+those found in XPath.</para></section><section><title>GODDAG</title><para>[<xref linkend="GODDAG"/>] presents a solution based on the GODDAGs (General Order
+Descendant Directed Acyclic Graph) to represent multi-structured
+documents. This graph model is a solution to the overlapping hierarchies
+problem. In order to query those documents, the author developed an XPath
+extension. This extension takes into account new kinds of relations between
+elements of distinct structures. This model cannot manage generic relations
+between structures. It is possible to import (or export) from (or to) the
+XML formalism. With this model it is possible to manage change in
+structures.</para></section><section><title>MCT</title><para>The MCT (Multi-Colored Trees) model [<xref linkend="mct"/>] is an extension of the XML
+model that allows us to represent multiple trees sharing the same
+content. It relies on the tree coloring technique. A color is associated with
+each tree. A node may have multiple colors: the color of the main tree to which
+it belongs and colors for other trees. <xref linkend="mctimg"/> illustrates this model with an example of manuscript transcription. We see that three of the units nodes share two colors: one for the semantic structure and another one for the physical structure.</para><figure xml:id="mctimg" xreflabel="Figure 3"><mediaobject><imageobject><imagedata format="png" fileref="../../../vol3/graphics/Portier01/Portier01-003.png" width="95%"/></imageobject><caption><para>Colored Trees</para></caption></mediaobject></figure><para>The navigation in the multihierarchy is possible by means of the
+multicolored nodes. To navigate between colors, the authors extend the
+notion of step in XPath. An extension of
+XQuery is also proposed for the creation of nodes.
+Concerning updates, the authors explain that the extension of a
+language such as XUpdate is possible by using the XPath extension that they propose. The
+underlying model is neither expressive nor generic enough since it imposes
+an isomorphism of data segments (data segments must be of the same type:
+word, character, etc.).</para></section><section><title>MSXD</title><para>MSXD (Multi-Structured XML Documents) [<xref linkend="MSXD"/>] is a representation model
+for multi-structured documents that comes along with an XQuery extension. It allows
+users to annotate the structures. Moreover a draft of a multi-structured
+documents schema is introduced. However the need to define a large number
+of relations between structures makes the model difficult to use.
+Furthermore, it is not possible to manage changes in data or structures.</para></section><section><title>Delay Nodes</title><para>Jacques LeMaître [<xref linkend="delay"/>] proposed to add a new type of node to the
+XDM model on which are based XPath and XQuery. Those nodes are a virtual
+representation as an XQuery query of some of the child nodes of their
+parent node (see <xref linkend="delayimg"/>). The underlying multi-structured documents model is very similar to the one
+of Multi Colored Trees (see <xref linkend="delaymodel"/>) where documents
+are considered as a set of XML trees. But no
+XPath or XQuery extensions are necessary in order to navigate inside these
+structures. However, with this approach, it is not possible to reach the
+parents of a delay node but only to navigate among the descendants.</para><figure xml:id="delayimg" xreflabel="Figure 4"><mediaobject><imageobject><imagedata format="png" fileref="../../../vol3/graphics/Portier01/Portier01-004.png" width="95%"/></imageobject><caption><para>Delay nodes</para></caption></mediaobject></figure><figure xml:id="delaymodel" xreflabel="Figure 5"><mediaobject><imageobject><imagedata format="png" fileref="../../../vol3/graphics/Portier01/Portier01-005.png" width="95%"/></imageobject><caption><para>Delay nodes underlying MSD model</para></caption></mediaobject></figure></section><section><title>MonetDB/XQuery</title><para>MonetDB/Xquery is a XML SGBD. It has an extension [<xref linkend="Monet"/>] for managing
+multi-structured documents thanks to the <emphasis role="ital">stand-off markup</emphasis> technique.
+Optimized query operators has been developed, but no model is truly
+defined, only an informal description is proposed (as for the TEI
+solutions).</para></section><section><title>MSDM, MultiX</title><para>MSDM [<xref linkend="Multix"/>] is a model used for the representation of
+multi-structured documents written by N.Chatti. An instance of this model,
+called MultiX, is expressed in the XML formalism. It belongs to the category of
+<emphasis role="ital">stand-off markup</emphasis> solutions where content is isolated
+in a base structure, and documentary structures are built by references
+to the base structure.</para><para>In this model, a document is a graph <code>D</code> composed of:
+<itemizedlist><listitem><para>a set of nodes <code>BS</code> also called the base structure</para></listitem><listitem><para>a family <code>(DS<subscript>j</subscript>) <subscript>j ∈ J</subscript></code> of trees also called <emphasis role="ital">documentary structures</emphasis></para></listitem></itemizedlist></para><para>Moreover, <code>∀ j ∈ J</code>, there is a relationship <code>R<subscript>j</subscript></code> that associates
+each node of <code>DS<subscript>j</subscript></code> with a subset of <code>BS</code> ; for each leaf of <code>DS<subscript>j</subscript></code>
+this subset must be non empty. <xref linkend="modele"/> illustrates each element
+of the model.</para><figure xml:id="modele" xreflabel="Figure 6"><mediaobject><imageobject><imagedata format="png" fileref="../../../vol3/graphics/Portier01/Portier01-006.png" width="70%"/></imageobject><caption><para>Illustration of the MSDM model</para></caption></mediaobject></figure><para>Finally, it should be noted that only nodes from the base structure have an
+associated content and depend on the data types (text, movies, etc.). In
+the case of textual data, a string of characters, called fragment,
+is associated with each node of the base structure.</para></section></section><section><title>Summary</title><para><xref linkend="tableau"/> summarises the analysis by affecting, as objectively as
+possible, a score from 0 to
+3 to each criterion (model expressivity, quality of implementation, use of
+standard XML tools, query mechanisms, management of changes in data and
+structures) and for each solution. For readability, maximum scores have
+been underlined.</para><figure xml:id="tableau" xreflabel="Figure 7"><mediaobject><imageobject><imagedata format="jpg" fileref="../../../vol3/graphics/Portier01/Portier01-007.jpg" width="95%"/></imageobject><caption><para>Rating of existing solutions to the multi-structured documents problem</para></caption></mediaobject></figure><para>We now introduce a new instance of MSDM, called MultiX² that
+will allow us to represent multi-structured documents.</para></section></section><section><title>MultiX², a model for the representation of multi-structured documents</title><para>MultiX² is an instance of MSDM that favors the W3C recommendations (we
+make use of the XInclude Standard for linking documentary structures and
+the base structure) to the specific mechanisms used by MultiX. We chose MSDM as the representation model on which we built our methodology since, based on the stand-off markup technique, it was simple enough and yet well defined (moreover, it is referenced by the
+fifth edition of the TEI guidelines).</para><para>We illustrate this instance of the MSDM model on an example taken from the Jean-Toussaint Desanti's
+Archive (see <xref linkend="deuxpages"/>). We see two pages from a notebook with
+a region of text that overlaps the two pages. Moreover it should be
+noted that mathematical equations appear inside this philosophical text. We distinguish two structures. First, the physical structure of pages:
+<programlisting xml:space="preserve">
+  &lt;s1&gt;
+    &lt;page&gt;Autrement dit la distinction signe-signifie ...
+      Remarque,
+    &lt;/page&gt;
+    &lt;page&gt;ce discours, ...
+      par ex le discours 3 + 2 = 0 - 1 est-il un texte ? ...
+    &lt;/page&gt;
+  &lt;/s1&gt;</programlisting>
+Then, a logical structure of regions of interest:
+<programlisting xml:space="preserve">
+  &lt;s2&gt;
+    &lt;p&gt;Autrement dit la distinction signe-signifie ...&lt;/p&gt;
+    &lt;p&gt;Remarque, ce discours, ...&lt;/p&gt;
+    &lt;p&gt;par ex le discours
+      &lt;eq&gt;3 + 2 = 0 - 1&lt;/eq&gt; est-il un texte ? ...&lt;/p&gt;
+  &lt;/s2&gt;</programlisting>
+We build the base structure by identifying the shared fragments from the
+two documentary structures:
+<programlisting xml:space="preserve">
+  &lt;seg xml:id="F1"&gt;Autrement dit la distinction signe-signifie ...
+  &lt;/seg&gt;
+  &lt;seg xml:id="F2"&gt;Remarque, &lt;/seg&gt;
+  &lt;seg xml:id="F3"&gt;ce discours, ...&lt;/seg&gt;
+  &lt;seg xml:id="F4"&gt;par ex le discours &lt;/seg&gt;
+  &lt;seg xml:id="F5"&gt;3 + 2 = 0 - 1&lt;/seg&gt;
+  &lt;seg xml:id="F6"&gt; est-il un texte ? ...&lt;/seg&gt;
+</programlisting>
+We use the XInclude standard in order to replace the content inside
+documentary structures by references to the base structure. First, the
+physical structure:
+<programlisting xml:space="preserve">
+  &lt;s1&gt;
+  &lt;page&gt;
+    &lt;xi:include href="base.xml" xpointer="element(F1/1)"/&gt;
+    &lt;xi:include href="base.xml" xpointer="element(F2/1)"/&gt;
+  &lt;/page&gt;
+  &lt;page&gt;
+    &lt;xi:include href="base.xml" xpointer="element(F3/1)"/&gt;
+    &lt;xi:include href="base.xml" xpointer="element(F4/1)"/&gt;
+    &lt;xi:include href="base.xml" xpointer="element(F5/1)"/&gt;
+    &lt;xi:include href="base.xml" xpointer="element(F6/1)"/&gt;
+  &lt;/page&gt;
+  &lt;/s1&gt;
+</programlisting>
+Then the logical structure:
+<programlisting xml:space="preserve">
+  &lt;s2&gt;
+  &lt;p&gt;
+    &lt;xi:include href="base.xml" xpointer="element(F1/1)"/&gt;
+  &lt;/p&gt;
+  &lt;p&gt;
+    &lt;xi:include href="base.xml" xpointer="element(F2/1)"/&gt;
+    &lt;xi:include href="base.xml" xpointer="element(F3/1)"/&gt;
+  &lt;/p&gt;
+  &lt;p&gt;
+    &lt;xi:include href="base.xml" xpointer="element(F4/1)"/&gt;
+    &lt;eq&gt;
+      &lt;xi:include href="base.xml" xpointer="element(F5/1)"/&gt;
+    &lt;/eq&gt;
+    &lt;xi:include href="base.xml" xpointer="element(F6/1)"/&gt;
+  &lt;/p&gt;
+  &lt;/s2&gt;
+</programlisting></para><para>We can use standard XML tools in order to validate the documentary
+structures. We build queries thanks to specific XQuery functions originally
+built for the MultiX formalism. Below, a query that finds regions of
+interest overlapping on two pages:
+<programlisting xml:space="preserve">
+  let $physique := doc("physique.xml")
+  let $logique := doc("logique.xml")
+  for $page in $physique//page,
+      $para in $logique//p
+  where multix:share-fragments($page,$para) and
+        not(multix:include-content-of($page,$para))
+  return $para
+</programlisting>
+And the result will be:
+<programlisting xml:space="preserve">
+  &lt;p&gt;Remarque, ce discours, ...&lt;/p&gt;
+</programlisting>
+The share-fragments(a,b) function checks if elements a and b have at least
+one fragment in common. The include-content(a,b) function checks if every
+fragment composing element b also compose element a.</para></section><section><title>A methodology for the construction of multi-structured documents</title><para>We will use the MSDM model in order to introduce the construction of
+multi-structured documents. We claim that the study of the construction of documentary structures is a way to approach the user interpretation of a document. For example, numerous critical edition
+projects begin with manuscripts images they then transcribe and annotate.
+During these operations, the documents will be manipulated by numerous users
+and under a multiplicity of perspectives that mostly depend on how the
+documents are used. However, within the limits of today systems dedicated to the
+creation of documents, most of these diversified perspectives will remain
+inaccessible, buried in users minds. We claim that, in the
+context of the creation and annotation of documents, most of these hidden
+perspectives can be revealed by the differentiation of structures. This
+differentiation is an operation that splits an annotation vocabulary into
+sub-vocabularies, thus adding a new structure to the document. Thereby, the
+methodology we now present promotes the construction of a multiplicity of
+structures that should reflect the perspectives adopted by the users while
+accessing the documents. This methodology consists of three categories of
+methods:
+<itemizedlist><listitem><para>detection of needed restructuring and automatic
+differentiation of structures. As we will see, the overlapping hierarchies
+problem becomes an element of this category of methods.</para></listitem><listitem><para>execution of the dynamical interpretant of the confrontation of
+a user with the results of automatic restructuring. <emphasis role="ital">Dynamical
+interpretant</emphasis> is a term belonging to C.S. Peirce's terminology that will be
+explained in a next section.</para></listitem><listitem><para>creation of a social network of documents authors
+in order to encourage argument about and sharing of annotation vocabularies</para></listitem></itemizedlist></para><section><title>Restructuring stage</title><para>We analyse the conditions under which it is necessary to build a new
+documentary structure and we define the underlying functions performing
+this task.</para><section><title>Illustration</title><para>For clarity, and since we know the field, we use an example taken from
+critical electronic edition of manuscripts. We suppose that for the
+transcription of a manuscript the researchers have on hand the elements defined by the TEI.  From the previous
+example: pages, region of interest and equations have been correctly tagged  until a region overlaps two pages
+(see dotted edges of <xref linkend="restructuration_necessaire"/>).</para><figure xml:id="restructuration_necessaire" xreflabel="Figure 8"><mediaobject><imageobject><imagedata format="png" fileref="../../../vol3/graphics/Portier01/Portier01-008.png" width="70%"/></imageobject><caption><para>Restructuring is necessary (a paragraph overlaps two pages)</para></caption></mediaobject></figure><para>It is then necessary to distinguish two
+structures. The creation of a new structure is a purely formal operation
+(see <xref linkend="restructuration_automatique"/>) consisting in the
+transformation of a graph into two trees.</para><figure xml:id="restructuration_automatique" xreflabel="Figure 9"><mediaobject><imageobject><imagedata format="png" fileref="../../../vol3/graphics/Portier01/Portier01-009.png" width="70%"/></imageobject><caption><para>Automatic restructuring (two structures are distinguished)</para></caption></mediaobject></figure></section><section><title>Functions for restructuring</title><para>We now describe the functions that perform these restructuring operations.
+We are using the Haskell pure and statically typed functional programming language [<xref linkend="Haskell"/>]. As a pure language, Haskell keeps side effects under the control of a class of type constructor called Monad, in practice this allows us to ensure that a valid document will always be transformed into a valid document. Since our methodology introduces numerous document transformations, this property is very interesting. All the
+necessary notions for the understanding of the code will be provided. But not all functions definitions will be given.
+Moreover the main purpose of showing these functions is to give a proof of the
+feasibility of our methodology.</para><para>We need two helper functions, <code>if'</code> for boolean conditions and <code>add</code> for
+the addition of a new element at the end of a <code>Map</code>. A <code>Map a b</code> is a
+structure of elements of type <code>b</code> indexed by element of type <code>a</code>.
+From the signature of <code>if'</code> we learn that the function takes
+three arguments, the first argument being a Boolean value. <code>if'
+True</code> is a two arguments function that evaluates its first argument (the second argument will never be evaluated), while <code>if' False</code> is a two arguments function that evaluates its second argument (the first argument will never be evaluated).
+<programlisting xml:space="preserve">
+-- This is a comment
+-- A function is described by its type signature: the list of the types of its
+-- arguments and of thereturned value separated by the symbol: '-&gt;'.
+-- For example, the addIntegers function would have the signature:
+addIntegers :: Int -&gt; Int -&gt; Int
+-- and the definition:
+addIntegers a b = a + b
+-- Moreover, functions are curried, so (addInteger 2) is a function of type:
+(addInteger 2) :: Int -&gt; Int
+-- Finally, we will:
+--   * use some primitive types :
+--       - Bool (with the only two constructors True and False)
+--       - Int
+--   * use the list constructor:
+--     [Int] is the type of a list of values of type Int
+--   * define data types:
+data Interval = Interval {
+  start :: Int
+  ,end  :: Int
+}
+-- now Interval is a function (also called a constructor) of type:
+Interval :: Int -&gt; Int -&gt; Interval
+-- start is a function of type:
+start :: Interval -&gt; Int
+-- end is a function of type:
+end :: Interval -&gt; Int
+
+--   * define shortcuts for existing types:
+type Tags = [Tags]
+-- Tags is now a synonym for [Tags] (list of Tags)
+
+if' :: Bool -&gt; a -&gt; a -&gt; a
+if' True x _ = x
+if' False _ y = y
+
+add :: a -&gt; Map Int a -&gt; Map Int a
+</programlisting></para><para>We first define our main data types. A Tag is composed of an identifier
+and a list of attributes. We also have a data structure associating
+each tag identifier with a name and a list of default attributes. A
+Taggee is the application of a Tag to an interval of characters of the
+studied text. A Structure is a named map of taggees. A Document is the
+association of a text and a map of structures.
+<programlisting xml:space="preserve">
+data Interval = Interval {
+  start :: Int
+  ,end :: Int
+}
+
+data Taggee = Taggee {
+  tag :: Tag
+  ,interval :: Interval
+}
+
+data Structure = Structure {
+  name :: String
+  ,taggees :: Map Int Taggee
+}
+
+type TagId = Int
+
+data Tag = Tag {
+  tagId :: TagId
+  ,atts :: Map Int String
+}
+
+type Tags = [Tag]
+
+type Text = String
+
+data Doc = Doc {
+  text :: Text
+  ,structures :: Map Int Structure
+}
+</programlisting></para><para>We also need functions for simple interval algebra.
+<programlisting xml:space="preserve">
+overlaps   :: Interval -&gt; Interval -&gt; Bool
+isIncluded :: Interval -&gt; Interval -&gt; Bool
+includes i1 i2 = isIncluded i2 i1
+inside     :: Int -&gt; Interval -&gt; Bool
+ilength    :: Interval -&gt; Int
+isort :: Interval -&gt; Interval -&gt; (Interval,Interval)
+
+-- The exclusive OR of interval overlapping :
+overlapExclusion :: Interval -&gt; Interval -&gt; (Interval,Interval)
+
+-- less than:
+ilt i1 i2 = (end i1) &lt; (start i2)
+-- greater than :
+igt i1 i2 = (start i1) &gt; (end i2)
+
+-- shifting an interval:
+ioffset :: Interval -&gt; Int -&gt; Interval
+startBefore :: Interval -&gt; Interval -&gt; Bool
+equals :: Interval -&gt; Interval -&gt; Bool
+isPrefixOf :: Interval -&gt; Interval -&gt; Bool
+isSuffixOf :: Interval -&gt; Interval -&gt; Bool
+</programlisting>
+The <code>addTag</code> function tries to add a tag to a structure, if the addition
+does not imply overlapping then the modified structure is returned, else a
+pair of structures is returned: the first structure is the original one
+except that every instances of the added tag have been
+transfered to the second structure. In a similar way, the $delTag$ function
+removes the instance of a given tag from a selected interval and may imply
+overlapping thus the type signature.
+<programlisting xml:space="preserve">
+-- partition the map according to a predicate:
+partition :: Ord k =&gt; (a -&gt; Bool ) -&gt; Map k a -&gt; (Map k a, Map k a)
+elems     :: Map k a -&gt; [a]
+
+-- function application:
+$ :: (a -&gt; b) -&gt; a -&gt; b
+-- function composition:
+. :: (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+
+-- map f xs is the list obtained by applying f to each element of xs:
+-- map f [x1,x2,...,xn] == [f x1, f x2, ..., f xn]
+map   :: (a -&gt; b) -&gt; [a] -&gt; [b]
+-- foldl, applied to a binary operator, a starting value, and a list, reduces
+-- the list using the binary operator, from left to right:
+-- foldl f z [x1,x2,...,xn] == f (f (f (f z x1) x2) ...) xn
+foldl :: (a -&gt; b -&gt; a) -&gt; a -&gt; [b] -&gt; a
+
+-- The Either type represents values with two
+-- possibilities: a value of type Either a b is
+-- either Left a or Right b
+
+addTag :: Taggee -&gt; Structure -&gt; Either (Structure,Structure) Structure
+addTag t (Structure n s) =
+let (s1,s2) = partition ( ( (tagId $ tag t)== ) . tagId . tag ) s in
+if' ( foldl (||) False $ map (overlaps (interval t) . interval) $ elems s )
+    ( Left  ( Structure n $ add t s1, Structure n s2 ) )
+    ( Right ( Structure n $ add t s ) )
+
+delTag :: Interval -&gt; TagId -&gt; Structure -&gt; Either (Structure,Structure) Structure
+</programlisting></para><para>Finally, the user must be able to add or remove textual data. This is the
+purpose of the <code>addText</code> and <code>delText</code> functions.
+<programlisting xml:space="preserve">
+-- split a list in two:
+splitAt :: Int -&gt; [a] -&gt; ([a], [a])
+
+fst  	  :: (a, b) -&gt; a
+snd  	  :: (a, b) -&gt; b
+
+addText :: Int -&gt; String -&gt; Doc -&gt; Doc
+addText i s d =
+ let t    = text d
+    split = splitAt (i-1) t
+    t'    = fst split ++ s ++ snd split
+    sts   = structures d
+    sts'  = map ( addCharInS i (length s) ) sts
+    in Doc t' sts'
+
+addCharInS :: Int -&gt; Int -&gt; Structure -&gt; Structure
+addCharInS i size (Structure n s) =
+ Structure n $ map ( \t -&gt;
+  if' ( i `inside` (interval t) )
+      t{interval = Interval (start $ interval t) $
+                            (end $ interval t) + size}
+      t ) s
+
+delText :: Int -&gt; Int -&gt; Doc -&gt; Doc
+</programlisting></para></section></section><section><title>Integration of the user in the restructuring process</title><section><title>Illustration</title><para>The automatic restructuring introduced above can be the occasion for a
+user to make modeling choices. For example, he can ask for the
+creation of a new mathematical structure for the equations and rename the
+structures (see <xref linkend="restructuration_interpretant"/>).</para><figure xml:id="restructuration_interpretant" xreflabel="Figure 10"><mediaobject><imageobject><imagedata format="png" fileref="../../../vol3/graphics/Portier01/Portier01-010.png" width="70%"/></imageobject><caption><para>Intervention of a user (Three structures are named and distinguished)</para></caption></mediaobject></figure></section><section><title>Functions for user integration</title><para><code>moveTag</code> is the main function offered to the user for reacting to the automatic
+restructuring, it allows him to move all the instances of a tag from one
+structure to another. The function may fail if it introduces
+overlapping hierarchies.
+<programlisting xml:space="preserve">
+-- case analysis for the Either type
+either :: (a -&gt; c) -&gt; (b -&gt; c) -&gt; Either a b -&gt; c
+
+-- the constant function
+const :: a -&gt; b -&gt; a
+
+-- foldr, applied to a binary operator, a starting value, and a list, reduces
+-- the list using the binary operator, from right to left:
+-- foldr f z [x1,x2,...,xn] == f x1 (f x2 (... (f xn z)))
+foldr :: (a -&gt; b -&gt; b) -&gt; b -&gt; [a] -&gt; b
+
+moveTag :: TagId -&gt; Structure -&gt; Structure -&gt; Maybe (Structure, Structure)
+
+moveTag id s1 s2 =
+ let (ts',ts'') = partition ( (==id) . tagId . tag ) ( taggees s1 )
+     f :: Taggee -&gt; Either (Structure, Structure) Structure -&gt;
+          Either (Structure, Structure) Structure
+     f t ( Right s )       = addTag t s
+     f t ( Left (s1, s2) ) = Left (s1, s2) in
+
+ if' ( null ts' || null ts'' ) Nothing $
+ either ( const Nothing )
+        ( Just . (,) ( Structure (name s1) ts' ) ) $
+        foldr f (Right s2) $ elems ts''
+</programlisting>
+</para></section></section><section><title>Recommendation system for documents authors</title><para>We now try to involve even more the author of a document in the process of
+maintaining a coherent multiplicity of structures. This is why we promote the
+emergence of a social network of documents authors. The recommendation
+mechanism that allows us to build this network define two users
+as closed, insofar as they are editing specific documents, if the implied
+tags trees of their structures are similar. We first give an example of
+this process and then define the structures and functions used to implement
+it.</para><section><title>Illustration</title><para>We imagine three users who create documents containing
+mathematical notations. For each of them, a mathematical structure emerged
+from their operations of annotation (as described in the previous sections).
+Users 1 and 2 have already decided to merge their tag hierarchies. The tag
+hierarchies are given below:
+<informaltable><col align="center" span="1"/><col align="center" span="1"/><thead><tr><th>Users 1 and 2</th><th>User 3</th></tr></thead><tr><td>
+  <itemizedlist><listitem><para>theorem</para><itemizedlist><listitem><para>statement</para></listitem><listitem><para>proof</para></listitem></itemizedlist></listitem><listitem><para>lemma</para><itemizedlist><listitem><para>statement</para></listitem><listitem><para>proof</para></listitem></itemizedlist></listitem><listitem><para>cocycle</para></listitem><listitem><para>cobordism</para></listitem></itemizedlist>
+</td><td>
+  <itemizedlist><listitem><para>proposition</para><itemizedlist><listitem><para>proof</para></listitem><listitem><para>operators</para></listitem></itemizedlist></listitem><listitem><para>cohomology</para><itemizedlist><listitem><para>cocycle</para></listitem></itemizedlist></listitem></itemizedlist>
+</td></tr></informaltable>
+If these two hierarchies were detected as similar enough, each user would
+be proposed to ask the other users the authorization to merge their
+hierarchies. Thus, communities of users appear, centered on their
+annotation practices. In this previous example, users seem to
+work on the same kind of documents, but the perspective of user 3 may be formal logic
+whereas users 1 and 2 refer to a more traditional vocabulary for the
+description of proofs. Since the tips the
+users receive while annotating a document come from the hierarchy of tags
+associated with the current structure, once the merge is accepted, the users may align their
+annotation vocabularies or at least question their practices.</para></section><section><title>Functions for promoting users interactions</title><para>We define a new data type (TagStruct) in order to link each tag used for
+the annotation of a document with its possible descendants. Thus, while a user is
+annotating a document we can give him hints about the
+next tag to choose, based on this new structure and its current position in the text. We also
+update the Structure data type to link to the corresponding
+implied tag structure. For this linking to be possible, we maintain a map
+(of type TagStructs) of the implied tag structures.
+<programlisting xml:space="preserve">
+type TagStruct = Map TagId [TagId]
+type TagStructId = Int
+type TagStructs = Map TagStructId TagStruct
+
+data Structure = Structure {
+  name :: String
+  ,taggees :: Map Int Taggee
+  ,tagStructId :: TagStructId
+} deriving (Show)
+</programlisting>
+We have to modify the addTag function in order to update the linked structures of
+tags:
+<programlisting xml:space="preserve">
+addTag :: Taggee -&gt; Structure -&gt; TagStructs -&gt; Either (Structure,Structure, TagStructs) (Structure, TagStructs)
+addTag t (Structure n s tagStructId) tagStructs =
+  let tId = tagId $ tag t
+      (s1,s2) = partition ( (tId==) . tagId . tag ) s
+      s' = Structure n (add t s) tagStructId
+      (tagStructIdS2, newTagStructs) = addTagStruct tagStructs in
+  if' (
+        foldl (||) False $
+        map (overlaps (interval t) . interval) $
+        elems s
+      )
+      (
+        Left ( Structure n (add t s1) tagStructId,
+               Structure "" s2 tagStructIdS2,
+               delTagFromTagStruct tId tagStructId newTagStructs )
+      ) $
+      Right ( s', addTagToTagStruct tId (parentId t s') tagStructId tagStructs )
+
+addTagStruct :: TagStructs -&gt; (TagStructId, TagStructs)
+
+delTagFromTagStruct :: TagId -&gt; TagStructId -&gt; TagStructs -&gt; TagStructs
+
+addTagToTagStruct :: TagId -&gt; Maybe TagId -&gt; TagStructId -&gt; TagStructs -&gt; TagStructs
+
+parentId :: Taggee -&gt; Structure -&gt; Maybe TagId
+parentId t s = maybe Nothing (Just . tagId . tag) $ parent t s
+
+parent :: Taggee -&gt; Structure -&gt; Maybe Taggee
+</programlisting>
+Note that Haskell is a <emphasis role="ital">pure</emphasis> functional programming language and as such does not allow side effects. That is why, in the previous functions when we had to manage some kind of shared data structure of type TagStructs, we passed it between functions by the way of an extra parameter. Haskell has a data type design pattern called <emphasis role="ital">monad</emphasis> that offers a much nicer solution, but we kept with the basics so that the link between the two previous sections remained obvious.
+</para><para>We finally have to compute the distance between every pair of implied tag
+structures. We choose a very straightforward editing distance equals to the
+number of "add" and "delete" operations needed to transform one set of tags
+into another. It does not take into account the structure of the tags and
+has for only purpose to guide the user towards other possibly similar
+tagging practices. In our current implementation, the distances computation is a
+daily batch process.
+<programlisting xml:space="preserve">
+type Recommendations = Map TagStructId (Map TagStructId Int)
+
+distance :: TagStruct -&gt; TagStruct -&gt; Int
+distance ts1 ts2 =
+  let k1 = keys ts1
+      k2 = keys ts2
+      intersize = length $ intersect k1 k2 in
+  (length k1 - intersize) + (length k2 - intersize)
+
+distances :: TagStructs -&gt; Recommendations
+distances tss = mapWithKey (\k ts -&gt; map (distance ts) $ delete k tss) tss
+</programlisting></para></section></section><section><title>Peirce's terminology</title><para>We now present the theoretical ideas that gave us the
+opportunity to develop our methodology. Indeed, in order to explore the
+dynamical aspects of multi-structured documents creation, and not only the
+static problem of representing such documents, we needed new tools that
+could allow us to think of a maintained multiplicity of structures. We
+found them in C.S. Peirce. The
+introduction of the <emphasis role="ital">dynamical interpretant</emphasis> as part of the notion of sign
+received our full attention. In order to define this notion, we quote
+Peirce [<xref linkend="peirce1"/>]:</para><blockquote><para>…suppose I awake in the morning before my wife, and that afterwards she
+wakes up and inquires, "What sort of a day is it?" This is a sign, whose
+Object, as expressed, is the weather at that time, but whose Dynamical
+Object is the impression which I have presumably derived from peeping
+between the window-curtains. Whose Interpretant, as expressed, is the
+quality of the weather, but whose Dynamical Interpretant, is my answering
+her question. But beyond that, there is a third Interpretant. The Immediate
+Interpretant is what the Question expresses, all that it immediately
+expresses, which I have imperfectly restated above. The Dynamical
+Interpretant is the actual effect that it has upon me, its interpreter. But
+the Significance of it, the Ultimate, or Final, Interpretant is her purpose
+in asking it, what effect its answer will have as to her plans for the
+ensuing day. I reply, let us suppose: "It is a stormy day." Here is another
+sign. Its Immediate Object is the notion of the present weather so far as
+this is common to her mind and mine - not the character of it, but the
+identity of it. The Dynamical Object is the identity of the actual or Real
+meteorological conditions at the moment. The Immediate Interpretant is the
+schema in her imagination, i.e. the vague Image or what there is in common
+to the different Images of a stormy day. The Dynamical Interpretant is the
+disappointment or whatever actual effect it at once has upon her. The Final
+Interpretant is the sum of the Lessons of the reply, Moral, Scientific,
+etc.</para></blockquote><para>Elsewhere [<xref linkend="peirce2"/>], we find this definition of the sign: <quote>By a sign I mean any thing
+which is in any way, direct or indirect, so influenced by any thing (which
+I term its object) and which in turn influence a mind that this mind is
+thereby influenced by the Object ; and I term that which is called forth in
+the mind the Interpretant of the sign.</quote></para><para>That being said, we take as a sign the presentation to the user of a
+restructuring, and try to analyze it thanks to Peirce's categories :
+<itemizedlist><listitem><para><emphasis role="ital">immediate object</emphasis>: the actual presentation of an automatic
+restructuring</para></listitem><listitem><para><emphasis role="ital">dynamical object</emphasis>: the impression the user may have derived from
+looking at the automatic restructuring presentation</para></listitem><listitem><para><emphasis role="ital">immediate interpretant</emphasis>: validity of the restructuring</para></listitem><listitem><para><emphasis role="ital">dynamical interpretant</emphasis>: user answer to the restructuring
+presentation in terms of the operations (and the ways to combine them)
+offered by the computer</para></listitem><listitem><para><emphasis role="ital">final interpretant</emphasis>: effect of the operations engaged by the
+user</para></listitem></itemizedlist></para><para>We can replay this analysis but this time taking as a sign the previous dynamical
+interpretant (we are allowed to take this step by the very nature of the
+sign: every sign is linking to another one <emphasis role="ital">ad libitum</emphasis>:
+<itemizedlist><listitem><para><emphasis role="ital">immediate object</emphasis>: the multiple structures of the document</para></listitem><listitem><para><emphasis role="ital">dynamical object</emphasis>: the operations to be applied on the
+multi-structured document</para></listitem><listitem><para><emphasis role="ital">immediate interpretant</emphasis>: execution of the operations</para></listitem><listitem><para><emphasis role="ital">dynamical interpretant</emphasis>: effect of this particular choice of
+operations in this particular context</para></listitem><listitem><para><emphasis role="ital">final interpretant</emphasis>: effect the presentation of the computer
+analysis  of the user interactions will have on the user</para></listitem></itemizedlist></para><para>First of all, the linked nature of the sign gave us the idea of introducing the user at
+the heart of the restructuring process. Moreover, being able to see the dynamical
+interpretant as a producer of new signs gave us the idea of the
+construction of a social network of documents authors, the documentary
+structures being used as a social glue.</para></section></section><section><title>A prototype implementation of the methodology</title><para>We provide all the functions introduced above as a Web service that follows
+the REST [<xref linkend="Rest"/>] design pattern. In the context of this paper we cannot
+fully describe this Web service. We only give as an example the HTTP
+operation used for tagging a new "equation" in the mathematical structure
+of a notebook. All we have to do is send a POST request to the resource
+identified by the URL <emphasis role="ital">http://desanti.org/cahiers/148/structures/math/taggees</emphasis> with a body of:
+<programlisting xml:space="preserve">
+  &lt;taggee&gt;
+    &lt;tag name="equation" /&gt;
+    &lt;interval start="14" end="26" /&gt;
+  &lt;/taggee&gt;
+  &lt;/programlisting&gt;
+</programlisting></para><para><xref linkend="prototype"/> is a screenshot of the client application running inside a Web browser. The region Z3 is a hierarchy
+of all the documents of the archive, it gives the researchers the synoptic
+view they need. The region Z1 is a draggable navigator obtained by clicking
+on an element of the hierarchy Z3, it allows to navigate among the images
+of the pages of a collection. The region Z4 is an editor for the
+transcription. The region Z5 is the set of recommendations for tag
+hierarchies similar to the one implied by the current documentary
+structure. Region Z2 is the comparison frame obtained when the user click
+on one of the recommendations, it allows him to decide if he wants to merge
+his tags structure with the one suggested.</para><figure xml:id="prototype" xreflabel="Figure 11"><mediaobject><imageobject><imagedata format="jpg" fileref="../../../vol3/graphics/Portier01/Portier01-011.jpg" width="95%"/></imageobject><caption><para>Prototype</para></caption></mediaobject></figure></section><section><title>Conclusions</title><para>We have identified a new problem: how to <emphasis role="ital">build</emphasis> multi-structured
+documents? This allowed us to take over the old issue of multi-structured
+documents as we pulled away from its technical formulation and bring
+ourselves closer to the daily practices of those building documents. We have shown
+that, although the enforcement of tree structures was for a long time
+considered as the crux of the problem, we could place it at the heart of a
+new solution where the emergence of overlapping hierarchies triggers the
+creation of a new structure that has to be validated by the user. In fact, our methodology places the users in a central position and we managed to lighten the cognitive load that results from the interactions with the system by bordering the reflexive activities on small and well defined periods. Thus we
+managed to provide a methodology that addresses the needs of humanities
+researchers by promoting and maintaining a multiplicity of stuctures.
+Moreover, we developed a prototype that implements the algebraic operations
+described in the article.  These operations are provided through a Web
+interface using the HTTP protocol in accordance with the REST design
+pattern.</para></section><bibliography><title>References</title><bibliomixed xml:id="Rose" xreflabel="Rose2004">Steven J. DeRose, <emphasis role="ital">Markup Overlap: A Review and a Horse</emphasis> in "Extreme Markup Languages" 2004, <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.mulberrytech.com/Extreme/Proceedings/html/2004/DeRose01/EML2004DeRose01.html</link></bibliomixed><bibliomixed xml:id="Multi" xreflabel="Bruno2007">Emmanuel Bruno, Sylvie Calabretto and Elisabeth Murisasco, <emphasis role="ital">Documents textuels multi structurés : un état de l'art.</emphasis> in "Revue i3" 2007, <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://liris.cnrs.fr/publis/?id=2708</link></bibliomixed><bibliomixed xml:id="Multix" xreflabel="Chatti2007">Noureddine Chatti, Souha Kaouk, Sylvie Calabretto and Jean-Marie Pinon, <emphasis role="ital">MultiX: an XML-based formalism to encode multi-structured documents</emphasis> in "Proceedings of Extreme Markup Languages'2007"</bibliomixed><bibliomixed xml:id="Rest" xreflabel="Fielding2000">Roy  T. Fielding, <emphasis role="ital">Architectural styles and the design of network-based software architectures</emphasis>, 2000 <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://portal.acm.org/citation.cfm?id=932295</link></bibliomixed><bibliomixed xml:id="Haskell" xreflabel="PeytonJones2002">Simon Peyton Jones, <emphasis role="ital">Haskell 98 Language and Libraries: The Revised Report</emphasis>, 2002 <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://haskell.org/definition/haskell98-report.pdf</link></bibliomixed><bibliomixed xml:id="Tei" xreflabel="Burnard2007">Lou Burnard and Syd Bauman, <emphasis role="ital">TEI P5: Guidelines for Electronic Text Encoding and Interchange</emphasis>, 2007 <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.tei-c.org/release/doc/tei-p5-doc/en/html/index.html</link></bibliomixed><bibliomixed xml:id="Schema" xreflabel="Simeon2003">Jerome Simeon and Philip Wadler, <emphasis role="ital">The essence of XML</emphasis>, 2003 in "POPL '03: Proceedings of the 30th ACM SIGPLAN-SIGACT symposium on Principles of programming languages", doi: <biblioid class="doi">10.1145/604131.604132</biblioid></bibliomixed><bibliomixed xml:id="Annotation" xreflabel="Bird1999">Steven Bird and Mark Liberman, <emphasis role="ital">Annotation Graphs as a Framework for Multidimensional Linguistic Data Analysis</emphasis>, 1999 in "Towards Standards and Tools for Discourse Tagging: Proceedings of the Workshop", <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://citeseer.ist.psu.edu/bird99annotation.html</link></bibliomixed><bibliomixed xml:id="Rdf" xreflabel="Tummarello2005">Giovanni Tummarello, Christian Morbidoni and E. Pierazzo, <emphasis role="ital">Toward Textual Encoding Based on RDF</emphasis>, in "From Author to Reader: Challenges for the Digital Content Chain: Proceedings of the 9th ICCC International Conference on Electronic Publishing held at Katholieke Universiteit Leuven - ELPUB 2005, Leuven-Heverlee, Belgium, June 8-10, 2005. Proceedings", p. 57-63</bibliomixed><bibliomixed xml:id="Monet" xreflabel="Alink2006">Wouter Alink, R. A. F. Bhoedjang, Arjen P. de Vries and Peter A. Boncz, <emphasis role="ital">Efficient XQuery Support for Stand-Off Annotation</emphasis>, in "Proceedings of the 3rd International Workshop on XQuery Implementation, Experience and Perspectives, in cooperation with ACM SIGMOD, June 30, 2006, Chicago, USA. 2006", <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.ximep-2006.org/papers/Paper-Alink-Boncz.pdf</link></bibliomixed><bibliomixed xml:id="MSXD" xreflabel="Bruno2006">E. Bruno and E. Murisasco, <emphasis role="ital">Multistructured XML textual documents</emphasis>, 2006, in "GESTS International Transactions on Computer Science and Engineering", vol. 34 n. 1, p. 200-211</bibliomixed><bibliomixed xml:id="GODDAG" xreflabel="Sperberg-McQueen2000">C. M. Sperberg-McQueen and Claus Huitfeldt, <emphasis role="ital">GODDAG: A Data Structure for Overlapping Hierarchies</emphasis>, in "Digital Documents: Systems and Principles, 8th International Conference on Digital Documents and Electronic Publishing, DDEP 2000, 5th International Workshop on the Principles of Digital Document Processing, PODDP 2000, Munich, Germany, September 13-15, 2000, Revised Papers", vol. 2023, p. 139-160</bibliomixed><bibliomixed xml:id="againstConcur" xreflabel="Hilbert2005">Mirco Hilbert, Andreas Witt and Oliver Schonefeld, <emphasis role="ital">Making CONCUR work</emphasis>, 2005, in "Extreme Markup Languages"</bibliomixed><bibliomixed xml:id="mecs" xreflabel="Huitfeldt1998">Claus Huitfeldt, <emphasis role="ital">MECS - a Multi-Element Code System</emphasis>, 1998, in "Working Papers from the Wittgenstein Archives at the University of Bergen", vol. 3</bibliomixed><bibliomixed xml:id="texmecs" xreflabel="Huitfeldt2003">Claus Huitfeldt and Michael Sperberg-McQueen, <emphasis role="ital">TexMECS: An experimental markup meta-language for complex documents</emphasis>, 2003, in "Working paper of the project Markup Languages for Complex Documents (MLCD), University of Bergen", <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://decentius.aksis.uib.no/mlcd/2003/Papers/texmecs.html</link></bibliomixed><bibliomixed xml:id="lmnl" xreflabel="Tennison2002">Jeni Tennison and Wendell Piez, <emphasis role="ital">The Layered Markup and Annotation Language (LMNL)</emphasis>, 2002, in "Extreme Markup Languages", <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.mulberrytech.com/Extreme/Proceedings/html/2002/Tennison02/EML2002Tennison02.html</link></bibliomixed><bibliomixed xml:id="annotationGraphs" xreflabel="Maeda2002">Kazuaki Maeda, Steven Bird, Xiaoyi Ma and Haejoong Lee, <emphasis role="ital">Creating Annotation Tools with the Annotation Graph Toolkit</emphasis>, 2002, in "Proceedings of the Third International Conference on Language Resources and Evaluation", <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://arxiv.org/abs/cs/0204005</link></bibliomixed><bibliomixed xml:id="annotationGraphsQuery" xreflabel="Bird2000">Steven Bird, Peter Buneman and Wang-chiew Tan, <emphasis role="ital">Towards a Query Language for Annotation Graphs</emphasis>, 2000, in "Proceedings of the Second International Conference on Language Resources and Evaluation", p. 807-814</bibliomixed><bibliomixed xml:id="mct" xreflabel="Jagadish2004">H. V. Jagadish, Laks V. S. Lakshmanan, Monica Scannapieco, Divesh Srivastava, and Nuwee Wiwatwattana, <emphasis role="ital">Colorful XML: one hierarchy isn't enough</emphasis>, 2004, in "SIGMOD '04: Proceedings of the 2004 ACM SIGMOD international conference on Management of data", p. 251-262, doi: <biblioid class="doi">10.1145/1007568.1007598</biblioid></bibliomixed><bibliomixed xml:id="delay" xreflabel="LeMaitre2006">Jacques Le Maître, <emphasis role="ital">Describing multistructured XML documents by means of delay nodes</emphasis>, 2006, in "DocEng '06: Proceedings of the 2006 ACM symposium on Document engineering", New York, NY, USA, p. 155-164, doi: <biblioid class="doi">10.1145/1166160.1166200</biblioid></bibliomixed><bibliomixed xml:id="overlap" xreflabel="Iacob2005">Ionut E. Iacob and Alex Dekhtyar, <emphasis role="ital">Processing XML documents with overlapping hierarchies</emphasis>, 2005, in "JCDL '05: Proceedings of the 5th ACM/IEEE-CS joint conference on Digital libraries", New York, NY, USA, p. 409-409, doi: <biblioid class="doi">10.1145/1065385.1065513</biblioid></bibliomixed><bibliomixed xml:id="concur" xreflabel="Goldfarb1990">Charles F. Goldfarb, <emphasis role="ital">The SGML handbook</emphasis>, 1990, Oxford University Press, Inc.</bibliomixed><bibliomixed xml:id="peirce1" xreflabel="Peirce1909">Charles Sanders Peirce, <emphasis role="ital">Letter to William James</emphasis>, in "Collected Papers of Charles Sanders Peirce, Volume 8, Arthur W. Burks. Cambridge, Mass.: Harvard University Press", para. 314, <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.helsinki.fi/science/commens/terms/dynamicalinterpretant.html</link></bibliomixed><bibliomixed xml:id="peirce2" xreflabel="Peirce">Charles Sanders Peirce, <emphasis role="ital">Logic: Regarded as a Study of the general nature of Signs</emphasis>, <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.cspeirce.com/menu/library/rsources/76defs/76defs.htm</link></bibliomixed></bibliography></article>

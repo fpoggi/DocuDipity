@@ -1,0 +1,657 @@
+<?xml version="1.0" encoding="UTF-8"?><article xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink" version="5.0-subset Balisage-1.3"><title>
+Extending XML with SHORTREFs specified in RELAX NG</title><info><confgroup><conftitle>Balisage: The Markup Conference 2012</conftitle><confdates>August 7 - 10, 2012</confdates></confgroup><abstract><para>
+We present a novel method for specifying concrete syntax, based on and compatible with the RELAX NG schema standard. A
+parsing method is described for a well-formed XML document conforming to the given concrete syntax specification. The
+output of the parser is another XML document conforming to the abstract syntax described by the base RELAX NG schema.</para></abstract><author><personname><firstname>Mario</firstname><surname>Blažević</surname></personname><personblurb><para>
+        The author has a Master's degree in Computer Science from University of Novi Sad, Yugoslavia. Since moving to
+        Canada in 2000, he has been working for OmniMark Technologies, later acquired by Stilo International plc.,
+        mostly in the area of markup processing and on development of the OmniMark programming language.</para></personblurb><email>mblazevic@stilo.com</email><affiliation><jobtitle>Senior software architect</jobtitle><orgname>Stilo International plc.</orgname></affiliation></author><legalnotice><para>Copyright © 2012 Stilo International plc. All rights reserved.</para></legalnotice></info><note><para>
+This paper has been inspired in part by Sam Wilmott's 1993 internal report, <quote>Beyond SGML</quote>[<citation linkend="w93"/>]. I
+also want to thank my colleague Jacques Légaré for his valuable comments and clarifications, and Stilo
+International for giving me time to do interesting work.</para></note><section><title> Introduction</title><para>SGML had this feature called SHORTREF. It allowed the DTD designer to specify that certain strings called <emphasis>shortrefs</emphasis>
+should in some contexts be interpreted as markup tags. For the authors using an SGML DTD with a well-designed set of
+shortrefs, the effect was similar to using a kind of Wiki markup.</para><para>As with other parts of SGML, the specification syntax for shortrefs was idiosyncratic.[<citation linkend="s86"/>] 
+Furthermore, the method of their specification typically relied on some other rarely-used features of SGML DTDs, such as
+STARTTAG entities. This combination ensured that only an expert in SGML DTDs could hope to design shortrefs correctly,
+so they remained obscure and rarely used. When SGML was replaced by its simplified successor XML, nobody regretted their
+omission.</para><para>Or did they?</para><para>Many people stubbornly refuse to abandon their non-XML syntaxes. Programming language designers still use the
+old-fashioned EBNF grammars[<citation linkend="b59"/>] in their specifications instead of XML Schema. Even some languages
+that are at the very core of various XML technologies, such as XPath, are not XML. The RELAX NG schema language, though
+specified in XML syntax[<citation linkend="c01"/>], defines a non-XML <quote>compact syntax</quote>[<citation linkend="c02c"/>] as well.</para><para>The strongest evidence of yearning for shortrefs, however, is the myriad of <link xlink:href="http://www.wikimatrix.org/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Wiki languages</link> in existence. Here we have a large family of actual markup
+languages, whose main purpose is to be converted to HTML, another markup language, and still they are not fully tagged
+XML. SGML DTDs with shortrefs and appropriate declarations could accomplish the task.[<citation linkend="j04"/>] Instead,
+Wiki engines typically store their pages as plain text, parse them using hand-coded parsers written in various
+general-purpose languages, and convert them directly to HTML for presentation.[<citation linkend="b07"/>]</para><para>There are many downsides to this architecture. Most Wiki pages are stored unvalidated and unstructured, which makes them
+suboptimal for searching and very difficult to automatically restructure. They are missing all XML tool chain
+support. All these problems are judged to be outweighed by the benefit of the special notation. A solution that
+preserves this notational convenience while keeping markup in XML documents would be a clear winner.</para><para>The present paper aims to deliver one solution that satisfies these criteria: given a relatively simple syntax
+specification that follows the established standards, it allows the author to create valid XML without entering XML
+tags. In other words, it resurrects SGML shortrefs in a more modern context of well-formed XML and RELAX NG schema
+specifications.</para></section><section><title> RELAX NG schema as a grammar</title><para>If our job is to specify how some text is to be parsed, one obvious place to start is from grammars, or more
+specifically context-free grammars; they have been successfully used for this purpose for more than half a
+century[<citation linkend="b59"/>]. Here is an example of such a grammar for a small fragment of a Wiki markup language,
+specified in a variant of the EBNF notation:</para><programlisting xml:space="preserve">paragraph  ::= (plain-text | bold | italic)* "\n\n"?
+bold       ::= "**" (plain-text | italic)* "**"
+italic     ::= "//" (plain-text | bold)* "//"
+plain-text ::= ([^\n*/]+ | "\n" [^\n] | "*" [^*] | "/" [^/])+</programlisting><para>The <quote>plain-text</quote> production is rather tricky. This context-free grammar is working directly on plain-text input with no
+help from any lexical layer, so <quote>plain-text</quote> has to exclude the three markers (<code>**</code>, <code>//</code>, and the newline) in order
+to avoid ambiguity. The production would become even more complicated as more markup is added to the grammar.</para><para>Once the input text is parsed according to the grammar, we can represent the resulting abstract syntax tree as XML and
+use the following compact RELAX NG schema for its validation:</para><programlisting xml:space="preserve">paragraph  = element para { (plain-text | bold | italic)* }
+bold       = element bold { (plain-text | italic)* }
+italic     = element italic { (plain-text | bold)* }
+plain-text = text</programlisting><para>The similarities between the two notations above are striking. The main difference is that the former specifies a
+<emphasis>concrete</emphasis> syntax, and the latter the <emphasis>abstract</emphasis> syntax[<citation linkend="m62"/>]. To become concrete, and thus
+useful for parsing text, the RELAX NG schema needs to specify the string markers, or <emphasis>terminal</emphasis> symbols. We could try
+the following modification, which brings the schema even closer to the EBNF grammar:</para><programlisting xml:space="preserve">paragraph  = element para {
+                (plain-text | bold | italic)*,
+                "&amp;#x0a;&amp;#x0a;"?
+             }
+bold       = element bold { "**", (plain-text | italic)*, "**" }
+italic     = element italic { "//", (plain-text | bold)*, "//" }
+plain-text = text</programlisting><para>The RELAX NG specification[<citation linkend="c01"/>] unfortunately does not allow text-matching and element-matching
+patterns to be grouped together, and that makes the above schema invalid. To make our concrete-syntax schema
+syntactically correct, we need to enclose each string marker into an element of its own. These elements will belong to
+the special <code>terminal</code> namespace so we can distinguish them from the structural elements:</para><programlisting xml:space="preserve">paragraph  = element para {
+                (plain-text | bold | italic)*,
+                paragraph_separator?
+             }
+bold       = element bold {
+                bold_marker,
+                (plain-text | italic)*,
+                bold_marker
+             }
+italic     = element italic {
+                italic_marker,
+                (plain-text | bold)*,
+                italic_marker
+             }
+plain-text = text
+
+bold_marker         = element terminal:bold_marker { "**" }
+italic_marker       = element terminal:italic_marker { "//" }
+paragraph_separator = element terminal:paragraph_separator {
+                         "&amp;#x0a;&amp;#x0a;"
+                      }</programlisting><para>We could also replace the <code>text</code> pattern by <code>string{pattern="([^\n*/]+|\n[^\n]|\*[^*]|/[^/])+"} </code> to replicate the
+grammar even closer. As noted above, however, this pattern grows more complex as more markers are added to the grammar,
+which makes it difficult to maintain. Another downside is that the schema would lose the modularity properties that
+RELAX NG normally provides.</para><para>The <quote>plain-text</quote> pattern is meant to match any text up to any marker that is allowed in the context. Rather than require
+the user to construct this pattern every time a new marker is introduced, we can change the meaning of the <code>text</code>
+pattern to match what we need. In the standard RELAX NG semantics, <code>text</code> matches all text content up to the next
+element tag; in our modified semantics, it will match all text content until the next marker recognizable in the
+context, or until the next element tag.</para><para>Our parser must construct an abstract syntax tree with element nodes like <code>bold</code> that are not present in the input. To
+achieve this, we need to add another semantic extension and infer the missing element tags[<citation linkend="b10"/>]. This is especially necessary for features like Wiki lists, where a single indented asterisk can denote
+the beginning of both a list and a list item. This is similar to the OMITTAG feature of SGML, the main difference being
+that our input must be well-formed XML; the element's start-tag and its end-tag must both be present or both omitted.</para><para>The only elements with omissible tags will be those in the <code>terminal</code> namespace and those whose namespace URI begins
+with the prefix <code>omissible+</code> (which is perfectly legal according to RFC 2396). In the schema fragment above, the default
+namespace should be made omissible; in other words, the schema should be preceded by</para><programlisting xml:space="preserve">default namespace = "omissible+http://my.namespace.com/"
+namespace terminal = "http://en.wikipedia.org/wiki/Terminal_and_nonterminal_symbols#Terminal_symbols"</programlisting><para>The elements in the <code>terminal</code> namespace are perfectly ordinary XML elements; what gives them a special meaning is
+that the parser deletes them from the constructed syntax tree together with their content. The elements with the
+<code>omissible+</code> namespace prefix will be kept in the normalized XML output, but their URI prefix will be removed. This
+stripping of terminal elements and omissible namespace prefixes is the default mode of operation. The parser can also be
+made to emit all the terminal nodes and keep the omissible namespace prefixes. For the above example schema and the
+input paragraph</para><programlisting xml:space="preserve">Here's a **fat
+and somewhat //slanted
+// text**
+example.</programlisting><para>the default output of the parser is</para><programlisting xml:space="preserve">&lt;paragraph xmlns="http://my.namespace.com"&gt;Here's a &lt;bold&gt;fat
+and somewhat &lt;italic&gt;slanted
+&lt;/italic&gt; text&lt;/bold&gt;
+example.&lt;/paragraph&gt;
+</programlisting><para>and the raw output, if requested, would be</para><programlisting xml:space="preserve">&lt;paragraph
+   xmlns="omissible+http://my.namespace.com"
+   xmlns:terminal="http://en.wikipedia.org/wiki/Terminal_and_nonterminal_symbols#Terminal_symbols"
+&gt;Here's a &lt;bold&gt;&lt;terminal:bold_marker&gt;**&lt;/terminal:bold_marker&gt;fat
+and somewhat &lt;italic&gt;&lt;terminal:italic_marker&gt;//&lt;/terminal:italic_marker&gt;slanted
+&lt;terminal:italic_marker&gt;//&lt;/terminal:italic_marker&gt;&lt;/italic&gt; text&lt;terminal:bold_marker&gt;**&lt;/terminal:bold_marker&gt;&lt;/bold&gt;
+example.&lt;terminal:paragraph_separator&gt;
+
+&lt;/terminal:paragraph_separator&gt;&lt;/paragraph&gt;</programlisting><para>Both these outputs are well-formed XML and contain no text markers. The former is valid against the original RELAX NG
+schema, and the latter is valid against the enriched schema. If we want to replicate the behaviour of an SGML DTD, where
+one can alternate between shortrefs and regular element tags, all we need do is combine the two schemata into one. The
+cleanest way to accomplish the same effect is to have the concrete-syntax schema include the original one, combining the
+original definitions with its own. If the original schema was defined in file <code>strict.rng</code>, the extended schema could be
+defined in a separate file as follows:</para><programlisting xml:space="preserve">default namespace = "omissible+http://my.namespace.com/"
+namespace terminal = "http://en.wikipedia.org/wiki/Terminal_and_nonterminal_symbols#Terminal_symbols"
+
+include "strict.rng"
+
+paragraph  |= element para {
+                 (plain-text | bold | italic)*,
+                 paragraph_separator?
+              }
+bold       |= element bold {
+                 bold_marker,
+                 (plain-text | italic)*,
+                 bold_marker
+              }
+italic     |= element italic {
+                 italic_marker,
+                 (plain-text | bold)*,
+                 italic_marker
+              }
+plain-text  = text
+
+bold_marker         = element terminal:bold_marker { "**" }
+italic_marker       = element terminal:italic_marker { "//" }
+paragraph_separator = element terminal:paragraph_separator {
+                         "&amp;#x0a;&amp;#x0a;"
+                      }</programlisting><para>Both the default and the raw output (i.e., the abstract and the concrete syntax tree) now conform to the same RELAX NG
+schema, and we can use any conforming RELAX NG validator to verify this.</para></section><section><title> Implementation</title><para>The parser for the schema specifications described in the previous section has been implemented in Haskell and can be
+found at <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://hackage.haskell.org/package/concrete-relaxng-parser</link>. It compiles to a standalone executable
+that requires two file names as arguments: the target RELAX NG schema (with or without any concrete-syntax extensions),
+and the input XML document.</para><para>The implementation of the concrete-syntax parser is based on the RELAX NG reference implementation[<citation linkend="c02"/>] with its novel algorithm based on Brzozowski derivatives[<citation linkend="b64"/>] [<citation linkend="s05"/>], together with some extensions described in our previous work[<citation linkend="b10"/>]. In particular,
+the inference of the missing element tags is the same as in [<citation linkend="b10"/>], the only change being its
+restriction to the set of elements whose namespace URI begins with the string <code>omissible+</code>. The rest of this section
+will concentrate on details that have not been described elsewhere.</para><para>The biggest change from [<citation linkend="b10"/>] is in the <code>textDeriv</code> function. Both in the reference validator and
+in the previous normalizer implementation, this function must match its pattern argument against its entire text node
+argument. Now a pattern is allowed to consume only a prefix of the current text node, so the Brzozowski derivatives
+cannot be calculated as easily. One possible solution would be to calculate the derivative character by character, but
+its performance would be unacceptable. We also considered introducing a lexical layer that separates all possible
+syntactic markers from the rest of the text, but in the end we settled for a mixed derivative/continuation-passing
+algorithm. The <code>textDeriv</code> function takes two continuations, one invoked in case the pattern consumes the entire text
+node and the other in case there is some leftover text. This way each pattern is free to consume as much text as it can
+match in a single try, and pass the rest to the continuation pattern.</para><para>This technique unfortunately does not implement the <code>interleave</code> patterns properly. If their semantics from the RELAX NG
+specification was carried over to the text nodes literally, it would imply that an <code>interleave</code> pattern should match any
+interleaving of the character sequences matched by its two branches. This semantics would be very difficult to implement
+efficiently, but more importantly, it would probably be useless in practice. Instead, <code>textDeriv</code> implements the
+<code>interleave</code> pattern as an alternation: one of its branches is matched followed by the other. This semantics is
+unfortunately not composable. At this time we must recommend against the use of <code>interleave</code> in concrete syntax
+definitions. The semantics of <code>interleave</code> across multiple XML elements and text nodes is not affected by this problem.</para><para>Another significant hurdle to overcome in the adaptation of RELAX NG to the task of parsing text is its <code>text</code>
+pattern. Having been designed for the validation of XML documents, RELAX NG allows the <code>text</code> pattern to match any
+arbitrary contiguous region of text. The boundaries of this region are determined by the surrounding markup tags. Since
+we cannot count on these hard boundaries, we must keep track of all syntactic markers that can appear instead of element
+tags. These markers are divided into two sets, the <emphasis>alternate set</emphasis> and the <emphasis>follow set</emphasis>. The former contains all
+markers that can begin an alternative to the current pattern, while the latter contains all markers that can appear
+after the end of the current pattern.</para><para>The same approach is applied to <code>data</code> and <code>dataExcept</code> patterns: they are bounded by the next following
+marker. They consume the longest possible prefix, recognized by the data type, of the text preceding the marker.</para><para>Whitespace is for the most part handled the same as all other text. The only two exceptions are that the whitespace
+consumption does not affect the alternate set and follow set of syntactic markers, and that any amount of whitespace can
+precede an explicit element tag. The latter feature follows the behaviour of the standard RELAX NG validator, which
+ignores whitespace between elements.</para></section><section><title> Results and future directions</title><para>The presented RELAX NG extension could be applied to many RELAX NG schemata and used to shorten their instances. Whether
+it <emphasis>should</emphasis> be applied to any particular schema depends mostly on outside factors like the target audience and
+document corpus. There are also, however, several technical factors that must be taken into consideration.</para><itemizedlist><listitem><para> Syntactic markers can only be used to infer element tags without any specified attributes. This shortcoming is partly
+  a consequence of the inability to specify fixed attribute values in RELAX NG, and could potentially be remedied by
+  future extensions.</para></listitem><listitem><para> While a schema extended with syntactic markers and omissible element tags can replicate most common uses of SGML
+  SHORTREF feature, it is a fundamentally different mechanism. A SHORTREF can expand to any general entity, which is
+  free to include multiple elements with specified attributes and arbitrary content. A syntactic marker serves only to
+  guide the parser in which omissible elements should be inferred, and these inferred elements are the only possible
+  addition to the parsed output.</para></listitem><listitem><para> SGML derives some benefit from being a large and integrated specification. In particular, we can offer no equivalent
+  to SGML <code>usemap</code> declaration which can activate an arbitrary set of shortrefs in any position in the document, or turn
+  them all off. Since our input is well-formed XML, we could instead introduce special processing instructions that
+  affect the parser's behaviour. The main obstacle currently is that the RELAX NG infrastructure normalizes the XML
+  input, removing all processing instructions prior to validation and parsing. The <code>CDATA</code> marked sections are also
+  normalized away, which presents an even more serious problem because the parser may infer elements within them.</para></listitem><listitem><para> The current performance of the parser is sufficient for authoring documents with syntactic markers and occasional
+  one-off conversion to a fully tagged instance, but it would impose a significant overhead in a repeatedly invoked
+  markup-processing pipeline. The worst-case performance of any parser implementation will depend on the details of the
+  schema; since RELAX NG does not impose LL(1) or similar constraints, neither do we.</para></listitem><listitem><para> A judicious use of syntactic markers can ease the XML document authoring in a text editor. Their benefits would be
+  diminished if used with an XML editor; they could even degrade the experience in this context.</para></listitem><listitem><para> There is currently no support for automatic inference of the desired element nesting level, like Wiki for example does
+  with the indentation of the list item bullets. To allow an element to be nested within itself, the schema must specify
+  a different syntactic marker for each element nesting level. Alternatively, one can always nest explicit element tags.</para></listitem><listitem><para> On the positive side, the concrete-syntax schema can be as modular as a regular, abstract-syntax RELAX NG schema. It
+  is possible to experiment with multiple different concrete syntaxes for the same abstract syntax, for example, or
+  <emphasis>vice versa</emphasis>.</para></listitem><listitem><para> The parser translates an XML document from concrete to abstract syntax. There is currently no tool support for
+  performing a reverse translation. This would be a problem for any deployment scenario which allows a document to be
+  edited in both the explicitly-tagged and its concrete syntax variant.</para></listitem></itemizedlist><para>As a proof of concept, the present paper has been written in concrete syntax and translated to the abstract syntax
+conforming with the target schema. The concrete-syntax schema extension is given in <xref linkend="schema"/>.</para><para>The sample schema extension modifies seven elements: <code>code</code>, <code>emphasis</code>, <code>listitem</code>, <code>para</code>, <code>programlisting</code>, <code>quote</code>,
+and <code>title</code>. Their tags are made omissible in all contexts where they can occur, with the exception of <code>emphasis</code> which
+must be explicitly tagged inside <code>programlisting</code> and inside an inferred <code>emphasis</code>. Each of the seven elements is also
+given a concrete syntax with different terminal symbols. Authored with the full use of these extensions, the present
+paper contains a total of 141 element tags — mostly of elements with required attributes. Once parsed into an
+explicitly tagged XML instance, it gains additional 284 element tags.</para><para>Another example in <xref linkend="xhtml"/> presents a small extension of the modularized RELAX NG schema for XHTML 1.0[<citation linkend="c08"/>]. We hope to prepare more concrete syntax extensions like these for other XML schemata in the
+future.</para></section><section><title> Related work</title><para>The tool presented herein treats the RELAX NG schema as an abstract syntax description, and sprinkles it with some
+extensions for describing the concrete syntax of the language. There have been other tools[<citation linkend="p09"/>] [<citation linkend="q11"/>] using the same approach of starting with the abstract syntax and extending it
+with concrete syntax annotations. The abstract syntax notation in these related works is tool-specific, since they don't
+use XML as the abstract syntax tree.</para><para>On the other hand, there are numerous reports[<citation linkend="b00"/>] [<citation linkend="c03"/>] [<citation linkend="m04"/>] [<citation linkend="r05"/>] that focus on using XML as the target abstract syntax tree (AST) notation of a
+parser for some concrete syntax. To perform their parsing, however, they use parser-generators such as ANTLR[<citation linkend="p95"/>] and other traditional parsing tools, so they specify their concrete syntax in the formalism those tools
+require. Those that use an XML schema at all, use it only to validate the generated AST.</para></section><appendix xml:id="schema"><title> Concrete syntax schema extension for Balisage submissions</title><programlisting xml:space="preserve">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;grammar ns="omissible+http://docbook.org/ns/docbook"
+         xmlns:explicit="http://docbook.org/ns/docbook"
+         xmlns:a="http://relaxng.org/ns/compatibility/annotations/1.0"
+         xmlns:xlink="http://www.w3.org/1999/xlink"
+         xmlns:terminal="http://en.wikipedia.org/wiki/Terminal_and_nonterminal_symbols#Terminal_symbols"
+         xmlns:non-syntactic="http://en.wikipedia.org/wiki/Terminal_and_nonterminal_symbols#Nonterminal_symbols"
+         xmlns="http://relaxng.org/ns/structure/1.0"
+         datatypeLibrary="http://www.w3.org/2001/XMLSchema-datatypes"&gt;
+
+  &lt;!-- The balisage-1-3a.rng schema included below is semantically equivalent to the original Balisage 
+       schema, but slightly refactored with the following definitions added for reuse:
+
+    - code.content
+    - emphasis.content
+    - para.content
+    - programlisting.content
+    - quote.content
+    - title.content
+  --&gt;
+  &lt;include href="balisage-1-3a.rng"&gt;
+    &lt;define name="programlisting.content"&gt;
+      &lt;ref name="programlisting.content.explicit"/&gt;
+    &lt;/define&gt;
+  &lt;/include&gt;
+
+  &lt;define name="title" combine="choice"&gt;
+    &lt;element name="title"&gt;
+      &lt;ref name="title.attlist"/&gt;
+      &lt;ref name="title.content"/&gt;
+      &lt;ref name="paragraph_separator"/&gt;
+    &lt;/element&gt;
+  &lt;/define&gt;
+
+  &lt;define name="para" combine="choice"&gt;
+    &lt;element name="para"&gt;
+      &lt;ref name="para.attlist"/&gt;
+      &lt;ref name="para.content.non-recursive"/&gt;
+      &lt;ref name="paragraph_separator"/&gt;
+    &lt;/element&gt;
+  &lt;/define&gt;
+
+  &lt;define name="programlisting" combine="choice"&gt;
+    &lt;element name="programlisting"&gt;
+      &lt;ref name="programlisting.attlist"/&gt;
+      &lt;ref name="programlisting_open_marker"/&gt;
+      &lt;ref name="programlisting.content.explicit"/&gt;
+      &lt;ref name="programlisting_close_marker"/&gt;
+    &lt;/element&gt;
+  &lt;/define&gt;
+
+  &lt;define name="listitem" combine="choice"&gt;
+    &lt;element name="listitem"&gt;
+      &lt;ref name="listitem.attlist"/&gt;
+      &lt;ref name="listitem_marker"/&gt;
+      &lt;oneOrMore&gt;
+        &lt;ref name="para.level"/&gt;
+      &lt;/oneOrMore&gt;
+    &lt;/element&gt;
+  &lt;/define&gt;
+
+  &lt;define name="code" combine="choice"&gt;
+    &lt;element name="code"&gt;
+      &lt;ref name="code.attlist"/&gt;
+      &lt;ref name="code_marker"/&gt;
+      &lt;ref name="code.content"/&gt;
+      &lt;ref name="code_marker"/&gt;
+    &lt;/element&gt;
+  &lt;/define&gt;
+
+  &lt;define name="emphasis" combine="choice"&gt;
+    &lt;element name="emphasis"&gt;
+      &lt;ref name="emphasis.attlist"/&gt;
+      &lt;ref name="emphasis_marker"/&gt;
+      &lt;ref name="emphasis.content.non-recursive"/&gt;
+      &lt;ref name="emphasis_marker"/&gt;
+    &lt;/element&gt;
+  &lt;/define&gt;
+
+  &lt;define name="quote" combine="choice"&gt;
+    &lt;element name="quote"&gt;
+      &lt;ref name="quote.attlist"/&gt;
+      &lt;ref name="quote_marker"/&gt;
+      &lt;ref name="quote.content"/&gt;
+      &lt;ref name="quote_marker"/&gt;
+    &lt;/element&gt;
+  &lt;/define&gt;
+
+  &lt;!-- inlined emphasis.content, but with only explicit nested emphasis --&gt;
+  &lt;define name="emphasis.content.non-recursive"&gt;
+    &lt;zeroOrMore&gt;
+      &lt;choice&gt;
+        &lt;text/&gt;
+        &lt;ref name="link"/&gt;
+        &lt;ref name="citation"/&gt;
+        &lt;ref name="emphasis.explicit"/&gt;
+        &lt;ref name="footnote"/&gt;
+        &lt;ref name="trademark"/&gt;
+        &lt;ref name="email"/&gt;
+        &lt;ref name="code"/&gt;
+        &lt;ref name="superscript"/&gt;
+        &lt;ref name="subscript"/&gt;
+        &lt;ref name="quote"/&gt;
+        &lt;ref name="xref"/&gt;
+      &lt;/choice&gt;
+    &lt;/zeroOrMore&gt;
+  &lt;/define&gt;
+
+  &lt;!-- emphasis element with explicit tags --&gt;
+  &lt;define name="emphasis.explicit"&gt;
+    &lt;element name="explicit:emphasis"&gt;
+      &lt;ref name="emphasis.attlist"/&gt;
+      &lt;ref name="emphasis.content"/&gt;
+    &lt;/element&gt;
+  &lt;/define&gt;
+
+  &lt;!-- para.content minus the block-level elements which can recursively nest a paragraph --&gt;
+  &lt;define name="para.content.non-recursive"&gt;
+    &lt;zeroOrMore&gt;
+      &lt;choice&gt;
+        &lt;text/&gt;
+        &lt;ref name="citation"/&gt;
+        &lt;ref name="code"/&gt;
+        &lt;ref name="email"/&gt;
+        &lt;ref name="emphasis"/&gt;
+        &lt;ref name="equation"/&gt;
+        &lt;ref name="inlinemediaobject"/&gt;
+        &lt;ref name="link"/&gt;
+        &lt;ref name="subscript"/&gt;
+        &lt;ref name="superscript"/&gt;
+        &lt;ref name="trademark"/&gt;
+        &lt;ref name="quote"/&gt;
+        &lt;ref name="xref"/&gt;
+      &lt;/choice&gt;
+    &lt;/zeroOrMore&gt;
+  &lt;/define&gt;
+
+  &lt;!-- programlisting.content with only the explicit emphasis --&gt;
+  &lt;define name="programlisting.content.explicit"&gt;
+    &lt;zeroOrMore&gt;
+      &lt;choice&gt;
+        &lt;text/&gt;
+        &lt;ref name="emphasis.explicit"/&gt;
+        &lt;ref name="superscript"/&gt;
+        &lt;ref name="subscript"/&gt;
+      &lt;/choice&gt;
+    &lt;/zeroOrMore&gt;
+  &lt;/define&gt;
+
+  &lt;define name="emphasis_marker"&gt;
+    &lt;element name="terminal:emphasis_marker"&gt;
+      &lt;value type="string"&gt;''&lt;/value&gt;
+    &lt;/element&gt;
+  &lt;/define&gt;
+
+  &lt;define name="paragraph_separator"&gt;
+    &lt;element name="terminal:paragraph_separator"&gt;
+      &lt;value type="string"&gt;&amp;#x0a;&amp;#x0a;&lt;/value&gt;
+    &lt;/element&gt;
+  &lt;/define&gt;
+
+  &lt;define name="programlisting_open_marker"&gt;
+    &lt;element name="terminal:programlisting_open_marker"&gt;
+      &lt;value type="string"&gt;{{{&amp;#x0a;&lt;/value&gt;
+    &lt;/element&gt;
+  &lt;/define&gt;
+
+  &lt;define name="programlisting_close_marker"&gt;
+    &lt;element name="terminal:programlisting_close_marker"&gt;
+      &lt;value type="string"&gt;&amp;#x0a;}}}&lt;/value&gt;
+    &lt;/element&gt;
+  &lt;/define&gt;
+
+  &lt;define name="listitem_marker"&gt;
+    &lt;element name="terminal:listitem_marker"&gt;
+      &lt;value type="token"&gt;*&lt;/value&gt;
+    &lt;/element&gt;
+  &lt;/define&gt;
+
+  &lt;define name="code_marker"&gt;
+    &lt;element name="terminal:code_marker"&gt;
+      &lt;value type="string"&gt;`&lt;/value&gt;
+    &lt;/element&gt;
+  &lt;/define&gt;
+
+  &lt;define name="quote_marker"&gt;
+    &lt;element name="terminal:quote_marker"&gt;
+      &lt;value type="string"&gt;"&lt;/value&gt;
+    &lt;/element&gt;
+  &lt;/define&gt;
+&lt;/grammar&gt;</programlisting></appendix><appendix xml:id="xhtml"><title> Concrete syntax extension of XHTML schema</title><programlisting xml:space="preserve">&lt;grammar ns="omissible+http://www.w3.org/1999/xhtml"
+         xmlns:explicit="http://www.w3.org/1999/xhtml"
+         xmlns:terminal="http://en.wikipedia.org/wiki/Terminal_and_nonterminal_symbols#Terminal_symbols"
+         xmlns="http://relaxng.org/ns/structure/1.0"&gt;
+
+&lt;include href="xhtml/xhtml-strict.rng"/&gt;
+
+&lt;define name="head" combine="choice"&gt;
+  &lt;element name="head"&gt;
+    &lt;ref name="head.content"/&gt;
+  &lt;/element&gt;
+&lt;/define&gt;
+
+&lt;define name="title" combine="choice"&gt;
+  &lt;element name="title"&gt;
+    &lt;text/&gt;
+  &lt;/element&gt;
+&lt;/define&gt;
+
+&lt;define name="body" combine="choice"&gt;
+  &lt;element name="body"&gt;
+    &lt;ref name="Block.model"/&gt;
+  &lt;/element&gt;
+&lt;/define&gt;
+
+&lt;define name="p" combine="choice"&gt;
+  &lt;element name="p"&gt;
+    &lt;ref name="paragraph_separator"/&gt;
+    &lt;ref name="Inline.model"/&gt;
+  &lt;/element&gt;
+&lt;/define&gt;
+
+&lt;define name="ol" combine="choice"&gt;
+  &lt;element name="ol"&gt;
+    &lt;oneOrMore&gt;
+      &lt;ref name="ol.li"/&gt;
+    &lt;/oneOrMore&gt;
+  &lt;/element&gt;
+&lt;/define&gt;
+
+&lt;define name="ul" combine="choice"&gt;
+  &lt;element name="ul"&gt;
+    &lt;oneOrMore&gt;
+      &lt;ref name="ul.li"/&gt;
+    &lt;/oneOrMore&gt;
+  &lt;/element&gt;
+&lt;/define&gt;
+
+&lt;define name="hr" combine="choice"&gt;
+  &lt;element name="hr"&gt;
+    &lt;ref name="hr_marker"/&gt;
+  &lt;/element&gt;
+&lt;/define&gt;
+
+&lt;define name="em" combine="choice"&gt;
+  &lt;element name="em"&gt;
+    &lt;ref name="emphasis_marker"/&gt;
+    &lt;ref name="em.content.non-recursive"/&gt;
+    &lt;ref name="emphasis_marker"/&gt;
+  &lt;/element&gt;
+&lt;/define&gt;
+
+&lt;define name="ol.li"&gt;
+  &lt;element name="li"&gt;
+    &lt;ref name="ol_item_marker"/&gt;
+    &lt;ref name="li.content.non-recursive"/&gt;
+  &lt;/element&gt;
+&lt;/define&gt;
+
+&lt;define name="ul.li"&gt;
+  &lt;element name="li"&gt;
+    &lt;ref name="ul_item_marker"/&gt;
+    &lt;ref name="li.content.non-recursive"/&gt;
+  &lt;/element&gt;
+&lt;/define&gt;
+
+&lt;define name="em.content.non-recursive"&gt;
+  &lt;zeroOrMore&gt;
+    &lt;choice&gt;
+      &lt;text/&gt;
+      &lt;ref name="abbr"/&gt;
+      &lt;ref name="acronym"/&gt;
+      &lt;ref name="br"/&gt;
+      &lt;ref name="cite"/&gt;
+      &lt;ref name="code"/&gt;
+      &lt;ref name="dfn"/&gt;
+      &lt;ref name="kbd"/&gt;
+      &lt;ref name="q"/&gt;
+      &lt;ref name="samp"/&gt;
+      &lt;ref name="span"/&gt;
+      &lt;ref name="strong"/&gt;
+      &lt;ref name="var"/&gt;
+      &lt;ref name="em.explicit"/&gt;
+    &lt;/choice&gt;
+  &lt;/zeroOrMore&gt;
+&lt;/define&gt;
+
+&lt;define name="li.content.non-recursive"&gt;
+  &lt;zeroOrMore&gt;
+    &lt;choice&gt;
+      &lt;text/&gt;
+      &lt;ref name="Inline.class"/&gt;
+      &lt;ref name="address"/&gt;
+      &lt;ref name="blockquote"/&gt;
+      &lt;ref name="div"/&gt;
+      &lt;ref name="pre"/&gt;
+      &lt;ref name="Heading.class"/&gt;
+      &lt;ref name="dl"/&gt;
+      &lt;ref name="p.explicit"/&gt;
+      &lt;ref name="ol.explicit"/&gt;
+      &lt;ref name="ul.explicit"/&gt;
+    &lt;/choice&gt;
+  &lt;/zeroOrMore&gt;
+&lt;/define&gt;
+
+&lt;define name="em.explicit"&gt;
+  &lt;element name="explicit:em"&gt;
+    &lt;ref name="em.attlist"/&gt;
+    &lt;ref name="Inline.model"/&gt;
+  &lt;/element&gt;
+&lt;/define&gt;
+
+&lt;define name="p.explicit"&gt;
+  &lt;element name="explicit:p"&gt;
+    &lt;ref name="p.attlist"/&gt;
+    &lt;ref name="Inline.model"/&gt;
+  &lt;/element&gt;
+&lt;/define&gt;
+
+&lt;define name="ol.explicit"&gt;
+  &lt;element name="explicit:ol"&gt;
+    &lt;ref name="ol.attlist"/&gt;
+    &lt;oneOrMore&gt;
+      &lt;ref name="li"/&gt;
+    &lt;/oneOrMore&gt;
+  &lt;/element&gt;
+&lt;/define&gt;
+
+&lt;define name="ul.explicit"&gt;
+  &lt;element name="explicit:ul"&gt;
+    &lt;ref name="ul.attlist"/&gt;
+    &lt;oneOrMore&gt;
+      &lt;ref name="li"/&gt;
+    &lt;/oneOrMore&gt;
+  &lt;/element&gt;
+&lt;/define&gt;
+
+&lt;define name="emphasis_marker"&gt;
+  &lt;element name="terminal:emphasis_marker"&gt;
+    &lt;value type="string"&gt;*&lt;/value&gt;
+  &lt;/element&gt;
+&lt;/define&gt;
+
+&lt;define name="paragraph_separator"&gt;
+  &lt;element name="terminal:paragraph_separator"&gt;
+    &lt;value type="string"&gt;&amp;#x0a;&amp;#x0a;&lt;/value&gt;
+  &lt;/element&gt;
+&lt;/define&gt;
+
+&lt;define name="line_separator"&gt;
+  &lt;element name="terminal:line_separator"&gt;
+    &lt;value type="string"&gt;&amp;#x0a;&lt;/value&gt;
+  &lt;/element&gt;
+&lt;/define&gt;
+
+&lt;define name="ol_item_marker"&gt;
+  &lt;element name="terminal:ol_item_marker"&gt;
+    &lt;value type="token"&gt;&amp;#x0a;# &lt;/value&gt;
+  &lt;/element&gt;
+&lt;/define&gt;
+
+&lt;define name="ul_item_marker"&gt;
+  &lt;element name="terminal:ul_item_marker"&gt;
+    &lt;value type="token"&gt;&amp;#x0a;* &lt;/value&gt;
+  &lt;/element&gt;
+&lt;/define&gt;
+
+&lt;define name="hr_marker"&gt;
+  &lt;element name="terminal:hr_marker"&gt;
+    &lt;value type="token"&gt;&amp;#x0a;----&lt;/value&gt;
+  &lt;/element&gt;
+&lt;/define&gt;
+&lt;/grammar&gt;</programlisting></appendix><bibliography><title> Bibliography</title><bibliomixed xml:id="b59">
+    Backus, J.W.,
+    The Syntax and Semantics of the Proposed International Algebraic Language of Zürich ACM-GAMM Conference,
+    <emphasis>Proceedings of the International Conference on Information Processing, UNESCO</emphasis>,
+    1959, pp.125-132.
+  </bibliomixed><bibliomixed xml:id="b64">
+    Brzozowski, J. A. 1964. Derivatives of Regular Expressions. <emphasis>J. ACM 11</emphasis>,
+    4 (Oct. 1964), 481-494.
+    doi:<biblioid class="doi">10.1145/321239.321249</biblioid>.
+  </bibliomixed><bibliomixed xml:id="b00">
+    Greg J. Badros. 2000.
+    JavaML: a markup language for Java source code.
+    <emphasis>Computer Networks</emphasis> 33, 1-6 (June 2000), 159-177.
+    doi:<biblioid class="doi">10.1016/S1389-1286(00)00037-2</biblioid>.
+  </bibliomixed><bibliomixed xml:id="b07">
+    Mark Bergsma, 2007. Wikimedia architecture
+    <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.nedworks.org/~mark/presentations/kennisnet/Wikimedia%20architecture%20(kennisnet).pdf</link>
+  </bibliomixed><bibliomixed xml:id="b10">
+    Mario Blažević, 2010. Grammar-driven Markup Generation.
+    In <emphasis>Proceedings of Balisage: The Markup Conference 2010</emphasis>.
+    Balisage Series on Markup Technologies, vol. 5 (2010).
+    <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.balisage.net/Proceedings/vol5/html/Blazevic01/BalisageVol5-Blazevic01.html</link>.
+    doi:<biblioid class="doi">10.4242/BalisageVol5.Blazevic01</biblioid>.
+  </bibliomixed><bibliomixed xml:id="c01">
+    James Clark and Makoto Murata. RELAX NG Specification.
+    <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://relaxng.org/spec-20011203.html</link>, 2001. ISO/IEC 19757-2:2003.
+  </bibliomixed><bibliomixed xml:id="c02">
+    James Clark. An algorithm for RELAX NG validation
+    <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.thaiopensource.com/relaxng/derivative.html</link>
+  </bibliomixed><bibliomixed xml:id="c02c">
+    James Clark. RELAX NG compact syntax, Committee Specification 21 November 2002, OASIS
+    <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://relaxng.org/compact-20021121.html</link>
+  </bibliomixed><bibliomixed xml:id="c08">
+    James Clark. Modularization of XHTML in RELAX NG
+    <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.thaiopensource.com/relaxng/xhtml/</link>
+  </bibliomixed><bibliomixed xml:id="c03">
+    James R. Cordy, 2003.
+    Generalized Selective XML Markup of Source Code Using Agile Parsing.
+    In <emphasis>Proceedings of the 11th IEEE International Workshop on Program Comprehension</emphasis> (IWPC '03).
+    IEEE Computer Society, Washington, DC, USA, 144-
+  </bibliomixed><bibliomixed xml:id="j04">
+    Rick Jeliffe. From Wiki to XML, through SGML.
+    <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.xml.com/pub/a/2004/03/03/sgmlwiki.html</link>
+  </bibliomixed><bibliomixed xml:id="m62">
+    John McCarthy,
+    Towards a Mathematical Science of Computation,
+    Proceedings of <emphasis>IFIP Congress</emphasis> 1962,
+    pages 21-28,
+    <emphasis>North Holland Publishing Company</emphasis>, Amsterdam
+  </bibliomixed><bibliomixed xml:id="m04">
+    J.I. Maletic, M. Collard, and H. Kagdi,
+    Leveraging XML technologies in developing program analysis tools.
+    IEEE Digest 2004, 80 (2004), doi:<biblioid class="doi">10.1049/ic:20040255</biblioid>.
+  </bibliomixed><bibliomixed xml:id="p95">
+    Parr, T. J. and Quong, R. W.  ANTLR: A predicated-LL(k) parser generator.
+    <emphasis>Software: Practice and Experience</emphasis>,
+    volume 25, issue 7, 1995. John Wiley &amp; Sons, Ltd.
+    doi:<biblioid class="doi">10.1002/spe.4380250705</biblioid>
+  </bibliomixed><bibliomixed xml:id="p09">
+    Jaroslav Porubän, Michal Forgáč, and Miroslav Sabo, Annotation Based Parser Generator.
+    <emphasis>Proceedings of the International Multiconference on Computer Science and Information Technology</emphasis>, 2009, pp. 707–714
+  </bibliomixed><bibliomixed xml:id="q11">
+    Luis Quesada, Fernando Berzal, and Juan-Carlos Cubero,
+    A Tool for Model-Based Language Specification.
+    Department of Computer Science and Artificial Intelligence, CITIC, University of Granada,
+    <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://arxiv.org/abs/1111.3970v1</link>
+  </bibliomixed><bibliomixed xml:id="r05">
+    Raihan Al-Ekram and Kostas Kontogiannis. 2005.
+    An XML-Based Framework for Language Neutral Program Representation Generic Analysis.
+    In <emphasis>Proceedings of the Ninth European Conference on Software Maintenance and Reengineering (CSMR '05)</emphasis>.
+    IEEE Computer Society, Washington, DC, USA, 42-51.
+    doi:<biblioid class="doi">10.1109/CSMR.2005.10</biblioid>
+  </bibliomixed><bibliomixed xml:id="s05">
+    Sperberg-McQueen, C. M. Applications of Brzozowski derivatives to XML schema processing.
+    In <emphasis>Extreme Markup Languages</emphasis> 2005, page 26, Internet, 2005. IDEAlliance.
+  </bibliomixed><bibliomixed xml:id="s86">
+    Standard Generalized Markup Language (SGML)
+    <emphasis>International Organization for Standardization</emphasis> ISO 8879:1986
+  </bibliomixed><bibliomixed xml:id="w93">
+    Sam Wilmott, Beyond SGML.
+    <emphasis>Exoterica Technical Report</emphasis> ETR-9, 1993.
+    <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://developers.omnimark.com/etcetera/etr09/</link>
+  </bibliomixed></bibliography></article>

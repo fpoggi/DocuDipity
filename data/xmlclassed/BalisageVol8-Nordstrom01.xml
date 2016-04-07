@@ -1,0 +1,499 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?><classedDocument><article xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink" class="po-hcontainer e0 e0" version="5.0-subset Balisage-1.3"><title class="po-block e1 e1"><textual class="po-textual">Using XML to Implement XML</textual></title><subtitle class="po-block e2 e2"><textual class="po-textual">Or, Since XProc Is XML, Shouldn't Everything Else Be, Too?</textual></subtitle><info class="po-record e3 e3"><confgroup class="po-record e4 e4"><conftitle class="po-field e5 e5"><textual class="po-textual">Balisage: The Markup Conference 2012</textual></conftitle><confdates class="po-field e6 e6"><textual class="po-textual">August 7 - 10, 2012</textual></confdates></confgroup><abstract class="po-container e7 e7"><para class="po-block e8 e8"><textual class="po-textual">This paper discusses implementing XProc-based publishing and processing in a
+				document management system that is currently very difficult to expand because even
+				though it handles and processes XML, the system is currently implemented in a way
+				that makes any changes to publishing and processing difficult. The author currently
+				depends on C# developers without XML knowledge for any changes.</textual></para><para class="po-block e9 e9"><textual class="po-textual">The paper suggests using XML to </textual><emphasis class="po-inline e10 e10" role="ital"><textual class="po-textual">implement</textual></emphasis><textual class="po-textual"> the
+				XProc pipelines with, handling everything from the </textual><emphasis class="po-inline e11 e11"><textual class="po-textual">.bat</textual></emphasis><textual class="po-textual"> files
+				for the XProc engine to the GUI that makes the pipelines available to the end user.
+				This XML can be used to generate both, but is also useful as an abstraction layer
+				that black-boxes not only the XProc but everything surrounding it, providing a
+				blueprint for the processes, simplifying development and, for the author,
+				eliminating an unwanted dependency to C# developers.</textual></para></abstract><author class="po-record e12 e12"><personname class="po-record e13 e13"><firstname class="po-field e14 e14"><textual class="po-textual">Ari</textual></firstname><surname class="po-field e15 e15"><textual class="po-textual">Nordström</textual></surname></personname><personblurb class="po-container e16 e16"><para class="po-block e17 e17"><textual class="po-textual">Ari Nordström is the resident XML guy at Condesign AB in Göteborg, Sweden. His
+					information structures and solutions are used by Volvo Cars, Ericsson, and many
+					others, with more added every year. His favourite XML specification remains
+					XLink so quite a few of his frequent talks and presentations on XML focus on
+					linking. </textual></para><para class="po-block e18 e18"><textual class="po-textual">Ari spends some of his spare time projecting films at the Draken Cinema in
+					Göteborg, which should explain why he wants to automate cinemas using XML. He
+					now realises it's too late, however.</textual></para></personblurb><affiliation class="po-record e19 e19"><orgname class="po-block e20 e20"><textual class="po-textual">Condesign AB</textual></orgname></affiliation><email class="po-field e21 e21"><textual class="po-textual">ari.nordstrom@condesign.se</textual></email></author><legalnotice class="po-container e22 e22"><para class="po-block e23 e23"><textual class="po-textual">Copyright © 2012 Ari Nordström, Condesign AB.</textual></para></legalnotice><keywordset class="po-table e24 e24" role="author"><keyword class="po-field e25 e25"><textual class="po-textual">Pipeline processing</textual></keyword><keyword class="po-field e26 e26"><textual class="po-textual">XProc</textual></keyword><keyword class="po-field e27 e27"><textual class="po-textual">Implementing XProc pipelines using XML</textual></keyword><keyword class="po-field e28 e28"><textual class="po-textual">Black-boxing feature sets</textual></keyword><keyword class="po-field e29 e29"><textual class="po-textual">XProc pipeline processes described in XML blueprints</textual></keyword></keywordset></info><section class="po-hcontainer e30 e30" xml:id="section-2012-2-22-12-44-1-184541-"><title class="po-block e31 e31"><textual class="po-textual">The Problem</textual></title><para class="po-block e32 e32"><textual class="po-textual">My company develops and markets a document management system. It does what these
+			things do; there is an XML editor, there is a database, and there is middleware for
+			version handling, workflows, modularisation, reuse, etc. Something we call the </textual><emphasis class="po-inline e33 e33" role="bold"><textual class="po-textual">Process Manager</textual></emphasis><textual class="po-textual"> processes XML documents, for example, outputs
+			them in PDF. Unfortunately, it is currently difficult to add new processes for new
+			formats or media, something that such a system should handle without difficulty.</textual></para><section class="po-hcontainer e34 e34" xml:id="section-2012-2-22-14-18-20-72491660-1"><title class="po-block e35 e35"><textual class="po-textual">The Process Manager</textual></title><section class="po-hcontainer e36 e36" xml:id="section-2012-3-11-12-48-9-97934954-"><title class="po-block e37 e37"><textual class="po-textual">Overview</textual></title><para class="po-block e38 e38"><textual class="po-textual">Most documents in the system are modularised, with a root XML file linking to
+					other XML and images. The linked XML, in turn, often link to further XML and
+					images, effectively creating a </textual><quote class="po-inline e39 e39"><textual class="po-textual">link tree</textual></quote><textual class="po-textual">.</textual></para><figure class="po-container e40 e40" xml:id="figure-2012-5-26-13-3-42-452828-"><mediaobject class="po-container e41 e41"><imageobject class="po-container e42 e42"><imagedata class="po-meta e43 e43" fileref="../../../vol8/graphics/Nordstrom01/Nordstrom01-001.png"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></imagedata></imageobject></mediaobject><caption class="po-container e44 e44"><para class="po-block e45 e45"><textual class="po-textual">A Link Tree</textual></para></caption></figure><para class="po-block e46 e46"><textual class="po-textual">The </textual><emphasis class="po-inline e47 e47" role="bold"><textual class="po-textual">Process Manager</textual></emphasis><textual class="po-textual"> points out the root XML</textual><footnote class="po-popup e48 e48"><para class="po-block e49 e49"><textual class="po-textual">And lists some metadata about the process.</textual></para></footnote><textual class="po-textual"> and maps the linked resources in a link tree representation, with
+					status information, target IDs, versions, etc (see </textual><xref class="po-milestone e50 e50" linkend="figure-2012-3-13-10-19-12-34575458-"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">). This info is stored in a
+						</textual><emphasis class="po-inline e51 e51" role="ital"><textual class="po-textual">configuration</textual></emphasis><textual class="po-textual">.</textual></para><figure class="po-container e52 e52" xml:id="figure-2012-3-13-10-19-12-34575458-"><mediaobject class="po-container e53 e53"><imageobject class="po-container e54 e54"><imagedata class="po-meta e55 e55" fileref="../../../vol8/graphics/Nordstrom01/Nordstrom01-002.jpg"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></imagedata></imageobject></mediaobject><caption class="po-container e56 e56"><para class="po-block e57 e57"><textual class="po-textual">A Tree View of the Master-Language Document</textual></para></caption></figure><para class="po-block e58 e58"><textual class="po-textual">The link tree is the same, regardless of document language, and therefore
+					useful when handling translations. It can show what translations exist, help
+					create new translation packages, etc.</textual></para><figure class="po-container e59 e59" xml:id="figure-2012-3-13-10-19-12-34575458-1"><mediaobject class="po-container e60 e60"><imageobject class="po-container e61 e61"><imagedata class="po-meta e62 e62" fileref="../../../vol8/graphics/Nordstrom01/Nordstrom01-003.jpg"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></imagedata></imageobject></mediaobject><caption class="po-container e63 e63"><para class="po-block e64 e64"><textual class="po-textual">Managing Translations</textual></para></caption></figure><para class="po-block e65 e65"><textual class="po-textual">More importantly, the </textual><emphasis class="po-inline e66 e66" role="bold"><textual class="po-textual">Process Manager</textual></emphasis><textual class="po-textual"> uses
+					the configuration to publish the link tree. It starts a process that fetches the
+					necessary XML and images, and normalises them to one big XML file. It then
+					applies a FO stylesheet to output PDF using Apache FOP. Here's the basic process
+					handled by the </textual><emphasis class="po-inline e67 e67" role="bold"><textual class="po-textual">Process Manager</textual></emphasis><textual class="po-textual"> today to publish
+					a modularised document.</textual></para><figure class="po-container e68 e68" xml:id="figure-2012-5-26-15-52-49-56637183-"><mediaobject class="po-container e69 e69"><imageobject class="po-container e70 e70"><imagedata class="po-meta e71 e71" fileref="../../../vol8/graphics/Nordstrom01/Nordstrom01-004.jpg"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></imagedata></imageobject></mediaobject><caption class="po-container e72 e72"><para class="po-block e73 e73"><textual class="po-textual">Publishing Using the Current Process Manager</textual></para></caption></figure><para class="po-block e74 e74"><textual class="po-textual"> The four numbered steps at the top show what is actually exposed to the user.
+					They hide a lot of background processing, including several XSLT conversions,
+					DOM manipulation, etc. Everything is glued together using C#. The GUI itself is
+					static and always more or less the same.</textual></para><para class="po-block e75 e75"><textual class="po-textual">Other processes might output, say, HTML or ePUB, or simply a report, but
+					currently, only copying the original process, translation handling and PDF
+					publishing, all of which depend heavily on C# code, are supported.</textual></para></section><section class="po-hcontainer e76 e76" xml:id="section-2012-3-12-11-16-5-31278444-"><title class="po-block e77 e77"><textual class="po-textual">URNs Rather Than URLs</textual></title><para class="po-block e78 e78"><textual class="po-textual">Everything is identified, handled and linked to using URNs. Whether a link
+					points out XML or an image, the pointer is a URN. The URNs are unique and
+					include language/country and version information, so there's full traceability;
+					link trees can always be recreated later, regardless of what's been done to a
+					module or image since.</textual></para><para class="po-block e79 e79"><textual class="po-textual">This works well. The URNs define basic semantic documents (with
+						</textual><quote class="po-inline e80 e80"><textual class="po-textual">base</textual></quote><textual class="po-textual"> URNs), master language documents (base URN plus the
+					master language/country) and their translations (the base URNs plus the target language/country)</textual><footnote class="po-popup e81 e81"><para class="po-block e82 e82"><textual class="po-textual">The system only uses URLs when publishing—the URNs are replaced with
+							temp URLs in a temp location, thrown away afterwards.</textual></para></footnote><textual class="po-textual">.</textual></para><figure class="po-container e83 e83" xml:id="figure-2012-5-26-13-3-42-452828-1"><mediaobject class="po-container e84 e84"><imageobject class="po-container e85 e85"><imagedata class="po-meta e86 e86" fileref="../../../vol8/graphics/Nordstrom01/Nordstrom01-005.png"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></imagedata></imageobject></mediaobject><caption class="po-container e87 e87"><para class="po-block e88 e88"><textual class="po-textual">Everything Is Identified Using URNs</textual></para></caption></figure><para class="po-block e89 e89"><textual class="po-textual">Stylesheet modules, while handled </textual><emphasis class="po-inline e90 e90" role="ital"><textual class="po-textual">in</textual></emphasis><textual class="po-textual"> the
+					system in the same way as any other XML, using URNs, are developed </textual><emphasis class="po-inline e91 e91" role="ital"><textual class="po-textual">outside</textual></emphasis><textual class="po-textual"> the system and use relative URLs to refence
+					each other. Thus, the current </textual><emphasis class="po-inline e92 e92" role="bold"><textual class="po-textual">Process Manager</textual></emphasis><textual class="po-textual">
+					can only use them in the temp location when publishing, because otherwise the
+					relative URLs would break.</textual></para></section><section class="po-hcontainer e93 e93" xml:id="section-2012-3-11-12-48-9-97934954-1"><title class="po-block e94 e94"><textual class="po-textual">Process Details</textual></title><para class="po-block e95 e95"><textual class="po-textual">The </textual><emphasis class="po-inline e96 e96" role="bold"><textual class="po-textual">Process Manager</textual></emphasis><textual class="po-textual"> can currently do the following:</textual><itemizedlist class="po-table e97 e97"><listitem class="po-container e98 e98"><para class="po-block e99 e99"><textual class="po-textual">Create and save new configs, with titles, descriptions and other
+								metadata, and point out the exact version and language of a root XML
+								document using its URN. </textual></para></listitem><listitem class="po-container e100 e100"><para class="po-block e101 e101"><textual class="po-textual">Open and edit an existing config.</textual></para></listitem><listitem class="po-container e102 e102"><para class="po-block e103 e103"><textual class="po-textual">Copy an existing configuration and the root XML pointed out by it,
+								that is, create a </textual><quote class="po-inline e104 e104"><textual class="po-textual">fork</textual></quote><textual class="po-textual"> of the XML</textual><footnote class="po-popup e105 e105"><para class="po-block e106 e106"><textual class="po-textual">This is done to change the profile used to publish the
+										document.</textual></para></footnote><textual class="po-textual">.</textual></para></listitem></itemizedlist></para><figure class="po-container e107 e107" xml:id="figure-2012-3-13-10-19-12-34575458-2"><mediaobject class="po-container e108 e108"><imageobject class="po-container e109 e109"><imagedata class="po-meta e110 e110" fileref="../../../vol8/graphics/Nordstrom01/Nordstrom01-006.jpg"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></imagedata></imageobject></mediaobject><caption class="po-container e111 e111"><para class="po-block e112 e112"><textual class="po-textual">A Saved Configuration</textual></para></caption></figure><para class="po-block e113 e113"><textual class="po-textual">A configuration is used by the </textual><emphasis class="po-inline e114 e114" role="bold"><textual class="po-textual">Process
+						Manager</textual></emphasis><textual class="po-textual"> to process the document it identifies:</textual><itemizedlist class="po-table e115 e115"><listitem class="po-container e116 e116"><para class="po-block e117 e117"><textual class="po-textual">View the document as a link tree, including any linked
+								resources.</textual></para></listitem><listitem class="po-container e118 e118"><para class="po-block e119 e119"><textual class="po-textual">Create a translation package of the document, selecting the target
+								language and the modules to be included.</textual></para></listitem><listitem class="po-container e120 e120"><para class="po-block e121 e121"><textual class="po-textual">Publish the document. Currently, only PDF.</textual></para></listitem><listitem class="po-container e122 e122"><para class="po-block e123 e123"><textual class="po-textual">Profile</textual><footnote class="po-popup e124 e124"><para class="po-block e125 e125"><textual class="po-textual">That is, identify product variants and such.</textual></para></footnote><textual class="po-textual"> a copy (</textual><quote class="po-inline e126 e126"><textual class="po-textual">fork</textual></quote><textual class="po-textual">) of the document, setting
+								conditions that include or exclude content from the output</textual><footnote class="po-popup e127 e127"><para class="po-block e128 e128"><textual class="po-textual">Modules include pre-defined profiles in attribute values
+										inside them; a string comparison is made between these and a
+										profile context defined in the root element.</textual></para></footnote><textual class="po-textual">.</textual></para></listitem></itemizedlist></para></section><section class="po-hcontainer e129 e129" xml:id="section-2012-3-11-12-48-9-97934954-2"><title class="po-block e130 e130"><textual class="po-textual">Copying Configurations and XML</textual></title><para class="po-block e131 e131"><textual class="po-textual">In terms of pipeline processing, this is what happens when copying and
+					profiling a configuration:</textual><itemizedlist class="po-table e132 e132"><listitem class="po-container e133 e133"><para class="po-block e134 e134"><textual class="po-textual">Copy the root XML</textual><footnote class="po-popup e135 e135"><para class="po-block e136 e136"><textual class="po-textual">Any descendants linked to from the root XML remain
+										unchanged.</textual></para></footnote><textual class="po-textual">.</textual></para></listitem><listitem class="po-container e137 e137"><para class="po-block e138 e138"><textual class="po-textual">Copy the configuration (copied config points to copied
+								XML).</textual></para></listitem><listitem class="po-container e139 e139"><para class="po-block e140 e140"><textual class="po-textual">Change the filenames of the copied XML and config.</textual></para></listitem><listitem class="po-container e141 e141"><para class="po-block e142 e142"><textual class="po-textual">Generate new URNs for the copied config and XML</textual><footnote class="po-popup e143 e143"><para class="po-block e144 e144"><textual class="po-textual">The database tracks the relations between the old and the
+										new URNs.</textual></para></footnote><textual class="po-textual">.</textual></para></listitem><listitem class="po-container e145 e145"><para class="po-block e146 e146"><textual class="po-textual">Profile the root XML copy using a GUI in the </textual><emphasis class="po-inline e147 e147" role="bold"><textual class="po-textual">Process Manager</textual></emphasis><textual class="po-textual">, adding and removing values
+								controlled by the CMS.</textual></para></listitem><listitem class="po-container e148 e148"><para class="po-block e149 e149"><textual class="po-textual"> Insert the selected profiles as attribute values in the copied
+								XML's root element.</textual></para></listitem><listitem class="po-container e150 e150"><para class="po-block e151 e151"><textual class="po-textual">Store both copies in the CMS.</textual></para></listitem></itemizedlist></para><figure class="po-container e152 e152" xml:id="figure-2012-3-13-10-19-12-34575458-3"><mediaobject class="po-container e153 e153"><imageobject class="po-container e154 e154"><imagedata class="po-meta e155 e155" fileref="../../../vol8/graphics/Nordstrom01/Nordstrom01-007.jpg"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></imagedata></imageobject></mediaobject><caption class="po-container e156 e156"><para class="po-block e157 e157"><textual class="po-textual">A Forked Configuration</textual></para></caption></figure><para class="po-block e158 e158"><textual class="po-textual">The copied XML is then processed.</textual></para></section><section class="po-hcontainer e159 e159" xml:id="section-2012-3-11-12-48-9-97934954-3"><title class="po-block e160 e160"><textual class="po-textual">Publishing Processes</textual></title><para class="po-block e161 e161"><textual class="po-textual">Even with the limited processing available today, there are quite a few steps
+					involved, as shown in </textual><xref class="po-milestone e162 e162" linkend="figure-2012-5-26-15-52-49-56637183-"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">,
+					above.</textual></para><para class="po-block e163 e163"><textual class="po-textual">Here's how to start the actual process after pointing out a root XML and
+					possibly profiling a copy of it:</textual><orderedlist class="po-table e164 e164"><listitem class="po-container e165 e165"><para class="po-block e166 e166"><textual class="po-textual">Select the workflow status of the publication (temp, preview,
+								delivery).</textual></para></listitem><listitem class="po-container e167 e167"><para class="po-block e168 e168"><textual class="po-textual">Add any mandatory metadata to the configuration</textual><footnote class="po-popup e169 e169"><para class="po-block e170 e170"><textual class="po-textual">This metadata is used to identify the configuration rather
+										than the XML, so that the process can be found and repeated
+										later.</textual></para></footnote><textual class="po-textual">.</textual></para></listitem><listitem class="po-container e171 e171"><para class="po-block e172 e172"><textual class="po-textual">Start the publishing itself.</textual></para></listitem></orderedlist></para><para class="po-block e173 e173"><textual class="po-textual">The publishing process does this:</textual><orderedlist class="po-table e174 e174"><listitem class="po-container e175 e175"><para class="po-block e176 e176"><textual class="po-textual">Use the root XML URN to fetch the file to a temp folder. Map the
+								URN to a temporary URL for later use.</textual></para></listitem><listitem class="po-container e177 e177"><para class="po-block e178 e178"><textual class="po-textual">Parse the root XML for links (URNs, possibly followed by fragment
+								IDs). </textual></para></listitem><listitem class="po-container e179 e179"><para class="po-block e180 e180"><textual class="po-textual">Fetch the URNs and place the files in the temp folder. Map the
+								URNs to temp URLs.</textual></para></listitem><listitem class="po-container e181 e181"><para class="po-block e182 e182"><textual class="po-textual">Parse every URN that is an XML file for further links and repeat
+								until there are no more links to parse.</textual></para><note class="po-container e183 e183"><para class="po-block e184 e184"><textual class="po-textual">Currently, this is all written in C#, with whatever methods C#
+									provides to manipulate XML.</textual></para></note></listitem><listitem class="po-container e185 e185"><para class="po-block e186 e186"><textual class="po-textual">Replace every URN link with corresponding URLs in every
+								resource.</textual></para></listitem><listitem class="po-container e187 e187"><para class="po-block e188 e188"><textual class="po-textual">Use XSLT to normalise and profile the root XML, producing a single
+								large XML file. Name it for use in the </textual><emphasis class="po-inline e189 e189"><textual class="po-textual">.bat</textual></emphasis><textual class="po-textual">
+								file for FOP, below.</textual></para></listitem><listitem class="po-container e190 e190"><para class="po-block e191 e191"><textual class="po-textual">Copy the XSL-FO stylesheets from the CMS to the temp
+								folder.</textual></para><para class="po-block e192 e192"><textual class="po-textual">Currently, the CMS can only identify and use one
+									</textual><quote class="po-inline e193 e193"><textual class="po-textual">main</textual></quote><textual class="po-textual"> FO stylesheet file at a time</textual><footnote class="po-popup e194 e194"><para class="po-block e195 e195"><textual class="po-textual">Admin-based system configuration is required to point out
+										another main FO file.</textual></para></footnote><textual class="po-textual">. The FO stylesheets use </textual><code class="po-atom e196 e196"><textual class="po-textual">xsl:import</textual></code><textual class="po-textual"> and
+									</textual><code class="po-atom e197 e197"><textual class="po-textual">xsl:include</textual></code><textual class="po-textual"> with relative URLs, but the system is
+								not aware of any of this. It simply copies </textual><emphasis class="po-inline e198 e198" role="ital"><textual class="po-textual">all</textual></emphasis><textual class="po-textual"> FO files in the same physical folder ID'd by the
+								CMS to the temp location.</textual></para></listitem><listitem class="po-container e199 e199"><para class="po-block e200 e200"><textual class="po-textual">Generate a </textual><emphasis class="po-inline e201 e201"><textual class="po-textual">.bat</textual></emphasis><textual class="po-textual"> file to run the print engine
+								(Apache FOP).</textual></para></listitem><listitem class="po-container e202 e202"><para class="po-block e203 e203"><textual class="po-textual">Transform the large XML file to XSL-FO.</textual></para></listitem><listitem class="po-container e204 e204"><para class="po-block e205 e205"><textual class="po-textual">Convert the FO file to PDF.</textual></para></listitem><listitem class="po-container e206 e206"><para class="po-block e207 e207"><textual class="po-textual">Depending on the workflow status for the publishing job, name the
+								PDF file and generate a new URN for it, storing the file in the
+								database according to relevant workflow instructions.</textual></para></listitem></orderedlist></para><para class="po-block e208 e208"><textual class="po-textual">Clearly, most if not all of the above steps would be far more effective to
+					express as XProc pipelines.</textual></para></section></section><section class="po-hcontainer e209 e209" xml:id="section-2012-2-22-15-1-36-41520962-"><title class="po-block e210 e210"><textual class="po-textual">Problems</textual></title><para class="po-block e211 e211"><textual class="po-textual">The </textual><emphasis class="po-inline e212 e212" role="bold"><textual class="po-textual">Process Manager</textual></emphasis><textual class="po-textual"> is written in a non-XML way
+				in C#, by developers who understand C# but not all that much XML. It uses XSLT for
+				the transforms, but if I want to use more than one set of stylesheets, say for HTML
+				or just a different-looking PDF, I need developers to write more C# to put it all
+				together because I don't speak C#. I speak XML.</textual></para><para class="po-block e213 e213"><textual class="po-textual">The GUI is static, too. While it is sufficient when presenting PDF publishing
+				options, any other processing, be it validation, HTML output or something else,
+				requires changing it, meaning more C# code and (for me) a dependency to
+				developers.</textual></para><para class="po-block e214 e214"><textual class="po-textual">Any additional steps, for example, cross-reference validation of the normalised
+				XML document before publication, also require coding.</textual></para><para class="po-block e215 e215"><textual class="po-textual">All sorts of things (XSLT, DOM APIs, etc) are used to manipulate XML, of course,
+				but all is glued together using C# code, called using C# code, and changed using C#
+				code, with whatever methods there are in that language for manipulating XML.</textual></para><para class="po-block e216 e216"><textual class="po-textual">Suffice to say, most changes require C#.</textual></para><para class="po-block e217 e217"><textual class="po-textual">Some less obvious problems become apparent when handling XSLT:</textual><itemizedlist class="po-table e218 e218"><listitem class="po-container e219 e219"><para class="po-block e220 e220"><textual class="po-textual">The XSLT files are modularised and developed offline, outside the
+							system. They use </textual><code class="po-atom e221 e221"><textual class="po-textual">import</textual></code><textual class="po-textual"> and </textual><code class="po-atom e222 e222"><textual class="po-textual">include</textual></code><textual class="po-textual">
+							instructions with relative URLs to reference each other. Obviously, they
+							are handled together, as packages.</textual></para></listitem><listitem class="po-container e223 e223"><para class="po-block e224 e224"><textual class="po-textual">The CMS can currently not identify them as packages, however. XSLT
+							files belong together in the system only by proxy, by being stored in
+							the same place.</textual></para></listitem><listitem class="po-container e225 e225"><para class="po-block e226 e226"><textual class="po-textual">A working set of stylesheets in (and outside) the CMS always consists
+							of specific versions of the included modules. One module might require
+							uploading a dozen versions before release while another only two (see
+							below; note the versions to the left).</textual></para><mediaobject class="po-container e227 e227"><imageobject class="po-container e228 e228"><imagedata class="po-meta e229 e229" fileref="../../../vol8/graphics/Nordstrom01/Nordstrom01-008.jpg"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></imagedata></imageobject></mediaobject><para class="po-block e230 e230"><textual class="po-textual">Unfortunately the CMS can currently only use the latest versions of
+							the stylesheets, partly because of the above problems with identifying
+							packages, but also because the relative URLs in the </textual><code class="po-atom e231 e231"><textual class="po-textual">import</textual></code><textual class="po-textual">
+							and </textual><code class="po-atom e232 e232"><textual class="po-textual">include</textual></code><textual class="po-textual"> instructions do not include version
+							information, URN or otherwise.</textual></para></listitem><listitem class="po-container e233 e233"><para class="po-block e234 e234"><textual class="po-textual">The relative URLs, of course, are only usable in the temp publishing
+							folder.</textual></para></listitem></itemizedlist></para><para class="po-block e235 e235"><textual class="po-textual">This applies to any set of XML files that needs to be handled as a package by a
+				process in the CMS.</textual></para></section><section class="po-hcontainer e236 e236" xml:id="section-2012-2-22-14-18-20-72491660-"><title class="po-block e237 e237"><textual class="po-textual">A First Attempt at XProc</textual></title><para class="po-block e238 e238"><textual class="po-textual">The </textual><emphasis class="po-inline e239 e239" role="bold"><textual class="po-textual">Process Manager</textual></emphasis><textual class="po-textual">, of course, should be a
+				showcase for XProc. Replace the current functionality with an XProc engine that runs
+				pipelines for publishing and an admin interface to add and manipulate pipelines and
+				stylesheets with, without having to resort to more C# code. And, of course, a GUI
+				for the end users to select pipelines from. </textual></para><para class="po-block e240 e240"><textual class="po-textual">The developers agreed. Their lives would be easier, too. If XProc pipelines can
+				take care of any XML processing while leaving the non-XML stuff to the middleware,
+				everybody wins.</textual></para><para class="po-block e241 e241"><textual class="po-textual">Manipulating pipelines efficiently was far more complex than we first thought,
+				however. We needed a GUI for the XProc engine, ways to add parameters and input to
+				it, including pointing out modularised stylesheets and other XML, etc. This required
+					</textual><emphasis class="po-inline e242 e242" role="ital"><textual class="po-textual">more</textual></emphasis><textual class="po-textual"> C#, not less. </textual></para><para class="po-block e243 e243"><textual class="po-textual">Also, XML pipelines are only as flexible as the user interfaces to run them with.
+				I could think of using and reusing pipelines in more ways than would be practical to
+				present in any GUI. The time estimate for the admin functionality alone was far
+				bigger than our initial guesses, but the end user interface added enough hours to
+				the point where the project was turned down.</textual></para><para class="po-block e244 e244"><textual class="po-textual">So I started thinking about ways to generalise all this, to accomplish it all
+				without admin GUIs and a million lines of new C# code. This paper presents what I
+				came up with.</textual></para></section></section><section class="po-hcontainer e245 e245" xml:id="section-2012-2-22-16-35-35-33447766-"><title class="po-block e246 e246"><textual class="po-textual">Requirements</textual></title><para class="po-block e247 e247"><textual class="po-textual">Let's take a brief look at my wish list:</textual><itemizedlist class="po-table e248 e248"><listitem class="po-container e249 e249"><para class="po-block e250 e250"><textual class="po-textual">Less need for C# development when manipulating XML.</textual></para><para class="po-block e251 e251"><textual class="po-textual">For me, more C# means a more complex and less flexible solution. It makes
+						little sense to solve what is essentially an XML domain problem with
+						something else than XML, using C# developers without XML expertise.</textual></para></listitem><listitem class="po-container e252 e252"><para class="po-block e253 e253"><textual class="po-textual">Easier-to-implement XML-based processing.</textual></para><para class="po-block e254 e254"><textual class="po-textual">To implement new XML-based processes without C#, I need to handle them in
+						some other way.</textual></para></listitem><listitem class="po-container e255 e255"><para class="po-block e256 e256"><textual class="po-textual">A more dynamic GUI for end users.</textual></para><para class="po-block e257 e257"><textual class="po-textual">The publishing process is by nature flexible and changes with the task.
+						Therefore the GUI should change, too.</textual></para></listitem></itemizedlist></para></section><section class="po-hcontainer e258 e258" xml:id="section-2012-2-26-11-28-16-53652616-"><title class="po-block e259 e259"><textual class="po-textual">Describing Processes with XML</textual></title><para class="po-block e260 e260"><textual class="po-textual">XProc is XML, of course, so I think the processes surrounding it should be XML, too:</textual><itemizedlist class="po-table e261 e261"><listitem class="po-container e262 e262"><para class="po-block e263 e263"><textual class="po-textual">The XProc engine command line, from input to output, parameters, options,
+						etc, would be useful to handle in XML.</textual></para></listitem><listitem class="po-container e264 e264"><para class="po-block e265 e265"><textual class="po-textual">The command line needs to reference </textual><emphasis class="po-inline e266 e266" role="ital"><textual class="po-textual">packages</textual></emphasis><textual class="po-textual"> in the CMS (sets of XSLT or XML modules) rather
+						than individual files, so the packages would be useful to express in
+						XML.</textual></para></listitem><listitem class="po-container e267 e267"><para class="po-block e268 e268"><textual class="po-textual">A pipeline can reference different packages and use different options,
+						parameters, etc, which means that a single pipeline can be used with
+						different sets of command line options by the engine. On the other hand, one
+						such set of options might be useful to several different pipelines. A
+						pipeline and its assciated command lines should therefore be separated in
+						the XML.</textual></para></listitem><listitem class="po-container e269 e269"><para class="po-block e270 e270"><textual class="po-textual">The pipeline is part of a process in the </textual><emphasis class="po-inline e271 e271" role="bold"><textual class="po-textual">Process
+							Manager</textual></emphasis><textual class="po-textual">. It would make sense to express that whole process in
+						XML, because it would then be far easier for me to define such a
+						process.</textual></para></listitem><listitem class="po-container e272 e272"><para class="po-block e273 e273"><textual class="po-textual">A GUI presenting the processes to an end user should be as dynamic as the
+						processes themselves. With the processes expressed in XML,why not generate
+						the GUI from the XML?</textual></para></listitem></itemizedlist></para><section class="po-hcontainer e274 e274" xml:id="section-2012-2-26-11-28-16-53652616-1"><title class="po-block e275 e275"><textual class="po-textual">XProc and Calabash Command Lines</textual></title><para class="po-block e276 e276"><textual class="po-textual">Here's an example Calabash command line to handle a simple publishing process in
+				the CMS's temp location:</textual></para><programlisting class="po-block e277 e277" xml:space="preserve"><textual class="po-textual">java com.xmlcalabash.drivers.Main 
+-isource=[runtime URN/URL] 
+-istylesheet-fo=[URN/URL for FO main stylesheet] 
+normalize-stylesheet=[URN/URL string for normalize]
+pdf=[runtime PDF URN/URL]
+[URN/URL for FO XPL]</textual></programlisting><para class="po-block e278 e278"><textual class="po-textual">Most inputs are URNs mapped to temp URLs as part of the publishing process, but
+				others are generated at runtime. Generating a </textual><emphasis class="po-inline e279 e279"><textual class="po-textual">.bat</textual></emphasis><textual class="po-textual"> file
+				directly from today's system is doable, but since XProc allows writing pipelines in
+				many ways, it is hard to do consistently. For example, input to the pipeline can be
+				handled in several ways. Note how the normalize stylesheet is defined using an XProc
+					</textual><code class="po-atom e280 e280"><textual class="po-textual">option</textual></code><textual class="po-textual"> rather than the usual </textual><code class="po-atom e281 e281"><textual class="po-textual">input</textual></code><textual class="po-textual"> port:</textual></para><programlisting class="po-block e282 e282" xml:space="preserve"><textual class="po-textual">...
+&lt;p:input port="stylesheet-fo"/&gt;
+&lt;p:option name="normalize-stylesheet" required="true"/&gt;
+...</textual></programlisting><para class="po-block e283 e283"><textual class="po-textual">Taking this kind of variation into account when creating an admin interface for
+				handling pipelines would cause problems, as would, for example, </textual><emphasis class="po-inline e284 e284" role="ital"><textual class="po-textual">optional</textual></emphasis><textual class="po-textual"> parameters. User-selectable options (such as
+				stylesheets) would further complicate things. Etc.</textual></para><para class="po-block e285 e285"><textual class="po-textual">If we expressed the command line options in XML, generating the
+					</textual><emphasis class="po-inline e286 e286"><textual class="po-textual">.bat</textual></emphasis><textual class="po-textual"> file would be far more straight-forward:</textual></para><programlisting class="po-block e287 e287" xml:space="preserve"><textual class="po-textual">&lt;pipeline&gt;
+    
+  &lt;!-- XProc script for PDF --&gt;
+  &lt;script href="[URN/URL for FO XPL]"/&gt;
+  
+  &lt;!-- Calabash command line --&gt;
+  &lt;cmdlines&gt;
+    &lt;cmdline&gt;
+      &lt;inputs&gt;
+        &lt;input&gt;
+          &lt;port&gt;source&lt;/port&gt;
+          &lt;value type="ti"&gt;[runtime URN/URL]&lt;/value&gt;
+        &lt;/input&gt;
+        &lt;input&gt;
+          &lt;port&gt;stylesheet-fo&lt;/port&gt;
+          &lt;value type="uri"&gt;[URN/URL for FO main stylesheet]&lt;/value&gt;
+        &lt;/input&gt;
+      &lt;/inputs&gt;
+      &lt;options&gt;
+        &lt;option&gt;
+          &lt;name&gt;normalize&lt;/name&gt;
+          &lt;value type="uri"&gt;[URN/URL for normalize main stylesheet]&lt;/value&gt;
+        &lt;/option&gt;
+        &lt;option&gt;
+          &lt;name&gt;pdf&lt;/name&gt;
+          &lt;value type="ti"&gt;[runtime PDF URN/URL]&lt;/value&gt;
+        &lt;/option&gt;
+      &lt;/options&gt;
+    &lt;/cmdline&gt;
+  &lt;/cmdlines&gt;
+&lt;/pipeline&gt;</textual></programlisting><para class="po-block e288 e288"><textual class="po-textual">This describes a single command line for one specific script. Other command lines
+				for that same script might use other stylesheets, optional input, XProc engine
+				options, etc. My basic DTD can easily include such variations:</textual></para><figure class="po-container e289 e289" xml:id="figure-2012-3-17-14-29-0-29249958-"><mediaobject class="po-container e290 e290"><imageobject class="po-container e291 e291"><imagedata class="po-meta e292 e292" fileref="../../../vol8/graphics/Nordstrom01/Nordstrom01-009.jpg"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></imagedata></imageobject></mediaobject><caption class="po-container e293 e293"><para class="po-block e294 e294"><textual class="po-textual">The Pipeline Structure</textual></para></caption></figure><para class="po-block e295 e295"><textual class="po-textual">The </textual><code class="po-atom e296 e296"><textual class="po-textual">pipeline</textual></code><textual class="po-textual"> element allows for different command line alternatives
+				to be inserted or linked to</textual><footnote class="po-popup e297 e297"><para class="po-block e298 e298"><textual class="po-textual">Which means that they can be used by other pipelines.</textual></para></footnote><textual class="po-textual">. A GUI could easily present them as user-selectable options. Note the
+				extension mechanism to provide some support for changes to XProc (perhaps a step
+				imported from another namespace) and the engine (see </textual><xref class="po-milestone e299 e299" linkend="figure-2012-3-19-11-39-51-91905995-"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">). The extension capabilities are
+				limited, however; any addition requiring preconfiguring or input beyond the basics
+				will cause problems (see </textual><xref class="po-milestone e300 e300" linkend="section-2012-3-13-15-49-52-87255322-"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">.</textual></para><figure class="po-container e301 e301" xml:id="figure-2012-3-19-11-39-51-91905995-"><mediaobject class="po-container e302 e302"><imageobject class="po-container e303 e303"><imagedata class="po-meta e304 e304" fileref="../../../vol8/graphics/Nordstrom01/Nordstrom01-010.jpg"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></imagedata></imageobject></mediaobject><caption class="po-container e305 e305"><para class="po-block e306 e306"><textual class="po-textual">Extensions</textual></para></caption></figure><para class="po-block e307 e307"><textual class="po-textual">Here's an example with several command lines:</textual></para><programlisting class="po-block e308 e308" xml:space="preserve"><textual class="po-textual">&lt;pipeline&gt;
+  &lt;metadata&gt;
+    &lt;title&gt;PDF Output&lt;/title&gt;
+    &lt;description&gt;This process outputs PDF.&lt;/description&gt;
+  &lt;/metadata&gt;
+  &lt;!-- XProc script for PDF --&gt;
+  &lt;script href="[URN/URL for FO XPL]"/&gt;
+  &lt;cmdlines&gt;
+    &lt;cmdline id="cmd1"&gt;
+      ...
+    &lt;/cmdline&gt;
+    &lt;cmdline id="cmd2"&gt;
+      ...
+    &lt;/cmdline&gt;
+    &lt;cmdline id="cmd3"&gt;
+      ...
+    &lt;/cmdline&gt;
+  &lt;/cmdlines&gt;
+&lt;/pipeline&gt;</textual></programlisting><para class="po-block e309 e309"><textual class="po-textual">A command line alternative is easily expressed as
+					</textual><code class="po-atom e310 e310"><textual class="po-textual">/pipeline//cmdline[@id='cmd1']</textual></code><textual class="po-textual"> and so easily transformed to a
+					</textual><emphasis class="po-inline e311 e311"><textual class="po-textual">.bat</textual></emphasis><textual class="po-textual"> file once selected. Also, the alternatives are easy to
+				represent in a GUI, for example, with check boxes</textual><footnote class="po-popup e312 e312"><para class="po-block e313 e313"><textual class="po-textual">To generate a process run in batch.</textual></para></footnote><textual class="po-textual"> or a list of choices. The pipeline's </textual><code class="po-atom e314 e314"><textual class="po-textual">metadata</textual></code><textual class="po-textual"> element
+				contents can be used to add labels and help texts to the GUI</textual><footnote class="po-popup e315 e315"><para class="po-block e316 e316"><textual class="po-textual">The command line alternatives also include metadata for the same
+						purpose.</textual></para></footnote><textual class="po-textual">.</textual></para><para class="po-block e317 e317"><textual class="po-textual">A pipeline structure instance with its associated command lines</textual><footnote class="po-popup e318 e318"><para class="po-block e319 e319"><textual class="po-textual">And the packages, as defined in the next section.</textual></para></footnote><textual class="po-textual"> is </textual><emphasis class="po-inline e320 e320" role="ital"><textual class="po-textual">a blueprint for possible ways to use the
+					pipeline</textual></emphasis><textual class="po-textual">. There is no one-to-one correspondence with an actual XProc
+				script; rather, the XML represents the available choices. For example, several
+				command line alternatives might exist for a pipeline, a command line might include
+				several alternative input stylesheets, etc. A user would have to make choices for
+				each option before running the pipeline.</textual></para><para class="po-block e321 e321"><textual class="po-textual">The GUI needs to reflect this by only offering such choices once the prerequisite
+				choices have been made (for example, you'd have to select a command line before
+				selecting a stylesheet).</textual></para><note class="po-container e322 e322"><para class="po-block e323 e323"><textual class="po-textual">Why not use the XProc script itself to generate the </textual><emphasis class="po-inline e324 e324"><textual class="po-textual">.bat</textual></emphasis><textual class="po-textual">
+					file and the GUI to handle the process with? First of all, XProc scripts do not
+					easily offer the kind of modularity suggested above, nor can one XProc script
+					express all possible variations. More importantly, XProc cannot handle
+					referencing packages (see the next section) or the kind of runtime naming we
+					need.</textual></para></note><para class="po-block e325 e325"><textual class="po-textual">The </textual><code class="po-atom e326 e326"><textual class="po-textual">input</textual></code><textual class="po-textual"> step in the below example points out the root XML, but the
+				value is not known until runtime. The attribute </textual><code class="po-atom e327 e327"><textual class="po-textual">type="ti"</textual></code><textual class="po-textual"> means that
+				the system is expected to provide the content</textual><footnote class="po-popup e328 e328"><para class="po-block e329 e329"><textual class="po-textual">Other possible values include </textual><quote class="po-inline e330 e330"><textual class="po-textual">uri</textual></quote><textual class="po-textual"> to point out referenced
+						packages, described in the next section.</textual></para></footnote><textual class="po-textual">.</textual></para><programlisting class="po-block e331 e331" xml:space="preserve"><textual class="po-textual">&lt;input&gt;
+ &lt;port&gt;source&lt;/port&gt;
+ &lt;value type="ti"&gt;
+  &lt;!-- Runtime URN/URL --&gt;
+ &lt;/value&gt;
+&lt;/input&gt;</textual></programlisting></section><section class="po-hcontainer e332 e332" xml:id="section-2012-3-9-10-29-19-89702477-"><title class="po-block e333 e333"><textual class="po-textual">Packages</textual></title><para class="po-block e334 e334"><textual class="po-textual">A </textual><emphasis class="po-inline e335 e335" role="ital"><textual class="po-textual">package</textual></emphasis><textual class="po-textual"> is a collection of resources (XML,
+				XSLT, etc) identified with URNs. As the URNs identify specific versions (and
+				languages), a package can identify an arbitrary but well-defined set of files in the
+				database. Usually but not always</textual><footnote class="po-popup e336 e336"><para class="po-block e337 e337"><textual class="po-textual">Standard texts for stylesheets, for example, could be stored in separate
+						modules, without a </textual><quote class="po-inline e338 e338"><textual class="po-textual">main</textual></quote><textual class="po-textual"> module.</textual></para></footnote><textual class="po-textual">, there will be a main file that links to the others. Here's an example
+				FO stylesheet package:</textual></para><programlisting class="po-block e339 e339" xml:space="preserve"><textual class="po-textual">&lt;package id="id-fo-package"&gt;
+  &lt;metadata&gt;
+    &lt;title&gt;XSL-FO Stylesheet Package&lt;/title&gt;
+    &lt;description&gt;FO stylesheets for
+      Company X.&lt;/description&gt;
+  &lt;/metadata&gt;
+  &lt;locator href="urn:x-example:xslfo:0012:3" type="root"/&gt;
+  &lt;locator href="urn:x-example:xslfo:0019:10"/&gt;
+  &lt;locator href="urn:x-example:xslfo:0117:21"/&gt;
+  &lt;locator href="urn:x-example:xslfo:0010:1"/&gt;
+ &lt;/package&gt;</textual></programlisting><para class="po-block e340 e340"><textual class="po-textual">The package consists of URN-based links to the stylesheet files, plus some
+				metadata for the GUI. Also, the main stylesheet file is identified with a
+					</textual><code class="po-atom e341 e341"><textual class="po-textual">type</textual></code><textual class="po-textual"> attribute with the value </textual><quote class="po-inline e342 e342"><textual class="po-textual">root</textual></quote><textual class="po-textual">.</textual></para><figure class="po-container e343 e343" xml:id="figure-2012-3-17-14-29-0-29249958-1"><mediaobject class="po-container e344 e344"><imageobject class="po-container e345 e345"><imagedata class="po-meta e346 e346" fileref="../../../vol8/graphics/Nordstrom01/Nordstrom01-011.jpg"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></imagedata></imageobject></mediaobject><caption class="po-container e347 e347"><para class="po-block e348 e348"><textual class="po-textual">A Package Is Basically A Set of Links</textual></para></caption></figure><para class="po-block e349 e349"><textual class="po-textual">If the package XML is identified with
+					</textual><code class="po-atom e350 e350"><textual class="po-textual">urn:x-example:packages:123456:en-GB:1</textual></code><textual class="po-textual"> in the CMS (the last part
+				identifies the package version, </textual><quote class="po-inline e351 e351"><textual class="po-textual">1</textual></quote><textual class="po-textual">), the relevant </textual><code class="po-atom e352 e352"><textual class="po-textual">input</textual></code><textual class="po-textual">
+				in the initial pipeline processing XML from the last section is this:</textual></para><programlisting class="po-block e353 e353" xml:space="preserve"><textual class="po-textual">&lt;input&gt;
+  &lt;port&gt;stylesheet-fo&lt;/port&gt;
+  &lt;value type="uri"&gt;urn:x-example:packages:123456:en-GB:1&lt;/value&gt;
+&lt;/input&gt;</textual></programlisting><para class="po-block e354 e354"><textual class="po-textual">When generating the pipeline's </textual><emphasis class="po-inline e355 e355"><textual class="po-textual">.bat</textual></emphasis><textual class="po-textual"> file, the whole package,
+				including the package XML, is copied to the temp location, with URNs in the package
+				XML replaced with corresponding URLs (for example,
+					</textual><code class="po-atom e356 e356"><textual class="po-textual">urn:x-example:xslfo:0012:3</textual></code><textual class="po-textual"> with </textual><emphasis class="po-inline e357 e357"><textual class="po-textual">main-fo.xsl</textual></emphasis><textual class="po-textual">) .
+				Each user-selectable stylesheet alternative in a pipeline's command line (see </textual><xref class="po-milestone e358 e358" linkend="section-2012-2-26-11-28-16-53652616-1"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">) would reference a different
+				such package.</textual></para><para class="po-block e359 e359"><textual class="po-textual">Packages, then, provide the necessary abstraction layer to define input </textual><emphasis class="po-inline e360 e360" role="ital"><textual class="po-textual">from the CMS</textual></emphasis><textual class="po-textual"> to XProc pipeline processes.</textual></para><para class="po-block e361 e361"><textual class="po-textual">As we've seen, the XML that describes the packages is fairly static, easily
+				definable beforehand. With more frequent package updates, however, it might be
+				useful to call the package with a wildcard in place of the URN version
+				string:</textual></para><programlisting class="po-block e362 e362" xml:space="preserve"><textual class="po-textual">urn:x-example:packages:123456:en-GB:*</textual></programlisting><para class="po-block e363 e363"><textual class="po-textual">The wildcard means </textual><quote class="po-inline e364 e364"><textual class="po-textual">use latest version with workflow status </textual><emphasis class="po-inline e365 e365" role="ital"><textual class="po-textual">approved</textual></emphasis></quote><textual class="po-textual"> for a user with technical author
+				permissions, but </textual><quote class="po-inline e366 e366"><textual class="po-textual">use latest version with workflow status </textual><emphasis class="po-inline e367 e367" role="ital"><textual class="po-textual">reviewing</textual></emphasis></quote><textual class="po-textual"> for someone with test privileges.
+				The permissions control how URNs are processed, significantly lessening the need to
+				change or update system behaviour for small updates</textual><footnote class="po-popup e368 e368"><para class="po-block e369 e369"><textual class="po-textual">It also allows </textual><quote class="po-inline e370 e370"><textual class="po-textual">power</textual></quote><textual class="po-textual"> users with specific privileges to test
+						new features without having access to a test setup or affecting the normal,
+						day-to-day work.</textual></para></footnote><textual class="po-textual">.</textual></para><para class="po-block e371 e371"><textual class="po-textual">Finally, the package abstraction very neatly separates offline versioning (in
+				subversion, in my case) of the participating files from their online versioning. The
+				latter are a conscious decision from the developer to release a set of files, while
+				the former is simply work in progress.</textual></para></section><section class="po-hcontainer e372 e372" xml:id="section-2012-3-9-10-29-19-89702477-1"><title class="po-block e373 e373"><textual class="po-textual">Putting It All Together</textual></title><para class="po-block e374 e374"><textual class="po-textual">The </textual><emphasis class="po-inline e375 e375" role="bold"><textual class="po-textual">Process Manager</textual></emphasis><textual class="po-textual"> is meant to handle </textual><emphasis class="po-inline e376 e376" role="ital"><textual class="po-textual">processes</textual></emphasis><textual class="po-textual"> (the name sort of gives it away). Normally, a
+				complete process and the primary action that process performs (such as outputting a
+				PDF) are largely the same, but until now, it has not been possible to produce
+				variants of the process in any case.</textual></para><para class="po-block e377 e377"><textual class="po-textual">It should be. For example, two different sites sharing the same CMS might use
+					</textual><emphasis class="po-inline e378 e378" role="ital"><textual class="po-textual">almost</textual></emphasis><textual class="po-textual"> the same basic process to publish
+				documents with, with the same basic pipeline and options, but use different
+				stylesheets for their respective brands. It would be useful to glue the pipelines
+				and packages together to describe such variations.</textual></para><para class="po-block e379 e379"><textual class="po-textual">Here's a basic XML structure defining two processes A and B that use more or less
+				the same pipelines, command lines and packages:</textual></para><programlisting class="po-block e380 e380" xml:space="preserve"><textual class="po-textual">&lt;processes&gt;
+    &lt;!-- Process for A --&gt;
+    &lt;process id="id-process-A"&gt;
+      &lt;metadata&gt;
+        &lt;!-- Metadata for A Process --&gt;
+      &lt;/metadata&gt;
+      &lt;!-- Pipelines for A --&gt;
+      &lt;pipelines&gt;
+        &lt;pipeline&gt;
+          &lt;metadata&gt;
+            &lt;!-- Metadata for pipeline for A --&gt;
+          &lt;/metadata&gt;
+          &lt;!-- XProc script for A FO --&gt;
+          &lt;script href="a.xpl"/&gt;           
+          &lt;cmdlines&gt;
+            &lt;cmdline&gt;
+              &lt;!-- Command line for A FO --&gt;
+            &lt;/cmdline&gt;
+            &lt;cmdline id="id-cmdline-fo-a-and-b"&gt;
+              &lt;!-- Command line for A and B --&gt;
+            &lt;/cmdline&gt;
+          &lt;/cmdlines&gt;
+        &lt;/pipeline&gt;
+      &lt;/pipelines&gt;
+      &lt;!-- Packages available for A --&gt;
+      &lt;packages&gt;
+        &lt;!-- Normalize stylesheet reference --&gt;
+        &lt;locator href="packages.xml#id-norm"/&gt;
+        &lt;package id="id-fo-a"&gt;
+          &lt;!-- FO stylesheet package for A --&gt;
+        &lt;/package&gt;
+        &lt;!-- Link to A and B FO stylesheet package --&gt;
+        &lt;locator href="packages.xml#id-fo-a-b"/&gt;
+      &lt;/packages&gt;
+    &lt;/process&gt;
+    
+    &lt;!-- Process for B --&gt;
+    &lt;process id="id-process-b"&gt;
+      &lt;metadata&gt;
+        &lt;!-- Metadata for B Process --&gt;
+      &lt;/metadata&gt;
+      &lt;!-- Pipelines available for B --&gt;
+      &lt;pipelines&gt;
+        &lt;pipeline&gt;
+          &lt;metadata&gt;
+            &lt;!-- Metadata for B pipeline --&gt;
+          &lt;/metadata&gt;
+          &lt;!-- XProc script for B FO --&gt;
+          &lt;script href="b.xpl"/&gt;
+          &lt;!-- Links to command lines --&gt;
+          &lt;cmdlines&gt;
+            &lt;!-- Link to A and B FO cmdline (above) --&gt;
+            &lt;locator href="#id-cmdline-fo-a-and-b"/&gt;
+          &lt;/cmdlines&gt;
+        &lt;/pipeline&gt;
+      &lt;/pipelines&gt;
+      &lt;!-- Packages available for B --&gt;
+      &lt;packages&gt;
+        &lt;!-- Normalize package ref --&gt;
+        &lt;locator href="#id-norm"/&gt;
+        &lt;!-- Link to A and B FO package --&gt;
+        &lt;locator href="packages.xml#id-fo-a-b"/&gt;
+      &lt;/packages&gt;
+    &lt;/process&gt;
+&lt;/processes&gt;</textual></programlisting><para class="po-block e381 e381"><textual class="po-textual">Both A and B link to </textual><emphasis class="po-inline e382 e382"><textual class="po-textual">packages.xml</textual></emphasis><textual class="po-textual"> that defines common
+				packages:</textual></para><programlisting class="po-block e383 e383" xml:space="preserve"><textual class="po-textual">&lt;packages&gt;
+  &lt;package id="id-norm"&gt;
+				&lt;!-- Normalize stylesheet package  --&gt;
+  &lt;/package&gt;
+  &lt;package id="id-fo-a-b"&gt;
+				&lt;!-- FO stylesheet package for A and B --&gt;
+  &lt;/package&gt;
+&lt;/packages&gt;</textual></programlisting><para class="po-block e384 e384"><textual class="po-textual">A </textual><code class="po-atom e385 e385"><textual class="po-textual">processes</textual></code><textual class="po-textual"> instance is a blueprint for every possible
+					</textual><quote class="po-inline e386 e386"><textual class="po-textual">allowed</textual></quote><textual class="po-textual"> process, each of which is associated with one or more
+				possible pipelines. The user has to select a process before selecting from the
+				pipelines for that process.</textual></para><figure class="po-container e387 e387" xml:id="figure-2012-3-17-14-29-0-29249958-2"><mediaobject class="po-container e388 e388"><imageobject class="po-container e389 e389"><imagedata class="po-meta e390 e390" fileref="../../../vol8/graphics/Nordstrom01/Nordstrom01-012.jpg"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></imagedata></imageobject></mediaobject><caption class="po-container e391 e391"><para class="po-block e392 e392"><textual class="po-textual">Putting It All Together</textual></para></caption></figure><para class="po-block e393 e393"><textual class="po-textual">The design is modular, so everything from command lines to packages can be reused.
+				The modules are identified with URNs, just as everything else in the system,
+				offering traceability and allowing whole processes to be repeated when
+				required.</textual></para></section></section><section class="po-hcontainer e394 e394" xml:id="section-2012-3-9-10-29-19-89702477-2"><title class="po-block e395 e395"><textual class="po-textual">Implementation and Examples</textual></title><para class="po-block e396 e396"><textual class="po-textual">The process XML is not a reality yet, partly because I have to deal with paying
+			customers and other inconveniences, but also because my XForms/HTML5 skills really
+			aren't on par with what I need. Nevertheless, below are some comments and ideas about an
+			implementation.</textual></para><section class="po-hcontainer e397 e397" xml:id="section-2012-3-13-11-15-27-15906474-"><title class="po-block e398 e398"><textual class="po-textual">Writing This Paper</textual></title><para class="po-block e399 e399"><textual class="po-textual">This whitepaper, written in our system, provided me with further motivation:</textual><itemizedlist class="po-table e400 e400"><listitem class="po-container e401 e401"><para class="po-block e402 e402"><textual class="po-textual">The paper uses our basic XML format. It's straight-forward to convert
+							it to the conference XML</textual><footnote class="po-popup e403 e403"><para class="po-block e404 e404"><textual class="po-textual">I have a DocBook script that does the job.</textual></para></footnote><textual class="po-textual">, but currently I have to do it outside the system.</textual></para></listitem><listitem class="po-container e405 e405"><para class="po-block e406 e406"><textual class="po-textual">The conversion means replacing URN-based links (cross-references and
+							images) with relative URLs. Again, I have to do this outside the
+							system.</textual></para></listitem><listitem class="po-container e407 e407"><para class="po-block e408 e408"><textual class="po-textual">The paper and images are zipped together before they are sent to
+							Balisage. Yes, I have to do that outside the system, too.</textual></para></listitem></itemizedlist></para><para class="po-block e409 e409"><textual class="po-textual">The additional processes (URN/URL conversion, export to DocBook, zip) are simple
+				enough to implement, but right now I'd need a C# developer to do it. I'd have to
+				explain what I want done and why, and the GUI would need changing. And it would all
+				have to be done again if I wanted to add some other processing.</textual></para></section><section class="po-hcontainer e410 e410" xml:id="section-2012-3-13-11-15-27-15906474-2"><title class="po-block e411 e411"><textual class="po-textual">Generating GUIs</textual></title><para class="po-block e412 e412"><textual class="po-textual">The </textual><code class="po-atom e413 e413"><textual class="po-textual">processes</textual></code><textual class="po-textual"> structure is a blueprint describing every available
+				process to manipulate XML documents with. Every process is associated with one or
+				more pipelines, run using one or more command lines, and each command line may allow
+				for one or more stylesheets.</textual></para><para class="po-block e414 e414"><textual class="po-textual">An XForms (or HTML5) GUI generated from the process XML blueprint can help a user
+				visualise these choices. </textual><xref class="po-milestone e415 e415" linkend="figure-2012-3-19-13-29-37-70038244-"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">
+				provides a blueprint example. The Delivery process, for example, can use three
+				pipelines but Validation only one. The </textual><emphasis class="po-inline e416 e416" role="ital"><textual class="po-textual">Printed</textual></emphasis><textual class="po-textual">
+				pipeline can only use one command line, but the </textual><emphasis class="po-inline e417 e417" role="ital"><textual class="po-textual">Web</textual></emphasis><textual class="po-textual">
+				pipeline four. Etc.</textual></para><figure class="po-container e418 e418" xml:id="figure-2012-3-19-13-29-37-70038244-"><mediaobject class="po-container e419 e419"><imageobject class="po-container e420 e420"><imagedata class="po-meta e421 e421" fileref="../../../vol8/graphics/Nordstrom01/Nordstrom01-013.png"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></imagedata></imageobject></mediaobject><caption class="po-container e422 e422"><para class="po-block e423 e423"><textual class="po-textual">Process Selection Relations</textual></para></caption></figure><para class="po-block e424 e424"><textual class="po-textual">Using XSLT for GUI generation is the obvious choice as the underlying database is
+				relational, SQL rather than XML, and there's no XQuery implementation</textual><footnote class="po-popup e425 e425"><para class="po-block e426 e426"><textual class="po-textual">Doing this in a system based on, say, eXist or MarkLogic would probably be
+						much easier.</textual></para></footnote><textual class="po-textual">.</textual></para><para class="po-block e427 e427"><textual class="po-textual">The process XML requires input from the system for pointing out the root XML
+				document to be processed. My knowledge of the JScript-based tree controls we use to
+				select XML in a web browser is limited, but it is supposedly easy to query the tree
+				and get lists of the XML (as URNs) and other resources, including translations and
+				older versions of the listed XML.</textual></para><figure class="po-container e428 e428" xml:id="figure-2012-3-19-10-11-40-31495103-1"><mediaobject class="po-container e429 e429"><imageobject class="po-container e430 e430"><imagedata class="po-meta e431 e431" fileref="../../../vol8/graphics/Nordstrom01/Nordstrom01-014.jpg"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></imagedata></imageobject></mediaobject><caption class="po-container e432 e432"><para class="po-block e433 e433"><textual class="po-textual">Selecting the Root XML Document</textual></para></caption></figure><para class="po-block e434 e434"><textual class="po-textual">The root XML selection is used as a starting point for pipeline processing. The
+				next step is to generate a GUI from the process XML blueprint. </textual><xref class="po-milestone e435 e435" linkend="figure-2012-3-19-10-11-40-31495103-"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual"> shows a GUI example that follows
+				the logic in </textual><xref class="po-milestone e436 e436" linkend="figure-2012-3-19-13-29-37-70038244-"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">.</textual></para><figure class="po-container e437 e437" xml:id="figure-2012-3-19-10-11-40-31495103-"><mediaobject class="po-container e438 e438"><imageobject class="po-container e439 e439"><imagedata class="po-meta e440 e440" fileref="../../../vol8/graphics/Nordstrom01/Nordstrom01-015.png"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></imagedata></imageobject></mediaobject><caption class="po-container e441 e441"><para class="po-block e442 e442"><textual class="po-textual">Process Selection Page Generated From XML</textual></para></caption></figure><para class="po-block e443 e443"><textual class="po-textual">Apologies for the crude mock-up. Generating new selection lists based on a
+				previous selection can probably be represented better, but hopefully the principle
+				is clear. The labels are fetched from the process metadata, as are help texts. Also,
+				note the checkbox to enable logging; this is a command line alternative</textual><footnote class="po-popup e444 e444"><para class="po-block e445 e445"><textual class="po-textual">Other such options can be similarly handled.</textual></para></footnote><textual class="po-textual">.</textual></para><para class="po-block e446 e446"><textual class="po-textual">The selections provide data to refine the process instance. I'm not enough of a
+				programmer, nor sufficiently familar with XForms, to tell you exactly how this is
+				handled best. For example, the GUI needs to handle a </textual><emphasis class="po-inline e447 e447" role="bold"><textual class="po-textual">Back</textual></emphasis><textual class="po-textual"> or </textual><emphasis class="po-inline e448 e448" role="bold"><textual class="po-textual">Previous</textual></emphasis><textual class="po-textual"> button, </textual><emphasis class="po-inline e449 e449" role="ital"><textual class="po-textual">Undo</textual></emphasis><textual class="po-textual">, and more, and I don't know what the best way to
+				implement those would be. Here, I work from the assumption that the user's choices
+				can be stored in a temporary process XML instance, used to generate the batch file
+				to run the actual pipeline.</textual></para></section><section class="po-hcontainer e450 e450" xml:id="section-2012-3-13-11-15-27-15906474-1"><title class="po-block e451 e451"><textual class="po-textual">Generating .bat Files</textual></title><note class="po-container e452 e452"><para class="po-block e453 e453"><textual class="po-textual">My current markup started life assuming that </textual><emphasis class="po-inline e454 e454" role="ital"><textual class="po-textual">Calabash</textual></emphasis><textual class="po-textual"> is used for XProc processing. It should handle other
+					XProc engines, but this is outside the scope of this paper.</textual></para></note><para class="po-block e455 e455"><textual class="po-textual">Pipelines are run using batch files generated from the process XML using XSLT, but
+				first, the process XML must be </textual><quote class="po-inline e456 e456"><textual class="po-textual">narrowed down</textual></quote><textual class="po-textual"> to an instance defining
+				only a specific pipeline and options, as described above.</textual></para><para class="po-block e457 e457"><textual class="po-textual">Generating the batch file:</textual><itemizedlist class="po-table e458 e458"><listitem class="po-container e459 e459"><para class="po-block e460 e460"><textual class="po-textual">Select an XML root document URN from a list in the </textual><emphasis class="po-inline e461 e461" role="bold"><textual class="po-textual">Process Manager</textual></emphasis><textual class="po-textual"> GUI. Use it as input to the
+							pipeline command line input in the process XML blueprint</textual><footnote class="po-popup e462 e462"><para class="po-block e463 e463"><textual class="po-textual">How do we know which input? The pipeline input values to be
+									provided by the system are identified as such using a
+										</textual><code class="po-atom e464 e464"><textual class="po-textual">type</textual></code><textual class="po-textual"> attribute.</textual></para></footnote><textual class="po-textual">.</textual></para></listitem><listitem class="po-container e465 e465"><para class="po-block e466 e466"><textual class="po-textual">Create a temp location for the process.</textual></para></listitem><listitem class="po-container e467 e467"><para class="po-block e468 e468"><textual class="po-textual">Convert the process XML blueprint into a GUI (see the previous
+							section) to handle the rest of the selection.</textual></para></listitem><listitem class="po-container e469 e469"><para class="po-block e470 e470"><textual class="po-textual">Select a process from the GUI.</textual></para></listitem><listitem class="po-container e471 e471"><para class="po-block e472 e472"><textual class="po-textual">Select a pipeline from the available choices for that process.</textual></para></listitem><listitem class="po-container e473 e473"><para class="po-block e474 e474"><textual class="po-textual">Select command line options for the pipeline.</textual></para></listitem><listitem class="po-container e475 e475"><para class="po-block e476 e476"><textual class="po-textual">Select an XSL package. The package is fetched from the system and
+							placed in the temp location. The main stylesheet temp URL is used as
+							further input.</textual></para></listitem><listitem class="po-container e477 e477"><para class="po-block e478 e478"><textual class="po-textual">Save the choices that are made in a process XML instance.</textual></para></listitem><listitem class="po-container e479 e479"><para class="po-block e480 e480"><textual class="po-textual">Convert that instance to a batch file.</textual></para></listitem></itemizedlist></para><para class="po-block e481 e481"><textual class="po-textual">The batch file then runs the selected pipeline and its options, parsing the root
+				XML document and any linked resources for URNs, downloads the associated resources,
+				eventually replacing URNs in links with temp URLs, and runs any XSL and other
+				processing as specified by the pipeline.</textual></para></section><section class="po-hcontainer e482 e482" xml:id="section-2012-3-13-11-15-27-15906474-3"><title class="po-block e483 e483"><textual class="po-textual">Writing Process XML</textual></title><para class="po-block e484 e484"><textual class="po-textual">When writing a new pipeline script (or editing an existing one), it is useful to
+				simultaneously edit the process XML blueprint that will include the pipeline.
+				Command line options might require updating or a new XSLT stylesheet might be needed
+				with the pipeline. It makes sense to put the new pipeline in context so whatever
+				options it has are handled.</textual></para><para class="po-block e485 e485"><textual class="po-textual">The process XML is edited in the same authoring environment that is used to write
+				documents. The markup uses the same linking mechanism as the XML documents—XLink
+				with URN-based links—so only some additional CSS styling and macros for editing are
+				required; the rest is already in place. The results can be checked into the CMS,
+				just as any other XML, with very few modifications</textual><footnote class="po-popup e486 e486"><para class="po-block e487 e487"><textual class="po-textual">Most have to do with giving the XML editor access to the template storage
+						area in the CMS.</textual></para></footnote><textual class="po-textual">.</textual></para></section><section class="po-hcontainer e488 e488" xml:id="section-2012-3-13-15-49-52-87255322-"><title class="po-block e489 e489"><textual class="po-textual">Limitations and Other Considerations</textual></title><para class="po-block e490 e490"><textual class="po-textual">Some notable problem areas:</textual><itemizedlist class="po-table e491 e491"><listitem class="po-container e492 e492"><para class="po-block e493 e493"><textual class="po-textual"> Script </textual><quote class="po-inline e494 e494"><textual class="po-textual">style</textual></quote><textual class="po-textual">. Some decisions need to be made, such as
+							which options to support and which XProc script designs to allow (such
+							as what kinds of input to expect for stylesheets). These decisions need
+							to be documented in a </textual><quote class="po-inline e495 e495"><textual class="po-textual">style guide</textual></quote><textual class="po-textual"> for writing process XML
+							to avoid breaking the conversions.</textual></para></listitem><listitem class="po-container e496 e496"><para class="po-block e497 e497"><textual class="po-textual">XProc engine configuration. Setting Calabash configuration options,
+							system properties, etc
+								(</textual><link class="po-inline e498 e498" xlink:actuate="onRequest" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://xmlcalabash.com/docs/reference/configuration.html</textual></link><textual class="po-textual">)
+							are not supported as of yet (see below).</textual></para></listitem><listitem class="po-container e499 e499"><para class="po-block e500 e500"><textual class="po-textual">GUI design. A GUI that allows for the dynamics of the process XML,
+							including </textual><quote class="po-inline e501 e501"><textual class="po-textual">Undo</textual></quote><textual class="po-textual">, </textual><quote class="po-inline e502 e502"><textual class="po-textual">Back</textual></quote><textual class="po-textual"> and such, requires
+							temporarily storing the choices made in the various stages during the
+							process, including identifying what </textual><quote class="po-inline e503 e503"><textual class="po-textual">Back</textual></quote><textual class="po-textual"> means as opposed
+							to </textual><quote class="po-inline e504 e504"><textual class="po-textual">Undo</textual></quote><textual class="po-textual">, but also to use the temp information for
+							immediate feedback in the GUI during processing.</textual></para></listitem></itemizedlist></para><para class="po-block e505 e505"><textual class="po-textual">Other parts are easier:</textual><itemizedlist class="po-table e506 e506"><listitem class="po-container e507 e507"><para class="po-block e508 e508"><textual class="po-textual">The XSLT for the conversions, both to (and from) the GUI and to a
+								</textual><emphasis class="po-inline e509 e509"><textual class="po-textual">.bat</textual></emphasis><textual class="po-textual"> file, should be fairly straight-forward,
+							once the above is clear.</textual></para></listitem><listitem class="po-container e510 e510"><para class="po-block e511 e511"><textual class="po-textual">Hooking the process XML functionality to the current root XML document
+							selection in the system should also be straight-forward. The queries to
+							handle and fetch URNs are already in place, as are creating and handling
+							temp locations</textual><footnote class="po-popup e512 e512"><para class="po-block e513 e513"><textual class="po-textual">It might be preferable to handle the </textual><emphasis class="po-inline e514 e514" role="bold"><textual class="po-textual">Process Manager</textual></emphasis><textual class="po-textual"> steps that invoke the process
+									XML itself as an XProc pipeline.</textual></para></footnote><textual class="po-textual">.</textual></para></listitem><listitem class="po-container e515 e515"><para class="po-block e516 e516"><textual class="po-textual">Additions to the XML editor for the basic styling and handling of
+							process XML are needed, but also permissions and web services to allow
+							admins to write and check in the process XML. Both of these changes are
+							trivial to implement.</textual></para></listitem></itemizedlist></para><para class="po-block e517 e517"><textual class="po-textual">Many extensions (see </textual><xref class="po-milestone e518 e518" linkend="ref-item-2012-6-4-9-15-58-33787595-1"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">,
+					</textual><link class="po-inline e519 e519" xlink:actuate="onRequest" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://xmlcalabash.com/docs/reference/extensions.html</textual></link><textual class="po-textual">) fall into
+				the engine domain as they happen completely behind the scenes; if the engine
+				supports it, the process XML will, too, </textual><emphasis class="po-inline e520 e520" role="ital"><textual class="po-textual">if</textual></emphasis><textual class="po-textual"> they can
+				be run transparently, without having to preconfigure the engine in some way. If they
+				require engine configuration, setting system properties or specific input on the
+				command line, they will fail as anything depending on setting a Calabash system
+				property or configuration on the command line is currently not supported.</textual></para></section><section class="po-hcontainer e521 e521" xml:id="section-2012-3-19-10-11-40-31495103-"><title class="po-block e522 e522"><textual class="po-textual">Educating Users</textual></title><para class="po-block e523 e523"><textual class="po-textual">The final point I want to make is perhaps the most important one. The process XML
+				is very useful when </textual><emphasis class="po-inline e524 e524" role="ital"><textual class="po-textual">educating</textual></emphasis><textual class="po-textual"> users about a
+				process, without requiring detailed knowledge about XProc, XSLT, or some other
+				processing. It allows us to represent the process with just enough information for
+				an overview because it </textual><quote class="po-inline e525 e525"><textual class="po-textual">black-boxes</textual></quote><textual class="po-textual"> every component.</textual></para><para class="po-block e526 e526"><textual class="po-textual">For example:</textual><itemizedlist class="po-table e527 e527"><listitem class="po-container e528 e528"><para class="po-block e529 e529"><textual class="po-textual">My developers today know a lot about C# and SQL, but processing XML
+							today requires a lot of effort, for them to understand what I want to do
+							and for me to understand what they can help me with, and how.</textual></para><para class="po-block e530 e530"><textual class="po-textual">The process XML allows me to do the XML parts cleanly, without lengthy
+							explanations or compromises, but also for the developers to query the
+							process XML for their purposes, for example, to understand how to handle
+							process data in the database. The process XML is a clean interface
+							between me and them.</textual></para></listitem><listitem class="po-container e531 e531"><para class="po-block e532 e532"><textual class="po-textual">The process XML can be visualised as a tree mapping process choices
+							and options. If user permission handling is added to the process XML,
+							user category-specific descriptions can be included.</textual></para></listitem><listitem class="po-container e533 e533"><para class="po-block e534 e534"><textual class="po-textual">The process XML can be used to simulate a process without actually
+							processing anything. This is very useful when training new users.</textual></para></listitem><listitem class="po-container e535 e535"><para class="po-block e536 e536"><textual class="po-textual">Of course, the process XML can be converted to SVG or other formats
+							for more flexibility.</textual></para></listitem></itemizedlist></para></section><section class="po-hcontainer e537 e537" xml:id="section-2012-3-13-11-15-27-15906474-4"><title class="po-block e538 e538"><textual class="po-textual">And More</textual></title><para class="po-block e539 e539"><textual class="po-textual">I'm thinking about adding:</textual><itemizedlist class="po-table e540 e540"><listitem class="po-container e541 e541"><para class="po-block e542 e542"><textual class="po-textual">A more generic XProc engine </textual><code class="po-atom e543 e543"><textual class="po-textual">cmdline</textual></code><textual class="po-textual"> structure. The
+							current one is not feature-complete.</textual></para></listitem><listitem class="po-container e544 e544"><para class="po-block e545 e545"><textual class="po-textual">Better support for reshaped or restyled GUIs for different
+							requirements. Some of these might be user-controlled while others might
+							result from the user's document types, product variants, etc.</textual></para></listitem><listitem class="po-container e546 e546"><para class="po-block e547 e547"><textual class="po-textual">Markup support for workflow status and user permission information,
+							providing workflow- or user-based conditionality when selecting
+							processes, pipelines, etc.</textual></para></listitem><listitem class="po-container e548 e548"><para class="po-block e549 e549"><textual class="po-textual">And, of course, I'm working on a demo implementation.</textual></para></listitem></itemizedlist></para></section></section><section class="po-hcontainer e550 e550" xml:id="section-2012-3-9-10-29-19-89702477-3"><title class="po-block e551 e551"><textual class="po-textual">Conclusions</textual></title><para class="po-block e552 e552"><textual class="po-textual">They say that there is nothing quite as practical as a good theory. I'm not a
+			programmer and cannot describe the specifics of a good XForms or HTML5 GUI integrated in
+			the </textual><emphasis class="po-inline e553 e553" role="bold"><textual class="po-textual">Process Manager</textual></emphasis><textual class="po-textual">, but I can describe the markup
+			handling the GUI's semantics. The process XML happened because of a practical problem,
+			namely that we had a static GUI and system, requiring coding for everything, but I
+			wanted something more flexible, something I could change without having to ask for help
+			all the time.</textual></para><para class="po-block e554 e554"><textual class="po-textual">In other words, I created a theory that I believe is practical:</textual><itemizedlist class="po-table e555 e555"><listitem class="po-container e556 e556"><para class="po-block e557 e557"><textual class="po-textual">Expressing the processes, pipelines, etc as XML is a useful abstraction,
+						providing the black-boxing of feature sets. The XML provides a blueprint for
+						the total features available without having to go into specifics.</textual></para></listitem><listitem class="po-container e558 e558"><para class="po-block e559 e559"><textual class="po-textual">It's easy to add new output media and formats, extra steps, etc, just as
+						it should be with XProc, but it is also easy for me to write new processes
+						with new pipelines and options, thereby changing the whole feature set of
+						the </textual><emphasis class="po-inline e560 e560" role="bold"><textual class="po-textual">Process Manager</textual></emphasis><textual class="po-textual">, and do this in XML,
+						using an XML editor.</textual></para></listitem><listitem class="po-container e561 e561"><para class="po-block e562 e562"><textual class="po-textual">The process XML solves the problem with identifying </textual><emphasis class="po-inline e563 e563" role="ital"><textual class="po-textual">packages</textual></emphasis><textual class="po-textual"> rather than single files for the pipelines, but
+						also handling URNs and URLs for online and offline use, respectively,
+						without compromising.</textual></para></listitem><listitem class="po-container e564 e564"><para class="po-block e565 e565"><textual class="po-textual">The process XML is dynamic so the GUI needs to be, too. Generating the GUI
+						from it offers the exact same dynamics.</textual></para></listitem><listitem class="po-container e566 e566"><para class="po-block e567 e567"><textual class="po-textual">The process XML can visualise and describe the feature sets for any user
+						category, without requiring detailed knowledge of the underlying
+						mechanics.</textual></para></listitem></itemizedlist></para></section><section class="po-hcontainer e568 e568" xml:id="section-2012-6-4-9-15-58-33787595-"><title class="po-block e569 e569"><textual class="po-textual">Acknowledgments</textual></title><para class="po-block e570 e570"><textual class="po-textual">I'd like to thank Stefan Tisell and Daniel Jonsson, both at Condesign, for their
+			invaluable insights and input. Also, my thanks need to go to Henrik Mårtensson. His
+			ideas on pipeline processing (see </textual><xref class="po-milestone e571 e571" linkend="ref-item-2012-6-4-9-15-58-33787595-2"><textual class="po-textual">Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao Pippo! Ciao</textual></xref><textual class="po-textual">) have certainly affected mine.</textual></para><para class="po-block e572 e572"><textual class="po-textual">Any errors and omissions in this paper, however, are purely mine.</textual></para></section><bibliography class="po-hcontainer e573 e573"><title class="po-block e574 e574"><textual class="po-textual">Bibliography</textual></title><bibliomixed class="po-block e575 e575" xml:id="ref-item-2012-6-4-9-15-58-33787595-" xreflabel="XProc: An XML Pipeline&#10;&#9;&#9;&#9; Language"><quote class="po-inline e576 e576"><textual class="po-textual">XProc: An XML
+				Pipeline Language.
+				</textual></quote><link class="po-inline e577 e577" xlink:actuate="onRequest" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://www.w3.org/TR/2010/REC-xproc-20100511/</textual></link></bibliomixed><bibliomixed class="po-block e578 e578" xml:id="ref-item-2012-6-4-9-15-58-33787595-1" xreflabel="XML Calabash (also known&#10;&#9;&#9;&#9; as Stop Censorship)"><quote class="po-inline e579 e579"><textual class="po-textual">XML
+				Calabash (also known as Stop Censorship). </textual></quote><textual class="po-textual">Calabash web page, at
+				</textual><link class="po-inline e580 e580" xlink:actuate="onRequest" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://xmlcalabash.com/</textual></link><textual class="po-textual">. For the purposes of this paper, especially
+			interesting are the sections on extensions
+				(</textual><link class="po-inline e581 e581" xlink:actuate="onRequest" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://xmlcalabash.com/docs/reference/extensions.html</textual></link><textual class="po-textual">) and engine
+			configuration
+			(</textual><link class="po-inline e582 e582" xlink:actuate="onRequest" xlink:show="new" xlink:type="simple"><textual class="po-textual">http://xmlcalabash.com/docs/reference/configuration.html</textual></link><textual class="po-textual">).</textual></bibliomixed><bibliomixed class="po-block e583 e583" xml:id="ref-item-2012-6-4-9-15-58-33787595-2" xreflabel="eXtensible Filter Objects&#10;&#9;&#9;&#9; (XFO)"><quote class="po-inline e584 e584"><textual class="po-textual">eXtensible Filter
+				Objects (XFO). </textual></quote><textual class="po-textual">Whitepaper by Henrik Mårtensson about pipeline-based
+			processing of XML, presented at XML Scandinavia 2001. XFO was implemented in Perl but
+			the black-boxing of arbitrary feature sets was a useful abstraction in any context.
+			Unfortunately, the paper no longer seems to be available online.</textual></bibliomixed></bibliography></article></classedDocument>

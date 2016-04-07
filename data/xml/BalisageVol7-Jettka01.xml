@@ -1,0 +1,720 @@
+<?xml version="1.0" encoding="UTF-8"?><article xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink" version="5.0-subset Balisage-1.3"><title>Visualization of concurrent markup</title><subtitle>From trees to graphs, from 2D to 3D</subtitle><info><confgroup><conftitle>Balisage: The Markup Conference 2011</conftitle><confdates>August 2 - 5, 2011</confdates></confgroup><abstract><para>The present paper deals with the visualization of concurrent markup. An initial 
+        discussion of the underlying model of XML instances demonstrates that valid XML exceeds  
+        the expressive power of trees. While some challenging 
+        features of concurrent markup, like overlaps, can be captured by minimally extended trees, 
+        there are other phenomena which can be adequately expressed in XML using constructs 
+        which instantiate advanced graph structures (e.g. discontinuous elements or repetitive structures).
+      </para><para>On the basis of two representation formats for concurrent markup, XStandoff and xLMNL,
+    two distinct approaches towards its visualization are presented. The first method has been
+    implemented in XSLT as an SVG-based 2D visualization strategy. Although it can be shown that this
+    first approach provides an adequate (though not optimal) solution to overlapping
+    structures, it is not capable of illustrating enhanced graph-based phenomena
+    like the ones mentioned above. Therefore, some remarks about possible 3D visualizations are made
+    which  show how the adding of another dimension could contribute to the appropriately expressive
+    visualization of concurrent markup. In addition, a prototypic implementation based on XSLT and X3D is discussed as first
+    step towards a three-dimensional illustration.</para></abstract><author><personname><firstname>Daniel</firstname><surname>Jettka</surname></personname><personblurb><para>Daniel Jettka recently finished his Master degree in Linguistics after acquiring a BA
+          in Text Technology. During his studies he worked together with Andreas Witt, Dieter
+          Metzing, Daniela Goecke and Maik Stührenberg in the <emphasis role="ital">Sekimo</emphasis> project of the Research Group 437 <emphasis role="ital">Text-technological Modelling of Information</emphasis> funded by the German Research
+          Foundation on different XSLT stylesheets for the handling and transformation of
+          overlapping markup. His Master's Thesis dealt with the representation, processing, and
+          visualization of multiple hierarchies with XStandoff and XSLT. </para></personblurb></author><author><personname><firstname>Maik</firstname><surname>Stührenberg</surname></personname><personblurb><para>Maik Stührenberg studied Computational Linguistics at Bielefeld University. He worked
+          four years as research assistant at Giessen University in different text-technological
+          projects together with Henning Lobin and Georg Rehm. Afterwards, he worked together with
+          Andreas Witt, Dieter Metzing, Daniela Goecke and Daniel Jettka in the <emphasis role="ital">Sekimo</emphasis> project of the Research Group 437 <emphasis role="ital">Text-technological Modelling of Information</emphasis> funded by the German Research
+          Foundation and is now employed as research assistant at Bielefeld University finishing his PhD thesis. His main
+          research interests include specifications for structuring multiple annotated data, query
+          languages, and query processing. </para></personblurb></author><legalnotice><para>Copyright © 2011 by the authors. Used with permission.</para></legalnotice></info><section><title>Introduction</title><para>More than ten years after the birth of XML the limits of XML-based markup languages seem
+      to become apparent: while on the one hand some people tend to see XML together with its accompanying 
+      specifications as the new (too complex) SGML and try to trim it (see <xref linkend="Cowan2010"/>, <xref linkend="Cowan2011"/>, and the discussion on the xml-dev mailing list), on the other hand the underlying formal
+      model of a tree cannot cope with multiple and possibly overlapping structures. Together with an
+      increasing demand for multiple annotated corpora in the Digital Humanities questions for
+      visualizations of concurrent annotations have been posed. In this paper we will sketch
+      out two main points: firstly, we will show that the underlying data model of XML is not a tree at
+      all and that it is possible to serialize graph-like structures including discontinuous
+      elements with plain XML. We will then choose two XML-based representation formats as basis for
+      our visualization efforts which will be discussed in <xref linkend="sec.visualization"/>. The
+      paper continues with some thoughts about 3D visualization techniques and the discussion of a prototypic implementation in <xref linkend="sec.3D"/> and concludes with some remarks about possible future research.</para></section><section><title>A formal model of XML instances</title><para>The majority of people dealing with XML instances tend to believe that markup languages
+      which were developed to annotate mainly textual content use the formal model of a tree. This
+      thinking can be traced back to statements like the one expressed in 1987 by J. H. Coombs et al. who
+      stated that <quote>[d]ocuments have a natural hierarchical structure: chapters have sections,
+        sections have subsections, and so on, until one reaches sentences, words, and
+        letters</quote> (<xref linkend="Coombs1987"/>, p. 945) and was encouraged by the OHCO theory
+      that states that a text is an ordered hierarchy of content objects.<footnote><para>Of course one could easily dig any deeper down to the beginnings of the GenCode(r)
+          project and GML, but the point we want to take here is that there is a historic
+          relation between markup languages on the one hand and the formal model of a tree on the
+          other hand.</para></footnote> From the formal perspective a tree is a special kind of directed graph. We reconsider the definition of a
+      directed graph stated in <xref linkend="Hopcroft1979"/>, p. 2: <blockquote><para>A directed graph (or digraph), [...] denoted G = (V, E), consists of a finite set of
+          vertices [(or nodes)] V and a set of ordered pairs of vertices E called arcs. We denote an
+          arc from v to w by v→w.</para><para>A path in a digraph is a sequence of vertices v<subscript>1</subscript>,
+            v<subscript>2</subscript>,...,v<subscript>k</subscript>, k≥1, such that
+            v<subscript>1</subscript>→v<subscript>i+1</subscript> is an arc for each i,
+          1≤i≤k. We say the path is from v<subscript>i</subscript> to
+            v<subscript>k</subscript>. [...] If v→w is an arc we say v is a predecessor of w
+          and w is a successor of v.</para></blockquote> An ordered, directed tree is a digraph that has a single root node (a node
+      <quote>that has no predecessors and from which there is a path to every vertex</quote>).
+      Each node other than the root node has exactly one predecessor and is connected to this single
+      parent via one (and only one) edge. The successors of each node are ordered from left to right
+        (<xref linkend="Hopcroft1979"/>, p. 3).</para><para>Usually, one tends to agree on XML instances to use the formal model of a single-rooted
+      tree: in the XML specification it is stated that <quote>[t]here is exactly one element, called
+        the root, or document element, no part of which appears in the content of any other element.
+        For all other elements, if the start-tag is in the content of another element, the end-tag
+        is in the content of the same element. More simply stated, the elements, delimited by start-
+        and end-tags, nest properly within each other.</quote> And indeed, if we stick with the
+      nesting of elements (and attributes) we end up with a tree. A tree, however, has certain
+      limitations: since crossing arcs are not allowed, it is not possible to use a tree model for
+      the annotation of discontinuous segments (for example multi-word idioms discussed in <xref linkend="Pianta2004"/> or the <quote>Alice in Wonderland</quote> example quoted in <xref linkend="Sperberg-McQueen2008"/>). Although it would be possible to use TEI's milestone
+      elements or fragmentation (see <xref linkend="TEI2011"/>) one would still have to deal with
+      separate element instances, that is the relation between the parts of the elements would be
+      implicit.</para><para>A related disadvantage of trees is that it is often not possible to annotate concurrent
+    – and possibly overlapping – hierarchies.
+   <blockquote><para>A hierarchy is formed by a subset
+        of the elements of the markup language used to encode the document. The elements within a
+        hierarchy have a clear nested structure. When more than such a hierarchy is present in the
+        markup language, the hierarchies are called concurrent.</para></blockquote>(<xref linkend="Dekhtyar2005"/>, p. 186).</para><para>Even if two concurrent hierarchies do not overlap it is
+      impossible to merge them into a single tree if they do not share the same root, since trees
+      are only allowed to have a single root node (see definition above). But the major problem
+      related to concurrent markup is that multiple hierarchies may lead to multiple parentage of
+      nodes: <blockquote><para>Overlap can be represented by graphs that are very like trees, but in which nodes may
+          have multiple parents. Overlap is multiple parentage.</para></blockquote>(<xref linkend="Sperberg-McQueen2004"/>).</para><para>Since one of the main driving forces behind the creation of multi-dimensionally annotated
+   documents are linguistic corpora, the TEI Guidelines <xref linkend="TEI2011"/> have not only
+   improved the awareness of scholars of the Digital Humanities for the problems regarding this
+   special field of research, but also provided some solutions to it. However, the different possible
+   solutions (multiple documents, milestone elements, fragmentation and standoff markup) that are
+   part of Chapter 20 of the aforementioned Guidelines are flawed with several disadvantages.
+   Using multiple documents (cf. Section 20.1 of <xref linkend="TEI2011"/>) results in redundant
+   storage of the primary data, that is the character stream which is to be annotated and – as
+   an effect – makes further changes to both primary data and annotation files time-consuming,
+   which in turn can result in inconsistencies between the various instances. In addition
+    <quote>there is no explicit indication that the various views, which might be in separate files,
+    are related to each other: it might prove difficult to combine the views or access information
+    from one view while processing the file that contains the encoding of another</quote> (<xref linkend="TEI2011"/>, p. 621). The last point can be addressed by using the primary data as
+   reference system, that is the positions in the character stream delimit the start and end points
+   of corresponding markup, see <xref linkend="Witt2002"/> (which is already referred to in the
+   Guidelines) or <xref linkend="Witt2004"/> and the standoff approaches discussed below. The
+   related approach of <emphasis role="ital">twin documents</emphasis> shown in <xref linkend="Marinelli2008"/> in addition to the primary data redundantly stores the so-called
+    <emphasis role="ital">sacred markup</emphasis>, that is markup which is shared between different
+   annotation layers (in contrast to <emphasis role="ital">profane markup</emphasis> that is related
+   to a single layer). Although redundancy may lead to an improved sustainability (according to
+    <xref linkend="Rehm2010"/>) we tend to follow the Guidelines in believing that the price in form
+   of possible inconsistencies is too high.</para><para>For these reasons several proposals for graph-based formal models and alternative representation
+      formats have been discussed in the last decade. As already stated above, a graph is the
+      superclass of trees and therefore allows both multiple parentage and multiple root nodes. 
+      Again, first proposals for the XML representation of graphs can be found in the TEI Guidelines <xref linkend="TEI2011"/> in Chapter 18 by introducing feature structures.<footnote><para>It may be of interest that the mention of feature structures in the TEI Guidelines can be traced back to the first proposal (P1) written in Waterloo script. Even this very draft version dated from 1990 covered feature structures as a means for linguistic annotation.</para></footnote>
+     Feature structures are single-rooted labeled directed acyclic graphs, often displayed as attribute value matrices, 
+      that can be used for representing various kinds of information. The TEI approach was standardized as international 
+      standard <xref linkend="iso24610-2006"/> 
+      and can be used as serialization format for multiple annotations as shown by <xref linkend="Stegmann2009"/>. 
+      However, as discussed in this special paper, the resulting XML instances can be quite huge, rendering this 
+      approach quite limited.</para><para>
+      Another alternative formal model for markup languages that has received much attention is the
+      General Ordered-Descendant Directed Acyclic Graph (GODDAG) which was introduced in <xref linkend="Sperberg-McQueen2004"/> (see <xref linkend="Sperberg-McQueen2008a"/> for a more
+      recent discussion). To be more precise, there is a whole range of GODDAG sub-classes, such as
+      the restricted GODDAG (r-GODDAG), the generalized GODDAG, the clean GODDAG, the normalized
+      GODDAG and the colored GODDAG (the latter two have been introduced in <xref linkend="Huitfeldt2006"/>). <xref linkend="fig.goddag"/> (taken from <xref linkend="Sperberg-McQueen2008"/>) shows a GODDAG representing the aforementioned
+        <quote>Alice in Wonderland</quote> example.</para><figure xml:id="fig.goddag"><title>GODDAG representation of discontinuous segments</title><mediaobject><imageobject><imagedata format="png" fileref="../../../vol7/graphics/Jettka01/Jettka01-001.png" width="754"/></imageobject></mediaobject></figure><para>GODDAGs (and especially clean r-GODDAGs) can be serialized as TexMECS instances (see <xref linkend="Marcoux2008"/> for a detailed discussion about the relationships between GODDAG
+      sub-class and TexMECS serialization). The respective GODDAG serialization of the above-named example 
+      is shown below:</para><programlisting xml:space="preserve">&lt;p|Alice
+was beginning to get very tired ...
+it had no pictures or conversations in it,
+&lt;q|and what is the use of a book,|-q&gt;
+thought Alice
+&lt;+q|without pictures or conversation?|q&gt;
+|p&gt;</programlisting><para>Apart from TexMECS there are other serialization options for representing GODDAGs.
+      Especially the work done by <xref linkend="DiIorio2009"/> is of interest, since they have
+      shown that a data structure based on RDF, called EARMARK (Extreme Annotational RDF Markup), not
+      only fully supports the expressiveness of GODDAGs but additionally introduces a new sub-type,
+      called e-GODDAG (extended GODDAG) that adds anonymous non-terminal nodes (for establishing
+      multiple arcs between two nodes and therefore allowing repetitive structures).</para><para>A second alternative data model for markup languages is the Annotation Graph introduced by
+        <xref linkend="Bird1999"/> which was especially designed for linguistic annotations. An AG
+      formally is a labeled directed acyclic graph (labeled DAG) which uses an
+        <quote>order-preserving map assigning times to (some of) the nodes</quote> (<xref linkend="Bird1999"/>, p. 2). This formal model is used for example in the annotation tool
+      EXMARaLDA discussed in <xref linkend="Schmidt2001"/>. An extended version can be found in the
+      NITE Object Model (cf. <xref linkend="Carletta2003"/>, <xref linkend="Carletta2005"/>) which
+      combines hierarchies between nodes (similar to ordered directed trees) and the timing
+      information. Both formal models use plain XML as serialization format. We will discuss this
+      finding in a few paragraphs.</para><para>The third alternative formal model is based on the Core Range Algebra, introduced in <xref linkend="Nicol2002"/> and extended in <xref linkend="Nicol2002a"/>. It uses flat ranges over
+      the primary data and allows for overlapping ranges. A related serialization format is the
+      Layered Markup and Annotation Language (LMNL, <xref linkend="Tennison2002"/>, <xref linkend="Piez2004"/>, <xref linkend="Cowan2006"/>). LMNL uses the primary data as base
+      consisting of zero or more atoms (representing a Unicode char or something completely
+      different). Ranges over the base contain the atoms between a matching start tag and end tag
+      and may overlap. Even self-overlap (that is overlapping of elements, or ranges that bear the
+      same generic identifier, see <xref linkend="Marinelli2008"/> for an example) is supported, as
+      well as anonymous ranges (similar to the aforementioned e-GODDAGs). Annotations can be located
+      at both the start and end tag and since LMNL completely abandons hierarchy there is no need
+      for a 'root range' (although the containment relation can be used via the use of base layers,
+      see <xref linkend="Cowan2006"/>). Despite its naming as 'markup language' LMNL was developed as
+      a formal model, therefore several serialization formats exist. Apart from LMNL's own Sawtooth
+      syntax there is Canonical LMNL in XML (CLIX, formerly known as HORSE, Hierarchy-Obfuscating
+      Really Spiffy Encoding, <xref linkend="DeRose2004"/>, <xref linkend="Bauman2005"/>), ECLIX
+      (extended CLIX) and xLMNL. While CLIX and ECLIX use TEI milestone elements, xLMNL is a flat
+      representation, similar to a standoff approach (examples of all these formats can be found at
+        <link xlink:href="http://www.piez.org/wendell/papers/dh2010/clix-sonnets/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.piez.org/wendell/papers/dh2010/clix-sonnets/</link>). <xref linkend="fig.lmnl"/> shows a 
+      possible graphical representation of ranges and annotations in LMNL (here syllables and morphemes). 
+      Note, that due to the two-dimensional 
+      approach the hierarchy that is implied by the vertical arrangement of the bars is not compulsory in LMNL.</para><figure xml:id="fig.lmnl"><title>Possible graphical representation of LMNL ranges</title><mediaobject><imageobject><imagedata fileref="../../../vol7/graphics/Jettka01/Jettka01-002.png" width="300" format="png"/></imageobject></mediaobject></figure><para>Other approaches that shall be mentioned here for the sake of completeness are multi-colored
+      XML (cf. <xref linkend="Jagadish2004"/>), the use of delay nodes (<xref linkend="LeMaitre2006"/>), the tabling approach described by <xref linkend="Durusau2004"/> and XCONCUR by <xref linkend="Schonefeld2007"/>. While some of the aforementioned data models make use of a
+      serialization format of their own, others succeed in using plain XML. This indicates that the
+      formal model of XML instances has a greater expressive power than a directed ordered tree. And
+      indeed, if we leave the field of Digital Humanities, there is a number of authors that tend to
+      agree that the formal model of XML instances is that of a graph: <xref linkend="Abiteboul2000"/>, <xref linkend="Polyzotis2002"/>, <xref linkend="Gou2007"/> or <xref linkend="Moeller2007"/>. The discrepancy in the findings can be explained by the sole observation of hierarchical
+      relations of elements or by alternatively taking the XML-inherent integrity constraints
+      into consideration, that is ID/IDREF/IDREFS token type attributes (in DTD) or
+      xs:ID/xs:IDREF/xs:IDREFS and xs:key/xs:keyref (in XSD) respectively. In this context a line can be drawn between well-formed XML instances (in that case we still have to deal with a tree) and valid
+      XML instances according to a document grammar that makes use of the aforementioned integrity
+      constraints. Using a native XML approach has the advantage of being able to make use not only of a
+      large range of software products but also of related specifications such as XPath, XSLT, 
+      and XQuery. Especially the upcoming XSLT 3.0 is quite interesting since it supports streamable
+      transformations allowing for the manipulation of fairly big XML instances (cf. <xref linkend="Kay2010"/>). In addition, XML-based visualization formats such as the 2D SVG and
+      newer approaches such as the 3D X3D are promising formats for the visualization of concurrent
+      annotations (see <xref linkend="sec.visualization"/> and <xref linkend="sec.3D"/>). We have already found proofs
+      that the full power of valid XML instances can be used to serialize Annotation Graphs or LMNL
+      ranges. <xref linkend="lst.minimal"/> demonstrates that valid XML can even make use
+      of cyclic paths (or arcs) and therefore definitely exceeds the formal power of trees.</para><figure xml:id="lst.minimal"><title>Minimal valid XML instance with cyclic paths</title><programlisting xml:space="preserve">
+&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;!DOCTYPE a
+[ &lt;!ELEMENT a EMPTY&gt;
+  &lt;!ATTLIST a id ID #IMPLIED idref IDREF #IMPLIED&gt; ]&gt;
+&lt;a id="a" idref="a"/&gt;</programlisting></figure><para>Together with the standoff approach mentioned both in the TEI Guidelines and <xref linkend="Thompson1997"/>, this expressive power can be used to capture multiple annotated data. In <xref linkend="Stührenberg2008"/> and <xref linkend="Stührenberg2009"/> the authors
+      discuss the XStandoff meta annotation format which is capable of representing discontinuous elements, multiple parentage and virtual elements (amongst others). Since it is XML-based
+      we have chosen it as one of the two formats (besides xLMNL) to discuss visualization
+      aspects.</para></section><section><title>XStandoff as a starting point for visualization</title><para>XStandoff is a representation format for multiple hierarchies which evolved from works of
+      the research project <quote>Secondary structuring of information and comparative discourse
+        analysis</quote> (Sekimo)<footnote><para>The project Sekimo was a part of the distributed research group <link xlink:href="http://www.text-technology.de" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest"><quote>Text Technological Modelling of
+              Information</quote></link> which lasted from 2003 to 2009.</para></footnote>. The format is a successor of the Sekimo Generic Format (SGF, cf. <xref linkend="Stührenberg2008"/>) and was presented in detail at the Balisage 2009 (cf. <xref linkend="Stührenberg2009"/>, for current developments see <link xlink:href="http://www.xstandoff.net/tk.html" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">the XStandoff website</link>). XStandoff can be seen as the combination of the standoff approach
+      and the formal model of GODDAGs, capable of using native XML to represent multiple hierarchies and the
+      specifically challenging structures such as overlaps, discontinuous elements, or virtual elements. </para><para>Since XStandoff makes use of the XML-inherent ID/IDREF mechanism the underlying model can
+      be seen as a graph and therefore the format is able to represent any graph-based structure.
+      Because of this it can become quite complicated to construct XStandoff instances manually. For
+      this reason the XStandoff toolkit was implemented<footnote><para>The stylesheets and corresponding documentation are available at
+        <link xlink:href="http://www.xstandoff.net/tk.html" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.xstandoff.net/tk.html</link>.</para></footnote>, providing XSLT 2.0 stylesheets for the
+      creation of XStandoff instances on the basis of standard inline XML annotations and their corresponding
+      primary data (<emphasis role="ital">inline2XSF.xsl</emphasis>), the merging of XSF instances
+        (<emphasis role="ital">mergeXSF.xsl</emphasis>), the extraction or deletion of levels or layers<footnote><para>Levels refer to the conceptual realization of annotations and layers to the technical
+          realization (cf. <xref linkend="Goecke2010"/>). This distinction is reflected by XStandoff
+          in providing the corresponding meta elements <code>&lt;xsf:level&gt;</code> and
+            <code>&lt;xsf:layer&gt;</code>.
+        </para></footnote> from XStandoff instances (<emphasis role="ital">extractXSFcontent.xsl</emphasis>)
+      and the transformation of standard XStandoff instances to inline XStandoff representations
+        (<emphasis role="ital">XSF2inline.xsl</emphasis>), the latter mainly for demonstration
+      purposes. 
+      The workflow for creating an XStandoff instance can be demonstrated by the following
+      example. The basis for the construction is given by two separate annotations (<xref linkend="fig.drive-anno"/>) for a single primary data text (<xref linkend="fig.drive-pd"/>): </para><figure xml:id="fig.drive-pd"><title>Textual primary data</title><programlisting xml:space="preserve">Asked a girl what she wanted to be
+She said baby, can't you see
+I wanna be famous, a star on the screen
+But you can do something in between
+Baby you can drive my car
+Yes I'm gonna be a star
+Baby you can drive my car
+And baby I love you</programlisting></figure><figure xml:id="fig.drive-anno"><title>The annotations (verse structure &amp; direct discourse)</title><programlisting xml:space="preserve">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;text xmlns="http://www.tei-c.org/ns/1.0"&gt;
+    &lt;body&gt;
+        &lt;lg type="verse"&gt;
+            &lt;l&gt;Asked a girl what she wanted to be&lt;/l&gt;
+            &lt;l&gt;She said baby, can't you see&lt;/l&gt;
+            &lt;l&gt;I wanna be famous, a star on the screen&lt;/l&gt;
+            &lt;l&gt;But you can do something in between&lt;/l&gt;
+        &lt;/lg&gt;
+        &lt;lg type="chorus"&gt;
+            &lt;l&gt;Baby you can drive my car&lt;/l&gt;
+            &lt;l&gt;Yes I'm gonna be a star&lt;/l&gt;
+            &lt;l&gt;Baby you can drive my car&lt;/l&gt;
+            &lt;l&gt;And baby I love you&lt;/l&gt;
+        &lt;/lg&gt;
+    &lt;/body&gt;
+&lt;/text&gt;</programlisting><programlisting xml:space="preserve">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;text xmlns="http://www.tei-c.org/ns/1.0"&gt;
+    &lt;body&gt;
+        &lt;p&gt;Asked a girl what she wanted to be
+            She said &lt;q&gt;baby, can't you see
+            I wanna be famous, a star on the screen
+            But you can do something in between&lt;/q&gt;&lt;/p&gt;
+        &lt;p&gt;&lt;q&gt;Baby you can drive my car
+            Yes I'm gonna be a star
+            Baby you can drive my car
+            And baby I love you&lt;/q&gt;&lt;/p&gt;
+    &lt;/body&gt;
+&lt;/text&gt;</programlisting></figure><para>The stylesheet <emphasis role="ital">inline2XSF.xsl</emphasis> can be used to build
+      XStandoff instances for each of the input annotations, by using the Saxon XSLT Processor<footnote><para><emphasis role="ital">inline2XSF.xsl</emphasis> makes use of Saxon specific extensions
+          which are available in the older XSLT 2.0 versions of Saxon (-B and -SA) and the newer
+          versions PE and EE; see <link xlink:href="http://saxon.sourceforge.net/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://saxon.sourceforge.net/</link>.</para></footnote>:</para><para><code>saxon -o:[output.xml] -s:[input.xml] -xsl:inline2XSF.xsl
+   primary-data=[primary-data-file.txt]</code></para><para>Afterwards the two instances can be merged
+      with the help of the stylesheet <emphasis role="ital">mergeXSF.xsl</emphasis>:</para><para> <code>saxon -o:[combined-output.xml] -s:[input-xsf-1.xml] merge-with=[input-xsf-2.xml]</code>)</para><para>This process results in the integration of the separate annotations into a single XStandoff instance: </para><figure xml:id="fig.drive-xsf"><title>XStandoff instance</title><programlisting xml:space="preserve">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;xsf:corpusData xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:xsf="http://www.xstandoff.net/2009/xstandoff/1.1"
+    xsfVersion="1.1"
+    xml:id="drive_my_car_lines-drive_my_car_quotes"
+    xsi:schemaLocation="http://www.xstandoff.net/2009/xstandoff/1.1 http://www.xstandoff.net/2009/xstandoff/1.1/xsf.xsd"&gt;
+    &lt;xsf:primaryData start="0" end="235"&gt;
+        &lt;xsf:primaryDataRef uri="../pd/drive_my_car.txt"/&gt;
+    &lt;/xsf:primaryData&gt;
+    &lt;xsf:segmentation&gt;
+        &lt;xsf:segment xml:id="seg1" start="0" end="235"/&gt;
+        &lt;xsf:segment xml:id="seg2" start="0" end="140"/&gt;
+        &lt;xsf:segment xml:id="seg3" start="0" end="34"/&gt;
+        &lt;xsf:segment xml:id="seg4" start="35" end="63"/&gt;
+        &lt;xsf:segment xml:id="seg5" start="44" end="139"/&gt;
+        &lt;xsf:segment xml:id="seg6" start="64" end="103"/&gt;
+        &lt;xsf:segment xml:id="seg7" start="104" end="139"/&gt;
+        &lt;xsf:segment xml:id="seg8" start="140" end="235"/&gt;
+        &lt;xsf:segment xml:id="seg9" start="140" end="165"/&gt;
+        &lt;xsf:segment xml:id="seg10" start="166" end="189"/&gt;
+        &lt;xsf:segment xml:id="seg11" start="190" end="215"/&gt;
+        &lt;xsf:segment xml:id="seg12" start="216" end="235"/&gt;
+    &lt;/xsf:segmentation&gt;
+    &lt;xsf:annotation&gt;
+        &lt;xsf:level xml:id="drive_my_car_lines-level1"&gt;
+            &lt;xsf:layer xmlns="http://www.tei-c.org/ns/1.0" priority="0"&gt;
+                &lt;text xsf:segment="seg1"&gt;
+                    &lt;body xsf:segment="seg1"&gt;
+                        &lt;lg xsf:segment="seg2" type="verse"&gt;
+                            &lt;l xsf:segment="seg3"/&gt;
+                            &lt;l xsf:segment="seg4"/&gt;
+                            &lt;l xsf:segment="seg6"/&gt;
+                            &lt;l xsf:segment="seg7"/&gt;
+                        &lt;/lg&gt;
+                        &lt;lg xsf:segment="seg8" type="chorus"&gt;
+                            &lt;l xsf:segment="seg9"/&gt;
+                            &lt;l xsf:segment="seg10"/&gt;
+                            &lt;l xsf:segment="seg11"/&gt;
+                            &lt;l xsf:segment="seg12"/&gt;
+                        &lt;/lg&gt;
+                    &lt;/body&gt;
+                &lt;/text&gt;
+            &lt;/xsf:layer&gt;
+        &lt;/xsf:level&gt;
+        &lt;xsf:level xml:id="drive_my_car_quotes-level1"&gt;
+            &lt;xsf:layer xmlns="http://www.tei-c.org/ns/1.0" priority="0"&gt;
+                &lt;text xsf:segment="seg1"&gt;
+                    &lt;body xsf:segment="seg1"&gt;
+                        &lt;p xsf:segment="seg2"&gt;
+                            &lt;q xsf:segment="seg5"/&gt;
+                        &lt;/p&gt;
+                        &lt;p xsf:segment="seg8"&gt;
+                            &lt;q xsf:segment="seg8"/&gt;
+                        &lt;/p&gt;
+                    &lt;/body&gt;
+                &lt;/text&gt;
+            &lt;/xsf:layer&gt;
+        &lt;/xsf:level&gt;
+    &lt;/xsf:annotation&gt;
+&lt;/xsf:corpusData&gt;</programlisting></figure><para>There are several parameters which can be specified by the user to influence the
+      actual serialization of the XStandoff annotation (for a detailed overview see the 
+      <link xlink:href="http://www.xstandoff.net/docs/xslt/inline2XSF.xsl.xd.html" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">online stylesheet documentation</link>). 
+      Apart from this, it should be obvious how the format deals with
+      challenging structures like overlaps or discontinuous elements, namely by instantiating an
+      underlying graph model through the use of string range references to parts of the primary data
+      (<code>xsf:segment</code> elements). At the same time the hierarchical structures of the input annotations are kept nearly
+      unchanged (except for the addition of the <code>xsf:segment</code> attribute which refers to the respective 
+      <code>xsf:segment</code> element) by storing them separately under <code>&lt;xsf:level&gt;</code> and
+        <code>&lt;xsf:layer&gt;</code> elements. Note that there is no mandatory relationship
+      between the string ranges (containment) and the dominance relations implied by the hierarchical structure 
+      (cf. the <quote>Alice in Wonderland</quote> example in <xref linkend="Stührenberg2009"/>). </para><para>In <xref linkend="sec.XSF2SVG"/> and <xref linkend="sec.3D"/> we will present approaches
+      to the visualization of XStandoff instances like the one shown in <xref linkend="fig.drive-xsf"/>. However, as discussed above, we would like to have a second
+      XML-based option as starting point for a visualization of concurrent markup. Therefore we explored the possibility of
+      converting other formats into XStandoff and vice versa. This would allow for the graphic rendering of distinct formats by the visualization 
+      approaches we will introduce in <xref linkend="sec.visualization"/> and <xref linkend="sec.3D"/>. As a possible candidate 
+      for conversion we have chosen xLMNL which we will briefly 
+      present in the following section.</para></section><section xml:id="sec.xLMNL"><title>xLMNL as a starting point for visualization</title><para>Since xLMNL, an XML-based serialization format for LMNL, which was introduced by <xref linkend="Piez2010"/> as
+      an ad-hoc solution for representing LMNL in XML, makes a similar use of string
+      ranges like XStandoff, it was chosen as a starting point for a conversion project between
+      XStandoff and other XML-based formats.
+      The corresponding simplified xLMNL
+      serialization for the annotations shown in <xref linkend="fig.drive-anno"/> can be
+      seen in <xref linkend="fig.xLMNL"/> which demonstrates the use of  character positions (in <code>start</code> and 
+      <code>end</code> attributes) referring to the normalized textual content of <code>x:content</code>.</para><figure xml:id="fig.xLMNL"><title>xLMNL representation</title><programlisting xml:space="preserve">&lt;x:lmnl-document&gt;
+    &lt;x:content&gt;Asked a girl what she wanted to be
+        She said baby, can't you see
+        I wanna be famous, a star on the screen
+        But you can do something in between
+        Baby you can drive my car
+        Yes I'm gonna be a star
+        Baby you can drive my car
+        And baby I love you&lt;/x:content&gt;
+    &lt;x:range name="text" ID="text-1" start="0" end="235"/&gt;
+    &lt;x:range name="text" ID="text-2" start="0" end="235"/&gt;
+    &lt;x:range name="body" ID="body-1" start="0" end="235"/&gt;
+    &lt;x:range name="body" ID="body-2" start="0" end="235"/&gt;
+    &lt;x:range name="lg" ID="lg-1" start="0" end="140"&gt;
+        &lt;x:annotation name="type" role="start-annotation"&gt;
+            &lt;x:content&gt;verse&lt;/x:content&gt;
+        &lt;/x:annotation&gt;
+    &lt;/x:range&gt;
+    &lt;x:range name="p" ID="p-1" start="0" end="140"/&gt;
+    &lt;x:range name="l" ID="l-1" start="0" end="34"/&gt;
+    &lt;x:range name="l" ID="l-2" start="35" end="63"/&gt;
+    &lt;x:range name="q" ID="q-1" start="44" end="139"/&gt;
+    &lt;x:range name="l" ID="l-3" start="64" end="103"/&gt;
+    &lt;x:range name="l" ID="l-4" start="104" end="139"/&gt;
+    &lt;x:range name="lg" ID="lg-2" start="140" end="235"&gt;
+        &lt;x:annotation name="type" role="start-annotation"&gt;
+            &lt;x:content&gt;chorus&lt;/x:content&gt;
+        &lt;/x:annotation&gt;
+    &lt;/x:range&gt;
+    &lt;x:range name="p" ID="p-2" start="140" end="235"/&gt;
+    &lt;x:range name="q" ID="q-2" start="140" end="235"/&gt;
+    &lt;x:range name="l" ID="l-5" start="140" end="165"/&gt;
+    &lt;x:range name="l" ID="l-6" start="166" end="189"/&gt;
+    &lt;x:range name="l" ID="l-7" start="190" end="215"/&gt;
+    &lt;x:range name="l" ID="l-8" start="216" end="235"/&gt; 
+&lt;/x:lmnl-document&gt;</programlisting></figure><para>This illustrates the main difference of XStandoff and xLMNL in that the latter does not
+      consider a hierarchical structure and imposes a completely flat structure of annotations.
+      Admittedly, in contrast to dominance relations, containment relations can well be derived by
+      taking into account the string ranges. Nevertheless, the distinct approaches of xLMNL and
+      XStandoff towards the representation of potentially concurrent annotations constitute a
+      serious challenge for the conversion enterprise because annotation hierarchies are not present
+      in xLMNL. There are two possible ways to deal with this issue. Since XStandoff in principle
+      allows for the capturing of arbitrary graph-like structures, the xLMNL representation could be
+      integrated without making any assumptions about hierarchies. Another
+      strategy, which would make more sense if one wanted to visualize the annotations by the methods
+      introduced later on, would be the analysis of the individual relations between annotations on the
+      basis of their string ranges and to try to construct hierarchies of annotations by considering
+      the containment relations. Conflicting annotations could be separated from each other to avoid
+      representation problems. This strategy admittedly inserts information which is not directly present,
+      however it would not be a problem to remove the additional information again in
+      a later step.</para><para>Perspectively there will be an examination of creating or integrating XStandoff into a
+      syntactic conversion framework for existing representation formats like the one described in
+        <xref linkend="Marinelli2008"/>. Although it would be possible to realize individual
+      format-to-format conversions, it seems much more straightforward to have a framework
+      which is based on a common model. For this purpose the above-mentioned meta markup language
+      EARMARK, which can be used to represent GODDAGs, appears to be a quite promising candidate for a
+      pivot format. </para></section><section xml:id="sec.visualization"><title>2D visualization of concurrent markup</title><section><title>Basic principles of the visualization of concurrent markup</title><para>For the visualization of concurrent markup there are two main issues to be regarded 
+        and to be solved: <itemizedlist><listitem><para>the illustration of the relationship of primary data and annotations</para></listitem><listitem><para>the visualization of potentially overlapping annotations (including other 
+              tree-challenging phenomena like discontinuous elements)</para></listitem></itemizedlist>
+      </para><para>In the case of XStandoff the visualization of multiple hierarchies at first glance can be based on a
+        relatively simple principle, namely the delineation of separate tree structures. This of course only makes sense when the focus is on dominance
+        relationships. As stated above, it is possible to represent graph structures, too. This will
+        be addressed in more detail in <xref linkend="sec.3D"/>. But before, we want to take a look
+        at a general visualization principle for multiple tree structures. A very
+        basic visualization method is given in <xref linkend="Witt2005"/> where two annotation layers corresponding
+        to common textual primary data are represented by vertically ordered colored bars: </para><figure><title>Visualization of annotation layers (<xref linkend="Witt2005"/>: 76)</title><mediaobject><imageobject><imagedata format="png" width="600" fileref="../../../vol7/graphics/Jettka01/Jettka01-003.png"/></imageobject></mediaobject></figure><para>Here the horizontally ordered segments of each level represent the individual
+        annotations and their length is used to demonstrate the correspondence to the dominated
+        annotations (edges are inferable by the width of the bars) and the spanned textual content.
+        This strategy, as indicated above, is based on tree structure visualization. Admittedly it
+        could be used to represent minimal extensions to trees, for example multiple parents, which would
+        allow for the capturing of overlapping structures; remember that <quote>overlap is multiple
+          parentage</quote> (<xref linkend="Sperberg-McQueen2004"/>). However, there seems to 
+        be no way to represent more advanced graph structures. In addition there are some
+        stylistic disadvantages: first of all, the overall width of the graphic and the visual
+        accessibility mainly depend on the length of the primary data. Secondly, in this basic
+        strategy line breaks from the primary data would have to be replaced in order to facilitate
+        the visualization of continuously ordered annotation segments. </para><para>The named stylistic shortcomings could be dealt with by changing the direction of the
+        illustration and ordering the annotation levels horizontally. This concept can be
+        demonstrated on the basis of the annotations introduced in <xref linkend="fig.drive-anno"/>. Since there
+        is a classic overlap of the second <code>l</code> element
+          (<code>/text/body/lg[1]/l[2]</code>) of the verse annotation and the first <code>q</code>
+        element (<code>/text/body/p[1]/q</code>) of the direct discourse annotation which holds for
+        the string <quote>baby, can't you see</quote>, the annotation levels cannot simply be
+        integrated into a common tree structure. Following the representation in Witt (2005) the
+        present annotations could be visualized like in <xref linkend="fig.drive-bars-trees"/> 
+        (in order to emphasize the present tree
+        structures there is an additional representation of nodes and edges): </para><figure xml:id="fig.drive-bars-trees"><title>Graphic representation of annotations from <xref linkend="fig.drive-anno"/></title><mediaobject><imageobject><imagedata format="png" width="600" fileref="../../../vol7/graphics/Jettka01/Jettka01-004.png"/></imageobject></mediaobject><mediaobject><imageobject><imagedata format="png" width="600" fileref="../../../vol7/graphics/Jettka01/Jettka01-005.png"/></imageobject></mediaobject></figure><para>To avoid the above-mentioned stylistic disadvantages of the horizontal ordering of
+        annotation segments (vertical ordering of annotation levels), the representation could be rotated in a 90° angle to the right and
+        mirrored horizontally: </para><figure><title>Graphic representation of annotations from <xref linkend="fig.drive-anno"/> (different
+            perspective)</title><mediaobject><imageobject><imagedata format="png" width="80" fileref="../../../vol7/graphics/Jettka01/Jettka01-006.png"/></imageobject><imageobject><imagedata format="png" width="80" fileref="../../../vol7/graphics/Jettka01/Jettka01-007.png"/></imageobject></mediaobject><caption><para/></caption></figure><para>From this state, it is only a few steps towards an adequate readability of the text and the
+        consideration of line breaks from the primary data. This can be shown
+        by a visualization method implemented by <xref linkend="Piez2010"/>. On the basis of LMNL
+       markup he realized the visualization of concurrent annotations by both an  
+       <link xlink:href="http://www.piez.org/wendell/papers/dh2010/clix-sonnets/ledaandswan-sonnet-arcs.svg" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">'arcs'-visualization</link> and an interactive SVG 'map' (shown in <xref linkend="fig.piez-drive"/> below).</para><figure xml:id="fig.piez-drive"><title>Visualization of <link xlink:href="http://www.piez.org/wendell/papers/dh2010/clix-sonnets/xLMNL/ledaandswan.xml" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">xLMNL instance</link> by <xref linkend="Piez2010"/></title><mediaobject><imageobject><imagedata format="png" width="500" fileref="../../../vol7/graphics/Jettka01/Jettka01-008.png"/></imageobject></mediaobject></figure><para>The present annotation layers and element types are displayed in the left top corner of
+        the graphic and their appearance can be switched on and off by mouse click. The actual
+        instances of the underlying annotation are represented by two distinct illustrations: as
+        bars on the left hand side and circles on the right hand side. The primary data
+        text is located in between. The correspondence of segments of the primary data and annotations is
+        demonstrated by interactive mouse-over effects (see the SVG provided online at <link xlink:href="http://www.piez.org/wendell/papers/dh2010/clix-sonnets/ledaandswan-map.svg" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Piez' website</link>). </para><para>Overlaps of annotations from the individual layers can be identified in the graphic by having a look at
+        non-matching borders of the bars or cutting lines of the circles. While <xref linkend="Piez2010"/> explicitly states that the described visualization method primarily
+        takes the function of a basic demonstration, there are certain technical and theoretical
+        difficulties which should be named: <orderedlist><listitem><para>The annotation layers of <link xlink:href="http://www.piez.org/wendell/papers/dh2010/clix-sonnets/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Piez'
+                examples</link> only contain elements which span over text segments large enough to
+              avoid problems with the visualization of the corresponding bars. If there were
+              annotations for single words or even smaller parts of the text, the bars and circles would
+              become too small for a reasonable visualization (see <xref linkend="fig.line-length-influence"/>).</para></listitem><listitem><para>The use of circles for representing annotations is only feasible as long as there
+              are no very large annotated segments because the diameter could grow too big. </para></listitem><listitem><para>Since all of the present annotation layers span the complete textual content
+              without any gaps, there might be the impression that the method is arranged very
+              clearly. In fact, other configurations of annotations which leave out certain parts of
+              the text could lead to a less clear picture. </para></listitem></orderedlist>
+        These restrictions, however, do not decrease the overall
+        usefulness of the approach to visualize overlapping structures.
+      </para></section><section xml:id="sec.XSF2SVG"><title>Rendering SVG from XStandoff</title><para>The creation of two-dimensional SVG-based visualizations for XStandoff instances is to a great extent
+        inspired by the approach of <xref linkend="Piez2010"/> discussed in the previous section. Accordingly, the visualization
+        includes a section displaying the textual primary data and a section with representations of
+        annotations which in return correspond to spanned segments of the primary data. The possible
+        visualization of annotations by circles was not implemented since it can be assumed that
+        this method leads to problems for large annotation segments, as already stated. Piez' 
+        method was extended by some additional features for user
+        interactivity like the horizontal switching of annotation levels and the optional display
+        of classic overlaps. The general appearance of an XStandoff instance visualized in SVG can 
+        be seen in <xref linkend="fig.xsf-drive-svg"/>. This representation is based on the XStandoff instance given 
+        in <xref linkend="fig.drive-xsf"/> (an <link xlink:href="http://jettka.com/xsf/examples/svg/drive-xsf.svg" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">online
+          version of the example</link> is available for testing the interactive features)<footnote><para>Also 
+            consider the <link xlink:href="http://jettka.com/xsf/examples/svg/ledaandswan-xsf.svg" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest"> online
+              visualization</link> corresponding to <xref linkend="fig.piez-drive"/>.</para></footnote>. </para><figure xml:id="fig.xsf-drive-svg"><title>Visualization of XStandoff instance</title><mediaobject><imageobject><imagedata format="png" width="400" fileref="../../../vol7/graphics/Jettka01/Jettka01-009.png"/></imageobject></mediaobject></figure><para>There are two options for the user to influence the configuration of the responsible XSLT stylesheet 
+        <emphasis role="ital">XSF2SVG.xsl</emphasis><footnote><para>The stylesheet 
+          <emphasis role="ital">XSF2SVG.xsl</emphasis> is available at 
+          <link xlink:href="http://www.xstandoff.net/tk.html" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.xstandoff.net/tk.html</link></para></footnote> and the 
+        resulting visualization: the stylesheet parameters <code>font-size</code> and
+          <code>max-line-length</code>. Since most SVG viewers enable the user to zoom in and out of
+        the graphic anyway, the parameter <code>font-size</code> simply determines the initial
+        appearance of the resulting graphic. More attention should be drawn to the parameter
+          <code>max-line-length</code> which determines the maximal length of a single line of
+        primary data. This has to be considered since lines of a certain length in
+        combination with relatively small annotation segments can lead to visualization difficulties. Due to the correspondence between the height of a displayed annotation
+        segment and the individual characters of a line of the primary data, annotations spanning
+        over only a few characters might not be visualized accurately. That is the reason why the
+        value of the parameter <code>max-line-length</code> is determined
+        automatically by default in order to provide an optimal illustration of the annotation segments.
+        Although generally it is up to the user to vary the maximal line length, the
+        circumstance that a high value could lead to inaccurate visualizations has to be kept in
+        mind. <xref linkend="fig.line-length-influence"/> demonstrates the possible difficulties by comparing a
+        visualization based on a maximal line length of 15 characters (automatically computed as maximum) with one
+        which is based on 40 characters per line: </para><figure xml:id="fig.line-length-influence"><title>Influence of parameter <code>max-line-length</code> on readability of SVG
+            visualization</title><mediaobject><imageobject><imagedata format="png" width="680" fileref="../../../vol7/graphics/Jettka01/Jettka01-010.png"/></imageobject></mediaobject></figure><para>Even in the case of a short line length of 15 characters (on the left hand side of <xref linkend="fig.line-length-influence"/>) it is difficult to 
+        spot the segment for the tagged comma. Certainly, there are possible solutions to this problem. For instance, an advanced
+        zooming method for the individual annotations and the corresponding textual content from the
+        primary data could be implemented. Furthermore, it would be possible to realize some kind of
+        page-wise navigation through the primary data, which would reduce the amount of
+        simultaneously displayed text. Nevertheless, the main problems for the present SVG
+        visualization are manifested by its conceptual foundation. The focus on tree structures
+        (with minimal possible extensions) prohibits the coverage of other phenomena than overlaps
+        and discontinuous elements, e.g. repetitive structures. This circumstance could be addressed
+        by an increased focus on the annotations, which will be demonstrated in the following section. </para></section></section><section xml:id="sec.3D"><title>Adding the third dimension</title><para>A different perspective on the visualization of concurrent annotations can be taken by the consideration of possible 3D graphic rendering. The
+      recent developments in native browser support for 3D graphics, especially the specification of
+      HTML5 (<xref linkend="HTML5"/>) and its element <code>&lt;canvas&gt;</code> allowing for
+      programmatic rendering of APIs like WebGL (cf. <xref linkend="WebGL2011"/>), promises to
+      provide a fruitful development and application framework for advanced graphical representation
+      of concurrent markup. By the time of writing this article, WebGL is supported by the
+      currently available builds of the browsers Firefox 5 and Chrome 12<footnote><para>See <link xlink:href="http://www.khronos.org/webgl/wiki/Getting_a_WebGL_Implementation" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.khronos.org/webgl/wiki/Getting_a_WebGL_Implementation</link> for further details.</para></footnote>. </para><para>With X3DOM<footnote><para>See <link xlink:href="http://www.x3dom.org/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.x3dom.org/</link> for further details.</para></footnote> and the serialization format X3D (<xref linkend="ISO-X3D"/>) there
+      is an appropriate solution for defining 3D graphics in XML. Accordingly, it is possible to
+      implement transformation scenarios for XML-based representation formats for concurrent markup 
+      similar to the one shown for XStandoff and SVG for 3D visualizations without
+      leaving the XML context. Certainly, a native browser support of XSLT 2.0 would make the
+      framework even more straightforward, which naturally holds for the SVG approach, too. As an alternative 
+      <xref linkend="Kay2011"/> has shown some pretty advantages in implementing a JavaScript version of 
+      Saxon, called Saxon Client Edition or Saxon-CE, bringing XSLT 2.0 to the browser.</para><section><title>Considerations</title><para>Since 3D visualizations accompanied by interactive user navigation open up different
+      perspectives than the SVG approach presented in the previous section, the basic underlying principle could focus
+      on different aspects. While in the mentioned two-dimensional representation the primary data
+      is in focus and minimally extended tree structures for concurrent markup can be
+      represented, a three-dimensional approach could envisage the comprehensible
+      visualization of annotations with an underlying graph-based model by constructing horizontally
+      (along the z-axis of a 3D space) ordered trees, extended tree structures (e.g., allowing
+      multiple parentage), or even full-blown graphs (including repetitive structures and cyclic paths). </para><para>In order to construct comparable layers of annotations, the structures could be
+      normalized with respect to the corresponding primary data. In this context two methods could
+      be considered: horizontal normalization and vertical
+      normalization. The horizontal normalization of the displayed structures
+      refers to the horizontal position of the nodes representing annotations and could be based on
+      the primary data virtually transformed into a single line. Along this line of characters the
+      nodes could be located by positioning them at the center of their spanned character string
+      (x-axis of <xref linkend="fig.hierarchy-layering"/>).</para><para>The vertical normalization could make use of a very similar strategy. By dividing the
+      amount of spanned characters of an annotation by the total amount of characters in the
+      primary data, the vertical position of nodes could be determined. Admittedly, this strategy
+      could lead to confusion since it is probable that nodes of one level do not have the
+      same vertical position, while nodes from different levels have the same position. Having in 
+      mind that the described normalization method arranges nodes with respect to the concept of containment, 
+      it would be possible to allow for different realizations of layer visualizations, that is, a containment 
+      perspective and a dominance perspective.</para><figure xml:id="fig.hierarchy-layering"><title>Normalized positioning of nodes in 3D space</title><mediaobject><imageobject><imagedata format="png" fileref="../../../vol7/graphics/Jettka01/Jettka01-011.png" width="400"/></imageobject></mediaobject></figure><para>The graphic incorporates the normalized structures of the two annotation layers of the 
+      above-mentioned XStandoff instance 
+      (<xref linkend="fig.drive-xsf"/>). The normalized node positions reflect 
+      the concept of containment. 
+      In addition to the respective XStandoff instance, the first structure can also be seen as 
+      a visualization of the containment relations from the xLMNL instance (<xref linkend="fig.piez-drive"/>) 
+      if a virtual node is imposed which spans the complete primary data.
+      Note, that the hierarchy between the nodes in the structure for an xLMNL instance is only 
+      implicitly present as already shown in 
+      <xref linkend="fig.lmnl"/> – in contrast to hierarchies in XStandoff instances. Thus, in general, 
+      for the visualization of concurrent markup two distinct 
+      visualization methods (containment vs. dominance) should be considered.</para><para>XStandoff supports the differentiation of containment and dominance relations (see <xref linkend="Stührenberg2009"/>), 
+      using the start and end positions of the referenced segments for computing whether a string range virtually delimited 
+      by an annotation is contained inside a second one and using the hierarchical relations between two nodes on the same 
+      annotation layer to express a dominance between these nodes. Therefore, it would be reasonable to consider 
+      these two possible normalization methods, allowing for the generation of both visualization methods.</para><para>As a benefit from using a 3D approach it would still be possible to use tree-like visualizations as a starting point since both 
+      the handling of overlapping annotations and the arrangement of different annotation layers can 
+      be managed by using the z-axis.</para><para>The actual realization of a 3D rendering of concurrent markup could vary in its complexity and in the 
+      amount of the realized features. <xref linkend="fig.drive-my-car"/> (corresponding to the XStandoff instance in
+     <xref linkend="fig.drive-xsf"/>) demonstrates the dominance perspective mentioned above (in opposition to the
+      containment persective), in which there is a 1:1 relationship between nodes and
+      annotation elements. It is based on a hierarchical organization of the annotations. </para><figure xml:id="fig.drive-my-car"><title>Basic visualization of referenced primary data</title><mediaobject><imageobject><imagedata format="png" fileref="../../../vol7/graphics/Jettka01/Jettka01-012.png" width="610"/></imageobject></mediaobject></figure><para>Besides these minimalistic illustrations, more complex and sophisticated graphics could be
+      realized. For example, it would be possible to represent hierarchies which are based on graphs
+      and include phenomena like discontinuous elements or repetitive structures. These would be 
+      visualized on the basis of present containment relations, that is, nodes are normalized with regard to their 
+      referenced textual content and edges reflect containment relations.</para><para>Regarding the visualization of the relationship between primary data and annotations there are several 
+      imaginable solutions. Firstly, it would be possible to simply display the spanned textual content of a node in tooltips 
+      as indicated in <xref linkend="fig.drive-my-car"/>. Alternatively, it would
+      be conceivable to take a 3D space like in <xref linkend="fig.hierarchy-layering"/> as a basis
+      and project the textual primary data onto the back wall. By mouse-over effects the user could
+      focus the spanned textual content, for example by evoking light and shadow effects which
+      highlight the corresponding primary data section(s). At the same time information about the annotation could 
+      be shown in a tooltip.</para><figure xml:id="fig.drive-my-car2"><title>Advanced primary data visualization</title><mediaobject><imageobject><imagedata format="png" fileref="../../../vol7/graphics/Jettka01/Jettka01-013.png" width="400"/></imageobject></mediaobject></figure><para>In the visualization from <xref linkend="fig.drive-my-car2"/>, which shows horizontally and vertically normalized trees, 
+      the appearance and position of nodes depend on the presence of distinct string
+      ranges for which there are annotations, that is, a single node might represent more than one
+      annotation element. This should be kept in mind.</para><para>Apart from the actual design there are some core features which should be realized in the
+      envisaged approach: </para><itemizedlist><listitem><para>free user navigation through the graphic, including zooming in and out;</para></listitem><listitem><para>draggable structures for layers (e.g. draggable as a whole along the z-axis);</para></listitem><listitem><para>mouse-over effects: for example information on spanned primary data (textual content &amp;
+          positions), information on annotation, XPath;</para></listitem><listitem><para>highlighting of specific structures (distinct element relations, overlaps,
+          discontinuous elements, virtual/repetitive structures);</para></listitem><listitem><para>the choice between displaying annotated or plain textual content for a node;</para></listitem><listitem><para>illustration of left and right context of focused annotation elements and
+          corresponding textual content (+ specification of the range of considered context).</para></listitem></itemizedlist><para>Besides these rather stylistic considerations, which focus on the informational level of
+      the visualization, the conceptual advantages of a 3D approach to concurrent markup should
+      have become clear. Since it is not automatically restricted to strictly hierarchical
+      structures, it would be possible to display graph-based constructs like repetitive/reentrant
+      structures. Furthermore, relations between individual hierarchies of graph structures 
+      could be illustrated and there could be a distinction of representations of dominance and/or
+      containment relations being reflected by the actual instantiation of the edges of graphs.
+    </para></section><section><title>Prototypic 3D visualization</title><para>We've implemented a first prototypic 3D visualization based on an XSLT stylesheet 
+      named <emphasis role="ital">XSF2X3D.xsl</emphasis> that transforms
+     XStandoff instances into X3D graphics like the one in <xref linkend="fig.hierarchy-layering"/>. 
+     Since there is no complete implementation available yet, in the remainder of this section we
+     will concentrate on the things already accomplished, followed by possible future enhancements.</para><para>The current implementation of a 3D visualization of concurrent hierarchies reflects the 
+     considerations from the previous sections. The direct embedding of X3D into HTML5 allows for the 
+     rendering of 3D visualizations in current browser versions.<footnote><para>The visualization has 
+     been successfully tested in Google's Chrome 12.0.742.112 and Mozilla Firefox 5.0 except for certain HTML5 
+     constructs like range inputs on the latter. Support is dependent on the GPU installed – it runs fine on an 
+     NVIDIA GeForce GT 330M installed in a MacBook Pro, while on other configurations Chrome had to be 
+     started with the '--ignore-gpu-blacklist' startup parameter while Firefox had to be
+     customized via the about:config page and enabling the parameter 'webgl.force-enabled'.</para></footnote>
+     The actual appearance of the current state of the prototype is shown in <xref linkend="fig.x3d-proto"/>.
+    </para><figure xml:id="fig.x3d-proto"><title>Screenshot of the prototype (Google Chrome)</title><mediaobject><imageobject><imagedata format="png" fileref="../../../vol7/graphics/Jettka01/Jettka01-014.png" width="600"/></imageobject></mediaobject></figure><para>The main component of the visualization is a 3D space indicated as a cube which contains the 
+       layers from the corresponding XStandoff instance (<xref linkend="fig.drive-xsf"/>) ordered along the z-axis. 
+       At present, the normalization methods described in the previous section have not been fully implemented. In a later realization of the XSLT 
+       stylesheet it should be possible for the 
+       user to choose the normalization method, that is, the visualization of dominance or containment 
+       relations.
+       </para><para>The illustration given in <xref linkend="fig.x3d-proto"/> indicates most of the available user interactivity. Besides 
+      free navigation like zooming in and out of the graphic and rotating it, there are certain predefined viewpoints 
+      like front view and side view, which could be interesting for the user and can be taken by selection 
+      from the menu item 'View'. In addition, it is possible to freely drag the hierarchies along the 
+      z-axis by using the sliders, which are available for each individual layer in the info box on the 
+      right hand side. An interesting feature of the graphic is the possibility to virtually merge layers 
+      by either dragging them into the appropriate positions or selecting the predefined 'Merge layers' option 
+      from the 'Layers' submenu. The initial configuration of the layers can be 
+      reestablished by a click on 'Reset layers'. In the case of feeling lost in 3D space the 'Reload' button 
+      on the left hand side restores the initial state of the graphic.</para><para>Information on the present annotations in the individual layers can be gathered by hovering over the 
+       nodes with the cursor evoking a tooltip, which contains basic information like element names, 
+       string ranges, and XPath expressions. Other desirable features for an appropriate visualization of 
+       concurrent markup, like the ones listed in the previous section, will be considered in a later version.</para></section></section><section><title>Conclusion and future research</title><para>In this paper we demonstrated two aspects: firstly, that the formal model of XML
+      instances can exceed that of trees; in fact, we have proven that it is fully capable of
+      representing graphs. This, secondly, was used as a starting point to choose two XML-based representation
+      formats for multiple annotations that can be converted into 2D visualizations. Although it could be shown 
+      that the first visualization approach provides an adequate (though admittedly suboptimal) solution to 
+      overlapping structures, it is not capable of illustrating enhanced graph-based phenomena like 
+      discontinuous elements or repetitive structures. Therefore we have sketched possible 
+      3D renderings of concurrent markup. A first prototypic realization demonstrated how the adding of an additional 
+      dimension could in principle contribute to the appropriate visualization of concurrent markup and could serve 
+      as the basis for further research. The current version will be made available under 
+      the GNU Lesser General Public License (LGPL v3) at the <link xlink:href="http://www.xstandoff.net/download.html" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">XStandoff website</link>.
+      Unresolved tasks like an improved visualization of overlapping annotations 
+      and the treatment of discontinuous and repetitive structures could be tackled in a future release.
+    </para></section><bibliography><title>Bibliography</title><bibliomixed xml:id="Abiteboul2000" xreflabel="Abiteboul et al., 2000">Abiteboul, S., 
+      Buneman, P., and Suciu, D. <emphasis role="ital">Data on the Web: From Relations to Semistructured
+        Data and XML</emphasis>. San Francisco, California: Morgan Kaufmann Publishers,
+      2000.</bibliomixed><bibliomixed xml:id="Bauman2005" xreflabel="Bauman, 2005">Bauman, S. <emphasis role="ital">TEI
+        HORSEing Around</emphasis>. In: Proceedings of Extreme Markup Languages, Montréal, Québec,
+      2005.</bibliomixed><bibliomixed xml:id="Bird1999" xreflabel="Bird and Liberman, 1999">Bird, S. and Liberman, M.
+        <emphasis role="ital">Annotation graphs as a framework for multidimensional linguistic data
+        analysis</emphasis>. In: Proceedings of the Workshop "Towards Standards and Tools for
+      Discourse Tagging". Association for Computational Linguistics, 1999.</bibliomixed><bibliomixed xml:id="TEI2011" xreflabel="TEI P5 (v 1.9.1), 2011">Burnard, L. and Bauman, S.
+      (eds.). <emphasis role="ital">TEI P5: Guidelines for Electronic Text Encoding and
+        Interchange</emphasis>. Published for the TEI Consortium by Humanities Computing Unit,
+      University of Oxford, Oxford, Providence, Charlottesville, Bergen. Version 1.9.1. Last updated
+      on March 5th 2011.</bibliomixed><bibliomixed xml:id="Carletta2003" xreflabel="Carletta et al., 2003">Carletta, J., Kilgour, J.,
+      O’Donnel, T. J., Evert, S., and Voormann, H. <emphasis role="ital">The NITE Object Model
+        Library for Handling Structured Linguistic Annotation on Multimodal Data Sets</emphasis>.
+      In: Proceedings of the EACL Workshop on Language Technology and the Semantic Web (3rd Workshop
+      on NLP and XML (NLPXML-2003)), Budapest, Ungarn, 2003.</bibliomixed><bibliomixed xml:id="Carletta2005" xreflabel="Carletta et al., 2005">Carletta, J., Evert, S., Heid, U., and Kilgour, J. <emphasis role="ital">The NITE XML Toolkit: data model and query
+        language</emphasis>. In: Language Resources and Evaluation, Springer, Dordrecht, 2005,
+      39.</bibliomixed><bibliomixed xml:id="Coombs1987" xreflabel="Coombs et al., 1987">Coombs, J. H., Renear, A. H.,
+      and DeRose, S. J. <emphasis role="ital">Markup Systems and the Future of Scholarly Text
+        Processing</emphasis>. In: Communications of the ACM 30.11, 1987.</bibliomixed><bibliomixed xml:id="Cowan2006" xreflabel="Cowan et al., 2006">Cowan, J., Tennison J., and Piez,
+      W. <emphasis role="ital">LMNL Update</emphasis>. In: Proceedings of Extreme Markup Languages,
+      Montréal, Québec, 2006.</bibliomixed><bibliomixed xml:id="Cowan2010" xreflabel="Cowan, 2010">Cowan, J. <emphasis role="ital">MicroXML</emphasis>. Poster presented at XML Prague 2010.</bibliomixed><bibliomixed xml:id="Cowan2011" xreflabel="Cowan, 2011">Cowan, J. <emphasis role="ital">MicroXML</emphasis>. Editor's Draft 2011-06-30. <link xlink:href="http://www.ccil.org/~cowan/MicroXML.html" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.ccil.org/~cowan/MicroXML.html</link>.</bibliomixed><bibliomixed xml:id="DeRose2004" xreflabel="DeRose, 2004">DeRose, S. J. <emphasis role="ital">Markup Overlap: A Review and a Horse</emphasis>. In: Proceedings of Extreme Markup
+      Languages, Montréal, Québec, 2004.</bibliomixed><bibliomixed xml:id="Dekhtyar2005" xreflabel="Dekhytar and Iacob, 2005">Dekhtyar, A. and Iacob,
+      I. E. <emphasis role="ital">A framework for management of concurrent XML markup</emphasis>.
+      Data &amp; Knowledge Engineering, 52(2):185–208, 2005.</bibliomixed><bibliomixed xml:id="DiIorio2009" xreflabel="Di Iorio et al., 2009"> Di Iorio, A., Peroni, S.,
+      and Vitali, F. <emphasis role="ital">Towards markup support for full GODDAGs and beyond: the
+        EARMARK approach</emphasis>. In: Proceedings of Balisage: The Markup Conference 2009.
+      Balisage Series on Markup Technologies, vol. 3 (2009). <link xlink:href="http://dx.doi.org/10.4242/BalisageVol3.Peroni01" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">doi:10.4242/BalisageVol3.Peroni01</link>.
+    </bibliomixed><bibliomixed xml:id="Durusau2004" xreflabel="Durusau and Brook O'Donnell, 2004">Durusau, P. and
+    Brook O'Donnell, M. <emphasis role="ital">Tabling the Overlap Discussion</emphasis>. In:
+    Proceedings of Extreme Markup Languages, Montréal, Québec, 2004.</bibliomixed><bibliomixed xml:id="Goecke2010" xreflabel="Goecke et al., 2010"> Goecke, D., Lüngen, H.,
+      Metzing, D., Stührenberg, M., and Witt, A. <emphasis role="ital">Different views on markup.
+        Distinguishing Levels and Layers</emphasis>. In: Witt, A. and Metzing, D. (eds.), Linguistic
+      Modeling of Information and Markup Languages. Dordrecht: Springer, 2010.</bibliomixed><bibliomixed xml:id="Gou2007" xreflabel="Gou and Chirkova, 2007">Gou, G. and Chirkova, R.
+    <emphasis role="ital">Efficiently Querying Large XML Data Repositories: A Survey</emphasis>.
+    In: IEEE Transactions on Knowledge and Data Engineering 19.10, 2007.</bibliomixed><bibliomixed xml:id="Hopcroft1979" xreflabel="Hopcroft and Ullman, 1979">Hopcroft, J. E. and
+      Ullman, J. D. <emphasis role="ital">Introduction to Automata Theory, Languages, and
+      Computation</emphasis>. Addison-Wesley, 1979.</bibliomixed><bibliomixed xml:id="HTML5" xreflabel="HTML5 WD 2011">
+    <emphasis role="ital">HTML5: A vocabulary and associated APIs for HTML and XHTML</emphasis>,
+    W3C Working Draft 05 April 2011. World Wide Web Consortium. <link xlink:href="http://www.w3.org/TR/html5/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/html5/</link>.
+   </bibliomixed><bibliomixed xml:id="Huitfeldt2006" xreflabel="Huitfeldt and Sperberg-McQueen, 2006"> Huitfeldt,
+      C. and Sperberg-McQueen, C. M. <emphasis role="ital">Representing and processing of GODDAG
+        structures: implementation strategies and progress report</emphasis>. In: Proceedings of
+        Extreme Markup Languages, Montréal, Québec, 2006.</bibliomixed><bibliomixed xml:id="ISO-X3D" xreflabel="ISO/IEC 19776-1:2009">
+    <emphasis role="ital">ISO/IEC 19776-1:2009, Information technology – Computer graphics,
+     image processing and environmental data representation – Extensible 3D (X3D) encodings
+     – Part 1: Extensible Markup Language (XML) encoding</emphasis>. International
+    Standard, International Organization for Standardization, 2009.</bibliomixed><bibliomixed xml:id="iso24610-2006" xreflabel="ISO/IEC 24610-1:2006">
+    ISO/TC 37/SC 4. <emphasis role="ital">ISO 24610-1:2006: Language Resource Management – Feature Structures – Part 1: Feature Structure Representation</emphasis>. International Standard, International Organization for Standardization, 2006.
+   </bibliomixed><bibliomixed xml:id="Jagadish2004" xreflabel="Jagadish et al., 2004">Jagadish, H. V.,
+      Lakshmanany, L. V. S., Scannapieco, M., Srivastava, D., and Wiwatwattana, N. <emphasis role="ital">Colorful XML: One hierarchy isn’t enough</emphasis>. In: Proceedings of ACM
+      SIGMOD International Conference on Management of Data (SIGMOD 2004), ACM Press, New York, NY,
+      USA, 2004.</bibliomixed><bibliomixed xml:id="Kay2010" xreflabel="Kay, 2010">Kay, M., 2010. <emphasis role="ital">A streaming XSLT
+        processor</emphasis>. In: Proceedings of Balisage: The Markup Conference 2010. 
+        Balisage Series on Markup Technologies, vol. 5 (2010).
+     <link xlink:href="http://dx.doi.org/10.4242/BalisageVol5.Kay01" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">doi:10.4242/BalisageVol5.Kay01</link>.</bibliomixed><bibliomixed xml:id="Kay2011" xreflabel="Kay, 2011">Kay, M., 2011
+    <emphasis role="ital">XSLT in the Browser</emphasis>. In: Kosek, J. (ed), XML Prague 2011 Conference Proceedings, number 2011-519 in ITI Series, pages 125–134, Prague, Czech Republic, 3 2011. Institute for Theoretical Computer Science.</bibliomixed><bibliomixed xml:id="LeMaitre2006" xreflabel="Le Maitre, 2006">Le Maitre, J. <emphasis role="ital">Describing multistructured XML documents by means of delay nodes</emphasis>. In:
+      DocEng ’06: Proceedings of the 2006 ACM symposium on Document engineering, ACM Press, New
+      York, NY, USA, 2006.</bibliomixed><bibliomixed xml:id="Marcoux2008" xreflabel="Marcoux, 2008">Marcoux, Y. <emphasis role="ital">Graph characterization of overlap-only TexMECS and other overlapping markup
+        formalisms</emphasis>. In: Proceedings of Balisage: The Markup Conference 2008.
+      Balisage Series on Markup Technologies, vol. 1 (2008).
+     <link xlink:href="http://dx.doi.org/10.4242/BalisageVol1.Marcoux01" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">doi:10.4242/BalisageVol1.Marcoux01</link>.</bibliomixed><bibliomixed xml:id="Marinelli2008" xreflabel="Marinelli et al., 2008">Marinelli, P., Vitali,
+      F., and Zacchiroli, S. <emphasis role="ital">Towards the unification of formats for
+        overlapping markup</emphasis>. In: New Review of Hypermedia and Multimedia, 14(1), 2008.
+      Doi: <link xlink:href="http://dx.doi.org/10.1080/13614560802316145" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">doi:10.1080/13614560802316145</link>.</bibliomixed><bibliomixed xml:id="Moeller2007" xreflabel="Møller and Schwartzbach, 2007">Møller, A. and
+      Schwartzbach, M. I. <emphasis role="ital">XML Graphs in Program Analysis</emphasis>. In: PEPM
+      ’07: Proceedings of the 2007 ACM SIGPLAN symposium on Partial evaluation and semantics-based
+      program manipulation. Nice, France, 2007.</bibliomixed><bibliomixed xml:id="Nicol2002a" xreflabel="Nicol, 2002a">Nicol, G. T. <emphasis role="ital">Attributed Range Algebra. Extending Core Range Algebra to Arbitrary Structures</emphasis>,
+      2002.</bibliomixed><bibliomixed xml:id="Nicol2002" xreflabel="Nicol, 2002">Nicol, G. T. <emphasis role="ital">Core Range
+        Algebra: Toward a Formal Model of Markup</emphasis>. In: Proceedings of Extreme Markup
+      Languages. Montréal, Québec, 2002.</bibliomixed><bibliomixed xml:id="Pianta2004" xreflabel="Pianta and Bentivogli, 2004">Pianta, E. and
+      Bentivogli., L. <emphasis role="ital">Annotating Discontinuous Structures in XML: the
+        Multiword Case</emphasis>. In: Proceedings of LREC 2004 Workshop on "XML-based richly
+      annotated corpora", Lisbon, Portugal, 2004.</bibliomixed><bibliomixed xml:id="Piez2004" xreflabel="Piez, 2004">Piez, W. <emphasis role="ital">Half-steps
+        toward LMNL</emphasis>. In: Proceedings of Extreme Markup Languages. Montréal, Québec,
+      2004.</bibliomixed><bibliomixed xml:id="Piez2010" xreflabel="Piez, 2010">Piez, W. <emphasis role="ital">Towards Hermeneutic Markup: An architectural outline</emphasis>. In: Digital Humanities
+      2010 Conference Abstract, London, 2010.</bibliomixed><bibliomixed xml:id="Polyzotis2002" xreflabel="Polyzotis and Garofalakis,  2002">Polyzotis, N. and
+      Garofalakis, M. <emphasis role="ital">Statistical Synopses for Graph-Structured XML
+        Databases</emphasis>. In: Proceedings of the 2002 ACM SIGMOD International Conference on
+      Management of Data, Madison, Wisconsin, 2002.</bibliomixed><bibliomixed xml:id="Rehm2010" xreflabel="Rehm et al., 2010"> Rehm, G., Schonefeld, O., Trippel,
+      T., and Witt, A. <emphasis role="ital">Sustainability of linguistic resources
+        revisited</emphasis>. In: Proceedings of the International Symposium on XML for the Long
+      Haul: Issues in the Long-term Preservation of XML. Balisage Series on Markup
+      Technologies, vol. 6 (2010). <link xlink:href="http://dx.doi.org/10.4242/BalisageVol6.Witt01" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">doi:10.4242/BalisageVol6.Witt01</link>.</bibliomixed><bibliomixed xml:id="Schmidt2001" xreflabel="Schmidt, 2001">Schmidt, T. <emphasis role="ital">The transcription system EXMARaLDA: An application of the annotation graph formalism as the
+        Basis of a Database of Multilingual Spoken Discourse</emphasis>. In: Proceedings of the IRCS
+      Workshop On Linguistic Databases. Philadelphia: Institute for Research in Cognitive Science,
+      University of Pennsylvania, 2001.</bibliomixed><bibliomixed xml:id="Schonefeld2007" xreflabel="Schonefeld, 2007">Schonefeld, O. <emphasis role="ital">XCONCUR and XCONCUR-CL: A constraint-based approach for the validation of
+        concurrent markup</emphasis>. In: Rehm, G., Witt, A., Lemnitzer, L. (eds.), Datenstrukturen
+      für linguistische Ressourcen und ihre Anwendungen. Data Structures for Linguistic Resources
+      and Applications. Proceedings of the Biennial GLDV Conference 2007, Tübingen, Germany, 2007.
+      Gunter Narr Verlag.</bibliomixed><bibliomixed xml:id="Sperberg-McQueen2004" xreflabel="Sperberg-McQueen and         Huitfeldt, 2004">Sperberg-McQueen, C. M. and
+      Huitfeldt, C. <emphasis role="ital">GODDAG: A Data Structure for Overlapping
+        Hierarchies</emphasis>. In: King, P. and Munson, E. V. (eds.), Proceedings of the 5th
+      International Workshop on the Principles of Digital Document Processing (PODDP 2000), volume
+      2023 of Lecture Notes in Computer Science, Springer, 2004.</bibliomixed><bibliomixed xml:id="Sperberg-McQueen2008" xreflabel="Sperberg-McQueen and Huitfeldt, 2008">Sperberg-McQueen, C. M. and Huitfeldt, C. <emphasis role="ital">Markup Discontinued
+        Discontinuity in TexMecs, Goddag structures, and rabbit/duck grammars</emphasis>. In:
+      Proceedings of Balisage: The Markup Conference 2008. Balisage Series on Markup Technologies,
+      vol. 1 (2008). <link xlink:href="http://dx.doi.org/10.4242/BalisageVol1.Sperberg-McQueen01" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">doi:10.4242/BalisageVol1.Sperberg-McQueen01</link>.</bibliomixed><bibliomixed xml:id="Sperberg-McQueen2008a" xreflabel="Sperberg-McQueen and Huitfeldt, 2008a">Sperberg-McQueen, C. M. and Huitfeldt, C. <emphasis role="ital">GODDAG</emphasis>. Presented
+      at the Goddag workshop, Amsterdam, 1-5 December 2008.</bibliomixed><bibliomixed xml:id="Stegmann2009" xreflabel="Stegmann and Witt, 2009">Stegmann, J. and Witt, A. <emphasis role="ital">TEI Feature Structures as a Representation Format for Multiple Annotation and Generic XML Documents</emphasis>. In: Proceedings of Balisage: The Markup Conference
+   2009. Balisage Series on Markup Technologies, vol. 3 (2009).
+    <link xlink:href="http://dx.doi.org/10.4242/BalisageVol3.Stegmann01" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">doi:10.4242/BalisageVol3.Stegmann01</link>.
+   </bibliomixed><bibliomixed xml:id="Stührenberg2008" xreflabel="Stührenberg and Goecke, 2008">Stührenberg, M.
+      and Goecke, D. <emphasis role="ital">SGF – An integrated model for multiple annotations
+        and its application in a linguistic domain</emphasis>. In: Proceedings of Balisage: The
+      Markup Conference 2008. Balisage Series on Markup Technologies, vol. 1 (2008). <link xlink:href="http://dx.doi.org/10.4242/BalisageVol1.Stuehrenberg01" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">doi:10.4242/BalisageVol1.Stuehrenberg01</link>.</bibliomixed><bibliomixed xml:id="Stührenberg2009" xreflabel="Stührenberg and Jettka, 2009"> Stührenberg, M. and Jettka, D. <emphasis role="ital">A toolkit for multi-dimensional markup: The development of SGF to
+      XStandoff</emphasis>. In: Proceedings of Balisage: The Markup Conference
+       2009. Balisage Series on Markup Technologies, vol. 3 (2009). <link xlink:href="http://dx.doi.org/10.4242/BalisageVol3.Stuhrenberg01" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">doi:10.4242/BalisageVol3.Stuhrenberg01</link>.
+    </bibliomixed><bibliomixed xml:id="Tennison2002" xreflabel="Tennison, 2002">Tennison, J. <emphasis role="ital">Layered Markup and Annotation Language (LMNL)</emphasis>. In: Proceedings of Extreme Markup
+      Languages, Montréal, Québec, 2002.</bibliomixed><bibliomixed xml:id="Thompson1997" xreflabel="Thompson and McKelvie, 1997">Thompson, H. S. and
+      McKelvie, D. <emphasis role="ital">Hyperlink semantics for standoff markup of read-only
+        documents</emphasis>. In: Proceedings of SGML Europe ’97: The next decade – Pushing
+      the Envelope, Barcelona, 1997.</bibliomixed><bibliomixed xml:id="WebGL2011" xreflabel="WebGL, 2011">WebGL Specification. Version 1.0, 10
+      February 2011. Khronos Group. <link xlink:href="https://www.khronos.org/registry/webgl/specs/1.0/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">https://www.khronos.org/registry/webgl/specs/1.0/</link>.
+    </bibliomixed><bibliomixed xml:id="Witt2002" xreflabel="Witt, 2002">Witt, A. <emphasis role="ital">Multiple
+        Informationsstrukturierung mit Auszeichnungssprachen. XML-basierte Methoden und deren Nutzen
+        für die Sprachtechnologie</emphasis>. Dissertation, Universität Bielefeld, 2002.</bibliomixed><bibliomixed xml:id="Witt2004" xreflabel="Witt, 2004">Witt, A. <emphasis role="ital">Multiple
+        hierarchies: New Aspects of an Old Solution</emphasis>. In: Proceedings of Extreme Markup
+        Languages, Montréal, Québec, 2004.</bibliomixed><bibliomixed xml:id="Witt2005" xreflabel="Witt, et al., 2005">Witt, A., Goecke, D., Sasaki, F., and Lüngen, H. <emphasis role="ital">Unification of XML Documents with Concurrent Markup</emphasis>. Literary and Linguistic Computing, 20(1):103–116, 2005.</bibliomixed></bibliography></article>

@@ -1,0 +1,603 @@
+<?xml version="1.0" encoding="UTF-8"?><article xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink" version="5.0-subset Balisage-1.2"><title>Schema Component Paths for Schema Analysis</title><info><confgroup><conftitle>Balisage: The Markup Conference 2010</conftitle><confdates>August 3 - 6, 2010</confdates></confgroup><abstract><para>Schema component paths define an XPath-like syntax for describing
+and navigating W3C XML Schema component models.  Canonical schema component
+paths provide a unique, string-comparable designator for each component in
+schema. MHSCD is a driver than can generate canonical schema component paths or
+non-canonical schema component paths to a certain depth, or locate a component
+or set of components in a schema given a schema component path.  
+        </para><para>Component paths can be applied to various schema analysis
+tasks. The set of canonical schema component paths provides a simple signature
+for a schema that is robust to differences in the physical organization of the
+schema document.  Comparing two such signatures gives a quick "what's changed
+between these two schema versions?" summary.  This signature can also be used
+for the calculation of basic schema complexity metrics, including basic counts
+of components of various types.
+        </para></abstract><author><personname><firstname>Mary</firstname><surname>Holstege</surname></personname><personblurb><para>Mary Holstege is Principal Engineer at Mark Logic
+Corporation.  She has worked as a software engineer in and around markup
+technologies for over 20 years.  She is a member of the W3C XML Schema and XML
+Query working groups, and an editor of the W3C XML Schema Component Designators
+and the XML Query Full Text specifications.  Mary Holstege holds a Ph.D. from
+Stanford University in Computer Science, for a thesis on document
+representation.</para></personblurb><affiliation><jobtitle>Principal Engineer</jobtitle><orgname>Mark Logic Corporation</orgname></affiliation><email>mary.holstege@marklogic.com</email></author><legalnotice><para>Copyright © 2010 Mary Holstege</para></legalnotice></info><section><title>Introduction</title><para>XML Schemas have become artifacts that play
+  a role in many software projects. Software is generated or driven from them.
+  While there is a long history of work on software metrics and analysis, work 
+  is only beginning on understanding the XML Schemas as software
+  artifacts in their own right.
+    </para><para>This paper introduces schema component paths, a specification under
+  development by the W3C, and shows how they can be used to tame some of 
+  the complexity of the XML Schema model itself, and provide the 
+  basis of some XML Schema metrics and analysis tools.
+    </para></section><section><title>Schema Component Paths</title><para>Schema component paths, or SCPs, define an
+  XPath-like syntax for describing and navigating W3C XML Schema <citation linkend="xsd"/> component models. Certain schema component paths define the
+  minimal path to each specific component in the component model: these are the
+  canonical schema component paths.
+      </para><para>The XML Schema component model is complex, with many
+  asymmetries and special cases. A particular assembled schema consists
+  of a rooted graph of components and property records typically assembled from
+  one or more schema documents.  Property records are used to encapsulate
+  certain compound properties, but are not themselves considered schema
+  components. 
+  Schema components and property records have properties, some of which are
+  simple values, and some of which are other schema components and properties.
+  For the purposes of schema component paths, component-valued
+  properties define labelled arcs between schema components. Each labelled arc
+  defined a different axis of traversal from one component to another. Some axes
+  select more than one component. To distinguish the components that an axis
+  selects, SCPs use name tests and positional predicates: the name test matches
+  components by their name and namespace URI and positional predicates count
+  components in order.  
+      </para><para>Syntactically, a SCP resembles an XPath expression: the path consists
+  of a sequence of steps separated by a slash ('/'), where each step consists of
+  an axis name, a double-colon ('::') separator, a name test, and possibly a
+  predicate surrounded by square brackets ('[' and ']').  In the case of SCPs the
+  only predicate available is the numerical positional predicate: an integer.
+  Again, as with XPath expressions, various axis abbreviations are available.
+  Complete details are available in the specification <citation linkend="scds"/>.
+      </para><figure xml:id="fig_scp1"><programlisting xml:space="preserve">
+  /schemaElement::p:outer/type::0/schemaAttribute::p:inner
+  /type::p:second/model::sequence/schemaElement::p:duplicate[2]/type::*
+  /p:outer/~0/@p:inner
+  /~p:second/model::sequence/p:duplicate[2]/~*
+  </programlisting><caption><para>Some SCPs</para></caption></figure><para>Figure <xref linkend="fig_scp1"/> shows some SCPs.  
+  The first SCP selects an
+  attribute declaration named 'inner' for an
+  element declaration named 'outer' whose type is a locally defined anonymous
+  type.  The path starts at the root of the assembled schema ('/') and then
+  traverses the schemaElement axis ('schemaElement::') with a name test
+  ('p:outer'). The name test matches an element declaration whose local name is
+  'outer' and whose namespace URI matches the namespace bound to the prefix
+  'p'. The path continues through the type axis ('type::') with a name test
+  ('0') that in this case matches a type definition with no name ('0' being the
+  indicator for this case). 
+  Finally the schemaAttribute axis is traversed to select the
+  attribute declaration whose name matches 'p:inner'. 
+      </para><para>The second SCP selects the type of the second element
+  declaration named 'duplicate' in the sequence within the type definition named
+  'second'. The path starts at the root of the assembled schema ('/'), traverses
+  through the type axis and then the model axis ('model::').
+  Here the test ('sequence') matches 
+  a model group's kind (sequence vs. choice vs. all) and selects only sequence
+  model groups. Then the schemaElement axis is traversed. The
+  predicate on this axis ('[2]') selects the second element declaration with the
+  name 'duplicate' in the namespace bound to 'p': this can only be the case if
+  there are two local element declarations.  Finally, the type axis is traversed
+  and a wildcard name test ('*') is applied, which will match the type
+  definition, regardless of type.
+      </para><para>
+  The third and fourth SCPs are abbreviated versions of the first and
+  second, using the tilde '~' abbreviation for the type axis, the use of
+  the bare name as an abbreviation for the schemaElement axis, and the use of the
+  at sign ('@') as an abbreviation for the schemaAttribute axis.
+      </para><para>Table <xref linkend="table_axes"/> summarizes the schema component axes.  Not all axes apply to canonical paths, and some axes apply only against the XML Schema 1.1 <citation linkend="xsd11"/> component model.
+      </para><table xml:id="table_axes"><caption><para>Schema Component Path Axes</para></caption><tr><th>Axis</th><th>Meaning</th></tr><tr><th colspan="2">Axes appearing in canonical paths</th></tr><tr><td>schemaAttribute</td><td>Attribute declaration</td></tr><tr><td>schemaElement</td><td>Element declaration</td></tr><tr><td>type</td><td>Type definition</td></tr><tr><td>attributeGroup</td><td>Named attribute group definition</td></tr><tr><td>group</td><td>Named model group definition</td></tr><tr><td>identityConstraint</td><td>Identity constraint definition</td></tr><tr><td>key</td><td>Referenced key in identity constraint definition</td></tr><tr><td>notation</td><td>Notation declaration</td></tr><tr><td>model</td><td>Model group</td></tr><tr><td>anyAttribute</td><td>Attribute wildcard</td></tr><tr><td>any</td><td>Wildcard</td></tr><tr><td>facet</td><td>Constraining or fundamental facet</td></tr><tr><td>annotation</td><td>Annotation</td></tr><tr><td>assertion</td><td>Assertion (1.1 component model only)</td></tr><tr><td>alternative</td><td>Type alternative (1.1 component model only)</td></tr><tr><th colspan="2">Axes appearing in non-canonical paths</th></tr><tr><td>component</td><td>Any component</td></tr><tr><td>currentComponent</td><td>The current component</td></tr><tr><td>substitutionGroup</td><td>The substitution group head of an element declaration</td></tr><tr><td>baseType</td><td>The base type of a type definition</td></tr><tr><td>primitiveType</td><td>The primitive type of a simple type definition</td></tr><tr><td>itemType</td><td>The item type of a list simple type definition</td></tr><tr><td>memberType</td><td>A member type of a union simple type definition</td></tr><tr><td>particle</td><td>A particle in a model group</td></tr><tr><td>attributeUse</td><td>An attribute use (local attribute declaration)</td></tr><tr><td>scope</td><td>The complex type definition, attribute group definition, or model group definition defining the scope of a local element or attribute declaration</td></tr><tr><td>context</td><td>The complex type definition, attribute declaration, or element declaration defining the context of a local type definition</td></tr></table><para>There is one privileged path to each component in the schema, the
+  canonical schema component path. Intuitively, the canonical SCP of a component
+  is the SCP that minimally describes that component and only that component.
+  For example, the SCP for a global type definition is the SCP that traverses
+  solely the type axis from the root; the SCP for a local type definition 
+  is the SCP for the element declaration that governs the type definition,
+  extended by traversing the type axis. Canonical paths restrict traversals to
+  certain axes, sometimes based on complex constraints involving other components
+  (particularly the base type component), and eliminating abbreviations and
+  wildcarding wherever possible.  Every canonical SCP is the extension of an
+  existing SCP with an allowable step, plus the canonical SCP for component that
+  represents the whole schema, whose canonical SCP is a slash ('/'). 
+      </para><para>The set of canonical paths can be generated for an assembled schema
+  by traversing the component graph from the root, gathering up canonical SCPs,
+  and extending them through allowable transitions.  Figure 
+  <xref linkend="fig_canonical"/> shows a small schema and its canonical SCPs,
+  excluding the canonical SCPs for the built-in schema components that are
+  present in every assembled schema. 
+      </para><figure xml:id="fig_canonical"><programlisting xml:space="preserve">
+  
+  &lt;xs:schema targetNamespace="http://www.w3.org/xmlschema-ref/example1"
+   xmlns="http://www.w3.org/xmlschema-ref/example1"
+   xmlns:xs="http://www.w3.org/2001/XMLSchema"
+   elementFormDefault="qualified"&gt;
+ 
+    &lt;xs:complexType name="registered-query"&gt;
+      &lt;xs:complexContent&gt;
+        &lt;xs:extension base="query"&gt;
+          &lt;xs:sequence&gt;
+            &lt;xs:element ref="id" minOccurs="0" maxOccurs="unbounded"/&gt;
+            &lt;xs:element ref="option" minOccurs="0" maxOccurs="unbounded"/&gt;
+          &lt;/xs:sequence&gt;
+          &lt;xs:attribute name="weight" type="weight" use="optional"/&gt;
+        &lt;/xs:extension&gt;
+      &lt;/xs:complexContent&gt;
+    &lt;/xs:complexType&gt;
+ 
+    &lt;xs:element name="registered-query" type="registered-query"
+                substitutionGroup="query"/&gt;
+ 
+    &lt;xs:simpleType name="id"&gt;
+      &lt;xs:restriction base="xs:unsignedLong"/&gt;
+    &lt;/xs:simpleType&gt;
+ 
+    &lt;xs:element name="id" type="id"/&gt;
+ 
+    &lt;xs:element name="option" type="option"/&gt;
+ 
+    &lt;xs:simpleType name="option"&gt;
+      &lt;xs:restriction base="xs:string"&gt;
+        &lt;xs:enumeration value="stemmed"/&gt;
+        &lt;xs:enumeration value="unstemmed"/&gt;
+        &lt;xs:enumeration value="wildcarded"/&gt;
+        &lt;xs:enumeration value="unwildcarded"/&gt;
+      &lt;/xs:restriction&gt;
+    &lt;/xs:simpleType&gt;
+ 
+    &lt;xs:complexType name="query"&gt;
+      &lt;xs:annotation&gt;
+        &lt;xs:documentation&gt;Any query.&lt;/xs:documentation&gt;
+        &lt;xs:appinfo/&gt;
+      &lt;/xs:annotation&gt;
+      &lt;xs:complexContent&gt;
+        &lt;xs:restriction base="xs:anyType"&gt;
+          &lt;xs:anyAttribute processContents="lax"/&gt; 
+        &lt;/xs:restriction&gt;
+      &lt;/xs:complexContent&gt;
+    &lt;/xs:complexType&gt;
+ 
+    &lt;xs:element name="query" type="query" abstract="true"/&gt;
+ 
+    &lt;xs:simpleType name="weight"&gt;
+      &lt;xs:restriction base="xs:double"&gt;
+        &lt;xs:minInclusive value="0"/&gt;
+      &lt;/xs:restriction&gt;
+    &lt;/xs:simpleType&gt;
+  &lt;/xs:schema&gt;
+  
+      </programlisting><programlisting xml:space="preserve">
+  /
+  /schemaElement::p:registered-query
+  /schemaElement::p:option
+  /schemaElement::p:id
+  /schemaElement::p:query
+  /type::p:registered-query
+  /type::p:registered-query/model::sequence
+  /type::p:registered-query/schemaAttribute::weight
+  /type::p:option
+  /type::p:option/facet::enumeration
+  /type::p:id
+  /type::p:weight
+  /type::p:weight/facet::minInclusive
+  /type::p:query
+  /type::p:query/anyAttribute::*
+      </programlisting><caption><para>Schema and its canonical paths</para></caption></figure><para>The set of canonical SCPs for a schema give us a quick summary of
+  basic facts of the schema.  In this case we can see that the schema has
+  four top-level element declarations, five top-level
+  type definitions, two constraining facets, one model group, and one local
+attribute declaration. The schema appears to be written in the Garden of Eden
+style, because there are no anonymous type definitions.
+    </para><para>Note, however, that the canonical SCPs (and indeed, SCPs in general)
+do not currently include information about non-component properties of the 
+components, such as occurrence indicators or value constraints. Clearly such
+properties provide important information about a schema, and their absence
+is a serious limitation to using SCPs alone. The SCP specification does define
+an accessor syntax, but declines to define any specific accessors or their
+semantics.
+    </para><section><title>Comparison with Extended XPaths</title><para>Coates and Dui <citation linkend="xsddiff"/> present the idea of 
+  using "extended XPaths" for XML Schema differencing.  As with schema component
+  paths, these extended XPaths use an XPath-like syntax to traverse the
+  component model for an assembled schema. The paper presents how these
+  paths can be used to compare schemas for changes.
+    </para><para>A key difference between the extended XPaths and schema component 
+  paths is simply that there is no specification of the rules for generation 
+  and interpretation of the extended XPaths, while schema component paths are
+  defined in a public formal specification.
+    </para><para>Still, some differences are clear:</para><orderedlist><listitem><para>Extended XPaths include information about non-component 
+  properties, such as occurrence indicators (minOccurs and maxOccurs), value 
+  constraints (default values), and facet values.  A predicate style of 
+  representation is used.</para></listitem><listitem><para>Extended XPaths focus on paths for elements and 
+   attributes, with annotations for certain kinds of type
+information.</para></listitem><listitem><para>Schema component paths includes a definition of canonical
+paths; these paths distinguish shared components from locally defined
+ones.</para></listitem><listitem><para>Schema component paths cover all component types, including named
+   model groups and attribute groups.</para></listitem></orderedlist><para>There are strengths and weaknesses to both approaches.</para><itemizedlist><listitem><para>Including 
+    non-component properties in the path means that metrics or differences that
+    depend on those properties can be calculated using the paths alone. For
+    example, a canonical path-based schema difference will report no change
+    in the schema if the default value for an attribute changes, or if one
+    schema requires 1 or more occurrences of an element instead of 0 or more.
+    Schema component paths are therefore insufficient to detect such
+    differences. The predicate style of representation makes these properties
+    manifest in the paths, which makes the information more immediately
+    accessible than relying on something else to use accessors to fetch the
+values and compute information based on those values.
+    </para></listitem><listitem><para>A central aim of complexity metrics is to measure reuse.
+Distinguishing between paths that involve shared components, such as 
+those inherited from base types or named groups, is therefore essential to
+compute such metrics. Extended XPaths cannot be used to compute such metrics
+because by design they elide such differences.
+    </para></listitem><listitem><para>The design of extended XPaths captures differences that make a
+difference to validation outcomes, but not other kinds of differences. If the
+purpose of computing the difference between two schemas is to determine if some
+inadvertent material change has been made to the set of documents that are
+valid per the schema, this approach is preferable. One need not be
+bothered to review changes that do not materially affect outcomes.
+    </para></listitem></itemizedlist><para>In the sections that follow we will look at how to apply SCPs to 
+perform various schema analysis tasks, with some comparison to extended
+XPaths.
+    </para></section></section><section><title>Analyzing Schemas</title><section><title>Schema Signatures</title><para>The set of canonical SCPs for a given schema provides a useful 
+schema signature.  This signature can be identify schemas that are functionally
+the same, robustly in the face of differences in physical organization of the
+schema documents, ordering of declarations within those schema documents and
+the presence of extraneous information such as comments. Furthermore, the text
+format of a list of canonical SCPs is simple enough that it can be processed
+with simple tools, such as Unix command line tools, to analyze the schema and
+compare it with other schemas.
+      </para><figure xml:id="fig_sig"><programlisting xml:space="preserve"> 
+      canonicals example.xsd | sort -f/ -s -k2,2 
+      </programlisting><caption><para>Computing a schema signature</para></caption></figure><para>This schema signature procedure performs a stable sort on the
+second field only (which is to say, the first step after the root), so top level
+schema components will appear with their names in order by component type,
+while model groups will not be reshuffled. In the case of sequence model
+groups, it is important to preserve the order of the particles because a change
+in the ordering constitutes a significant difference. However, this means that
+ordering changes in choice or all groups will produce different signatures even
+though these changes do not materially affect the schema.
+Similarly the reordering of attributes would also produce a different signature.
+Alternatively, a global sort could be used, with the opposite weakness of
+giving equivalent signatures to two schemas that differ in the order of
+particles in a sequence model group.
+      </para></section><section><title>Schema Differences</title><para>Determining what has changed between two versions by looking at the
+schema documents themselves can be a daunting task. Simple file differencing
+can include lots of irrelevant detail, or can be stymied by a reorganization of
+the partitioning of the schema across multiple schema documents. A comparison
+of the two schema signatures is much easier to grasp and doesn't suffer from
+these problems.
+      </para><figure xml:id="fig_diff"><programlisting xml:space="preserve"> 
+      canonicals example_v1.xsd | sort -f/ -s -k2,2 &gt; 1.out
+      canonicals example_v2.xsd | sort -f/ -s -k2,2 &gt; 2.out
+      echo "*********** New in $xsd2"
+      diff -w 1.out 2.out | grep '&gt;' | sed 's/^&gt; //'
+      echo "*********** Removed from $xsd2"
+      diff -w 1.out 2.out | grep '&lt;' | sed 's/^&lt; //'
+      </programlisting><caption><para>Comparing schema versions</para></caption></figure><figure xml:id="fig_cts_42"><programlisting xml:space="preserve"> 
+*********** New in example_v2.xsd
+/schemaElement::p:cluster
+/schemaElement::p:clustering
+/schemaElement::p:clustering/type::0
+/schemaElement::p:clustering/type::0/model::choice
+/schemaElement::p:complete
+/schemaElement::p:max-terms
+/schemaElement::p:min-weight
+/schemaElement::p:options
+/schemaElement::p:options/type::0
+/schemaElement::p:options/type::0/model::choice
+/schemaElement::p:score
+/schemaElement::p:term/type::0/model::sequence
+/schemaElement::p:term/type::0/schemaAttribute::fitness
+/schemaElement::p:term/type::0/schemaAttribute::confidence
+/schemaElement::p:use-db-config
+/type::p:cluster
+/type::p:cluster/schemaAttribute::id
+/type::p:cluster/schemaAttribute::parent-id
+/type::p:cluster/schemaAttribute::label
+/type::p:cluster/schemaAttribute::count
+/type::p:cluster/schemaAttribute::nodes
+/type::p:nodes
+/type::p:nodes/facet::finite
+/type::p:score-kind
+/type::p:score-kind/facet::enumeration
+*********** Removed from example_v2.xsd
+      </programlisting><caption><para>A sample schema difference report</para></caption></figure><para>
+      A schema difference based on a canonical schema component path signature
+will be sensitive to additions and deletions of elements and attributes, the
+introduction of new named types or groups, or a switch in compositor type.
+A change in base type will be seen as a second order effect: by what impact it
+has on the derived type. Such a schema difference will be insensitive to
+changes in occurrence or value constraints, or in facet values.  
+     </para><para>A schema difference based on extended XPaths
+will also be sensitive to additions and deletions of elements and attributes
+and switches in compositor types. It will also pick up differences in
+occurrence and value constraints and in facet values. A change in base type
+will be directly visible, but the introduction of new types will be visible as
+a second order effect and only if the new type is actually used within the
+schema. The introduction or removal of named model group and attribute groups,
+or the switching of an element from being local to being global will be
+invisible.</para><para>From the point of view of knowing what the changes are that
+materially affect the set of valid documents, the extended XPath approach is
+clearly preferable. The lack of non-component properties on schema component
+paths is a serious weakness in this respect. Facet values and occurrence
+constraints have an obvious effect on validation and changes to them count as
+important changes. Augmenting the schema component path model to make such
+values manifest as predicates, as extended XPaths do, would be a good step 
+forward. On the other hand, from the point of view of knowing about
+substantive changes to the usability of the schema by other schemas or for
+non-validation purposes, the schema component path approach of enumerating
+canonical paths for all components makes sense. When an XML Schema is imported
+into an XQuery module, for example, all the types are present and available,
+even ones not used in any content model.  Augmenting extended XPaths to capture
+information about all components would be a positive step forward for that
+technique. 
+      </para></section><section><title>Schema Metrics</title><para>Schema signatures can be used to calculate schema complexity
+metrics.  Compared to the large body of work on software metrics, little has
+been done on schema metrics.  Neither is there clear consensus of what the
+useful metrics should be.
+     </para><para>
+A paper by Lammel, Kitsis, and Remy <citation linkend="metrics1"/> examines
+a number of counts and metrics
+and computes them against a corpus of actual schemas, as an attempt to
+characterize the usage patterns found in practice.  The paper begins with basic
+counts against the XML document, and then to XML Schema aware
+counts of the number of global element and attribute declarations, global
+complex and simple type definitions, and named model group and attribute group
+definitions. The paper argues against the simple sum of global element
+declarations and global complex type definitions as a metric of schema size on
+the grounds that this measure is sensitive to schema construction styles: a
+Russian Doll schema would always rank as small (one global element declaration)
+no matter how deeply nested its inner element declarations became.  The paper
+moves on to counts of local element declarations and type definitions, and
+proposes a simple size metric that is purely the count of all complex type
+definitions. 
+     </para><para>
+The authors then attempt to apply define something akin to 
+McCabe <citation linkend="mccabe"/> complexity measures for XML Schemas.  The
+metric combines the number of branches in choice model groups, the number of
+non-default occurrence constraints (minOccurs or maxOccurs something other than
+1), the number of references to a substitution group head, the number of
+references to a global type definition, the number of nillable attributes, and
+the number of global element declarations.  
+      </para><para>Additional metrics are defined for code-oriented and
+instance-oriented breadth and depth.  The depth metrics incorporate such
+features as the number of particles in content models or the number of
+"parties": the difference is that the code-oriented depth metric counts a
+reference to a named model group as 1, but the instance-oriented depth metric
+counts all the particles obtained by the reference.  The code-oriented depth
+metric counts the amount of nesting of element declarations in the schema. 
+      </para><table xml:id="tab_metrics1"><caption><para>Summary of metrics in <citation linkend="metrics1"/></para></caption><tr><td>File size kB or lines of code</td></tr><tr><td>XML nodes: total</td></tr><tr><td>XML annotation nodes: total</td></tr><tr><td>Element declarations: #global, #local, total</td></tr><tr><td>Complex type definitions: #global, #local, total</td></tr><tr><td>Simple type definitions: #global, #local, total</td></tr><tr><td>Named model group definitions: #global, total</td></tr><tr><td>Attribute group definitions: #global, total</td></tr><tr><td>Attribute declarations: #global, #local, total</td></tr><tr><td>McCabe cyclomatic complexity for XML Schema</td></tr><tr><td>Code-oriented breadth and depth</td></tr><tr><td>Instance-oriented breadth and depth</td></tr></table><para>
+A paper by McDowell, Schmidt, and Yue <citation linkend="metrics2"/> proposes
+various schema complexity and quality
+metrics: counts of complex type declarations (broken down by the type of the
+content model), simple type declarations, annotations, derived complex types,
+global type declarations, the average number of attributes per type
+declaration, the number of references to global types, the number of unbounded
+elements, the average range in bounds for bounded elements ("multiplicity"),
+the average number of restrictions per simple type, and the fan-in and fan-out
+of element declarations.
+      </para><para>
+Overall complexity and quality indexes apply weighting factors to various
+measures to give an overall score.  The quality index combines the ratio of
+simple to complex type declarations, the percentage of annotations over total
+number of element declarations, the average restrictions per simple type
+declaration, percentage of derived complex type declarations of the total
+number of complex type declarations, the average bounded multiplicity size, 
+and the average number of attributes per type declaration.  The complexity
+index combines the number of unbounded elements, the element fanning, the
+number of complex type declarations, the number of simple type declarations,
+and the average number of attributes per complex type declaration.
+      </para><table xml:id="tab_metrics2"><caption><para>Summary of metrics in <citation linkend="metrics2"/></para></caption><tr><td>Annotation nodes: total</td></tr><tr><td>Element declarations: #global, #local, #references</td></tr><tr><td>Complex type definitions: #global, #local, total, #simple,
+#mixed, #element-only, #derived</td></tr><tr><td>Simple type definitions: total, restrictions/total</td></tr><tr><td>Attributes: average per complex type</td></tr><tr><td>Elements: average bounded element multiplicity, fanning</td></tr><tr><td>Quality index</td></tr><tr><td>Complexity index</td></tr></table><para>There is some overlap in these metrics, such as basic counts in the
+number of different kinds of components, but in the main these are two very
+different takes on what kind of information might be interesting or useful to
+measure.
+      </para><para>Many of these metrics can be readily calculated from the schema
+signature.  For example the number of element declarations can be determined by
+counting the number of canonical SCPs containing 'schemaElement::' as the last
+step, the number of global element declarations is the number of canonical SCPs
+beginning with '/schemaElement::' but not containing two slashes, and the
+number of local element declarations is the number of canonical SCPs containing
+'schemaElement::' somewhere other than at the start.  
+      </para><figure xml:id="fig_calc"><programlisting xml:space="preserve">
+# Total number of global element declarations
+canonicals example.xsd | grep '^/schemaElement::[^/]*$' | wc -l
+# Total number of local element declarations
+canonicals example.xsd | grep '[^/].*/schemaElement::[^/]*$' | wc -l
+# Total number of element declarations
+canonicals example.xsd | grep 'schemaElement::[^/]*$' | wc -l
+# Type definitions
+canonicals example.xsd | grep 'type::[^/]*$' | wc -l
+# Attribute declarations
+canonicals example.xsd | grep 'schemaAttribute::[^/]*$' | wc -l
+# Named model group definitions
+canonicals example.xsd | grep 'group::[^/]*$' | wc -l
+# Attribute group definitions
+canonicals example.xsd | grep 'attributeGroup::[^/]*$' | wc -l
+# Notation declarations
+canonicals example.xsd | grep 'notation::[^/]*$' | wc -l
+# Identity constraint definitions
+canonicals example.xsd | grep 'identityConstraint::[^/]*$' | wc -l
+# Total number of components
+canonicals example.xsd | wc -l 
+      </programlisting><caption><para>Computing simple count metrics</para></caption></figure><para>Many of the metrics listed above to not lend themselves well to a
+simple schema-signature-based approach.
+      Certain kinds of metrics do not lend then well to a SCP-based
+approach at all: certainly those that rely on the XML representation of
+the schema rather than the schema itself such as the number of XML nodes, for
+example. 
+      </para><para>SCPs do not distinguish directly between simple and complex type
+definitions because they form a single symbol space in XML Schema: one can have
+both an element declaration and a type definition named 'example', but not both
+a simple and complex type definition with that name.  If there is a canonical
+SCP where a facet axis follows a type definition, we know that the type is a
+simple type; if there is a canonical SCP where a model axis or attribute axis
+follows a type definition, we know that the type is a complex type. Otherwise,
+we can't tell from the SCPs alone.  
+      </para><para>Another class of metrics that are not readily
+computable from canonical SCPs are certain kinds of inbound counts: the number
+of uses of global element declarations, the number of uses of a substitution
+group head, and so forth.  Similarly, statistics that distinguish particles
+that derive from references to named model groups from the rest cannot be
+computed with canonical SCPs alone, as the schema component model records that
+information through through the scope property. In any case, if the content
+model has a reference to a global element declaration, this will not create a
+canonical SCP for that particle: the canonical SCP for the element declaration
+is the top-level one.
+      </para><para>In addition, since non-component properties of schema components
+are not reflected in the SCPs, any statistic that depends on the value of such
+a property cannot be computed with SCPs alone.  The the unbounded element 
+multiplicity from <xref linkend="metrics2"/> and the cyclomatic complexity from
+<xref linkend="metrics1"/>, which look at the minOccurs and maxOccurs, fall
+into this class.
+      </para><para>Coates and Dui <citation linkend="xsddiff"/> did not look at 
+metrics in their paper, but surely many metrics can be calculated using their
+extended XPaths as well. Counts of components of various types would be
+difficult: the distinction between element and attribute declarations seems to
+be manifest only in the how the type predicates are represented, the
+apparent loss of information about named groups suggests that not only will
+named groups not be counted at all, but some over-counting of element and
+attribute declarations is likely. Similarly, types cannot be accurately
+counted. In general the extended XPath approach is not conducive to measuring
+component reuse, which is an important aspect of schemas to measure.
+On the other hand, extended XPaths provide information that can be
+used to compute metrics that depend on occurrence constraints.
+      </para><para>At this point, the reader will be excused for thinking that things
+are looking grim for the use of SCPs for obtaining serious schema metrics.  All
+is not lost, however.  First, many of these statistics can be computed by using
+non-canonical SCPs to select a particular set of components, and counting
+against that set.  Where the metrics need the values of properties of
+particular components, the ability to select components using a non-canonical
+SCP needs to be augmented with an ability to inspect or query the properties.
+For example, the particle axis can be used to count number of particles in
+content models, the scope axis can be used to distinguish particles derived
+from named model groups from local ones, and the substitutionGroup axis can be
+used to count references to substitution group heads.
+Second, since it is far from clear which statistics to use to examine schema
+size, complexity, or quality, a more fruitful approach may be to see what
+statistics we <emphasis>can</emphasis> compute from SCPs and see what they show
+us. Some metrics can be replaced by similar metrics that are more amenable to
+calculation via SCPs. For example, looking at the ratio of SCPs containing a
+type definition as an intermediate step against the number of SCPs representing
+a type definition (that is, whose final step is a type axis) gets at similar
+schema characteristics as element fanning.
+      </para><para>The simplest measure obtainable from the schema signature is a
+simple count of how many canonical paths there are for a particular schema.
+A schema with a high level of reuse of global declarations and definitions will
+result in fewer canonical paths.  Suppose there are two schemas, one of which
+defines a global element declaration and uses it in two places, and one of
+which defines a local element declaration in each place.  The first schema will
+have one canonical SCP for the global element declaration, while the second
+will have a canonical SCP for each local element declaration. Each reuse of
+the global declaration leads to one less canonical SCP in the schema.
+If two schemas have a similar number of declarations, the one with fewer paths
+is the simpler.
+      </para><para>An interesting extension of the path count can be obtained by
+generating SCPs along the canonical axes to a particular depth, but not
+worrying about the other whether the SCP is canonical or not.  For example, if
+a content model references a global element declaration, a SCP that extends the
+content model's SCP through the schemaElement axis would not be a canonical
+one (the canonical SCP is the one directly from the root to the global element
+declaration), but it would be a level 1 extension to a canonical SCP.
+A level 2 extension to a canonical SCP is the addition of one more step through
+a canonical axis to a level 1 extension to a canonical SCP, and so on.
+In some simple data-oriented schemas, the set of canonical SCPs is no different
+from the set of level 1 extensions. At the other extreme, schemas where
+content models for different elements recursively refer to each other can have
+a set of level 1 extensions substantially larger than the set of canonical
+SCPs. The growth in the number of paths as the level increases is a measure of
+the inter-relatedness of the components in the schema, and high growth can be
+the sign of a schema that has many dependencies and is therefore more complex.
+    </para><para>Calculation of the total and average number of steps in the SCPs can
+also be computed readily. A higher average path length indicates less
+component reuse and more local definitions, more complex content
+models, or more additional constraints on simple type. In short: a more complex
+schema. Again, the growth of this measure for level N extensions gives some
+indication of the inter-relatedness of the components in the schema.
+    </para><table xml:id="fig_stats"><caption><para>Statistics for a selection of schemas</para></caption><tr><th>Schema</th><th>Elements</th><th>Types</th><th>Attributes</th><th>E+T+A</th><th>Paths</th><th>Path length</th><th>Level 10 paths</th><th>Level 10 path length</th></tr><tr><td>XSLT 2.0</td><td align="right">52</td><td align="right">93</td><td align="right">185</td><td align="right">330</td><td align="right">481</td><td align="right">3.56</td><td align="right">1850</td><td align="right">6.54</td></tr><tr><td>XHTML 1.1</td><td align="right">97</td><td align="right">119</td><td align="right">230</td><td align="right">446</td><td align="right">1682</td><td align="right">3.81</td><td align="right">923374</td><td align="right">13.58</td></tr><tr><td>XMLSpec</td><td align="right">178</td><td align="right">226</td><td align="right">139</td><td align="right">543</td><td align="right">1087</td><td align="right">3.22</td><td align="right">10889</td><td align="right">10.09</td></tr><tr><td>SDocBook</td><td align="right">119</td><td align="right">282</td><td align="right">785</td><td align="right">1186</td><td align="right">1574</td><td align="right">3.19</td><td align="right">4183690</td><td align="right">12.41</td></tr><tr><td>FpML 4.4</td><td align="right">1972</td><td align="right">889</td><td align="right">262</td><td align="right">3123</td><td align="right">7313</td><td align="right">3.85</td><td align="right">73110</td><td align="right">9.59</td></tr><tr><td>GML 3.2</td><td align="right">1063</td><td align="right">1137</td><td align="right">1717</td><td align="right">3917</td><td align="right">6386</td><td align="right">3.22</td><td align="right">61249</td><td align="right">8.58</td></tr></table><para><xref linkend="fig_stats"/> shows some metrics for an
+assortment of schemas. XMLSpec (the vocabulary
+used to write W3C specifications) and XHTML are relatively
+simple document-oriented vocabularies and measured as the sum of element
+declarations, attribute declarations, and type declarations they are of
+roughly comparable size.  Simplified DocBook, a somewhat more extensive 
+document-oriented vocabulary, is about twice as large by this measure.
+In terms of paths, however, DocBook is smaller than XHTML and about only about 
+one and a half times the size of XMLSpec.
+</para><para>GML and FpML are both highly structured data-oriented schemas. 
+Which is more complex?  FpML has more elements, but GML has a larger E+T+A 
+count.  FpML has more paths and a larger average path length. E+T+A speaks
+to what one needs to know about a schema to fully make use of it in a processing
+environment such as XSLT or XQuery, while the path count speaks to the 
+burden on a schema maintainer.
+</para><para>
+While the average path length for canonical SCPs does not vary
+greatly, the growth in average path length for level 10 paths is quite
+substantial.
+The differences in level 10 extensions is astonishing, however: simplified
+DocBook produces two orders of magnitudes more level 10 extensions than
+XMLSpec and one order of magnitude more than XHTML, 
+despite the fact that XMLSpec is larger in terms of the element/type/attribute 
+count and not drastically smaller in terms of the canonical
+SCP count and XHTML is larger in terms of the canonical SCP count. 
+It appears that the main reason for this is that XMLSpec and XHTML make use of 
+substitution groups and named model and attribute groups, while simplified 
+DocBook uses large choice groups instead.
+    </para><table xml:id="fig_reusable"><caption><para>Reusable components in a selection of schemas</para></caption><tr><th/><th colspan="4">Global</th><th rowspan="2">E+T+A Global/Total</th><th colspan="2">Named Groups</th><th rowspan="2">Substitution Group Heads</th></tr><tr><th>Schema</th><th>Elements</th><th>Types</th><th>Attributes</th><th>E+T+A</th><th>Model</th><th>Attribute</th></tr><tr><td>XSLT 2.0</td><td align="right">52</td><td align="right">28</td><td align="right">4</td><td align="right">84</td><td align="right">0.25</td><td align="right">2</td><td align="right">2</td><td align="right">3</td></tr><tr><td>XHTML 1.1</td><td align="right">97</td><td align="right">98</td><td align="right">1</td><td align="right">196</td><td align="right">0.44</td><td align="right">57</td><td align="right">141</td><td align="right">0</td></tr><tr><td>XMLSpec</td><td align="right">178</td><td align="right">6</td><td align="right">14</td><td align="right">198</td><td align="right">0.36</td><td align="right">17</td><td align="right">168</td><td align="right">16</td></tr><tr><td>SDocBook</td><td align="right">119</td><td align="right">119</td><td align="right">0</td><td align="right">238</td><td align="right">0.20</td><td align="right">0</td><td align="right">0</td><td align="right">0</td></tr><tr><td>FpML 4.4</td><td align="right">110</td><td align="right">888</td><td align="right">0</td><td align="right">998</td><td align="right">0.32</td><td align="right">69</td><td align="right">1</td><td align="right">11</td></tr><tr><td>GML 3.2</td><td align="right">631</td><td align="right">660</td><td align="right">14</td><td align="right">1305</td><td align="right">0.33</td><td align="right">7</td><td align="right">15</td><td align="right">114</td></tr></table><para>As we can see in <xref linkend="fig_reusable"/>, 
+there is a wide range in the utilization of reusable 
+schema components. Global elements and types are broadly used, but global
+attributes are rare. Where attribute reuse is desired, it is accomplished (in
+these schemas at least), through named attribute groups. Substitution groups
+and named model groups seem to restrict both level 10 path counts and lengths.
+</para></section></section><section><title>Conclusion</title><para>Schema component paths provide a characterization of the structure of
+schemas that is insensitive to details of the XML representation and
+partitioning into multiple files.  They can be used as the basis to analyze and
+compare schemas, and to compute metrics of schema size and complexity. This
+paper attempts to sketch some of the possibilities in these areas. Fuller
+metrics and analysis could by obtained by following the lead of extended XPaths
+and including non-component accessors on the paths as well. 
+    </para><para>These metrics calculated in this paper are suggestive and seem to
+capture interesting differences in schema designs, but a more systematic study 
+is warranted.</para></section><appendix><title>Tools</title><para>MHSCD <citation linkend="mhscd"/> is a set of Java tools for
+manipulating schema component paths. Both a SCP generator and a locator 
+API (which provides information about component properties) is included. 
+It was used to generate the examples of schema component paths in this paper 
+and is available under a Creative Commons Attribution license. 
+	</para><para>The schema component path specification <citation linkend="scds"/> is
+currently under development by the W3C (as of this writing at the Candidate
+Recommendation phase). Readers are invited to review and
+comment on that specification.
+	</para></appendix><bibliography><title>References</title><bibliomixed xml:id="xsddiff" xreflabel="Coates10">
+    Anthony B. Coates and Daniel Dui.
+    <emphasis>"Full Impact" Schema Differencing</emphasis>.
+    Conference proceedings XML Prague 2010.
+    </bibliomixed><bibliomixed xml:id="mhscd" xreflabel="MHSCD">
+    Mary Holstege. MHSCD, available at 
+<link xlink:href="http://www.mathling.com/xsd/scds.html" xlink:title="MHSCD" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.mathling.com/xsd/scds.html</link>.
+    </bibliomixed><bibliomixed xml:id="metrics1" xreflabel="Lammel05">
+    Ralf Lammel, Stan Kitsis, and Dave Remy. 
+    <emphasis>Analysis of XML schema usage</emphasis>.
+    Conference Proceedings XML 2005.
+    </bibliomixed><bibliomixed xml:id="mccabe" xreflabel="McCabe76">
+    T.J. McCabe. 
+    <emphasis>A Measure of Complexity</emphasis>.
+    IEEE Transactions on Software Engineering, 2(4), pp. 308-320, 
+    December 1976.
+    </bibliomixed><bibliomixed xml:id="metrics2" xreflabel="McDowell04">
+    Andrew McDowell, Chris Schmidt, and Kwon-Bun Yue.
+    <emphasis>Analysis and Metrics of XML Schema</emphasis>.
+     Proceedings of the 2004 International Conference on Software Engineering Research and Practice. Volume 2.
+    </bibliomixed><bibliomixed xml:id="xsd11" xreflabel="XSD11">
+    W3C: Shudi (Sandy) Gao 高殊镝, C. M. Sperberg-McQueen, and Henry S. Thompson, editors. 
+    <emphasis>W3C XML Schema Definition Language (XSD) 1.1 Part 1: Structures.</emphasis>
+    Last Call Working Draft. W3C, December 2009.
+    <link xlink:href="http://www.w3.org/TR/2009/WD-xmlschema11-1-20091203/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/2009/WD-xmlschema11-1-20091203/</link>
+	</bibliomixed><bibliomixed xml:id="scds" xreflabel="SCD">
+    W3C: Mary Holstege and Asir S. Vedamuthu, editors.
+    <emphasis>W3C XML Schema Definition Language (XSD): Component Designators.</emphasis>
+    Candidate Recommendation. W3C, January 2010.
+    <link xlink:href="http://www.w3.org/TR/2010/CR-xmlschema-ref-20100119/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/2010/CR-xmlschema-ref-20100119/</link>
+    </bibliomixed><bibliomixed xml:id="xsd" xreflabel="XSD10">
+    W3C: Henry S. Thompson, Murray Maloney, David Beech, and Noah Mendelsohn, editors.
+    <emphasis>XML Schema Part 1: Structures Second Edition</emphasis>.
+    W3C, October 2004. 
+    <link xlink:href="http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/</link>
+    </bibliomixed></bibliography></article>

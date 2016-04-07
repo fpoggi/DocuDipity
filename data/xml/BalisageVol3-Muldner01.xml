@@ -1,0 +1,754 @@
+<?xml version="1.0" encoding="UTF-8"?><article xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink" version="5.0-subset Balisage-1.2" xml:id="HR-23632987-8973"><title>XSAQCT: XML Queryable Compressor</title><info><confgroup><conftitle>Balisage: The Markup Conference 2009</conftitle><confdates>August 11 - 14, 2009</confdates></confgroup><abstract><para>Recently, there has been a growing interest in queryable XML compressors, which can be used to query compressed data with minimal decompression. At the same time, there are very few applications that have been made available for testing and comparisons. In this paper we report our current work on a novel queryable XML compressor, XSAQCT. While our work is in its early stage, our experiments show that our approach successfully competes with other known queryable compressors.</para></abstract><author><personname><firstname>Tomasz</firstname><surname>Müldner</surname></personname><personblurb><para>Tomasz Müldner is a professor of computer science at Acadia University in Nova Scotia, one of Canada's top undergraduate universities. He has received numerous teaching awards, including the prestigious Acadia University Alumni Excellence in Teaching Award in 1996. He is the author of several books and numerous research papers. Dr. Müldner received his Ph.D. in mathematics from the Polish Academy of Science in Warsaw, Poland in 1975.  His current research includes XML compression and encryption, and website internationalization.</para></personblurb><affiliation><jobtitle>Professor</jobtitle><orgname>Jodrey School of Computer Science, Acadia University</orgname></affiliation><email>tomasz.muldner@acadiau.ca</email></author><author><personname><firstname>Christopher</firstname><surname>Fry</surname></personname><personblurb><para>Christopher Fry graduated in May 2009 from Acadia University with a Bachelor of Computer Science with Honours. He will be returning to Acadia University to pursue his masters degree in computer science</para></personblurb><affiliation><jobtitle>Graduate Student</jobtitle><orgname>Jodrey School of Computer Science, Acadia University</orgname></affiliation><email>062181f@acadiau.ca</email></author><author><personname><firstname>Jan</firstname><othername>Krzysztof</othername><surname>Miziołek</surname></personname><personblurb><para>Jan Krzysztof Miziołek works for the University of Warsaw, Poland. Dr. Miziołek received his Ph.D. in mathematics from Technical University of Lodz, Poland in 1981. He worked on design and implementation of a high-level programming language, LOGLAN-82. His current research includes XML compression and encryption.</para></personblurb><affiliation><jobtitle>Director</jobtitle><orgname>Computing Services Centre for Studies on the Classical Tradition in Poland and East-Central Europe, University of Warsaw, Warsaw, Poland</orgname></affiliation><email>jkm@ibi.uw.edu.pl</email></author><author><personname><firstname>Scott</firstname><surname>Durno</surname></personname><personblurb><para>Scott Durno graduated in October of 2004 with a Bachelor of Computer Science with Honours degree from Acadia University. He is currently studying at Acadia University pursuing his masters degree in computer science</para></personblurb><affiliation><jobtitle>Graduate Student</jobtitle><orgname>Jodrey School of Computer Science, Acadia University</orgname></affiliation><email>900390d@acadiau.ca</email></author><legalnotice><para>Copyright © 2009 T. Müldner, C. Fry, J. K. Miziołek, and S. Durno.</para></legalnotice></info><section><title>1. Introduction</title><para>XML (Extensible Markup Language) [<xref linkend="xml06"/>] is a meta-language (developed by the W3C, World Wide Web Consortium in 1996), which represents semi-structured data using markups. While the use of XML facilitates the interchange and access of data, its verbose nature tends to considerably increase the size of a data file. This increase in size limits applications of XML, in particular, because of time efficiency of storage on large data files, and because of space considerations of storage on mobile devices. Besides storing (possibly compressed) XML data, one is also interested in being able to <emphasis role="ital">query</emphasis> them in order to obtain specific information; such as the information pertaining to all patients who visited the emergency room of a specific hospital in the last year.</para><para>The reasons for querying a compressed XML file are:
+	<orderedlist><listitem><para>Querying a compressed XML file is generally faster than completely decompressing the compressed file and then querying it.</para></listitem><listitem><para>Portable devices may not have disk space available for a complete decompression of the XML file.</para></listitem></orderedlist>
+	</para><para>There are many known XML-aware compressors, i.e. compressors, which can take advantage of XML syntax. Some of these XML compressors are grammar-free, in other words, information available to the compressor is limited to the XML document. Other XML compressors are grammar-based, i.e. the compressor is aware of the grammar for which the input document is valid. Grammar-based compressors may produce better results - in terms of both compression rate and time - than grammar-free compressors because they can take advantage of information available in the grammar, but in many applications the grammar is not known and so this approach is not always practical. In the case of the widely used Wratislava corpus [<link linkend="ski07" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Skibinski et al, 2007</link>], out of seven XML documents, only two provide an XML Schema (enwikibooks and enwikinews), two reference a DTD (shakespeare and dblp), while the others use no schema. Finally, even if an XML Schema is provided, it may define elements that never actually appear in the XML document to be compressed.</para><para>In this paper, we describe a queryable, grammar-free XML compressor, called XSAQCT (pronounced exact). Our technique borrows from other XML compressors in that it separates the document structure from the text values and attribute values (collectively called data values), which makes up the content of the document. What is new in our technique is that we first encode the document to succinctly store information about the input document. Next, we apply the appropriate back-end data compressors to the container that stores the document structure and to the containers storing the data values (the type of the data, derived from the containers, may be used to guide the choice of back-end compressors used for various containers). It is well known that, on average, the structure of the XML document represents between 10 and 20 percent of the size of the entire document, and the remaining 80 percent represents text and attribute values. Since the main focus of our work is on <emphasis role="ital">queryable compression</emphasis>, our encoding of the document structure supports <emphasis role="ital">lazy decompression</emphasis>, i.e. during the querying process of the compressed document; we decompress “as little as possible”. Well-known XML compressors differ in their use of container granularity; some compressors use a single container, while others tend to create many separate containers for related values. The former approach is based on the promise that standard data compressors achieve better results when they get large data sets, but require complete decompression in order to perform a query. On the other hand, the latter approach may suffer from poor compression ratios, but it requires the decompression of only a few (possibly just one) containers. In our approach, we attempt to strike a balance between these two extremes; using containers that will be large enough so that they can be effectively compressed, but at the same time the container structure does not require a full decompression to answer a query. In addition, while our design supports lazy decompression, it is designed to support future extensions and performs operations directly on compressed data, without any decompression. In what follows, we provide a more detailed description of XSAQCT.</para><para>Contributions. There are two main contributions of this paper: (1) an algorithm, which given an XML document D, produces a concise representation of D in a form of an annotated document tree, and stores data values in containers; and (2) the compressor, which compresses the annotated tree and containers, the decompressor, which restores the original document, and the query processor, which operates on a compressed document, and decompresses “as little as possible”. Since the compressor uses a single SAX pass of the input document, our technique is applicable to processing very large XML files and to streaming. In addition, we provide results of our experiments on a representative XML corpus, showing that on average XSAQCT compresses documents in this corpus to 12% of the original file size, and outperforms TREECHOP, the only other XML compressor available for testing.</para><para>Currently, XSAQCT only supports simple queries of the form: "/a/b" or "/a/b/text()". Future work will focus on supporting core XQuery queries.</para><para>This paper is organized as follows: <link linkend="section_2" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Section 2</link> provides related work, and <link linkend="section_3" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Section 3</link> describes XSAQCT. <link linkend="section_4" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Section 4</link> provides a description the implementation of XSAQCT. <link linkend="section_5" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Section 5</link> gives results of testing of our compressor, while conclusions and future work are described in <link linkend="section_6" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Section 6</link>.</para></section><section xml:id="section_2"><title>2. Related Work</title><para>Existing queryable XML compressors can be classified based on their approach to compression with respect to the structure of the uncompressed XML document and their method of querying the compressed document. Regarding the former, a compressor either retains the original document's structure or separates the structure and the data values; the latter indicates whether or not the queryable compressor features random or sequential queries over the document in the compressed domain.</para><para>XGrind [<xref linkend="tolani2002"/>] is the earliest XML compressor to support querying of the compressed document and it is DTD schema aware. XGrind features a homomorphic compression scheme where data are encoded using a non-adaptive Huffman algorithm. XPRESS [<xref linkend="min03"/>] uses a method called reverse arithmetic encoding to represent unique label paths and a semi-adaptive encoding that provides improved homomorphic compression over XGrind plus the ability to handle some range queries in the compressed domain. </para><para>TREECHOP [<xref linkend="tre05"/>] is another queryable XML compressor that employs a homomorphic compression scheme and implements a sequential query algorithm and lazy decompression. TREECHOP, like XPRESS, is not schema aware and implements top-down exact-match and range queries of the compressed document. TREECHOP's compression algorithm is highly efficient and the single pass scheme makes it ideal for data exchange across networks.</para><para>XQueC [<xref linkend="arion07"/>] is a recent queryable XML compressor that separates the structure from the data of the original XML document into the tree structure, separate data containers and a structure summary. XQueC attempts to group data containers to facilitate efficient querying while reducing the costs of storing compressed data and the time required to decompress the document. </para><para>XSAQCT is a queryable XML schema-free compressor. The early description of our work appeared in (non-refereed) Dagstuhl Seminar Proceedings [<xref linkend="dag08"/>], and here it is extended by the updated versions of all algorithms and results of our experiments.</para><para>When dealing with any kind of data compression, one compares their compressor with other compressors, using a specific set of input documents. In this paper, we follow [<link linkend="ski07" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Skibinski et al</link>] and for our experiments, we use the Wratislavia XML corpus [<xref linkend="wra"/>] from this paper.</para><para>Binary XML is similar to XML compressors; in that, it allows a more compact form of XML representation, while still retaining the advantage of interoperability of XML. Presently, there are various competing formats of Binary XML including  Efficient XML Interchange [<xref linkend="exi08"/>] defined by the W3C. While parsing of Binary XML may be faster than parsing regular XML, Binary XML is not particularly designed for query efficiency. Furthermore, Binary XML may be limited in the types of compression used; for example, EXI only allows DEFLATE based compression.</para></section><section xml:id="section_3"><title>3. Introduction to XSAQCT </title><para>In this section we provide the basic terminology, and a general introduction to our compression technique.</para><section><title>3.1. Basic Terminology</title><para>XSAQCT can be characterized as (1) a <emphasis role="ital">database application</emphasis>, that concentrates on queryable compression with random access, and decompression speed; (2) an <emphasis role="ital">interactive</emphasis> compressor that can expect any kind of queries (rather than a <emphasis role="ital">batch</emphasis> compressor that know a priori the so-called <emphasis role="ital">workloads</emphasis> (containing queries that can be used); (3) a compressor that supports both <emphasis role="ital">lossless</emphasis> compression (the only differences between the recreated document and the input document are those permitted by the XML <emphasis role="ital">canonicalization</emphasis> process, such as the order of occurrence of attributes; see [<xref linkend="can"/>]), and compression, which also allows removal of spurious whitespace; and (4) uses indexing and caching. To our knowledge, currently there is no compressor available with all four attributes. </para><para>Two absolute paths are called similar if they are identical, possibly with the exception of the last component, which is the data value. For example, the paths /a/b/t1 and /a/b/t2 are similar while the paths /a/b/t1 and /a/c/t1 are not.</para></section><section xml:id="section_3.2"><title>3.2. Architecture of XSAQCT</title><para>The top-level description of the architecture of the XSAQCT compressor is as follows. First, the input file is compressed. Then the user can start a session, during which the compressed file is queried and/or decompressed to recreate the original file. More details of the architecture are provided in <link linkend="fig_process" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Figure 1</link>, in which shaded boxes represent intermediate stages of the compression.</para><figure xml:id="fig_process" floatstyle="1" xreflabel="fig_process"><mediaobject><imageobject><imagedata format="png" fileref="../../../vol3/graphics/Muldner01/Muldner01-001.png" width="95%"/></imageobject><caption><para>The architecture of XSAQCT.</para></caption></mediaobject></figure><para>Given a document D, we perform a single SAX traversal of D to encode it; creating an annotated tree (T<subscript>A,D</subscript>). At the same time, data values are written to the appropriate data containers. Note that T<subscript>A,D</subscript> provides a <emphasis role="ital">faithful</emphasis> but <emphasis role="ital">succinct</emphasis> representation of the <emphasis role="ital">structure</emphasis> of the input document D. Next, T<subscript>A,D</subscript> is compressed by first writing its annotations to one container and the <emphasis role="ital">skeleton</emphasis> tree (T<subscript>D</subscript>) without annotations to another container. Finally, all remaining containers are compressed, using user specified back-end compressors, and written to create the compressor’s output C<subscript>D</subscript>.</para><para>This approach resembles a <emphasis role="ital">permutation-based</emphasis> approach, in which a document is re-arranged to localize repetitions. However, in our work, T<subscript>A,D</subscript> preserves all information about the ordering of elements, and a single container stores only related data values (specifically, we use a <emphasis role="ital">single container</emphasis> to store text values for all <emphasis role="ital">similar</emphasis> paths). Each container may be compressed using different back-end compressor, depending on the type of value in the container (the encoded information about the selected back-end compressor is added to the container). In other words, our approach is in a sense a <emphasis role="ital">homomorphic</emphasis> approach, but the annotated tree never has two or more similar paths (they have been <emphasis role="ital">“merged”</emphasis> into a single path). The main back-end compressors used include GZIP [<xref linkend="gzip"/>], BZIP2 [<xref linkend="bzip2"/>] and PAQ8 [<xref linkend="paq"/>], but the user can add more compressors.</para><para>The decompressor has the following logical passes (more details of the actual implementation are provided in <link linkend="section_4.2" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Section 4.2</link>):</para><orderedlist><listitem><para>use the back-end decompressors to restore the contents of all containers</para></listitem><listitem><para>re-annotation: use (retrieved from containers) annotations and the skeleton tree T<subscript>D</subscript> to recreate T<subscript>A,D</subscript></para></listitem><listitem><para>restoring: use T<subscript>A,D</subscript> to restore the decompressed file</para></listitem></orderedlist><para><emphasis role="bold">Example 1</emphasis>. Consider the document D, shown as the document tree without any data values, in <link linkend="fig2" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Figure 2</link>. Here, there are three similar paths /a/b/c and two similar paths /a/b/e.  Note that in this example, we concentrate on handling elements and describe handing attributes and text values in <link linkend="section_3.3" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Section 3.3</link>.</para><figure xml:id="fig2" floatstyle="1" xreflabel="fig2"><mediaobject><imageobject><imagedata format="png" fileref="../../../vol3/graphics/Muldner01/Muldner01-002.png" width="90%"/></imageobject><caption><para>The document D.</para></caption></mediaobject></figure><para>The annotated tree T<subscript>A,D</subscript>, which represents D, is shown in <link linkend="fig_annotated_tree" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Figure 3</link>. Similar paths have been merged, for this example there is only one path /a/b/c and one path /a/b/e. To support decompression, annotations have been added to the nodes of the tree T<subscript>A,D</subscript>.</para><figure xml:id="fig_annotated_tree" floatstyle="1" xreflabel="fig_annotated_tree"><mediaobject><imageobject><imagedata format="png" fileref="../../../vol3/graphics/Muldner01/Muldner01-003.png" width="40%"/></imageobject><caption><para>The annotated tree T<subscript>A,D</subscript>.</para></caption></mediaobject></figure><para>Let’s use this example to explain the idea behind annotations. In this example, as well in most examples we investigated, the document tree is wide, while the corresponding annotated tree is much narrower (both trees always have the same height). The annotation associated with node n, which is a child of the node m, provides the information as to the number of children of m, labeled by n. Specifically, in this example, the node “b” in T<subscript>A,D</subscript> is annotated with [3], because there are three children labeled by “b” of the node “a” in the document D. Now, consider the node “e” in T<subscript>A,D</subscript>. This node is annotated with [0,0,2], because in the document D, there are no children labeled “e” for the first two occurrences of the node “b”, and there are two children labeled “e” for the third occurrence of the node “b”.</para><para>Now, we summarize some properties of the annotated tree T<subscript>A,D</subscript> for the document D. First of all, the height of D is equal to the height of T<subscript>A,D</subscript>.  For a node A of T<subscript>A,D</subscript>, consider its annotation ann(A) = [a1,…,ak] and let |ann(A)| be the number of integers in the ann(A), {A} be the sum of a<subscript>1</subscript>,…,a<subscript>k</subscript>. Then, the following properties hold:</para><para>3.1 In D, there are a<subscript>1</subscript>,…,a<subscript>k</subscript> occurrences of A </para><para>3.2 If A has children B<subscript>1</subscript>,…,B<subscript>m</subscript> in T<subscript>A,D</subscript>, then</para><orderedlist numeration="loweralpha"><listitem><para>ann(B<subscript>j</subscript>) = [b<subscript>j,1</subscript>,…,b<subscript>j,{A}</subscript>], i.e. the number of integers in the annotation of each child is equal to the sum of integers in the annotation of the parent</para></listitem><listitem><para>in D, the node A<subscript>j</subscript> has:</para><para>b<subscript>j,1</subscript> children labeled by B<subscript>1</subscript></para><para>…</para><para>b<subscript>j,{A}</subscript> children labeled by B<subscript>{A}</subscript></para></listitem></orderedlist><para>For Example 1, and the node “b” in T<subscript>A,D</subscript>, we have ann(b) = [3] and from 3.1, there are three occurrences of the node “b” in D. From 3.2 a), annotations of children of this node have three integers. To show an example of 3.2b), consider Figure 11 and the node ”$”, which is a child of the node “a”, and has two children; “s”, annotated by [1,2,0,1,0] and “z”, annotated by [0,1,1,0,0]. As the Figure 12 shows, there are five corresponding occurrences of the node “$” in D; with the following children:</para><itemizedlist><listitem><para>the first occurrence of “$” has one child labeled by “s” and no children labeled by “z”</para></listitem><listitem><para>the second occurrence of “$” has two children labeled by “s” and one child labeled by “z”</para></listitem><listitem><para>the third occurrence of “$” has no children labeled by “s” and one child labeled by “z”</para></listitem><listitem><para>the fourth occurrence of “$” has one child labeled by “s” and no children labeled by “z”</para></listitem><listitem><para>the fifth occurrence of “$” has no children.</para></listitem></itemizedlist><para>For any element s, which may appear a various number of times as a child of the same node, in our figures, the element s will have an appended *. Element s is called <emphasis role="ital">dirty</emphasis> if it has an appended *; otherwise it is called <emphasis role="ital">clean</emphasis>. The only clean element in <link linkend="fig2" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Figure 2</link> is the one labeled with “c”.  Since clean nodes always appear exactly once, they are not actually being annotated. However, for the sake of clarity in <link linkend="fig_annotated_tree" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Figure 3</link>, we showed all annotations.</para><para>The next section describes handing of attributes and mixed content.</para></section><section xml:id="section_3.3"><title>3.3. Attributes and Mixed Content</title><para>Attributes are treated as if they were elements, i.e. their names (preceded by “@”), and annotations are recorded in T<subscript>A,D</subscript>. <link linkend="fig_4" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Figure 4</link> shows a simple document with various text nodes, including mixed content. The tree T<subscript>A,D</subscript> is shown in <link linkend="fig_5" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Figure 5</link>, and text containers (the bottom of the figure). Nodes of the tree are marked with a asterisk in <link linkend="fig_5" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Figure 5</link>, if the corresponding element has mixed content, and in such a case empty text (shown as a box containing “0”) is inserted in the text container when needed. All annotations appear in a separate container, with the pointer from each node pointing to the beginning of its annotations (the length of the annotation can be computed using the property 3.2 from <link linkend="section_3.2" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Section 3.2</link>). Note that the <link linkend="fig_5" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Figure 5</link> shows the logical format for the annotated tree T<subscript>A,D</subscript>,  more details of the actual implementation are provided in <link linkend="section_4" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Section 4</link>.</para><figure xml:id="fig_4" floatstyle="1" xreflabel="fig_4"><mediaobject><imageobject><imagedata format="png" fileref="../../../vol3/graphics/Muldner01/Muldner01-004.png" width="90%"/></imageobject><caption><para>Handling mixed content.</para></caption></mediaobject></figure><figure xml:id="fig_5" floatstyle="1" xreflabel="fig_5"><mediaobject><imageobject><imagedata format="png" fileref="../../../vol3/graphics/Muldner01/Muldner01-005.png" width="95%"/></imageobject><caption><para>Tree T<subscript>A,D</subscript> and text containers.</para></caption></mediaobject></figure></section><section><title>3.4. Querying</title><para>At the time of writing this paper, our query processor was under development, and only simple queries have been implemented (specifically, we have implemented absolute paths; similarly to TREECHOP [<xref linkend="tre05"/>], but additionally including some predicates such as “position()=2”). A query, which ends in an element, can be immediately answered using the annotated tree, and therefore it only requires a decompression of this tree. Now, consider a query, which calls for text values for a given path. As mentioned earlier, the compressor creates a separate container storing all values for <emphasis role="ital">similar</emphasis> paths (comp. <link linkend="fig_4" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Figure 4</link> and <link linkend="fig_5" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Figure 5</link>). Therefore, to answer this type of a query it is enough to decompress a single data container, and then return the text values stored in this container. Since text values are stored within a container in a dfs-order, a query that calls for a specific text value (such as the i-th value) can be answered by traversing a single decompressed container to locate the i-th value.</para><para><emphasis role="bold">Example 2</emphasis>. Consider the document D shown in <link linkend="fig_4" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Figure 4</link> and <link linkend="fig_5" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Figure 5</link>. Now, consider the following queries:</para><orderedlist numeration="loweralpha"><listitem><para>/a/b</para><para>Based on the annotated tree, the answer is {b, b, b}</para></listitem><listitem><para>/a/b/c/text()</para><para>Based on the annotated tree, the first container is decompressed and its content {t8, t9, t13} is returned.</para></listitem><listitem><para>/a/b[2]/c/text()</para><para>Based on the annotated tree and the second container, the answer is {t9}.</para></listitem></orderedlist></section></section><section xml:id="section_4"><title>4. Implementation of XSAQCT</title><para>In this section, we first describe building the annotated tree, and next the re-annotator and restorer used in decompression.</para><section><title>4.1. Building an Annotated Tree</title><para>We will say that a document D has a <emphasis role="ital">cycle</emphasis> if there exists a node n in D such that there are two children x and y of n, which satisfy this condition: x &lt; y and y &lt; x (here, “&lt;” denotes the document order). If there are cycles, then add a “dummy tag name” to the annotated tree T<subscript>A,D</subscript>, here denoted by $, which will be used to avoid cycles. The annotated tree T<subscript>A,D</subscript> may have dummy nodes, and if so they will be removed by the decompressor to recreate the original document.</para><para>Cycles may occur in the following two cases: </para><orderedlist numeration="arabic"><listitem><para>Node N<subscript>A</subscript> appears before node N<subscript>B</subscript> and then N<subscript>A</subscript> appears after N<subscript>B</subscript>, where N<subscript>A</subscript> and N<subscript>B</subscript> have the same parent node. For example: </para><programlisting xml:space="preserve">
+&lt;parent&gt;
+	&lt;a&gt;&lt;/a&gt;
+   	&lt;b&gt;&lt;/b&gt; 
+   	&lt;a&gt;&lt;/b&gt; 
+&lt;/parent&gt;</programlisting></listitem><listitem><para>N<subscript>A</subscript> appears before N<subscript>B</subscript> and both are the children of the same N<subscript>parent1</subscript>. Later N<subscript>B</subscript> appears before N<subscript>A</subscript> and both are children of a different node N<subscript>parent2</subscript> where N<subscript>parent1</subscript> and N<subscript>parent2</subscript> have the same path (i.e. they both have the same ancestor in the Skeleton Tree). For example: </para><programlisting xml:space="preserve">
+&lt;super_parent&gt; 
+   	&lt;parent&gt; 
+   		&lt;a&gt;&lt;/a&gt; 
+   		&lt;b&gt;&lt;/b&gt; 
+   	&lt;/parent&gt; 
+   	&lt;parent&gt; 
+   		&lt;b&gt;&lt;/b&gt; 
+   		&lt;a&gt;&lt;/a&gt; 
+   	&lt;/parent&gt; 
+&lt;/super_parent&gt;</programlisting></listitem></orderedlist><para>During parsing, it is unclear whether the Skeleton Tree should place the corresponding element of node a before or after node b. Either choice would cause the compressed file to be incorrect, because either all a's would appear before all b's or all b's would appear before all a's. Therefore, our algorithm creates multiple graphs, which are later topologically sorted. A topological sort can also be used to detect cycles in a graph. Here, the vertices of the graph are the child elements of some parent element in T<subscript>A</subscript> and the edges between these child elements are created during parsing. If the topological sort reveals a cycle in this graph then this situation can be handled by adding a dummy node to the parent element.</para><para><emphasis role="bold">Example 3</emphasis>. Document D (which has cycles on x and y) is shown in <link linkend="fig_6" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Figure 6</link>.</para><figure xml:id="fig_6" floatstyle="1" xreflabel="fig_6"><mediaobject><imageobject><imagedata format="png" fileref="../../../vol3/graphics/Muldner01/Muldner01-006.png" width="90%"/></imageobject><caption><para>Sample document D.</para></caption></mediaobject></figure><para>The annotated document tree (with dummy nodes) is shown in <link linkend="fig_7" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Figure 7</link>.</para><figure xml:id="fig_7" floatstyle="1" xreflabel="fig_7"><mediaobject><imageobject><imagedata format="png" fileref="../../../vol3/graphics/Muldner01/Muldner01-007.png" width="70%"/></imageobject><caption><para>The annotated document tree.</para></caption></mediaobject></figure><para>The restored document tree (with dummy nodes) is shown in <link linkend="fig_8" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Figure 8</link>.</para><figure xml:id="fig_8" floatstyle="1" xreflabel="fig_8"><mediaobject><imageobject><imagedata format="png" fileref="../../../vol3/graphics/Muldner01/Muldner01-008.png" width="90%"/></imageobject><caption><para>Restored document tree of D (with dummy nodes).</para></caption></mediaobject></figure><para><emphasis role="bold">Algorithm 4.1</emphasis></para><para>Input: An XML document D.</para><para>Output: An annotated document tree T<subscript>A,D</subscript>.</para><para>To describe details of the process of building the annotated document tree, we use the following notations:</para><orderedlist numeration="arabic"><listitem><para>ann($)+=1 means: if the annotation of $ ends with “,” then append “1,”; otherwise append “,”</para></listitem><listitem><para>ann(x)+= 1 (for another annotation) means: if this annotation ends with “,” then append “0,”; otherwise append “,”</para></listitem><listitem><para>There is a table T, each row has 3 entries: a full path, a graph associated with this path, as in the previous description, (possibly one node of this graph is “current” – see below), and an annotation for $ (this entry may be empty)</para></listitem><listitem xml:id="desc_close"><para>“close(absolute path p)” means: for each node x in the graph associated with p perform ann(x)+=1, and also if path p has a non-empty annotation for “$” then perform ann($)+=1</para></listitem><listitem><para>“cycle(x)” means that we are considering the node x and adding x to the graph would create a cycle (e.g. if we have a graph: a ← b and we want to add a node a; this would create a cycle a ← b ← a)</para></listitem></orderedlist><para>Method: Elements are added to the annotated tree when they are encountered for the first time. We use a single SAX [<xref linkend="sax"/>] traversal of the document D and perform the following actions:</para><orderedlist numeration="arabic"><listitem><para>Going up from the node x to y: if x was the last (rightmost) child of y and so the next action would be going up to the parent of y, then close(x) and unset the current node in the graph</para></listitem><listitem><para>Going down to node x:</para><para>- try to add x to the appropriate graph (see example below)</para><para>-if a cycle would be created then close(x) (<link linkend="desc_close" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">see 4</link>), then add 1 to ann(x), and increment by 1 the annotation of $ (if such annotation does not exist or it ends with “,”, then create it and initialize to 2)</para><para>- if no cycle would be created, then add x to the graph (a new node, or just increment the annotation of existing x), and make it current node in the graph</para></listitem><listitem><para>After completion, check annotations and add leading 0’s for regular nodes and 1’s for dummies (i.e. $’s).</para></listitem></orderedlist><para><emphasis role="bold">Example 4</emphasis>. Consider a document D shown in <link linkend="fig_9" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Figure 9</link>. Here, we use indices for explanations, e.g. a1 is just a.</para><figure xml:id="fig_9" floatstyle="1" xreflabel="fig_9"><mediaobject><imageobject><imagedata format="png" fileref="../../../vol3/graphics/Muldner01/Muldner01-009.png" width="90%"/></imageobject><caption><para>Sample document D.</para></caption></mediaobject></figure><para><link linkend="tbl_trace" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Table 1</link> shows all major steps in creating the annotated document tree for the document D from <link linkend="fig_8" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Figure 8</link>; for each step there is a description (if required) specifying which node of the document is encountered during the SAX traversal, wherever there is a change then a path and its graph (the graph is not shown if it is empty), and the annotation of $ if it exists. The current node is shown in bold. Entries for leaves (where graphs are empty) are omitted. When appropriate, we show below the path and the graph; e.g. (/r   a[1]) indicates the graph consisting of a single node a, annotated by 1, for the path “/r”). Only the paths/graphs that have changed from the previous step are shown. Sometimes “empty graphs” are omitted. </para><table xml:id="tbl_trace"><caption><para>Trace of the execution of Algorithm 4.1.</para></caption><col align="right" valign="top" span="1"/><col valign="top" span="1"/><col align="center" valign="top" span="1"/><thead><tr valign="top"><th><para>Step #</para></th><th><para>Action</para></th><th><para>Annotations</para></th><th><para>$</para></th></tr></thead><tbody><tr valign="top"><td><para>1</para></td><td><para>Root r</para></td><td><para>Graph /r</para></td><td><para/></td></tr><tr valign="top"><td>
+               <para>2</para>
+            </td><td>
+               <para>a1 </para>
+            </td><td>
+               <para>(/r, <emphasis role="bold">a[1]</emphasis>)</para>
+               <para>(/r/a, empty)</para>
+            </td><td>
+               <para/>
+            </td></tr><tr valign="top"><td>
+               <para>3</para>
+            </td><td>
+               <para>s1</para>
+            </td><td>
+               <para>(/r/a, <emphasis role="bold">s[1]</emphasis>)</para>
+            </td><td>
+               <para/>
+            </td></tr><tr valign="top"><td>
+               <para>4</para>
+            </td><td>
+               <para>Go up to a1; close(/r/a), unset current </para>
+            </td><td>
+               <para>(/r/a, s[1,]</para>
+            </td><td>
+               <para/>
+            </td></tr><tr valign="top"><td>
+               <para>5</para>
+            </td><td>
+               <para>Go to b1, add a new node b to the graph for /r and an edge between b and a</para>
+            </td><td>
+               <para>(/r, a[1]&lt;- <emphasis role="bold">b[1]</emphasis>)</para>
+            </td><td>
+               <para/>
+            </td></tr><tr valign="top"><td>
+               <para>6</para>
+            </td><td>
+               <para>Go to t1</para>
+            </td><td>
+               <para>(r/b/, <emphasis role="bold">t[1]</emphasis>)</para>
+            </td><td>
+               <para/>
+            </td></tr><tr valign="top"><td>
+               <para>7</para>
+            </td><td>
+               <para>Go to x1</para>
+            </td><td>
+               <para>(/r/b/t, <emphasis role="bold">x[1]</emphasis>)</para>
+            </td><td>
+               <para/>
+            </td></tr><tr valign="top"><td>
+               <para>8</para>
+            </td><td>
+               <para>Go to y1; try to add an edge between y and x (because x is current)</para>
+            </td><td>
+               <para>(/r/b/t, x[1]&lt;-<emphasis role="bold">y[1]</emphasis>)</para>
+            </td><td>
+               <para/>
+            </td></tr><tr valign="top"><td>
+               <para>9</para>
+            </td><td>
+               <para>Go to x2: this would have created a cycle. Use a rule for a cycle (above)</para>
+            </td><td>
+               <para>(/r/b/t, <emphasis role="bold">x[1,1]</emphasis>&lt;-y[1,])</para>
+            </td><td>
+               <para>$[2]</para>
+            </td></tr><tr valign="top"><td>
+               <para>10</para>
+            </td><td>
+               <para>Go up to t1, no occurrence of y</para>
+               <para>Close /r/b/t: not current anymore.</para>
+            </td><td>
+               <para>(/r/b/t, x[1,1,]&lt;-y[1,0,])</para>
+            </td><td>
+               <para>$[2,]</para>
+            </td></tr><tr valign="top"><td>
+               <para>11</para>
+            </td><td>
+               <para>Go to b1, close /r/b/</para>
+            </td><td>
+               <para>(/r/b, t[1,])</para>
+            </td><td>
+               <para/>
+            </td></tr><tr valign="top"><td>
+               <para>12</para>
+            </td><td>
+               <para>a2: cycle</para>
+            </td><td>
+               <para>(/r, <emphasis role="bold">a[1,1]</emphasis>&lt;-b[1,])</para>
+            </td><td>
+               <para>$[2]</para>
+            </td></tr><tr valign="top"><td>
+               <para>13</para>
+            </td><td>
+               <para>s2</para>
+            </td><td>
+               <para>(/r/a, <emphasis role="bold">s[1,1]</emphasis>)</para>
+            </td><td>
+               <para/>
+            </td></tr><tr valign="top"><td>
+               <para>14</para>
+            </td><td>
+               <para>u1</para>
+            </td><td>
+               <para>(/r/a/s, <emphasis role="bold">u[1]</emphasis>)</para>
+            </td><td>
+               <para/>
+            </td></tr><tr valign="top"><td>
+               <para>15</para>
+            </td><td>
+               <para>Go up to s2: close</para>
+            </td><td>
+               <para>(/r/a/s, u[1,])</para>
+            </td><td>
+               <para/>
+            </td></tr><tr valign="top"><td>
+               <para>16</para>
+            </td><td>
+               <para>s3: </para>
+            </td><td>
+               <para>(/r/a, <emphasis role="bold">s[1,2]</emphasis>)</para>
+            </td><td>
+               <para/>
+            </td></tr><tr valign="top"><td>
+               <para>17</para>
+            </td><td>
+               <para>w1: the graph consists of 2 isolated</para>
+               <para>nodes (because it had no current before)</para>
+            </td><td>
+               <para>(/r/a/s, u[1,] <emphasis role="bold">w[1]</emphasis>)</para>
+            </td><td>
+               <para/>
+            </td></tr><tr valign="top"><td>
+               <para>18</para>
+            </td><td>
+               <para>u2, no cycle</para>
+            </td><td>
+               <para>(/r/a/s, w[1]&lt;-<emphasis role="bold">u[1,1]</emphasis>)</para>
+            </td><td>
+               <para/>
+            </td></tr><tr valign="top"><td>
+               <para>19</para>
+            </td><td>
+               <para>s3: close</para>
+            </td><td>
+               <para>(/r/a/s, w[1,]&lt;-u[1,1,])</para>
+            </td><td>
+               <para/>
+            </td></tr><tr valign="top"><td>
+               <para>20</para>
+            </td><td>
+               <para>z1</para>
+            </td><td>
+               <para>(/r/a, s[1,2]&lt;-<emphasis role="bold">z[1]</emphasis>)</para>
+            </td><td>
+               <para/>
+            </td></tr><tr valign="top"><td>
+               <para>21</para>
+            </td><td>
+               <para>a2: close</para>
+            </td><td>
+               <para>(/r/a, s[1,2,]&lt;-z[1,])</para>
+            </td><td>
+               <para/>
+            </td></tr><tr valign="top"><td>
+               <para>22</para>
+            </td><td>
+               <para>a3</para>
+            </td><td>
+               <para>(/r, <emphasis role="bold">a[1,2]</emphasis>&lt;-b[1,])</para>
+            </td><td>
+               <para>$[2]</para>
+            </td></tr><tr valign="top"><td>
+               <para>23</para>
+            </td><td>
+               <para>z2</para>
+            </td><td>
+               <para>(/r/a, s[1,2,]&lt;-<emphasis role="bold">z[1,1]</emphasis>)</para>
+            </td><td>
+               <para/>
+            </td></tr><tr valign="top"><td>
+               <para>24</para>
+            </td><td>
+               <para>s4: cycle</para>
+            </td><td>
+               <para>(/r/a, <emphasis role="bold">s[1,2,0,1]</emphasis>&lt;-z[1,1,])</para>
+            </td><td>
+               <para>$[2]</para>
+            </td></tr><tr valign="top"><td>
+               <para>25</para>
+            </td><td>
+               <para>Close /r/a/s</para>
+            </td><td>
+               <para>(/r/a/s, w[1,0,]&lt;-u[1,1,0,])</para>
+            </td><td>
+               <para/>
+            </td></tr><tr valign="top"><td>
+               <para>26</para>
+            </td><td>
+               <para>Up to a3; close</para>
+            </td><td>
+               <para>(/r/a, s[1,2,0,1,]&lt;-z[1,1,0,])</para>
+            </td><td>
+               <para>$[2,]</para>
+            </td></tr><tr valign="top"><td>
+               <para>27</para>
+            </td><td>
+               <para>b2: </para>
+            </td><td>
+               <para>(/r, a[1,2]&lt;-<emphasis role="bold">b[1,1]</emphasis>)</para>
+            </td><td>
+               <para>$[2]</para>
+            </td></tr><tr valign="top"><td>
+               <para>28</para>
+            </td><td>
+               <para>t2: </para>
+            </td><td>
+               <para> (/r/b, <emphasis role="bold">t[1,1]</emphasis>)</para>
+            </td><td>
+               <para/>
+            </td></tr><tr valign="top"><td>
+               <para>29</para>
+            </td><td>
+               <para>Up to b2: close</para>
+            </td><td>
+               <para>(/r/b/t, x[1,1,0,]&lt;-y[1,0,0,])</para>
+            </td><td>
+               <para>$[2,1,]</para>
+            </td></tr><tr valign="top"><td>
+               <para>30</para>
+            </td><td>
+               <para>Up: close</para>
+            </td><td>
+               <para>(/r/b, t[1,1,])</para>
+            </td><td>
+               <para/>
+            </td></tr><tr valign="top"><td>
+               <para>31</para>
+            </td><td>
+               <para>b3</para>
+            </td><td>
+               <para>(/r, a[1,2]&lt;-<emphasis role="bold">b[1,2]</emphasis>)</para>
+            </td><td>
+               <para>$[2]</para>
+            </td></tr><tr valign="top"><td>
+               <para>32</para>
+            </td><td>
+               <para>t3</para>
+            </td><td>
+               <para>(/r/b/, <emphasis role="bold">t[1,1,1]</emphasis>)</para>
+            </td><td>
+               <para/>
+            </td></tr><tr valign="top"><td>
+               <para>33</para>
+            </td><td>
+               <para>y2</para>
+            </td><td>
+               <para>(/r/b/t, x[1,1,0,]&lt;-<emphasis role="bold">y[1,0,0,1]</emphasis>)</para>
+            </td><td>
+               <para>$[2,1,1]</para>
+            </td></tr><tr valign="top"><td>
+               <para>34</para>
+            </td><td>
+               <para>Up: close</para>
+            </td><td>
+               <para>(/r/b/t, x[1,1,0,0,]&lt;-y[1,0,0,1,])</para>
+            </td><td>
+               <para>$[2,1,1,]</para>
+            </td></tr><tr valign="top"><td>
+               <para>35</para>
+            </td><td>
+               <para>t4</para>
+            </td><td>
+               <para>(/r/b, t[1,1,2])</para>
+            </td><td>
+               <para/>
+            </td></tr><tr valign="top"><td>
+               <para>36</para>
+            </td><td>
+               <para>x3</para>
+            </td><td>
+               <para>(/r/b/t, <emphasis role="bold">x[1,1,0,0,1]</emphasis>&lt;-y[1,0,0,1,])</para>
+            </td><td>
+               <para>$[2,1,1,]</para>
+            </td></tr><tr valign="top"><td>
+               <para>37</para>
+            </td><td>
+               <para>y3</para>
+            </td><td>
+               <para>(/r/b/t, x[1,1,0,0,1]&lt;-<emphasis role="bold">y[1,0,0,1,1]</emphasis>)</para>
+            </td><td>
+               <para>$[2,1,1,]</para>
+            </td></tr><tr valign="top"><td>
+               <para>38</para>
+            </td><td>
+               <para>Up to t4: close</para>
+            </td><td>
+               <para>(/r/b/t,x[1,1,0,0,1,]&lt;-y[1,0,0,1,1,])</para>
+            </td><td>
+               <para>$[2,1,1,1,]</para>
+            </td></tr><tr valign="top"><td>
+               <para>39</para>
+            </td><td>
+               <para>Up to b3: close</para>
+            </td><td>
+               <para>(/r/b, t[1,1,2,])</para>
+            </td><td>
+               <para/>
+            </td></tr><tr valign="top"><td>
+               <para>40</para>
+            </td><td>
+               <para>a4: cycle</para>
+            </td><td>
+               <para>(/r, a[1,2,1]&lt;-b[1,2,])</para>
+            </td><td>
+               <para>$[3]</para>
+            </td></tr><tr valign="top"><td>
+               <para>41</para>
+            </td><td>
+               <para>Finish: close /r/a and then /r</para>
+            </td><td>
+               <para>(/r/a, s[1,2,0,1,0,]&lt;-z[1,1,0,0,]) </para>
+               <para>(/r, a[1,2,1,]&lt;-b[1,2,0,])</para>
+            </td><td>
+               <para>$[2,1,]</para>
+               <para>$[3,]</para>
+            </td></tr></tbody></table><para>Note: we will add leading 0’s and 1’s when creating the annotated document tree in order to make sure that the number of positions in the annotations is correct. The annotated document tree created from the above table is shown in <link linkend="fig_10" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Figure 10</link>.</para><figure xml:id="fig_10" floatstyle="1" xreflabel="fig_10"><mediaobject><imageobject><imagedata format="png" fileref="../../../vol3/graphics/Muldner01/Muldner01-010.png" width="90%"/></imageobject><caption><para>The incomplete annotated document tree.</para></caption></mediaobject></figure><para>The annotated document tree in which leading 0’s are added to node annotations and leading 1’s are added to $’s annotations is shown in <link linkend="fig_11" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Figure 11</link>.</para><figure xml:id="fig_11" floatstyle="1" xreflabel="fig_11"><mediaobject><imageobject><imagedata format="png" fileref="../../../vol3/graphics/Muldner01/Muldner01-011.png" width="90%"/></imageobject><caption><para>The complete annotated document tree.</para></caption></mediaobject></figure><para>The restored document tree obtained from the complete annotated tree, in which dummy nodes are not removed, is shown in <link linkend="fig_12" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Figure 12</link>.</para><figure xml:id="fig_12" floatstyle="1" xreflabel="fig_12"><mediaobject><imageobject><imagedata format="png" fileref="../../../vol3/graphics/Muldner01/Muldner01-012.png" width="90%"/></imageobject><caption><para>The restored document tree (dummy nodes are not removed).</para></caption></mediaobject></figure><para>It is easy to see that removing dummy nodes from the tree shown in <link linkend="fig_12" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Figure 12</link> will produce the original document tree shown in <link linkend="fig_9" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Figure 9</link>.</para></section><section xml:id="section_4.2"><title>4.2 Decompression </title><para>The skeleton tree T<subscript>D</subscript> is first re-annotated to create the annotated tree T<subscript>A,D</subscript>, and then T<subscript>A,D</subscript> is used to output the restored document. Reannotator performs a dfs-traversal of T<subscript>D</subscript> and fetches annotations from their respective container (see <link linkend="fig_4" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Figure 4</link>), using the property 3.2 from <link linkend="section_3.2" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Section 3.2</link>. Details of the reannotator follow.</para><section><title>4.2.1 Reannotator</title><para>Here, we use a global variable, called number, initialized to 1.</para><programlisting xml:space="preserve">
+re-ann(SkeletonTreeNode current) 
+{
+	for every child c of current 
+	{
+		if(clean(c)) 
+			annotate c with “number” of 1’s
+		else 
+		{ // dirty c
+			fetch “number” digits from Seq and store into the sequence “els”
+			annotate c with “els”
+			number = sum of all digits in “els”
+		}
+   		re-ann(c)
+   	}
+ 	number = sum of all digits in the annotation of n
+}</programlisting></section><section><title>4.2.2 Restorer</title><para>Finally, the restorer performs a dfs-traversal of T<subscript>A,D</subscript> to output the document D:</para><programlisting xml:space="preserve">
+re-ann(root of SkeletonTreeNode)
+output &lt;tag of the root&gt;
+d-dfs(root of SkeletonTreeNode)
+output &lt;\end of tag for the root&gt;</programlisting><para>where d-dfs() is described below using the following notations (1) ann(n) is the first digit in the annotation of the node n; (2) chop(n) results in removing the first digit in the annotation of n (always 0); (3) dec(n) decrements by one the first digit in the annotation of n (never 0); and (4) LC(n) and RS(n) denote respectively the leftmost child and right sibling of n.</para><programlisting xml:space="preserve">
+d-dfs(SkeletonTreeNode c) 
+{
+	Node n
+	n= LC(c)
+	while(n &lt;&gt; 0) 
+	{
+ 		if(ann(n)&gt;0) 
+		{
+			output “&lt;” + tag_of_n + “&gt;”
+			d-dfs(c)
+		} 
+		else chop(n)
+		n = RS(n)
+	}
+	dec(c)
+	output “&lt;\” + tag_of_c + “&gt;”
+	if(ann(c)==0) chop(c)
+	else {
+		output “&lt;” + tag_of_c + “&gt;”
+		d-dfs(c)
+	}
+}</programlisting></section></section></section><section xml:id="section_5"><title>5. Results of Experiments </title><para>The initial implementation of our compressor was completed using Java and Xerces. The time taken to compress the XML files on the Wratislavia corpus are reported in <link linkend="tbl_compression_time" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Table 2</link>.</para><table xml:id="tbl_compression_time"><caption><para>Compression time of XSAQCT</para></caption><col span="1"/><col span="1"/><col span="1"/><thead><tr valign="top"><th colspan="3"><para>Compression time in seconds</para></th></tr><tr valign="top" align="center"><th><para>XML File</para></th><th><para>XSAQCT using GZIP</para></th><th><para>TREECHOP Compression</para></th></tr></thead><tbody><tr align="right"><td align="left">         
+                  <para>dblp</para>
+               </td><td>
+                  <para>39.9</para>
+               </td><td>
+                  <para>25.16</para>
+               </td></tr><tr align="right"><td align="left">         
+                  <para>enwikibooks</para>
+               </td><td>
+                  <para>23.3</para>
+               </td><td>
+                  <para>25.06</para>
+               </td></tr><tr align="right"><td align="left">         
+                  <para>enwikinews</para>
+               </td><td>
+                  <para>7.7</para>
+               </td><td>
+                  <para>7.67</para>
+               </td></tr><tr align="right"><td align="left">         
+                  <para>lineitem</para>
+               </td><td>
+                  <para>4.4</para>
+               </td><td>
+                  <para>5.66</para>
+               </td></tr><tr align="right"><td align="left">         
+                  <para>shakespeare</para>
+               </td><td>
+                  <para>3.7</para>
+               </td><td>
+                  <para>2.59</para>
+               </td></tr><tr align="right"><td align="left">         
+                  <para>SwissProt</para>
+               </td><td>
+                  <para>29.8</para>
+               </td><td>
+                  <para>20.43</para>
+               </td></tr><tr align="right"><td align="left">         
+                  <para>uwm</para>
+               </td><td>
+                  <para>1.3</para>
+               </td><td>
+                  <para>1.2</para>
+               </td></tr></tbody></table><para>The compression rate results of our experiments are reported in <link linkend="tbl_compression_rate" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Table 3</link>. The results of our experiments on the Wratislavia corpus are reported in the following table. XSAQCT allows use of different data compressors such as two well-known fast compressors GZIP and BZIP2, and PAQ8o8 (the best compression rate and the expenses of compression time). Our results show that for this corpus (when using BZIP2 for compression) XSAQCT considerably shrinks their sizes to 12% (on average) of the original sizes.</para><table xml:id="tbl_compression_rate"><caption><para>Size of compressed XML documents</para></caption><col span="1"/><col span="1"/><col span="1"/><col span="1"/><col span="1"/><col span="1"/><thead><tr valign="top"><th colspan="6"><para>Compressed Size in Bytes</para></th></tr><tr valign="top" align="center"><th><para>XML File</para></th><th><para>XSAQCT using GZIP</para></th><th><para>XSAQCT using BZIP2</para></th><th><para>XSAQCT using PAQ8o8</para></th><th><para>TREECHOP</para></th><th><para>Uncompressed Size</para></th></tr></thead><tbody><tr align="right"><td align="left">         
+               <para>dblp</para>
+            </td><td>
+               <para>19,436,979</para>
+            </td><td>
+               <para>14,386,289</para>
+            </td><td>
+               <para>10,331,426</para>
+            </td><td>
+               <para>22,757,793</para>
+            </td><td>
+               <para>133,862,735</para>
+            </td></tr><tr align="right"><td align="left">         
+               <para>enwikibooks</para>
+            </td><td>
+               <para>44,501,499</para>
+            </td><td>
+               <para>36,587,294</para>
+            </td><td>
+               <para>25,534,846</para>
+            </td><td>
+               <para>44,838,217</para>
+            </td><td>
+               <para>156,300,597</para>
+            </td></tr><tr align="right"><td align="left">         
+               <para>enwikinews</para>
+            </td><td>
+               <para>12,595,156</para>
+            </td><td>
+               <para>9,599,207</para>
+            </td><td>
+               <para>6,634,071</para>
+            </td><td>
+               <para>12,681,978</para>
+            </td><td>
+               <para>46,418,850</para>
+            </td></tr><tr align="right"><td align="left">         
+               <para>lineitem</para>
+            </td><td>
+               <para>1,436,510</para>
+            </td><td>
+               <para>993,735</para>
+            </td><td>
+               <para>848,494</para>
+            </td><td>
+               <para>2,327,681</para>
+            </td><td>
+               <para>32,295,475</para>
+            </td></tr><tr align="right"><td align="left">         
+               <para>shakespeare</para>
+            </td><td>
+               <para>1,896,034</para>
+            </td><td>
+               <para>1,441,177</para>
+            </td><td>
+               <para>1,168,917</para>
+            </td><td>
+               <para>2,016,475</para>
+            </td><td>
+               <para>7,894,983</para>
+            </td></tr><tr align="right"><td align="left">         
+               <para>SwissProt</para>
+            </td><td>
+               <para>7,515,915</para>
+            </td><td>
+               <para>5,852,123</para>
+            </td><td>
+               <para>4,118,792</para>
+            </td><td>
+               <para>12,384,686</para>
+            </td><td>
+               <para>114,820,211</para>
+            </td></tr><tr align="right"><td align="left">         
+               <para>uwm</para>
+            </td><td>
+               <para>102,986</para>
+            </td><td>
+               <para>87,895</para>
+            </td><td>
+               <para>66,887</para>
+            </td><td>
+               <para>126,744</para>
+            </td><td>
+               <para>2,337,522</para>
+            </td></tr></tbody></table><para><link linkend="tbl_query" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Table 4</link> shows the time taken to query various simple paths using both XSAQCT and TREECHOP. Each of the seven XML files in the corpus were queried using two different query paths and the time taken to process each query is shown in seconds. XSAQCT queried each path faster than TREECHOP and the difference in query time tended to be larger when larger XML files were queried (e.g. dblp and SwissProt). The biggest difference in times taken to query by XSAQCT and TREECHOP is seen when querying with the path '/mediawiki/siteinfo/sitename'. The element sitename only appears once in the entire document; this means that XSAQCT can easily extract the contents of sitename's container, whereas TREECHOP must find the text data of sitename by searching the entire compressed file.</para><table xml:id="tbl_query"><caption><para>Query Time of XSAQCT</para></caption><col span="1"/><col span="1"/><col span="1"/><col span="1"/><thead><tr valign="top"><th colspan="4"><para>Query Time in seconds</para></th></tr><tr valign="top" align="center"><th><para>File Name</para></th><th><para>Query</para></th><th><para>XSAQCT</para></th><th><para>TREECHOP</para></th></tr></thead><tbody><tr><td align="left">         
+                  <para>dblp.xml</para>        
+               </td><td align="left">         
+                  <para>/dblp/article/cdrom</para>        
+               </td><td align="right">         
+                  <para>10.92</para>        
+               </td><td align="right">         
+                  <para>15.49</para>        
+               </td></tr><tr><td align="left">         
+                  <para>dblp.xml</para>        
+               </td><td align="left">         
+                  <para>/dblp/mastersthesis/@key</para>        
+               </td><td align="right">         
+                  <para>10.76</para>        
+               </td><td align="right">         
+                  <para>15.15</para>        
+               </td></tr><tr><td align="left">         
+                  <para>enwikibooks-20061201-pages-articles.xml</para>        
+               </td><td align="left">         
+                  <para>/mediawiki/page/revision/text/@xml:space</para>        
+               </td><td align="right">         
+                  <para>2.44</para>        
+               </td><td align="right">         
+                  <para>14.6</para>        
+               </td></tr><tr align="right"><td align="left">         
+                  <para>enwikibooks-20061201-pages-articles.xml</para>        
+               </td><td align="left">         
+                  <para>/mediawiki/siteinfo/sitename</para>        
+               </td><td align="right">         
+                  <para>0.65</para>        
+               </td><td align="right">         
+                  <para>12.75</para>        
+               </td></tr><tr><td align="left">         
+                  <para>enwikinews-20061201-pages-articles.xml</para>        
+               </td><td align="left">         
+                  <para>/mediawiki/page/revision/contributor/username</para>        
+               </td><td align="right">         
+                  <para>1.57</para>        
+               </td><td align="right">         
+                  <para>5.49</para>        
+               </td></tr><tr><td align="left">         
+                  <para>enwikinews-20061201-pages-articles.xml</para>        
+               </td><td align="left">         
+                  <para>/mediawiki/page/title</para>        
+               </td><td align="right">         
+                  <para>3.83</para>        
+               </td><td align="right">         
+                  <para>5.54</para>        
+               </td></tr><tr><td align="left">         
+                  <para>lineitem.xml</para>        
+               </td><td align="left">         
+                  <para>/table/T/L_COMMENT</para>        
+               </td><td align="right">         
+                  <para>5.49</para>        
+               </td><td align="right">         
+                  <para>6.22</para>        
+               </td></tr><tr><td align="left">         
+                  <para>lineitem.xml</para>        
+               </td><td align="left">         
+                  <para>/table/T/L_ORDERKEY</para>        
+               </td><td align="right">         
+                  <para>1.96</para>        
+               </td><td align="right">         
+                  <para>5.06</para>        
+               </td></tr><tr><td align="left">         
+                  <para>shakespeare.xml</para>        
+               </td><td align="left">         
+                  <para>/PLAYS/PLAY/TITLE</para>        
+               </td><td align="right">         
+                  <para>0.65</para>        
+               </td><td align="right">         
+                  <para>1.56</para>        
+               </td></tr><tr><td align="left">         
+                  <para>shakespeare.xml</para>        
+               </td><td align="left">         
+                  <para>PLAYS/PLAY/ACT/SCENE/STAGEDIR</para>        
+               </td><td align="right">         
+                  <para>1.06</para>        
+               </td><td align="right">         
+                  <para>1.44</para>        
+               </td></tr><tr><td align="left">         
+                  <para>SwissProt.xml</para>        
+               </td><td align="left">         
+                  <para>/root/Entry/@id</para>        
+               </td><td align="right">         
+                  <para>7.93</para>        
+               </td><td align="right">         
+                  <para>17</para>        
+               </td></tr><tr align="right"><td align="left">         
+                  <para>SwissProt.xml</para>        
+              </td><td align="left">                 
+                  <para>/root/Entry/Ref/Comment</para>        
+               </td><td align="right">         
+                  <para>9.08</para>        
+               </td><td align="right">         
+                  <para>16.63</para>        
+               </td></tr><tr align="right"><td align="left">         
+                  <para>uwm.xml</para>        
+               </td><td align="left">         
+                  <para>/root/course_listing/course</para>        
+               </td><td align="right">         
+                  <para>0.45</para>        
+               </td><td align="right">         
+                  <para>1.11</para>        
+               </td></tr><tr align="right"><td align="left">         
+                  <para>uwm.xml</para>        
+               </td><td align="left">         
+                  <para>/root/course_listing/restrictions/A/@HREF</para>        
+               </td><td align="right">         
+                  <para>0.31</para>        
+               </td><td align="right">         
+                  <para>0.8</para>        
+               </td></tr></tbody></table><para>The time taken to decompress the compressed XML corpus files is shown in <link linkend="tbl_decompress" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Table 5</link>. In most cases XSAQCT decompresses faster than TREECHOP (five out of seven files) and in the remaining cases has a decompression time that is not much longer than TREECHOP's.</para><table xml:id="tbl_decompress"><caption><para>Decompression Time of XSAQCT</para></caption><col span="1"/><col span="1"/><col span="1"/><thead><tr valign="top"><th colspan="3"><para>Decompression Time in seconds</para></th></tr><tr valign="top" align="center"><th><para>File Name</para></th><th><para>XSAQCT</para></th><th><para>TREECHOP</para></th></tr></thead><tbody><tr><td>         
+                  <para>dblp.xml</para>        
+               </td><td align="right">         
+                  <para>24.52</para>        
+               </td><td align="right">         
+                  <para>26.39</para>        
+               </td></tr><tr><td>         
+                  <para>enwikibooks-20061201-pages-articles.xml</para>        
+               </td><td align="right">         
+                  <para>13.49</para>        
+               </td><td align="right">         
+                  <para>20.55</para>        
+               </td></tr><tr><td>         
+                  <para>enwikinews-20061201-pages-articles.xml</para>        
+               </td><td align="right">         
+                  <para>4.51</para>        
+               </td><td align="right">         
+                  <para>7.23</para>        
+               </td></tr><tr><td>         
+                  <para>lineitem.xml</para>        
+               </td><td align="right">         
+                  <para>3.84</para>        
+               </td><td align="right">         
+                  <para>6.17</para>        
+               </td></tr><tr><td>         
+                  <para>shakespeare.xml</para>        
+               </td><td align="right">         
+                  <para>4.01</para>        
+               </td><td align="right">         
+                  <para>2.49</para>        
+               </td></tr><tr><td>         
+                  <para>SwissProt.xml</para>        
+               </td><td align="right">         
+                  <para>24.04</para>        
+               </td><td align="right">         
+                  <para>27.44</para>        
+               </td></tr><tr><td>         
+                  <para>uwm.xml</para>        
+               </td><td align="right">         
+                  <para>1.78</para>        
+               </td><td align="right">         
+                  <para>1.51</para>        
+               </td></tr></tbody></table><para>Other results on the Wratislavia corpus are shown in <link linkend="tbl_other" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">Table 6</link>. This includes the number of total nodes in the skeleton tree, the number of dummy nodes, the size of the skeleton tree uncompressed and the size compressed.</para><table xml:id="tbl_other"><caption><para>Compressed XML document Skeleton Tree information.</para></caption><col span="1"/><col span="1"/><col span="1"/><col span="1"/><col span="1"/><col span="1"/><col span="1"/><col span="1"/><thead><tr valign="top" align="center"><th><para/></th><th><para>uwm</para></th><th><para>shakespeare</para> </th><th><para>lineitem</para> </th><th><para>swissprot</para> </th><th><para>enwikinews</para>  </th><th><para>enwikibooks</para> </th><th><para>dblp</para></th></tr></thead><tbody><tr><td>
+               <para>Nodes in S<subscript>T</subscript></para>
+            </td><td align="right">         
+               <para>43</para>
+            </td><td align="right">         
+               <para>155</para>
+            </td><td align="right">         
+               <para>37</para>
+            </td><td align="right">         
+               <para>394</para>
+            </td><td align="right">         
+               <para>50</para>
+            </td><td align="right">         
+               <para>50</para>
+            </td><td align="right">         
+               <para>313</para>
+            </td></tr><tr><td>
+               <para>Number of dummy nodes</para>
+            </td><td align="right">         
+               <para>0</para>
+            </td><td align="right">         
+               <para>9</para>
+            </td><td align="right">         
+               <para>0</para>
+            </td><td align="right">         
+               <para>2</para>
+            </td><td align="right">         
+               <para>0</para>
+            </td><td align="right">         
+               <para>0</para>
+            </td><td align="right">         
+               <para>10</para>
+            </td></tr><tr><td>
+               <para>S<subscript>T</subscript> size uncompressed</para>
+            </td><td align="right">         
+               <para>384</para>
+            </td><td align="right">         
+               <para>1051</para>
+            </td><td align="right">         
+               <para>383</para>
+            </td><td align="right">         
+               <para>3495</para>
+            </td><td align="right">         
+               <para>467</para>
+            </td><td align="right">         
+               <para>467</para>
+            </td><td align="right">         
+               <para>2248</para>
+            </td></tr><tr><td>
+               <para>S<subscript>T</subscript> size compressed</para>
+            </td><td align="right">         
+               <para>211</para>
+            </td><td align="right">         
+               <para>309</para>
+            </td><td align="right">         
+               <para>200</para>
+            </td><td align="right">         
+               <para>779</para>
+            </td><td align="right">         
+               <para>251</para>
+            </td><td align="right">         
+               <para>251</para>
+            </td><td align="right">         
+               <para>570</para>
+            </td></tr></tbody></table></section><section xml:id="section_6"><title>6. Conclusion and Future Work</title><para>In this paper, we described our current work on a queryable XML compressor, which uses lazy decompression. While this work is in its early stage, the design of this compressor and the results of our experiments indicate that it successfully competes with other known queryable XML compressors. Our future work includes (1) improving the compression time by rewriting the code using C++ rather than Java; (2) building a complete query processor.</para></section><section xml:id="section_7"><title>7. Acknowledgments</title><para>Chris Fry implemented and tested all algorithms described in this paper. The work of the first author was partially supported by the NSERC RGPIN grant (2004-2009).</para></section><bibliography><title>Bibliography</title><bibliomixed xml:id="ski07" xreflabel="ski07">P. Skibiński, Sz. Grabowski, and J. Swacha - "Effective asymmetric XML compression", Software - Practice &amp; Experience, 2007/2008. doi: <biblioid class="doi">10.1002/spe.v38:10</biblioid>.
+</bibliomixed><bibliomixed xml:id="dag08" xreflabel="dag08">Tomasz Müldner, Christopher Fry, Jan Krzysztof Miziołek, Scott Durno, SXSAQCT and XSAQCT: XML Queryable Compressors, Dagstuhl Seminar Proceedings 08261, 2008.
+</bibliomixed><bibliomixed xml:id="xml06" xreflabel="xml06">Extensible Markup Language (XML) 1.0 (3rd ed.).
+	<link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/REC-xml/</link>.
+</bibliomixed><bibliomixed xml:id="exi08" xreflabel="exi08">Efficient XML Interchange (EXI) Format 1.0.
+	<link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/exi/</link>.
+</bibliomixed><bibliomixed xml:id="tre05" xreflabel="tre05">Gregory Leighton, Tomasz Müldner, James Diamond, TREECHOP: A Tree-based Query-able Compressor For XML. In Proceedings of the Ninth Canadian Workshop on Information Theory (CWIT 2005), pages 115-118, 2005.
+</bibliomixed><bibliomixed xml:id="gzip" xreflabel="gzip">The gzip home page.
+	<link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.gzip.org</link>
+</bibliomixed><bibliomixed xml:id="bzip2" xreflabel="bzip2">The bzip2 home page.
+	<link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.bzip.org</link>
+</bibliomixed><bibliomixed xml:id="paq" xreflabel="paq">The PAQ home page.
+	<link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://cs.fit.edu/~mmahoney/compression/#paq</link>
+</bibliomixed><bibliomixed xml:id="can" xreflabel="can">XML Canonical XML Ver. 1.0.
+	<link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/xml-c14n.html</link>
+</bibliomixed><bibliomixed xml:id="sax" xreflabel="SAX">Simple API for XML (SAX).
+	<link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.saxproject.org/</link>
+</bibliomixed><bibliomixed xml:id="tolani2002" xreflabel="tolani2002">XGRIND: A Query-Friendly XML Compressor. ICDE, 2002. doi: <biblioid class="doi">10.1109/ICDE.2002.994712</biblioid>.	
+</bibliomixed><bibliomixed xml:id="xiaofeng03" xreflabel="xiaofeng03">XSeq: An Indexing Infrastructure for Tree Pattern Queries. SIGMOD 2004. doi: <biblioid class="doi">10.1145/1007568.1007709</biblioid>. 
+</bibliomixed><bibliomixed xml:id="min03" xreflabel="min03">J. Min, M. Park, C. Chung: XPRESS: A Queriable Compression for XML Data. 
+SIGMOD 2003. doi: <biblioid class="doi">10.1145/872757.872775</biblioid>. 
+</bibliomixed><bibliomixed xml:id="arion07" xreflabel="arion07">A. Arion, A. Bonifati, I. Manolescu and A. Pugliese: XQueC: A Query-Conscious 
+Compressed XML Database. ACM TOIT 7(2), 2007. doi: <biblioid class="doi">10.1145/1239971.1239974</biblioid>. 
+</bibliomixed><bibliomixed xml:id="wra" xreflabel="wra">Wratislava XML Corpus. 
+	<link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.ii.uni.wroc.pl/~inikep/research/Wratislavia/</link>
+</bibliomixed></bibliography></article>

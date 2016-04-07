@@ -1,0 +1,291 @@
+<?xml version="1.0" encoding="UTF-8"?><article xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink" version="5.0-subset Balisage-1.3"><title>The Ontologist</title><subtitle>Controlled Vocabularies and Semantic Wikis</subtitle><info><confgroup><conftitle>Balisage: The Markup Conference 2012</conftitle><confdates>August 7 - 10, 2012</confdates></confgroup><abstract><para>This paper covers the design details of the Ontologist, a MarkLogic based project
+                for using RDF triples, XQuery search capabilities and RESTful services to provide
+                controlled vocabularies, taxonomy management and semantic wikis. </para></abstract><author><personname><firstname>Kurt</firstname><surname>Cagle</surname></personname><personblurb><para>Kurt Cagle is an author, editor, and information architect working for Avalon Consulting, LLC.
+                He is the author of a number of books and articles focused on XML and web technologies, and he has
+                been active as a W3C Invited Expert, technology evangelist and consultant in the XML and development
+                communities for more than two decades. Clients have included the ObamaCare Health Insurance Exchange system,
+                the US National Archives, the Library of Congress, Harvard Business School and the Canadian Research
+                Consortium. He has most recently been focused on XQuery and Semantic Web Development.</para></personblurb><affiliation><jobtitle>Information Architect</jobtitle><orgname>Avalon Consulting, Ltd.</orgname></affiliation><email>kurt.cagle@gmail.com</email><link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.avalonconsult.com</link></author><legalnotice><para>Copyright © 2012 Kurt Cagle</para></legalnotice></info><section><title>Overview</title><para>The Ontologist began its existence as a way of dealing with one of the more vexing
+            problems of modern distributed applications - dealing with controlled vocabularies. This
+            paper and talk will explore the design of the Ontologist at an application and
+            theoretical level, and illustrate how it provides a synergy between XQuery and SPARQL
+            development in order to build everything from list managers to knowledge management
+            systems. </para></section><section><title>Controlled Vocabularies and Data Feeds</title><para>A <emphasis>controlled vocabulary</emphasis> typically appears at first as an
+            enumerated set of terms (with the obvious temptation by schema designers to encode these
+            terms in XSD schemas as enumerated simple types). </para><para>However, unlike a "normal" enumeration, controlled vocabulary terms have a number of
+            properties which can make such a temptation a costly trap. In most cases such controlled
+            vocabularies have a number of key characteristics: <itemizedlist><listitem><para><emphasis>Distinct labels and codes.</emphasis> The displayed value of the
+                        item in question will more than likely not be the same as the underlying
+                        code value that references the term in question. For instance, a set of
+                        colors might have the color name but use RGB notation for identifying the
+                        resources at a system level.</para></listitem><listitem><para><emphasis>Temporality.</emphasis> Items may be added or removed from the
+                        underlying set over time, the values of given sets may change, or the
+                        preferred ordering of the set may change depending upon context. For
+                        instance, if your enumerated set contains the names of stores in a given
+                        region, this list may change as stores are added or closed, or as regions
+                        are redefined. </para></listitem><listitem><para><emphasis>Subordinate Lists.</emphasis> A list of terms may themselves
+                        identify lists of terms. In this respect, there is a
+                            <emphasis>relationship</emphasis> (formal or implicit) that connects the
+                        parent term (or <emphasis>context</emphasis>) and the child terms. A list of
+                        countries, for instance, may contain a list of states, regions or
+                        provinces.</para></listitem><listitem><para><emphasis>Uniqueness.</emphasis> The combination of label
+                        and code act as a defacto unique key for a given term. </para></listitem><listitem><para><emphasis>Multiple representations.</emphasis> The set of metadata about a
+                        term exists independently of the representations used for those terms - a
+                        list of controlled vocabulary terms can be displayed as an XML construct of
+                        various flavors, JSON, CSV, HTML lists or tables or any other underlying
+                        format. </para></listitem></itemizedlist></para><para>Significantly, these are also characteristics that are found within the notion of both
+            Semantic and REST oriented <emphasis>resources</emphasis>. In effect, the terms of a
+            controlled vocabulary can be thought of as having an associated URI that identifies each
+            term and that also identifies the context. Indeed, in all cases, the context for a list
+            will be a term itself.</para><para>One other subtle point that brings the conflation of RESTful services and semantics
+            full circle is the fact that conceptually each term in the given list can consequently
+            be thought of as a reference to a resource, with an associated metadata bundle. That is
+            to say, the URI (a semantic construct) for the term is also either itself or can be
+            associated one-to-one with a unique URL (a RESTful construct) for the term.</para><para>Put another way, the context term and its correlated "child" terms are in effect a
+                <emphasis>data feed</emphasis>. The term feed in this case is in fact intended to
+            conflate with the notion of "news feed" - an Atom feed and an RSS feed are in fact both
+            subclasses of data feeds in which the child nodes are "articles" that are returned in a
+            date descending order, are paged, and may actually contain summary content (or even the
+            full content) of the associated article as part of each feed entry.</para><para>More formally a data feed can be identified conceptually as the following</para><itemizedlist><listitem><para>Feed<itemizedlist><listitem><para>Feed URI - This identifies the context term's "address" and
+                                systemic or global name.</para></listitem><listitem><para>Feed Label - This gives the "user centric" label that identifies
+                                the feed.</para></listitem><listitem><para>Feed Code - This is an identifier or "value" that establishes the
+                                internal (or local) state for the context term. </para></listitem><listitem><para>Feed Description - This is used to provide a more detailed
+                                description of the context term, and could be anything from a few
+                                lines of text to the body of a web page.</para></listitem><listitem><para>Feed Timestamp - This provides one or more timestamp entities that
+                                identify the age of the context term.</para></listitem><listitem><para>Context Content - This is effectively the document payload
+                                corresponding to the term in question. This will be a representation
+                                of the resource indicated by the context item, and may be optional
+                                (not all terms necessarily have content payloads, and not all
+                                representations need to transmit those payloads if they do).</para></listitem><listitem><para>Relationship - This is a (potentially implicit) term identifying
+                                the relationship of the context item with its associated entryset.
+                                In a folder/file relationship, this will usually be implicit, but in
+                                a semantic relationship, this will typically be the predicate of a
+                                triple.</para></listitem><listitem><para>Entry Set - This is a set of entries that satisfy the relationship
+                                between the context term and the associated child items in the
+                                ontological space.</para><itemizedlist><listitem><para>Entry URI - This identifiest the entry term's address and
+                                        systemic or global name.</para></listitem><listitem><para>Feel Label - This gives the "user-centric" label that
+                                        identifies the entry.</para></listitem><listitem><para>Entry Code - This provides the value for the entry
+                                        term.</para></listitem><listitem><para>Entry Description - This provides a detailed description
+                                        of the entry term.</para></listitem><listitem><para>Entry Timestamp - This provides one or more timestamp
+                                        entities that identify the age of the entry term.</para></listitem><listitem><para>Entry Content - This is a representation of the entry
+                                        term's corresponding resource.</para></listitem></itemizedlist></listitem></itemizedlist>
+                </para></listitem></itemizedlist><para>In theory, such a construct could be recursive, but ultimately it's worth
+            understanding that any context term may in fact have multiple relationships that
+            identify the subordinate entries, and that as some of these relationships are themselves
+            orthogonal the ultimate structure that is conceptually described here is not a recursive
+            descent tree, but is rather a graph that may ultimately end up resolving to multiple
+            "roots". </para><para>Note that while the above may be seen as being a description of an atom or RSS feed,
+            it is also, not accidentally, the structure of a typical "search" page, such as the
+            results of a Google search query. In this case, the "context" term is the query
+            expression passed. Typing in "Balisage", for instance, will establish the context for
+            search to be the term "Balisage", while the relationship is implicitly those items that
+            have some contextual relevance to the search. The search results will typically contain
+            as a label the name of the site and the description being a short summary of the site
+            itself as a snippet, with one or more links to different representations of that same
+            resource as hypertext links. </para></section><section><title>URIs, CURIEs and Triplexes</title><para>There is a subtle distinction here - the URI of the resource is effectively the
+            primary URL, but secondary links are still links to different representations of the
+            same conceptual resource. Similarly an "image" search is in fact a feed that establishes
+            its primary representation of resources as image URLs that are then rendered in a table
+            or sequences of hyperlinked images. This only highlights the fact that the feed
+            structure is in fact orthogonal to its representation. </para><para>In a typical website, the relationships between pages (which can be thought of as
+            terms) have until fairly recently followed the folder/file model of containment that
+            reflected the underlying file system that stored the relevant web-page resources. This
+            meant that URIs typically tended to follow a containment format as well. However, over
+            the course of the last decade the balance of development has shifted from a file system
+            model to a database model for the storing and generation of web content, which has in
+            turn shifted the URI structures for such resources to a more key oriented one.</para><para>This has led to some confusion about the construction of URIs and how they relate to
+            REST. From a purely REST standpoint, a GUID can effectively identify a resource in a
+            data-centric environment. The URL</para><programlisting xml:space="preserve">http://www.myserver.com/term/AFD23C2F559A412C</programlisting><para>has one major benefit - it is globally unique. A URL rewriter script could do a lookup
+            on the term and retrieve that particular key with very little parsing overhead. On the
+            other hand, it tells the person requesting the term next to nothing about it, and it is
+            arguable that, in many cases, being able to readily identify such a term by an easily
+            interpretable string outweighs the parsing cost of that string.</para><para>After considerable experimentation (which went into the design of the Ontologist), all
+            URIs were designed with the following convention:</para><programlisting xml:space="preserve">http://www.myserver.com/<emphasis>domainName</emphasis>/<emphasis>className</emphasis>/<emphasis>instanceName</emphasis>.<emphasis>faceName</emphasis></programlisting><para>The notation is broken into a domain, a class, and a instance, along with a
+                <emphasis>face</emphasis> that identifies which particular representation to use for
+            displaying the term feed. The class name establishes the category within a given domain,
+            while the instance name establishes a human readible unique name for a given resource.
+            For instance, the color blue would be given as "color/blue". Because classes themselves
+            are also terms, they would be in the "class" category - "class/color".</para><para>The domain name arose from a realisation after working with a client who wanted to
+            have classes that might be used by multiple different groups or customers. That is to
+            say, there might be a "class/article" for multiple potential vendors, as well as the
+            possibility of common classes that could be used by all vendors. While it is possible to
+            pass these in parametrically, it was such a useful term for a number of reasons that it
+            was made part of the key description.</para><para>Consequently, the Ontologist makes use of a triplex notation of the form</para><programlisting xml:space="preserve"><emphasis>domainName</emphasis>:<emphasis>className</emphasis>:<emphasis>instanceName</emphasis></programlisting><para>which uniquely identified each term in the system, <emphasis>relative</emphasis> to
+            the server host. These were not universal because the application was ported over
+            various servers, from development to staging to deployment, and as a consequence the
+            specific URI could not correspond to a physical server.</para><para>It should be pointed out that these triplexes do have a direct correspondance with a
+            qname. For server myserver.com, the corresponding qname for the color blue in the common
+            domain would look like:</para><programlisting xml:space="preserve">{http://myserver.com:8050/common/color/}blue</programlisting><para>where everything within the brackets corresponds to the qualifying category term and
+            everything after is the instance term, or conceptually, <code>common:color:</code>
+            represents the qualifying category, and <code>blue</code> again represents the instance
+            term. Similarly, the class of <code>color</code> would be in <code>common:class:</code>,
+            corresponding to </para><programlisting xml:space="preserve">{http://myserver.com:8050/common/class/}color</programlisting><para>This notation is odd at first glance (its easy to get confused about the distinction
+            between triplexes and CURIEs), but if you realize that a CURIE such as
+                <code>commonColor:blue</code> corresponds to the triplex
+                <code>common:color:blue</code>, it makes working with these resources in a semantic
+            turtle notation somewhat more intuitive. </para><note><para>It's easy to worry about such "plexes" getting out of control, but in practice
+                none of the applications that have been built on top of the ontologist has ever
+                needed more than three such terms. The combination of domain, class and instance,
+                along with the realization that everything else can be built with these, seems to
+                suffice in limiting the size of such plexes.
+        </para></note></section><section><title>Terms and Assertions</title><para>Every term in the system is represented internally as an XML document with a structure
+            very similar to that of the feed format, albeit not quite identical. Listing 1 gives an
+            example of such a entry.</para><programlisting xml:space="preserve">
+&lt;entry xmlns="http://www.avalonconsult.com/xmlns/entry"&gt;
+    &lt;metadata&gt;
+        &lt;id&gt;common:color:Blue&lt;/id&gt;
+        &lt;url&gt;/common/color/Blue&lt;/url&gt;
+        &lt;class&gt;common:class:color&lt;/class&gt;
+        &lt;code&gt;#0000FF&lt;/code&gt;
+        &lt;domain&gt;app:domain:Common&lt;/domain&gt;
+        &lt;label key="label"&gt;Blue&lt;/label&gt;
+        &lt;description key="description" xml:space="preserve"&gt;Item 'Blue' with code '#0000FF' is in 
+        class 'Color'.&lt;/description&gt;
+        &lt;lastModified&gt;2012-05-02T19:02:51.361676-07:00&lt;/lastModified&gt;
+    &lt;/metadata&gt;
+    &lt;assertions&gt;
+        &lt;assert subject="common:color:Blue" predicate="app:rel:instanceOf"
+            object="common:class:Color"/&gt;
+        &lt;assert subject="common:color:Blue" predicate="app:rel:domain" object="app:domain:Common"/&gt;
+        &lt;assert subject="common:color:Blue" predicate="app:rel:termOf" object="app:class:Term"/&gt;
+        &lt;assert subject="common:color:Blue" predicate="app:rel:workflow"
+            object="app:workflow:Active"/&gt;
+        &lt;assert subject="common:color:Blue" predicate="app:rel:label" object="#label"/&gt;
+        &lt;assert subject="common:color:Blue" predicate="app:rel:description" object="#description"/&gt;
+    &lt;/assertions&gt;
+&lt;/entry&gt;
+        </programlisting><para>This particular term establishes the color blue in the collection common:colors. The
+            metadata block holds the context information. If there was a need for a payload it would
+            be in a content element, though here there isn't any. What's perhaps most important is
+            the assertion elements in the assertions set. </para><para>Each assertion is, in effect, an RDF triple, with a subject, predicate and object. In
+            most cases the subject will be the id of the term. The predicate will be a term as well,
+            usually one of a class of relationships that are defined within either the application
+            domain, (part of app:rel:) or in some other domain (such as geo:rel:). The object will
+            be another term resource in the system (the assumption here is that the system is
+            self-contained).</para><para>The first predicate is especially worth studying. This defines the instanceOf
+            relationship between the color blue and the class color within the common domain. In
+            effect, this is a directed named vertex pointing to the common:class:Color term.
+            Relative to the color:Blue term, this is an outbound relationship, relative to the
+            class:color term, this is an inbound relationship (that is to say, class:Color does not
+            have any corresponding outbound vector to the color blue). Thus, for the class:Color
+            object, there is a SPARQL query statement of the form</para><programlisting xml:space="preserve">?color app:rel:instanceOf common:class:Color.</programlisting><para>that identifies the set of subjects that have an outbound instanceOf assertion to
+            class:Color.</para><para>This is a fairly reasonable operation for a triple store. What makes the Ontologist
+            useful is that it provides a set of libraries for doing the same type of operations
+            within an XQuery context in an XML data store such as MarkLogic (though it could do the
+            same in eXist or other fourth generation XML databases). </para><note><para>A question that has been asked by reviewers of this paper is why RDF-XML wasn't employed for
+                this. As it turns out, RDF-XML was explored as a potential vehicle to support this
+                within the Ontologist initially, but it's structure generally does not index well
+                within XML databases  - the queries involved are not especially complex but they are
+                involved enough that indexing optimizations becomes a major factor. </para><para>Additionally, there is a certain degree of deliberate redundancy in the system
+                because more traditional XQuery searches are also permitted on the Ontologist set,
+                both to order the sequence of returned objects and to create filtered subsets. Given
+                the advantages inherent for optimized searching and indexing, this generally
+                outweighs the cost of maintaining redundant data in multiple forms (and is typical
+                of XQuery applications).  </para></note><para>The structure of a class term can provide some additional insight into the
+            application.</para><programlisting xml:space="preserve">
+&lt;entry xmlns="http://www.rtis.com/xmlns/vocabulary"&gt;
+    &lt;metadata&gt;
+        &lt;qname&gt;common:class:color&lt;/qname&gt;
+        &lt;url&gt;/common/class/color&lt;/url&gt;
+        &lt;class&gt;common:class:fda_list&lt;/class&gt;
+        &lt;code&gt;color&lt;/code&gt;
+        &lt;domain&gt;app:domain:Common&lt;/domain&gt;
+        &lt;label key="label"&gt;Color&lt;/label&gt;
+        &lt;description xml:space="preserve" key="description"&gt;A vocabulary of colors as defined by 
+        the FDA.&lt;/description&gt;
+        &lt;lastModified&gt;2012-05-02T19:02:51.361676-07:00&lt;/lastModified&gt;
+    &lt;/metadata&gt;
+    &lt;assertions&gt;
+        &lt;assert subject="common:class:color" predicate="app:rel:subClassOf"
+            object="common:class:Class"/&gt;
+        &lt;assert subject="common:class:color" predicate="app:rel:domain" object="app:domain:Common"/&gt;
+        &lt;assert subject="common:class:color" predicate="app:rel:defaultRel"
+            object="app:rel:instanceOf"/&gt;
+        &lt;assert subject="common:class:color" predicate="app:rel:label" object="#label"/&gt;
+        &lt;assert subject="common:class:color" predicate="app:rel:description" object="#description"/&gt;
+        &lt;assert subject="common:class:color" predicate="app:rel:workflow"
+            object="app:workflow:Active"/&gt;
+    &lt;/assertions&gt;
+&lt;/entry&gt;
+        </programlisting><para>In this case, the term class:color is treated as a subclass of class:Class, which can
+            be thought of as a folder of classes in the common domain. The term is also an item in
+            the domain app:domain:Common (domain "sweeps" can include a fairly large number of
+            terms. The third assertion, however, is one of the most powerful. The defaultRel
+            predicate is used to determine, when no formal predicate is specified for the
+            Ontologist, what predicate should be used. It is in fact used as in the following SPARQL
+            query:</para><programlisting xml:space="preserve">
+ $term         app:rel:defaultRel ?relationship.
+ ?child-terms  ?relationship      $term.
+        </programlisting><para>$term here is the term from the XQuery invoking this call (such as
+            common:class:color), ?relationship is the predicate determined by the default
+            relationship and ?child-terms are the ones that satisfy this relations.</para><para>A similar
+            relationship can be used to walk "up" the tree of default terms as if it was an
+            inheritance tree (it typically is).</para><programlisting xml:space="preserve">
+ $child-term   ?relationship      ?parent-term.
+ ?parent-term  app:rel:defaultRel ?relationship.
+        </programlisting><para>Although it should be noted that it is possible that a given term may in fact have
+            more than one such relationship, meaning again that this system, while tending towards
+            hierarchies in its structures, is still very much graphlike in the bigger
+            picture.</para></section><section><title>Faces, Presentations and Ingestors</title><para>One consequence of the use of such XML embodiments of terms is that <emphasis>the entries involved can not only contain
+                assertion pointers, but can also identify and invoke the representations used to
+                both present content and to ingest it</emphasis>. An example can illustrate how this
+            works.</para><para>A face, as indicated earlier, is identified by an extension (although it can also be
+            identified parametrically from a query string parameter). The face is also identified as
+            being tied in with an HTTP verb - PUT, POST, GET, or DELETE. Within an entry there is an
+            optional &lt;pipelines&gt; element that can include maps of the form:</para><programlisting xml:space="preserve">
+&lt;pipelines&gt;
+    &lt;error href="/modules/app/class/Error/error.xq"/&gt;
+    &lt;method match="GET"&gt;
+        &lt;face match="html"&gt;
+            &lt;action href="/path/to/class/get-html.xq"&gt;
+                &lt;search ref="s1"/&gt;
+            &lt;/action&gt;
+        &lt;/face&gt;
+        &lt;face match="keys.xml"&gt;
+            &lt;action href="/path/to/class/get-html.xq"&gt;
+                &lt;search ref="s1"/&gt;
+            &lt;/action&gt;
+            &lt;action href="/path/to/class/transform-to-keys-xml.xq"&gt;
+                &lt;search ref="s1"/&gt;
+            &lt;/action&gt;            
+        &lt;/face&gt;
+        &lt;face match="xml"&gt;
+            &lt;action href="/path/to/class/get-html.xq"&gt;
+                &lt;search ref="s1"/&gt;
+            &lt;/action&gt;
+        &lt;/face&gt;
+        ..
+    &lt;/method&gt;
+&lt;/pipelines&gt;
+        </programlisting><para>With the combination of method and face, it becomes possible to select a particular
+            pipeline of actions for processing, along with the ability to retrieve additional
+            parameters (not shown here). This uses a somewhat complex inheritance model. The
+            Ontologist processor looks first in the term's XML to see if it has a processor. If it
+            does, this is used. If it doesn't (or if the processor passes the modified object up the
+            chain) the class corresponding to that term is queried, then the default rel for that
+            term (in most cases, these are the same thing). This continues until either a match is
+            found or the app:class:Term object (the root object in the system) is reached, which
+            contains defaults for all potential views. </para><para>A particularly significant result of this of this is that a generic viewer can be created for terms, but that
+            more specialized viewers can be built for specific classes - for instance, everything in
+            a given domain may have different logos, arrangement of elements and even
+            interpretations of content, and dedicated classes may be able to provide customized
+            viewers or editors for specific types of payloads. This benefit extends to ingesters as
+            well - input formats can be customized for specific class content, so that what gets
+            saved may be processed from other sources. As an example, posting to a json face might
+            take JSON content and convert it into XML before saving the resource, while posting to a
+            zip face would unzip the content, for that particular class, and do some kind of post
+            processing on the individual items in the file.</para></section><section><title>Summary</title><para>By combining such post processing with the creation of relevant assertions (though
+            some editor interface) makes it possible for this system to effectively function as a
+            semantic wiki or knowledge management system, with each term effectively being the same
+            as one entry in the space. It is this piece which I plan on demonstrating at
+            Balisage.</para><para>The Ontologist was written on MarkLogic Server 5.0, but it could reasonably work on
+            any document-centric database, including XML databases such as eXist, JSON databases
+            such as CouchDB, and Semantic Triple Stores that combine SPARQL and XQuery. The more
+            important aspect of this is that it has the potential to be used in a wide variety of
+            circumstances, from managing controlled vocabularies to hosting encyclopedic websites to
+            acting as a Linked Data repository with queryable interfaces.</para></section><bibliography><title>Bibliography</title><bibliomixed xml:id="fielding2000" xreflabel="Roy Fielding 2000">Fielding, Roy Thomas<emphasis role="ital">Architectural Styles and the Design of Network-based Software Architectures, 
+                PhD Dissertation Thesis</emphasis>, Chapter 5. Representational State Transfer. University of California, Irvine 
+                © 2000. <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.ics.uci.edu/~fielding/pubs/dissertation/top.htm</link>.</bibliomixed><bibliomixed xml:id="semantics2011" xreflabel="Semantics for the Working Ontologist 2011">Allemang, Dean and Hendler,
+                James<emphasis role="ital">Semantics for the Working Ontologists, Effective Modeling
+                in RDFS and OWL</emphasis> Morgan Kaufmann, 2nd Edition © 2011.
+                <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://workingontologist.org</link>.</bibliomixed></bibliography></article>

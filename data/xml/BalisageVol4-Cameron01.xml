@@ -1,0 +1,747 @@
+<?xml version="1.0" encoding="UTF-8"?><article xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink" version="5.0-subset Balisage-1.2" xml:id="HR-23632987-8973"><title>Parallel Bit Stream Technology as a Foundation for XML Parsing Performance</title><info><confgroup><conftitle>International Symposium on Processing XML Efficiently: Overcoming Limits on Space, Time, or Bandwidth</conftitle><confdates>August 10, 2009</confdates></confgroup><abstract><para>By first transforming the octets (bytes) of XML texts into eight parallel bit
+            streams, the SIMD features of commodity processors can be exploited for parallel
+            processing of blocks of 128 input bytes at a time. Established transcoding and parsing
+            techniques are reviewed followed by new techniques including parsing with bitstream
+            addition. Further opportunities are discussed in light of expected advances in CPU
+            architecture and compiler technology. Implications for various APIs and information
+            models are presented as well opportunities for collaborative open-source
+         development.</para></abstract><author><personname><firstname>Rob</firstname><surname>Cameron</surname></personname><personblurb><para>Dr. Rob Cameron is Professor and Director of Computing Science at Simon Fraser
+               University. With a broad spectrum of research interests related to programming
+               languages, software engineering and sociotechnical design of public computing
+               infrastructure, he has recently been focusing on high performance text processing
+               using parallel bit stream technology and its applications to XML. He is also a
+               patentleft evangelist, advocating university-based technology transfer models
+               dedicated to free use in open source. </para></personblurb><affiliation><jobtitle>Professor of Computing Science</jobtitle><orgname>Simon Fraser University</orgname></affiliation><email>cameron@cs.sfu.ca</email></author><author><personname><firstname>Ken</firstname><surname>Herdy</surname></personname><personblurb><para> Ken Herdy completed an Advanced Diploma of Technology in Geographical Information
+               Systems at the British Columbia Institute of Technology in 2003 and earned a Bachelor
+               of Science in Computing Science with a Certificate in Spatial Information Systems at
+               Simon Fraser University in 2005. </para><para> Ken is currently pursuing graduate studies in Computing Science at Simon Fraser
+               University with industrial scholarship support from the Natural Sciences and
+               Engineering Research Council of Canada, the Mathematics of Information Technology and
+               Complex Systems NCE, and the BC Innovation Council. His research focus is an analysis
+               of the principal techniques that may be used to improve XML processing performance in
+               the context of the Geography Markup Language (GML). </para></personblurb><affiliation><jobtitle>Graduate Student, School of Computing Science</jobtitle><orgname>Simon Fraser University </orgname></affiliation><email>ksherdy@cs.sfu.ca</email></author><author><personname><firstname>Ehsan</firstname><surname>Amiri</surname></personname><personblurb><para>Ehsan Amiri is a PhD student of Computer Science at Simon Fraser University.
+               Before that he studied at Sharif University of Technology, Tehran, Iran. While his
+               graduate research has been focused on theoretical problems like fingerprinting, Ehsan
+               has worked on some software projects like development of a multi-node firewall as
+               well. More recently he has been developing compiler technology for automatic
+               generation of bit stream processing code. </para></personblurb><affiliation><jobtitle>Graduate Student, School of Computing Science</jobtitle><orgname>Simon Fraser University</orgname></affiliation><email>eamiri@cs.sfu.ca</email></author><legalnotice><para>Copyright © 2009 Robert D. Cameron, Kenneth S. Herdy and Ehsan Amiri.
+            This work is licensed under a Creative Commons Attribution-Noncommercial-No Derivative
+            Works 2.5 Canada License.</para></legalnotice></info><section><title>Introduction</title><para> While particular XML applications may benefit from special-purpose hardware such as XML
+         chips [<xref linkend="XMLChip09"/>] or appliances [<xref linkend="Datapower09"/>], the bulk
+         of the world's XML processing workload will continue to be handled by XML software stacks
+         on commodity processors. Exploiting the SIMD capabilities of such processors such as the
+         SSE instructions of x86 chips, parallel bit stream technology offers the potential of
+         dramatic improvement over byte-at-a-time processing for a variety of XML processing tasks.
+         Character set issues such as Unicode validation and transcoding [<xref linkend="PPoPP08"/>], normalization of line breaks and white space and XML character validation can be
+         handled fully in parallel using this representation. Lexical item streams, such as the bit
+         stream marking the positions of opening angle brackets, can also be formed in parallel.
+         Bit-scan instructions of commodity processors may then be used on lexical item streams to
+         implement rapid single-instruction scanning across variable-length multi-byte text blocks
+         as in the Parabix XML parser [<xref linkend="CASCON08"/>]. Overall, these techniques may be
+         combined to yield end-to-end performance that may be 1.5X to 15X faster than alternatives
+            [<xref linkend="SVGOpen08"/>].</para><para>Continued research in parallel bit stream techniques as well as more conventional
+         application of SIMD techniques in XML processing offers further prospects for improvement
+         of core XML components as well as for tackling performance-critical tasks further up the
+         stack. A newly prototyped technique for parallel tag parsing using bitstream addition is
+         expected to improve parsing performance even beyond that achieved using sequential bit
+         scans. Several techniques for improved symbol table performance are being investigated,
+         including parallel hash value calculation and length-based sorting using the cheap length
+         determination afforded by bit scans. To deliver the benefits of parallel bit stream
+         technology to the Java world, we are developing Array Set Model (ASM) representations of
+         XML Infoset and other XML information models for efficient transmission across the JNI
+         boundary.</para><para>Amplifying these software advances, continuing hardware advances in commodity processors
+         increase the relative advantage of parallel bit stream techniques over traditional
+         byte-at-a-time processors. For example, the Intel Core architecture improved SSE processing
+         to give superscalar execution of bitwise logic operations (3 instructions per cycle vs. 1
+         in Pentium 4). Upcoming 256-bit AVX technology extends the register set and replaces
+         destructive two-operand instructions with a nondestructive three-operand form. General
+         purpose programming on graphic processing units (GPGPU) such as the upcoming 512-bit
+         Larrabee processor may also be useful for XML applications using parallel bit streams. New
+         instruction set architectures may also offer dramatic improvements in core algorithms.
+         Using the relatively simple extensions to support the principle of inductive doubling, a 3X
+         improvement in several core parallel bit stream algorithms may be achieved [<xref linkend="ASPLOS09"/>]. Other possibilities include direct implementation of parallel
+         extract and parallel deposit (pex/pdep) instructions [<xref linkend="Pex06"/>], and
+         bit-level interleave operations as in Larrabee, each of which would have important
+         application to parallel bit stream processing.</para><para>Further prospects for XML performance improvement arise from leveraging the
+         intraregister parallelism of parallel bit stream technology to exploit the interchip
+         parallelism of multicore computing. Parallel bit stream techniques can support multicore
+         parallelism in both data partitioning and task partitioning models. For example, the
+         datasection partitioning approach of Wu, Zhang, Yu and Li may be used to partition blocks
+         for speculative parallel parsing on separate cores followed by a postprocessing step to
+         join partial S-trees [<xref linkend="Wu08"/>].</para><para>In our view, the established and expected performance advantages of parallel bit stream
+         technology over traditional byte-at-a-time processing are so compelling that parallel bit
+         stream technology should ultimately form the foundation of every high-performance XML
+         software stack. We envision a common high-performance XML kernel that may be customized to
+         a variety of processor architectures and that supports a wide range of existing and new XML
+         APIs. Widespread deployment of this technology should greatly benefit the XML community in
+         addressing both the deserved and undeserved criticism of XML on performance grounds. A
+         further benefit of improved performance is a substantial greening of XML technologies.</para><para>To complement our research program investigating fundamental algorithms and issues in
+         high-performance XML processing, our work also involves development of open source software
+         implementing these algorithms, with a goal of full conformance to relevant specifications.
+         From the research perspective, this approach is valuable in ensuring that the full
+         complexity of required XML processing is addressed in reporting and assessing processing
+         results. However, our goal is also to use this open source software as a basis of
+         technology transfer. A Simon Fraser University spin-off company, called International
+         Characters, Inc., has been created to commercialize the results of this work using a
+         patent-based open source model.</para><para>To date, we have not yet been successful in establishing a broader community of
+         participation with our open source code base. Within open-source communities, there is
+         often a general antipathy towards software patents; this may limit engagement with our
+         technology, even though it has been dedicated for free use in open source. </para><para>A further complication is the inherent difficulty of SIMD programming in general, and
+         parallel bit stream programming in particular. Considerable work is required with each new
+         algorithmic technique being investigated as well as in retargetting our techniques for each
+         new development in SIMD and multicore processor technologies. To address these concerns, we
+         have increasingly shifted the emphasis of our research program towards compiler technology
+         capable of generating parallel bit stream code from higher-level specifications.</para></section><section><title>A Catalog of Parallel Bit Streams for XML</title><section><title>Introduction</title><para>In this section, we introduce the fundamental concepts of parallel bit stream
+            technology and present a comprehensive catalog of parallel bit streams for use in XML
+            processing. In presenting this catalog, the focus is on the specification of the bit
+            streams as data streams in one-to-one correspondence with the character code units of an
+            input XML stream. The goal is to define these bit streams in the abstract without
+            initially considering memory layouts, register widths or other issues related to
+            particular target architectures. In cataloging these techniques, we also hope to convey
+            a sense of the breadth of applications of parallel bit stream technology to XML
+            processing tasks. </para></section><section><title>Basis Bit Streams</title><para>Given a byte-oriented text stream represented in UTF-8, for example, we define a
+            transform representation of this text consisting of a set of eight parallel bit streams
+            for the individual bits of each byte. Thus, the <code>Bit0</code> stream is the stream
+            of bits consisting of bit 0 of each byte in the input byte stream, <code>Bit1</code> is
+            the bit stream consisting of bit 1 of each byte in the input stream and so on. The set
+            of streams <code>Bit0</code> through <code>Bit7</code> are known as the <emphasis>basis
+               streams</emphasis> of the parallel bit stream representation. The following table
+            shows an example XML character stream together with its representation as a set of 8
+            basis streams. <table><caption><para>XML Character Stream Transposition.</para></caption><colgroup span="1"><col align="left" valign="top" span="1"/><col align="left" valign="top" span="1"/><col align="left" valign="top" span="1"/><col align="left" valign="top" span="1"/><col align="left" valign="top" span="1"/><col align="left" valign="top" span="1"/></colgroup><tbody><tr valign="top"><td>Input Data</td><td>
+                        <code>&lt;</code>
+                     </td><td>
+                        <code>t</code>
+                     </td><td>
+                        <code>a</code>
+                     </td><td>
+                        <code>g</code>
+                     </td><td>
+                        <code>/</code>
+                     </td><td>
+                        <code>&gt;</code>
+                     </td></tr><tr valign="top"><td>ASCII</td><td>
+                        <code>00111100</code>
+                     </td><td>
+                        <code>01110100</code>
+                     </td><td>
+                        <code>01100001</code>
+                     </td><td>
+                        <code>01100111</code>
+                     </td><td>
+                        <code>00101111</code>
+                     </td><td>
+                        <code>00111110</code>
+                     </td></tr><tr valign="top"><td>Bit0</td><td>
+                        <code>0</code>
+                     </td><td>
+                        <code>0</code>
+                     </td><td>
+                        <code>0</code>
+                     </td><td>
+                        <code>0</code>
+                     </td><td>
+                        <code>0</code>
+                     </td><td>
+                        <code>0</code>
+                     </td></tr><tr valign="top"><td>Bit1</td><td>
+                        <code>0</code>
+                     </td><td>
+                        <code>1</code>
+                     </td><td>
+                        <code>1</code>
+                     </td><td>
+                        <code>1</code>
+                     </td><td>
+                        <code>0</code>
+                     </td><td>
+                        <code>0</code>
+                     </td></tr><tr valign="top"><td>Bit2</td><td>
+                        <code>1</code>
+                     </td><td>
+                        <code>1</code>
+                     </td><td>
+                        <code>1</code>
+                     </td><td>
+                        <code>1</code>
+                     </td><td>
+                        <code>1</code>
+                     </td><td>
+                        <code>1</code>
+                     </td></tr><tr valign="top"><td>Bit3</td><td>
+                        <code>1</code>
+                     </td><td>
+                        <code>1</code>
+                     </td><td>
+                        <code>0</code>
+                     </td><td>
+                        <code>0</code>
+                     </td><td>
+                        <code>0</code>
+                     </td><td>
+                        <code>1</code>
+                     </td></tr><tr valign="top"><td>Bit4</td><td>
+                        <code>1</code>
+                     </td><td>
+                        <code>0</code>
+                     </td><td>
+                        <code>0</code>
+                     </td><td>
+                        <code>0</code>
+                     </td><td>
+                        <code>1</code>
+                     </td><td>
+                        <code>1</code>
+                     </td></tr><tr valign="top"><td>Bit5</td><td>
+                        <code>1</code>
+                     </td><td>
+                        <code>1</code>
+                     </td><td>
+                        <code>0</code>
+                     </td><td>
+                        <code>1</code>
+                     </td><td>
+                        <code>1</code>
+                     </td><td>
+                        <code>1</code>
+                     </td></tr><tr valign="top"><td>Bit6</td><td>
+                        <code>0</code>
+                     </td><td>
+                        <code>0</code>
+                     </td><td>
+                        <code>0</code>
+                     </td><td>
+                        <code>1</code>
+                     </td><td>
+                        <code>1</code>
+                     </td><td>
+                        <code>1</code>
+                     </td></tr><tr valign="top"><td>Bit7</td><td>
+                        <code>0</code>
+                     </td><td>
+                        <code>0</code>
+                     </td><td>
+                        <code>1</code>
+                     </td><td>
+                        <code>1</code>
+                     </td><td>
+                        <code>1</code>
+                     </td><td>
+                        <code>0</code>
+                     </td></tr></tbody></table>
+         </para><para> Depending on the features of a particular processor architecture, there are a number
+            of algorithms for transposition to parallel bit stream form. Several of these algorithms
+            employ a three-stage structure. In the first stage, the input byte stream is divided
+            into a pair of half-length streams consisting of four bits for each byte, for example,
+            one stream for the high nybble of each byte and another for the low nybble of each byte.
+            In the second stage, these streams of four bits per byte are each divided into streams
+            consisting of two bits per original byte, for example streams for the
+            <code>Bit0/Bit1</code>, <code>Bit2/Bit3</code>, <code>Bit4/Bit5</code>, and
+               <code>Bit6/Bit7</code> pairs. In the final stage, the streams are further subdivided
+            in the individual bit streams. </para><para> Using SIMD capabilities, this process is quite efficient, with an amortized cost of
+            1.1 CPU cycles per input byte on Intel Core 2 with SSE, or 0.6 CPU cycles per input byte
+            on Power PC G4 with Altivec. With future advances in processor technology, this
+            transposition overhead is expected to reduce, possibly taking advantage of upcoming
+            parallel extract (pex) instructions on Intel technology. In the ideal, only 24
+            instructions are needed to transform a block of 128 input bytes using 128-bit SSE
+            registers using the inductive doubling instruction set architecture, representing an
+            overhead of less than 0.2 instructions per input byte. </para></section><section><title>General Streams</title><para>This section describes bit streams which support basic processing operations.</para><section><title>Deletion Mask Streams</title><para>DelMask (deletion mask) streams marks character code unit positions for deletion.
+               Since the deletion operation is dependency free across many stages of XML processing,
+               it is possible to simply mark and record deletion positions as deletion mask streams for future processing. A single
+               invocation of a SIMD based parallel deletion algorithm can then perform the deletion of
+               positions accumulated across a number of stages through a bitwise ORing of deletion
+               masks. For example, deletion arises in the replacement of predefined entities with a
+               single character, such as in the replacement of the &amp;amp; entity, with the
+               &amp; character. Deletion also arises in XML
+               end-of-line handling, and CDATA section delimeter processing. Several algorithms to
+               delete bits at positions marked by DelMask are possible [<xref linkend="u8u16"/>]. </para><para>The following table provides an example of generating a DelMask in the context of
+               bit stream based parsing of well-formed character references and predefined entities.
+               The result is the generation of a DelMask stream. <table><caption><para>DelMask Stream Generation</para></caption><colgroup span="1"><col align="left" valign="top" span="1"/><col align="left" valign="top" span="1"/></colgroup><tbody><tr valign="top"><td>Input Data</td><td>
+                           <code>&amp;gt; &amp;#13; &amp;#x0a;</code>
+                        </td></tr><tr valign="top"><td>GenRefs</td><td>
+                           <code>_11______________</code>
+                        </td></tr><tr valign="top"><td>DecRefs</td><td>
+                           <code>_______11________</code>
+                        </td></tr><tr valign="top"><td>HexRefs</td><td>
+                           <code>______________11_</code>
+                        </td></tr><tr valign="top"><td>DelMask</td><td>
+                           <code>111__1111__11111_</code>
+                        </td></tr><tr valign="top"><td>ErrorFlag</td><td>
+                           <code>_________________</code>
+                        </td></tr></tbody></table>
+            </para></section><section><title>Error Flag Streams </title><para>Error flag streams indicates the character code unit positions of syntactical
+               errors. XML processing examples which benefit from the marking of error positions
+               include UTF-8 character sequence validation and XML parsing [<xref linkend="u8u16"/>].</para><para>The following table provides an example of using bit streams to parse character
+               references and predefined entities which fail to meet the XML 1.0 well-formedness
+               constraints. The result is the generation of an error flag stream that marks the
+               positions of mal-formed decimal and hexical character references respectively. <table><caption><para>Error Flag Stream Generation</para></caption><colgroup span="1"><col align="left" valign="top" span="1"/><col align="left" valign="top" span="1"/></colgroup><tbody><tr valign="top"><td>Input Data</td><td>
+                           <code>&amp;gt; &amp;#, &amp;#x; </code>
+                        </td></tr><tr valign="top"><td>GenRefs</td><td>
+                           <code>_11___________</code>
+                        </td></tr><tr valign="top"><td>DecRefs</td><td>
+                           <code>______________</code>
+                        </td></tr><tr valign="top"><td>HexRefs</td><td>
+                           <code>______________</code>
+                        </td></tr><tr valign="top"><td>DelMask</td><td>
+                           <code>111__11__111__</code>
+                        </td></tr><tr valign="top"><td>ErrorFlag</td><td>
+                           <code>_______1____1_</code>
+                        </td></tr></tbody></table>
+            </para></section></section><section><title>Lexical Item Streams</title><para>Lexical item streams differ from traditional streams of tokens in that they are bit
+            streams that mark the positions of tokens, whitespace or delimiters. Additional bit
+            streams, such as the reference streams and callout streams, are subsequently constructed
+            based on the information held within the set of lexical items streams. Differentiation
+            between the actual tokens that may occur at a particular point (e.g., the different XML
+            tokens that begin “&lt;”) may be performed using multicharacter recognizers on the
+            bytestream representation [<xref linkend="CASCON08"/>].</para><para>A key role of lexical item streams in XML parsing is to facilitate fast scanning
+            operations. For example, a left angle bracket lexical item stream may be formed to
+            identify those character code unit positions at which a “&lt;” character occurs.
+            Hardware register bit scan operations may then be used by the XML parser on the left
+            angle bracket stream to efficiently identify the position of the next “&lt;”. Based
+            on the capabilities of current commodity processors, a single register bit scan
+            operation may effectively scan up to 64 byte positions with a single instruction.</para><para>Overall, the construction of the full set of lexical item stream computations
+            requires approximately 1.0 CPU cycles per byte when implemented for 128 positions at a
+            time using 128-bit SSE registers on Intel Core2 processors [<xref linkend="CASCON08"/>].
+            The following table defines the core lexical item streams defined by the Parabix XML
+            parser.</para><para>
+            <table><caption><para>Lexical item stream descriptions.</para></caption><tbody><tr><td align="left"> LAngle </td><td align="left"> Marks the position of any left angle bracket character.</td></tr><tr><td align="left"> RAngle </td><td align="left"> Marks the position of any right angle bracket character.</td></tr><tr><td align="left"> LBracket </td><td align="left"> Marks the position of any left square bracker character.</td></tr><tr><td align="left"> RBracket </td><td align="left"> Marks the position of any right square bracket
+                     character.</td></tr><tr><td align="left"> Exclam </td><td align="left"> Marks the position of any exclamation mark character.</td></tr><tr><td align="left"> QMark </td><td align="left"> Marks the position of any question mark character.</td></tr><tr><td align="left"> Hyphen </td><td align="left"> Marks the position of any hyphen character.</td></tr><tr><td align="left"> Equals </td><td align="left"> Marks the position of any equal sign character.</td></tr><tr><td align="left"> SQuote </td><td align="left"> Marks the position of any single quote character.</td></tr><tr><td align="left"> DQuote </td><td align="left"> Marks the position of any double quote character.</td></tr><tr><td align="left"> Slash </td><td align="left"> Marks the position of any forward slash character</td></tr><tr><td align="left"> NameScan </td><td align="left"> Marks the position of any XML name character.</td></tr><tr><td align="left"> WS </td><td align="left"> Marks the position of any XML 1.0 whitespace character.</td></tr><tr><td align="left"> PI_start </td><td align="left"> Marks the position of the start of any processing instruction
+                        at the '?' character position.</td></tr><tr><td align="left"> PI_end </td><td align="left"> Marks the position of any end of any processing instruction
+                        at the '&gt;' character position.</td></tr><tr><td align="left"> CtCD_start </td><td align="left"> Marks the position of the start of any comment or CDATA
+                        section at the '!' character position.</td></tr><tr><td align="left"> EndTag_start </td><td align="left"> Marks the position of any end tag at the '/' character
+                        position.</td></tr><tr><td align="left"> CD_end </td><td align="left"> Marks the position of the end of any CDATA section at the '&gt;'
+                        character position. </td></tr><tr><td align="left"> DoubleHyphen </td><td align="left"> Marks the position of any double hyphen character.</td></tr><tr><td align="left"> RefStart </td><td align="left"> Marks the position of any ampersand character.</td></tr><tr><td align="left"> Hash </td><td align="left"> Marks the position of any hash character.</td></tr><tr><td align="left"> x </td><td align="left"> Marks the position of any 'x' character.</td></tr><tr><td align="left"> Digit </td><td align="left"> Marks the position of any digit.</td></tr><tr><td align="left"> Hex </td><td align="left"> Marks the position of any hexidecimal character.</td></tr><tr><td align="left"> Semicolon </td><td align="left"> Marks the position of any semicolon character.</td></tr></tbody></table>
+         </para><para> The following illustrates a number of the lexical item streams. </para><para>
+            <table><caption><para>Lexical Item Streams</para></caption><colgroup span="1"><col align="left" valign="top" span="1"/><col align="left" valign="top" span="1"/></colgroup><tbody><tr valign="top"><td>Input Data</td><td>
+                        <code>&lt;tag&gt;&lt;tag&gt; text &amp;lt;
+                           &amp;#x3e; &lt;/tag&gt;&lt;/tag&gt;</code>
+                     </td></tr><tr valign="top"><td>LAngle</td><td>
+                        <code>1____1______________________1_____1_____</code>
+                     </td></tr><tr valign="top"><td>RAngle</td><td>
+                        <code>____1____1_______________________1_____1</code>
+                     </td></tr><tr valign="top"><td>WS</td><td>
+                        <code>__________1____1____1______1____________</code>
+                     </td></tr><tr valign="top"><td>RefStart</td><td>
+                        <code>________________1____1__________________</code>
+                     </td></tr><tr valign="top"><td>Hex</td><td>
+                        <code>__1____1____1___________11_____1_____1__</code>
+                     </td></tr><tr valign="top"><td>Semicolon</td><td>
+                        <code>___________________1______1_____________</code>
+                     </td></tr><tr valign="top"><td>Slash</td><td>
+                        <code>_____________________________1_____1____</code>
+                     </td></tr></tbody></table>
+         </para></section><section><title>UTF-8 Byte Classification, Scope and Validation Streams</title><para> An XML parser must accept the UTF-8 encoding of Unicode [<xref linkend="XML10"/>].
+            It is a fatal error if an XML document determined to be in UTF-8 contains byte sequences
+            that are not legal in that encoding. UTF-8 byte classification, scope, XML character
+            validation and error flag bit streams are defined to validate UTF-8 byte sequences and
+            support transcoding to UTF-16.</para><section><title>UTF-8 Byte Classification Streams</title><para>UTF-8 byte classification bit streams classify UTF-8 bytes based on their role in
+               forming single and multibyte sequences. The u8Prefix and u8Suffix bit streams
+               identify bytes that represent, respectively, prefix or suffix bytes of multibyte
+               UTF-8 sequences. The u8UniByte bit stream identifies those bytes that may be
+               considered single-byte sequences. The u8Prefix2, u8Prefix3, and u8Prefix4 refine the
+               u8Prefix respectively indicating prefixes of two, three or four byte
+            sequences respectively.</para></section><section><title>UTF-8 Scope Streams</title><para> Scope streams represent expectations established by UTF-8 prefix bytes. For
+               example, the u8Scope22 bit stream represents the positions at which the second byte of a
+               two-byte sequence is expected based on the occurrence of a two-byte prefix in the
+               immediately preceding position. The u8scope32, u8Scope33, u8Scope42, u8scope43, and
+               u8Scope44 complete the set of UTF-8 scope streams.</para><para> The following example demonstrates the UTF-8 character encoding validation
+               process using parallel bit stream techniques. The result of this validation process
+               is an error flag stream identifying the positions at which errors occur.</para><para>
+               <table><caption><para>UTF-8 Scope Streams</para></caption><colgroup span="1"><col align="left" valign="top" span="1"/><col align="left" valign="top" span="1"/></colgroup><tbody><tr valign="top"><td>Input Data</td><td><code>A Text in Farsi: ى ك  م ت ن  ف ا ر س ى</code></td></tr><tr valign="top"><td>High Nybbles</td><td>
+                           <code>42567726624677632D8DBDBDAD82D8DAD82D8D8</code>
+                        </td></tr><tr valign="top"><td>Low Nybbles</td><td>
+                           <code>10458409E061239A099838187910968A9509399</code>
+                        </td></tr><tr valign="top"><td>u8Unibyte</td><td>
+                           <code>11111111111111111__________1______1____</code>
+                           
+                        </td></tr><tr valign="top"><td>u8Prefix</td><td>
+                           <code>_________________1_1_1_1_1__1_1_1__1_1_</code>
+                        </td></tr><tr valign="top"><td>u8Suffix</td><td>
+                           <code>__________________1_1_1_1_1__1_1_1__1_1</code>
+                        </td></tr><tr valign="top"><td>u8Prefix2</td><td>
+                           <code>_________________1_1_1_1_1__1_1_1__1_1_</code>
+                        </td></tr><tr valign="top"><td>u8Scope22</td><td>
+                           <code>__________________1_1_1_1_1__1_1_1__1_1</code>
+                           
+                        </td></tr><tr valign="top"><td>ErrorFlag</td><td>
+                           <code>_______________________________________</code>
+                        </td></tr></tbody></table>
+               
+
+            </para></section><section><title>UTF-8 Validation Streams</title><para> Proper formation of UTF-8 byte sequences requires that the correct number of
+               suffix bytes always follow a UTF-8 prefix byte, and that certain illegal byte
+               combinations are ruled out. For example, sequences beginning with the prefix bytes
+               0xF5 through 0xFF are illegal as they would represent code point values above 10FFFF.
+               In addition, there are constraints on the first suffix byte following certain special
+               prefixes, namely that a suffix following the prefix 0xE0 must fall in the range
+               0xA0–0xBF, a suffix following the prefix 0xED must fall in the range 0x80–0x9F, a
+               suffix following the prefix 0xF0 must fall in the range 0x90–0xBF and a suffix
+               following the prefix 0xF4 must fall in the range 0x80–0x8F. The task of ensuring that
+               each of these constraints hold is known as UTF-8 validation. The bit streams xE0,
+               xED, xF0, xF4, xA0_xBF, x80_x9F, x90_xBF, and x80_x8F are constructed to flag the
+               aforementioned UTF-8 validation errors. The result of UTF-8 validation is a UTF-8
+               error flag bit stream contructed as the ORing of a series of UTF-8 validation tests.
+            </para></section><section><title>XML Character Validation Streams</title><para>The UTF-8 character sequences <emphasis>0xEF 0xBF 0xBF</emphasis> and
+                  <emphasis>0xEF 0xBF 0xBE</emphasis> correspond to the Unicode code points 0xFFFE
+               and 0xFFFF respectively. In XML 1.0, 0xFFFE and 0xFFFF represent characters outside
+               the legal XML character ranges. As such, bit streams which mark 0xEF, 0xBF, and 0xBE
+               character are constructed to flag illegal UTF-8 character sequences. </para></section><section><title>UTF-8 to UTF-16 Transcoding</title><para>UTF-8 is often preferred for storage and data exchange, it is suitable for
+               processing, but it is significantly more complex to process than UTF-16 [<xref linkend="Unicode"/>]. As such, XML documents are typically encoded in UTF-8 for
+               serialization and transport, and subsequently transcoded to UTF-16 for processing
+               with programming languages such as Java and C#. Following the parallel bit stream
+               methods developed for the u8u16 transcoder, a high-performance standalone UTF-8 to
+               UTF-16 transcoder [<xref linkend="u8u16"/>], transcoding to UTF-16 may be achieved by
+               computing a series of 16 bit streams. One stream for each of the individual bits of a
+               UTF-16 code unit. </para><para>The bit streams for UTF-16 are conveniently divided into groups: the eight streams
+               u16Hi0, u16Hi1, ..., u16Hi7 for the high byte of each UTF-16 code unit and the eight
+               streams u16Lo1, ..., u16Lo7 for the low byte. Upon conversion of the parallel bit
+               stream data back to byte streams, eight sequential byte streams U16h0, U16h1, ...,
+               U16Hi7 are used for the high byte of each UTF-16 code unit, while U16Lo0, U16Lo1,...,
+               U16Lo7 are used for the corresponding low byte. Interleaving these streams then
+               produces the full UTF-16 doublebyte stream.</para></section><section><title>UTF-8 Indexed UTF-16 Streams</title><para>UTF-16 bit streams are initially defined in UTF-8 indexed form. That is, with sets
+               of bits in one-to-one correspondence with UTF-8 bytes. However, only one set of
+               UTF-16 bits is required for encoding two or three-byte UTF-8 sequences and only two
+               sets are required for surrogate pairs corresponding to four-byte UTF-8 sequences. The
+               u8LastByte (u8UniByte , u8Scope22 , u8Scope33 , and u8Scope44 ) and u8Scope42 streams
+               mark the positions at which the correct UTF-16 bits are computed. The bit sets at
+               other positions must be deleted to compress the streams to the UTF-16 indexed form.
+            </para></section></section><section><title>Control Character Streams</title><para>The control character bit streams marks ASCII control characters in the range
+            0x00-0x1F. Additional control character bit streams mark the tab, carriage return, line
+            feed, and space character. In addition, a bit stream to mark carriage return line
+            combinations is also constructed. Presently, control character bit streams support the
+            operations of XML 1.0 character validation and XML end-of-line handling.</para><section><title>XML Character Validation</title><para>Legal characters in XML are the tab, carriage return, and line feed characters,
+               together with all Unicode characters and excluding the surrogate blocks, as well as hexadecimal OxFFFE and
+               OxFFFF [<xref linkend="XML10"/>]. The x00_x1F bit stream is constructed and used in
+               combination with the additional control character bit streams to flags the positions
+               of illegal control characters.</para></section><section><title>XML 1.0 End-of-line Handling</title><para>In XML 1.0 the two-character sequence CR LF (carriage return, line feed) as well as
+               any CR character not followed by a LF character must be converted to a single LF
+               character [<xref linkend="XML10"/>].</para><para>By defining carriage return, line feed, and carriage return line feed bit streams,
+               dentoted CR, LF and CRLF respectively, end-of-line normalization processing can be
+               performed in parallel using only a small number of logical and shift operations.</para><para>The following example demonstrates the generation of the CRLF deletion mask. In
+               this example, the position of all CR characters followed by LF characters are marked
+               for deletion. Isolated carriage returns are then replaced with LF characters.
+               Completion of this process satisfies the XML 1.0 end-of-line handling requirements.
+               For clarity, this example encodes input data carriage returns as
+               <emphasis>C</emphasis> characters, whereas line feed characters are shown as
+                  <emphasis>L</emphasis> characters.</para><para>
+               <table><caption><para>XML 1.0 End-of-line Handling</para></caption><colgroup span="1"><col align="left" valign="top" span="1"/></colgroup><tbody><tr valign="top"><td>Input Data</td><td>
+                           <code>first line C second line CL third line L one more C nothing
+                           left</code>
+                        </td></tr><tr valign="top"><td>CR</td><td>
+                           <code>-----------1-------------1------------------------1-------------</code>
+                        </td></tr><tr valign="top"><td>LF</td><td>
+                           <code>--------------------------1------------1------------------------</code>
+                        </td></tr><tr valign="top"><td>DelMask</td><td>
+                           <code>--------------------------1-------------------------------------</code>
+                        </td></tr></tbody></table>
+
+            </para></section></section><section><title>Call Out Streams</title><para> Call out bit streams mark the extents of XML markup structures such as comments,
+            processing instruction and CDATA sections as well as physical structures such as character and
+            entity references and general references.  Call out streams are also formed for logical markup structures such
+            start tags, end tags and empty element tags. </para><section><title>Comment, Processing Instruction and CDATA Section Call Out Streams</title><para>Comments, processing instructions and CDATA sections call out streams, Ct_Span,
+               PI_Span and CD_Span respectively, define sections of an XML document which 
+               contain markup that is not interpreted by an XML processor. As such, the union of
+               Ct_Span, PI_Span and CD_Span streams defines the regions of non-interpreteable markup. 
+               The stream formed by this union is termed the CtCDPI_Mask.</para><para>The following tables provides an example of constructing the CtCDPI_Mask. </para><table><caption><para>CtCDPI Mask Generation</para></caption><colgroup span="1"><col align="left" valign="top" span="1"/><col align="left" valign="top" span="1"/></colgroup><tbody><tr valign="top"><td>Input Data</td><td><code>&lt;?php?&gt; &lt;!-- example --&gt; &lt;![CDATA[ shift: a&lt;&lt;1 ]]&gt;</code></td></tr><tr valign="top"><td>CD_Span</td><td><code>___________________________1111111111111111111111_</code></td></tr><tr valign="top"><td>Ct_Span</td><td><code>___________111111111111___________________________</code></td></tr><tr valign="top"><td>PI_Span</td><td><code>_11111____________________________________________</code></td></tr><tr valign="top"><td>CtCDPI_Mask</td><td><code>_111111__111111111111111__111111111111111111111111</code></td></tr><tr valign="top"><td>ErrorFlag</td><td><code>__________________________________________________</code></td></tr></tbody></table><para> With the removal of all non-interpreteable markup, several phases of parallel bit
+               stream based SIMD operations may follow operating on up to 128 byte positions on
+               current commondity processors and assured of XML markup relevancy. For
+               example, with the extents identification of comments, processing instructions and
+               CDATA sections, XML names may be identified and length sorted for efficient symbol
+               table construction. </para><para> As an aside, comments and CDATA sections must first be validated to ensure
+               that comments do not contain "--" sequences and that CDATA sections do not contain illegal
+               "]]&gt;" sequences prior to ignorable markup stream generation.</para></section><section><title>Reference Call Out Streams</title><para>The reference call out streams are the GenRefs, DecRefs, and HexRefs streams. This
+               subset of the call out streams marks the extents of all but the closing semicolon of
+               general and character references.</para><para>Predefined character
+               (&amp;lt;,&amp;gt;,&amp;amp;,&amp;apos;,&amp;quot;) and numeric character
+               references (&amp;#nnnn;, &amp;#xhhhh;) must be replaced by a single character
+                  [<xref linkend="XML10"/>]. As previously shown, this subset of call out streams enables the construction of a DelMask for
+               references.</para></section><section><title>Tag Call Out Streams</title><para>Whereas sequential bit scans over lexical item streams form the basis of XML
+               parsing, in the current Parabix parser a new method of parallel parsing has been
+               developed and prototyped using the concept of bitstream addition. Fundamental to this
+               method is the concept of a <emphasis>cursor</emphasis> stream, a bit stream marking
+               the positions of multiple parallel parses currently in process. </para><para>The results of parallel parsing using the bit stream addition technique produces a
+               set of tag call out bit streams. These streams mark the extents of each start tag,
+               end tag and empty element tag. Within tags, additional streams mark start
+               and end positions for tag names, as well as attribute names and values. An error flag
+               stream marks the positions of any syntactic errors encountered during parsing.</para><para> The set of tag call out streams consists of the ElemNames, AttNames, AttVals, Tags,
+               EmptyTagEnds and EndTags bit streams. The following example demonstrates the bit
+               stream output produced which from parallel parsing using bit stream addition. </para><table><caption><para>Tag Call Out Streams</para></caption><colgroup span="1"><col align="left" valign="top" span="1"/><col align="left" valign="top" span="1"/></colgroup><tbody><tr valign="top"><td>Input Data</td><td>
+                        <code>&lt;root&gt;&lt;t1&gt;text&lt;/t1&gt;&lt;t2
+                           a1='foo' a2 =
+                           'fie'&gt;more&lt;/t2&gt;&lt;tag3
+                           att3='b'/&gt;&lt;/root&gt;</code>
+                     </td></tr><tr valign="top"><td>ElemNames</td><td>
+                        <code>_1111__11___________11_______________________________1111__________________</code>
+                     </td></tr><tr valign="top"><td>AttNames</td><td>
+                        <code>_______________________11_______11________________________1111_____________</code>
+                     </td></tr><tr valign="top"><td>AttrVals</td><td>
+                        <code>__________________________11111______11111_____________________111_________</code>
+                     </td></tr><tr valign="top"><td>EmptyTagEnds</td><td>
+                        <code>___________________________________________________________________1_______</code>
+                     </td></tr><tr valign="top"><td>EndTags</td><td>
+                        <code>_______________111______________________________111__________________11111_</code>
+                     </td></tr><tr valign="top"><td>Start/EmptyTags</td><td>
+                        <code>_1111__11___________1111111111111111111111___________11111111111111________</code>
+                     </td></tr><tr valign="top"><td>ErrorFlag</td><td>
+                        <code>___________________________________________________________________________</code>
+                     </td></tr></tbody></table></section></section></section><section><title>SIMD Beyond Bitstreams: Names and Numbers</title><para>Whereas the fundamental innovation of our work is the use of SIMD technology in
+         implementing parallel bit streams for XML, there are also important ways in which more
+         traditional byte-oriented SIMD operations can be useful in accelerating other aspects of
+         XML processing.</para><section><title>Name Lookup</title><para>Efficient symbol table mechanisms for looking up element and attribute names is
+            important for almost all XML processing applications. It is also an important technique
+            merely for assessing well-formedness of an XML document; rather than validating the
+            character-by-character composition of each occurrence of an XML name as it is
+            encountered, it is more efficient to validate all but the first occurrence by first
+            determining whether the name already exists in a table of prevalidated names.</para><para>The first symbol table mechanism deployed in the Parabix parser simply used the
+            hashmaps of the C++ standard template library, without deploying any SIMD technology.
+            However, with the overhead of character validation, transcoding and parsing dramatically
+            reduced by parallel bit stream technology, we found that symbol lookups then accounted
+            for about half of the remaining execution time in a statistics gathering application
+               [<xref linkend="CASCON08"/>]. Thus, symbol table processing was identified as a major
+            target for further performance improvement. </para><para> Our first effort to improve symbol table performance was to employ the splash tables
+            with cuckoo hashing as described by Ross [<xref linkend="Ross06"/>], using SIMD
+            technology for parallel bucket processing. Although this technique did turn out to have
+            the advantage of virtually constant-time performance even for very large vocabularies,
+            it was not particularly helpful for the relatively small vocabularies typically found in
+            XML document processing. </para><para> However, a second approach has been found to be quite useful, taking advantage of
+            parallel bit streams for cheap determination of symbol length. In essence, the length of
+            a name can be determined very cheaply using a single bit scan operation. This then makes
+            it possible to use length-sorted symbol table processing, as follows. First, the
+            occurrences of all names are stored in arrays indexed by length. Then the length-sorted
+            arrays may each be inserted into the symbol table in turn. The advantage of this is that
+            a separate loop may be written for each length. Length sorting makes for very efficient
+            name processing. For example hash value computations and name comparisons can be made by
+            loading multibyte values and performing appropriate shifting and masking operations,
+            without the need for a byte-at-a-time loop. In initial experiments, this length-sorting
+            approach was found to reduce symbol lookup cost by a factor of two. </para><para> Current research includes the application of SIMD technology to further enhance the
+            performance of length-sorted lookup. We have identified a promising technique for
+            parallel processing of multiple name occurrences using a parallel trie lookup technique.
+            Given an array of occurrences of names of a particular length, the first one, two or
+            four bytes of each name are gathered and stored in a linear array. SIMD techniques are
+            then used to compare these prefixes with the possible prefixes for the current position
+            within the trie. In general, a very small number of possibilities exist for each trie
+            node, allowing for fast linear search through all possibilities. Typically, the
+            parallelism is expected to exceed the number of possibilities to search through at each
+            node. With length-sorting to separate the top-level trie into many small subtries, we
+            expect only a single step of symbol lookup to be needed in most practical instances. </para><para>The gather step of this algorithm is actually a common technique in SIMD processing.
+            Instruction set support for gather operations is a likely future direction for SIMD
+            technology.</para></section><section><title>Numeric Processing</title><para> Many XML applications involve numeric data fields as attribute values or element
+            content. Although most current XML APIs uniformly return information to applications in
+            the form of character strings, it is reasonable to consider direct API support for
+            numeric conversions within a high-performance XML engine. With string to numeric
+            conversion such a common need, why leave it to application programmers? </para><para> High-performance string to numeric conversion using SIMD operations also can
+            considerably outperform the byte-at-a-time loops that most application programmers or
+            libraries might employ. A first step is reduction of ASCII bytes to corresponding
+            decimal nybbles using a SIMD packing operation. Then an inductive doubling algorithm
+            using SIMD operations may be employed. First, 16 sets of adjacent nybble values in the
+            range 0-9 can be combined in just a few SIMD operations to 16 byte values in the range
+            0-99. Then 8 sets of byte values may similarly be combined with further SIMD processing
+            to produce doublebyte values in the range 0-9999. Further combination of doublebyte
+            values into 32-bit integers and so on can also be performed using SIMD operations. </para><para> Using appropriate gather operations to bring numeric strings into appropriate array
+            structures, an XML engine could offer high-performance numeric conversion services to
+            XML application programmers. We expect this to be an important direction for our future
+            work, particularly in support of APIs that focus on direct conversion of XML data into
+            business objects. </para></section></section><section><title>APIs and Parallel Bit Streams</title><section><title>The ILAX Streaming API</title><para>The In-Line API for XML (ILAX) is the base API provided with the Parabix parser. It
+            is intended for low-level extensions compiled right into the engine, with minimum
+            possible overhead. It is similar to streaming event-based APIs such as SAX, but
+            implemented by inline substitution rather than using callbacks. In essence, an extension
+            programmer provides method bodies for event-processing methods declared internal to the
+            Parabix parsing engine, compiling the event processing code directly with the core code
+            of the engine. </para><para> Although ILAX can be used directly for application programming, its primary use is
+            for implementing engine extensions that support higher-level APIs. For example, the
+            implementation of C or C++ based streaming APIs based on the Expat [<xref linkend="Expat"/>] or general SAX models can be quite directly implemented. C/C++ DOM
+            or other tree-based APIs can also be fairly directly implemented. However, delivering
+            Parabix performance to Java-based XML applications is challenging due to the
+            considerable overhead of crossing the Java Native Interface (JNI) boundary. This issue
+            is addressed with the Array Set Model (ASM) concept discussed in the following section. </para><para> With the recent development of parallel parsing using bitstream addition, it is
+            likely that the underlying ILAX interface of Parabix will change. In essence, ILAX
+            suffers the drawback of all event-based interfaces: they are fundamentally sequential in
+            number. As research continues, we expect efficient parallel methods building on parallel
+            bit stream foundations to move up the stack of XML processing requirements. Artificially
+            imposing sequential processing is thus expected to constrain further advances in XML
+            performance. </para></section><section><title>Efficient XML in Java Using Array Set Models</title><para> In our GML-to-SVG case study, we identified the lack of high-performance XML
+            processing solutions for Java to be of particular interest. Java byte code does not
+            provide access to the SIMD capabilities of the underlying machine architecture. Java
+            just-in-time compilers might be capable of using some SIMD facilities, but there is no
+            real prospect of conventional compiler technology translating byte-at-a-time algorithms
+            into parallel bit stream code. So the primary vehicle for delivering high-performance
+            XML processing is to call native parallel bit stream code written in C through JNI
+            capabilities. </para><para>However, each JNI call is expensive, so it is desirable to minimize the number of
+            calls and get as much work done during each call as possible. This mitigates against
+            direct implementation of streaming APIs in Java through one-to-one mappings to an
+            underlying streaming API in C. Instead, we have concentrated on gathering information on
+            the C side into data structures that can then be passed to the Java side. However, using
+            either C pointer-based structures or C++ objects is problematic because these are
+            difficult to interpret on the Java side and are not amenable to Java's automatic storage
+            management system. Similarly, Java objects cannot be conveniently created on the C side.
+            However, it is possible to transfer arrays of simple data values (bytes or integers)
+            between C and Java, so that makes a reasonable focus for bulk data communication between
+            C and Java. </para><para><emphasis>Array Set Models</emphasis> are array-based representations of information
+            representing an XML document in accord with XML InfoSet [<xref linkend="InfoSet"/>] or
+            other XML data models relevant to particular APIs. As well as providing a mechanism for
+            efficient bulk data communication across the JNI boundary, ASMs potentially have a
+            number of other benefits in high-performance XML processing. <itemizedlist><listitem><para>Prefetching. Commodity processors commonly support hardware and/or software
+                     prefetching to ensure that data is available in a processor cache when it is
+                     needed. In general, prefetching is most effective in conjunction with the
+                     continuous sequential memory access patterns associated with array
+                  processing.</para></listitem><listitem><para>DMA. Some processing environments provide Direct Memory Access (DMA)
+                     controllers for block data movement in parallel with computation. For example,
+                     the Cell Broadband Engine uses DMA controllers to move the data to and from the
+                     local stores of the synergistic processing units. Arrays of contiguous data
+                     elements are well suited to bulk data movement using DMA.</para></listitem><listitem><para>SIMD. Single Instruction Multiple Data (SIMD) capabilities of modern
+                     processor instruction sets allow simultaneous application of particular
+                     instructions to sets of elements from parallel arrays. For effective use of
+                     SIMD capabilities, an SoA (Structure of Arrays) model is preferrable to an AoS
+                     (Array of Structures) model. </para></listitem><listitem><para>Multicore processors. Array-oriented processing can enable the effective
+                     distribution of work to the individual cores of a multicore system in two
+                     distinct ways. First, provided that sequential dependencies can be minimized or
+                     eliminated, large arrays can be divided into separate segments to be processed
+                     in parallel on each core. Second, pipeline parallelism can be used to implement
+                     efficient multipass processing with each pass consisting of a processing kernel
+                     with array-based input and array-based output. </para></listitem><listitem><para>Streaming buffers for large XML documents. In the event that an XML document
+                     is larger than can be reasonably represented entirely within processor memory,
+                     a buffer-based streaming model can be applied to work through a document using
+                     sliding windows over arrays of elements stored in document order. </para></listitem></itemizedlist>
+         </para><section><title>Saxon-B TinyTree Example</title><para>As a first example of the ASM concept, current work includes a proof-of-concept to
+               deliver a high-performance replacement for building the TinyTree data structure used
+               in Saxon-B 6.5.5, an open-source XSLT 2.0 processor written in Java [<xref linkend="Saxon"/>]. Although XSLT stylesheets may be cached for performance, the
+               caching of source XML documents is typically not possible. A new TinyTree object to
+               represent the XML source document is thus commonly constructed with each new query so
+               that the overall performance of simple queries on large source XML documents is
+               highly dependent on TinyTree build time. Indeed, in a study of Saxon-SA, the
+               commercial version of Saxon, query time was shown to be dominated by TinyTree build
+               time [<xref linkend="Kay08"/>]. Similar performance results are demonstrable for the
+               Saxon-B XSLT processor as well. </para><para> The Saxon-B processor studied is a pure Java solution, converting a SAX (Simple
+               API for XML) event stream into the TinyTree Java object using the efficient Aelfred
+               XML parser [<xref linkend="AElfred"/>]. The TinyTree structure is itself an
+               array-based structure mapping well suited to the ASM concept. It consists of six
+               parallel arrays of integers indexed on node number and containing one entry for each
+               node in the source document, with the exception of attribute and namespace nodes
+                  [<xref linkend="Saxon"/>]. Four of the arrays respectively provide node kind, name
+               code, depth, and next sibling information for each node, while the two others are
+               overloaded for different purposes based on node kind value. For example, in the
+               context of a text node , one of the overloaded arrays holds the text buffer offset
+               value whereas the other holds the text buffer length value. Attributes and namespaces
+               are represented using similiar parallel array of values. The stored TinyTree values
+               are primarily primitive Java types, however, object types such as Java Strings and
+               Java StringBuffers are also used to hold attribute values and comment values
+               respectively. </para><para> In addition to the TinyTree object, Saxon-B maintains a NamePool object which
+               represents a collection of XML name triplets. Each triplet is composed of a Namespace
+               URI, a Namespace prefix and a local name and encoded as an integer value known as a
+               namecode. Namecodes permit efficient name search and look-up using integer
+               comparison. Namecodes may also be subsequently decoded to recover namespace and local
+               name information. </para><para> Using the Parabix ILAX interface, a high-performance reimplementation of TinyTree
+               and NamePool data structures was built to compare with the Saxon-B implementation. In
+               fact, two functionally equivalent versions of the ASM java class were constructed. An
+               initial version was constructed based on a set of primitive Java arrays constructed
+               and allocated in the Java heap space via JNI New&lt;PrimitiveType&gt;Array
+               method call. In this version, the JVM garbage collector is aware of all memory
+               allocated in the native code. However, in this approach, large array copy operations
+               limited overall performance to approximately a 2X gain over the Saxon-B build time. </para><para>To further address the performance penalty imposed by copying large array values,
+               a second version of the ASM Java object was constructed based on natively backed
+               Direct Memory Byte Buffers [<xref linkend="JNI"/>]. In this version the JVM garbage
+               collector is unaware any native memory resources backing the Direct Memory Byte
+               Buffers. Large JNI-based copy operations are avoided; however, system memory must be
+               explicitly deallocated via a Java native method call. Using this approach, our
+               preliminary results show an approximate total 2.5X gain over Saxon-B build time.
+            </para></section></section></section><section><title>Compiler Technology</title><para> An important focus of our recent work is on the development of compiler technology to
+         automatically generate the low-level SIMD code necessary to implement bit stream processing
+         given suitable high-level specifications. This has several potential benefits. First, it
+         can eliminate the tedious and error-prone programming of bit stream operations in terms of
+         register-at-a-time SIMD operations. Second, compilation technology can automatically employ
+         a variety of performance improvement techniques that are difficult to apply manually. These
+         include algorithms for instruction scheduling and register allocation as well as
+         optimization techniques for common subexpression expression elimination and register
+         rematerialization among others. Third, compiler technology makes it easier to make changes
+         to the low-level code for reasons of perfective or adaptive maintenance.</para><para>Beyond these reasons, compiler technology also offers the opportunity for retargetting
+         the generation of code to accommodate different processor architectures and API
+         requirements. Strategies for efficient parallel bit stream code can vary considerably
+         depending on processor resources such as the number of registers available, the particular
+         instruction set architecture supported, the size of L1 and L2 data caches, the number of
+         available cores and so on. Separate implementation of custom code for each processor
+         architecture would thus be likely to be prohibitively expensive, prone to errors and
+         inconsistencies and difficult to maintain. Using compilation technology, however, the idea
+         would be to implement a variety of processor-specific back-ends all using a common front
+         end based on parallel bit streams. </para><section><title>Character Class Compiler</title><para>The first compiler component that we have implemented is a character class compiler,
+            capable of generation all the bit stream logic necessary to produce a set of lexical
+            item streams each corresponding to some particular set of characters to be recognized.
+            By taking advantage of common patterns between characters within classes, and special
+            optimization logic for recognizing character-class ranges, our existing compiler is able
+            to generate well-optimized code for complex sets of character classes involving numbers
+            of special characters as well as characters within specific sets of ranges. </para></section><section><title>Regular Expression Compilation</title><para>Based on the character class compiler, we are currently investigating the
+            construction of a regular expression compiler that can implement bit-stream based
+            parallel regular-expression matching similar to that describe previously for parallel
+            parsing by bistream addition. This compiler works with the assumption that bitstream
+            regular-expression definitions are deterministic; no backtracking is permitted with the
+            parallel bit stream representation. In XML applications, this compiler is primarily
+            intended to enforce regular-expression constraints on string datatype specifications
+            found in XML schema. </para></section><section><title>Unbounded Bit Stream Compilation</title><para>The Catalog of XML Bit Streams presented earlier consist of a set of abstract,
+            unbounded bit streams, each in one-to-one correspondence with input bytes of a text
+            file. Determining how these bit streams are implemented using fixed-width SIMD
+            registers, and possibly processed in fixed-length buffers that represent some multiple
+            of the register width is a source of considerable programming complexity. The general
+            goal of our compilation strategy in this case is to allow operations to be programmed in
+            terms of unbounded bit streams and then automatically reduced to efficient low-level
+            code with the application of a systematic code generation strategy for handling block
+            and buffer boundary crossing. This is work currently in progress. </para></section></section><section><title>Conclusion</title><para>Parallel bit stream technology offers the opportunity to dramatically speed up the core
+         XML processing components used to implement virtually any XML API. Character validation and
+         transcoding, whitespace processing, and parsing up to including the full validation of tag
+         syntax can be handled fully in parallel using bit stream methods. Bit streams to mark the
+         positions of all element names, attribute names and attribute values can also be produced,
+         followed by fast bit scan operations to generate position and length values. Beyond bit
+         streams, byte-oriented SIMD processing of names and numerals can also accelerate
+         performance beyond sequential byte-at-a-time methods. </para><para>Advances in processor architecture are likely to further amplify the performance of
+         parallel bit stream technology over traditional byte-at-a-time processing over the next
+         decade. Improvements to SIMD register width, register complement and operation format can
+         all result in further gains. New SIMD instruction set features such as inductive doubling
+         support, parallel extract and deposit instructions, bit interleaving and scatter/gather
+         capabilities should also result in significant speed-ups. Leveraging the intraregister
+         parallelism of parallel bit stream technology within SIMD registers to take of intrachip
+         parallelism on multicore processors should accelerate processing further. </para><para>Technology transfer using a patent-based open-source business model is a further goal of
+         our work with a view to widespread deployment of parallel bit stream technology in XML
+         processing stacks implementing a variety of APIs. The feasibility of substantial
+         performance improvement in replacement of technology implementing existing APIs has been
+         demonstrated even in complex software architectures involving delivery of performance
+         benefits across the JNI boundary. We are seeking to accelerate these deployment efforts
+         both through the development of compiler technology to reliably apply these methods to a
+         variety of architectures as well as to identify interested collaborators using open-source
+         or commercial models. </para></section><section><title>Acknowledgments</title><para>This work is supported in part by research grants and scholarships from the Natural
+         Sciences and Engineering Research Council of Canada, the Mathematics of Information
+         Technology and Complex Systems Network and the British Columbia Innovation Council. </para><para>We thank our colleague Dan Lin (Linda) for her work in high-performance symbol table
+         processing. </para></section><bibliography><title>Bibliography</title><bibliomixed xml:id="XMLChip09" xreflabel="Leventhal and Lemoine 2009">Leventhal, Michael and
+         Eric Lemoine 2009. The XML chip at 6 years. Proceedings of International Symposium on
+         Processing XML Efficiently 2009, Montréal. doi: <biblioid class="doi">10.4242/BalisageVol4.Leventhal01</biblioid>.</bibliomixed><bibliomixed xml:id="Datapower09" xreflabel="Salz, Achilles and Maze 2009">Salz, Richard,
+         Heather Achilles, and David Maze. 2009. Hardware and software trade-offs in the IBM
+         DataPower XML XG4 processor card. Proceedings of International Symposium on Processing XML
+         Efficiently 2009, Montréal. doi: <biblioid class="doi">10.4242/BalisageVol4.Salz01</biblioid>.</bibliomixed><bibliomixed xml:id="PPoPP08" xreflabel="Cameron 2007">Cameron, Robert D. 2007. A Case Study
+         in SIMD Text Processing with Parallel Bit Streams UTF-8 to UTF-16 Transcoding. Proceedings
+         of 13th ACM SIGPLAN Symposium on Principles and Practice of Parallel Programming 2008, Salt
+         Lake City, Utah. On the Web at <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://research.ihost.com/ppopp08/</link>. doi: <biblioid class="doi">10.1145/1345206.1345222</biblioid>.</bibliomixed><bibliomixed xml:id="CASCON08" xreflabel="Cameron, Herdy and Lin 2008">Cameron, Robert D.,
+         Kenneth S Herdy, and Dan Lin. 2008. High Performance XML Parsing Using Parallel Bit Stream
+         Technology. Proceedings of CASCON 2008. 13th ACM SIGPLAN Symposium on Principles and
+         Practice of Parallel Programming 2008, Toronto. doi: <biblioid class="doi">10.1145/1463788.1463811</biblioid>.</bibliomixed><bibliomixed xml:id="SVGOpen08" xreflabel="Herdy, Burggraf and Cameron 2008">Herdy, Kenneth
+         S., Robert D. Cameron and David S. Burggraf. 2008. High Performance GML to SVG
+         Transformation for the Visual Presentation of Geographic Data in Web-Based Mapping Systems.
+         Proceedings of SVG Open 6th International Conference on Scalable Vector Graphics,
+         Nuremburg. On the Web at
+            <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.svgopen.org/2008/papers/74-HighPerformance_GML_to_SVG_Transformation_for_the_Visual_Presentation_of_Geographic_Data_in_WebBased_Mapping_Systems/</link>.</bibliomixed><bibliomixed xml:id="Ross06" xreflabel="Ross 2006">Ross, Kenneth A. 2006. Efficient hash
+         probes on modern processors. Proceedings of ICDE, 2006. ICDE 2006, Atlanta. On the Web at
+            <link xlink:href="http://www1.cs.columbia.edu/~kar/pubsk/icde2007.pdf" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www1.cs.columbia.edu/~kar/pubsk/icde2007.pdf</link>.</bibliomixed><bibliomixed xml:id="ASPLOS09" xreflabel="Cameron and Lin 2009">Cameron, Robert D. and Dan
+         Lin. 2009. Architectural Support for SWAR Text Processing with Parallel Bit Streams: The
+         Inductive Doubling Principle. Proceedings of ASPLOS 2009, Washington, DC. doi: <biblioid class="doi">10.1145/1508244.1508283</biblioid>.</bibliomixed><bibliomixed xml:id="Wu08" xreflabel="Wu et al. 2008">Wu, Yu, Qi Zhang, Zhiqiang Yu and
+         Jianhui Li. 2008. A Hybrid Parallel Processing for XML Parsing and Schema Validation.
+         Proceedings of Balisage 2008, Montréal. On the Web at
+            <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.balisage.net/Proceedings/vol1/html/Wu01/BalisageVol1-Wu01.html</link>. doi: <biblioid class="doi">10.4242/BalisageVol1.Wu01</biblioid>.</bibliomixed><bibliomixed xml:id="u8u16" xreflabel="Cameron 2008">u8u16 - A High-Speed UTF-8 to UTF-16
+         Transcoder Using Parallel Bit Streams Technical Report 2007-18. 2007. School of Computing
+         Science Simon Fraser University, June 21 2007.</bibliomixed><bibliomixed xml:id="XML10" xreflabel="XML 1.0">Extensible Markup Language (XML) 1.0 (Fifth
+         Edition) W3C Recommendation 26 November 2008. On the Web at
+            <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/REC-xml/</link>.</bibliomixed><bibliomixed xml:id="Unicode" xreflabel="Unicode">The Unicode Consortium. 2009. On the Web at
+            <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://unicode.org/</link>.</bibliomixed><bibliomixed xml:id="Pex06" xreflabel="Hilewitz and Lee 2006"> Hilewitz, Y. and Ruby B. Lee.
+         2006. Fast Bit Compression and Expansion with Parallel Extract and Parallel Deposit
+         Instructions. Proceedings of the IEEE 17th International Conference on Application-Specific
+         Systems, Architectures and Processors (ASAP), pp. 65-72, September 11-13, 2006. doi: <biblioid class="doi">10.1109/ASAP.2006.33</biblioid>.</bibliomixed><bibliomixed xml:id="InfoSet" xreflabel="XML Infoset">XML Information Set (Second Edition) W3C
+         Recommendation 4 February 2004. On the Web at
+         <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/xml-infoset/</link>.</bibliomixed><bibliomixed xml:id="Saxon" xreflabel="Saxon">SAXON The XSLT and XQuery Processor. On the Web
+         at <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://saxon.sourceforge.net/</link>.</bibliomixed><bibliomixed xml:id="Kay08" xreflabel="Kay 2008"> Kay, Michael Y. 2008. Ten Reasons Why Saxon
+         XQuery is Fast, IEEE Data Engineering Bulletin, December 2008.</bibliomixed><bibliomixed xml:id="AElfred" xreflabel="Ælfred"> The Ælfred XML Parser. On the Web at
+            <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://saxon.sourceforge.net/aelfred.html</link>.</bibliomixed><bibliomixed xml:id="JNI" xreflabel="Hitchens 2002">Hitchens, Ron. Java NIO. O'Reilly, 2002.</bibliomixed><bibliomixed xml:id="Expat" xreflabel="Expat">The Expat XML Parser.
+            <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://expat.sourceforge.net/</link>.</bibliomixed></bibliography></article>

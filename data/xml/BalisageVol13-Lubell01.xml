@@ -1,0 +1,547 @@
+<?xml version="1.0" encoding="UTF-8"?><article xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink" version="5.0-subset Balisage-1.3"><title>XForms User Interfaces for Small Arcane Nontrivial Datasets</title><info><confgroup><conftitle>Balisage: The Markup Conference 2014</conftitle><confdates>August 5 - 8, 2014</confdates></confgroup><abstract><para>
+
+Small Arcane Nontrivial Datasets (SANDs) are frequently complex enough
+to warrant custom software for access and editing, yet too small or
+specialized to justify a full-blown server-based database
+application. Such data is typically presented in tabular form within
+documents or as editable spreadsheets. To test the alternative of
+using XForms as a user interface for SANDs, an application was built
+for browsing a conformance test suite for Product and Manufacturing
+Information, a formal specification of a product's functional and
+behavioral requirements as they apply to production. XForms proved a
+much better match than tabulations for the underlying data model. To
+further test the concept, XForms was evaluated for use with the National Institute of Standards and Technology (NIST)
+Special Publication 800-53 security control catalog, which is a
+comprehensive catalog of security controls for managing cyber-risk,
+many parts of which are already available in extensible markup language (XML) form. The
+model-view-controller (MVC) software pattern of XForms seems
+well-suited for creating specialized applications for tailoring and
+navigating this catalog.
+
+      </para></abstract><author><personname><firstname>Joshua</firstname><surname>Lubell</surname></personname><personblurb><para>
+
+
+Joshua Lubell is a computer scientist in the NIST Engineering
+Laboratory's Systems Integration Division. His interests include
+model-based engineering, cyber-security, long-term preservation of
+digital data, information modeling, and XML and other markup
+technologies. He received the U.S. Department of Commerce Silver Medal
+for his leadership in developing ISO 10303-203, a standard for
+representation and exchange of computer-aided designs. He represents
+NIST on the Technical Advisory Committee of PDES, Inc., an
+industry/government/university consortium committed to deploying
+product data standards.
+
+	</para></personblurb><affiliation><jobtitle>Computer Scientist</jobtitle><orgname>National Institute of Standards and Technology</orgname></affiliation><email>lubell@nist.gov</email></author><legalnotice><para>Official contribution of the National Institute of Standards and Technology; not subject to copyright in the
+      United States.</para></legalnotice><keywordset role="author"><keyword>XForms</keyword><keyword>Product and Manufacturing Information</keyword><keyword>security control</keyword><keyword>NIST Special Publication 800-53</keyword><keyword>Small Arcane Nontrivial Dataset</keyword><keyword>test suite</keyword><keyword>reference data</keyword></keywordset></info><section xml:id="sec-intro"><title>Introduction</title><para>
+
+XForms, an Extensible Markup Language (XML) application for specifying
+forms for the Web [<xref linkend="xforms"/>], adopts the
+model-view-controller (MVC) software pattern [<xref linkend="mvc"/>]. The model in an XForms XML document is not an
+explicit schema, but rather a collection of
+<quote>instances.</quote> The MVC approach reduces coding effort,
+server-side processing, and dependence on scripting languages and
+browser platforms. Because XForms documents conform to a standard XML
+schema, forms authored in XForms will age more gracefully than forms
+dependent upon a particular software vendor or programming
+environment. Since XForms is <quote>data-driven,</quote> it is
+well-suited to use cases where the data is already available as XML,
+or in a format easily transformable to XML.
+
+    </para><para>
+
+In this paper, I study the use of XForms for authoring user interfaces
+(UIs) for a specific class of structured datasets. I call a dataset
+belonging to this class a <emphasis role="ital">SAND</emphasis> (Small
+Arcane Nontrivial Dataset). A SAND is sufficiently complex to merit
+specialized software for access, yet too small and/or specialized to
+justify developing a full-blown server-based database
+application. SANDs are typically presented to users in a tabular
+format as part of a document, or perhaps as an editable
+spreadsheet. These presentation methods are cumbersome for any SAND
+requiring more than a few pages (or screens) to display in its
+entirety. Additionally, tabular formats do a poor job presenting data
+where the underlying data model contains cross-references,
+hierarchical structures, or inheritance relationships.
+
+    </para><para>
+
+The rest of this paper focuses on two SANDs. The first is a
+conformance test suite for Product and Manufacturing Information (PMI)
+[<xref linkend="pmitest"/>], for which I have authored a simple
+browser application using XForms. The second is the security control
+catalog specified in the National Institute of Standards and
+Technology (NIST) Special Publication 800-53, <emphasis role="ital">Security and Privacy Controls for Federal Information
+Systems and Organizations</emphasis>, Revision 4 [<xref linkend="sp800-53"/>]. No one to my knowledge has written a UI in
+XForms for this second SAND but, as I will discuss later, the security
+control catalog has several qualities making it a promising candidate
+for XForms.
+
+    </para></section><section><title>Two SANDs as XForms Use Cases</title><para>
+
+This section presents XForms use cases centered around each SAND. For
+each use case, I first provide an overview of the subject matter. Next
+I present a Unified Modeling Language (UML) [<xref linkend="uml"/>]
+class diagram showing the SAND's conceptual data model. This
+conceptual model is my creation — it is not part of the SAND's
+accompanying documentation. I then show how the SAND is documented by
+its creator, which is how a user would see the SAND in absence of a
+specialized software implementation. Finally, I discuss how XForms can
+be used to define a dynamic UI to the SAND. For the PMI conformance
+test suite, I describe an actual implementation. For the security
+control catalog, I provide some implementation guidance.
+
+    </para><section xml:id="sec-pmi"><title>PMI Conformance Test Suite</title><para>
+
+Product and Manufacturing Information (PMI) specifies, in a formal and
+precise language, a product’s functional and behavioral requirements
+as they apply to production. PMI communicates allowable product
+geometry variations (tolerances) in form, size, and orientation. PMI
+annotations include Geometric Dimensioning and Tolerancing, surface
+texture specifications, finish requirements, process notes, material
+specifications, and welding symbols [<xref linkend="frechette"/>]. The
+American Society of Mechanical Engineers (ASME) defines standards for
+PMI within the United States [<xref linkend="y14.5"/>,<xref linkend="y14.41"/>], and these standards are complex. If the software
+applications interpreting PMI do not conform to the standards, the
+same PMI data is likely to be interpreted and presented differently by
+different engineering and manufacturing applications. Incorrect
+presentation and misinterpretation of PMI can cause significant delays
+and costly errors. For example, an Aberdeen Group study showed that
+catching PMI anomalies up front provides substantial savings to
+manufacturers in both time to market and product development
+costs. One large aerospace supplier reported that, prior to
+modernizing and improving their engineering processes, more than 30%
+of their change orders were due to inaccurate PMI [<xref linkend="aberdeen"/>].
+
+      </para><para>
+
+<xref linkend="fig-flatness"/> shows the definition for the flatness
+tolerance symbol (a parallelogram), one of many PMI constructs defined
+in the ASME standards. The source of this figure is ISO 1101
+[<xref linkend="iso1101"/>], an International Standard aligned
+with the ASME PMI standards. When associated with a value
+<code>t</code>, specifying a flatness tolerance on a surface in a
+product model says that the actual surface of the manufactured part
+has to be contained within two parallel planes <code>t</code> units
+apart. Unless otherwise specified in the part model or drawing, all
+units are in millimeters.
+
+      </para><figure xml:id="fig-flatness"><mediaobject><imageobject><imagedata fileref="../../../vol13/graphics/Lubell01/Lubell01-001.png"/></imageobject><caption><para>Flatness tolerance symbol as defined in ISO
+	    1101.</para></caption></mediaobject></figure><para>
+
+<xref linkend="fig-flatness-ctc1"/> shows a two-dimensional (2D)
+presentation of a part model with PMI. The PMI includes a flatness
+tolerance of 2 millimeters, shown inside a dashed box on the upper
+left superimposed on the model. The part model's PMI includes numerous
+other PMI specifications containing different tolerance symbols, as
+well as additional PMI symbols.
+
+      </para><figure xml:id="fig-flatness-ctc1"><mediaobject><imageobject><imagedata fileref="../../../vol13/graphics/Lubell01/Lubell01-002.png"/></imageobject><caption><para>2D presentation of a machined bar part
+	    annotated with PMI. Inside the dashed box is a flatness
+	    tolerance with <code>t = 2</code>. A leader line
+	    associates the tolerance with the surface labeled with
+	    datum feature symbol <code>A</code>.</para></caption></mediaobject></figure><para>
+
+The PMI conformance test suite consists of a collection of test cases
+for determining whether computer-aided design (CAD) software correctly
+implements a representative set of PMI concepts as defined in the ASME
+Y14.5 <emphasis role="ital">Dimensioning and Tolerancing</emphasis>
+[<xref linkend="y14.5"/>] and Y14.41 <emphasis role="ital">Digital
+Product Data Definition Practices</emphasis> [<xref linkend="y14.41"/>] standards. The test cases are PMI-annotated 2D
+isometric drawings collectively representing the machined bar part
+shown in <xref linkend="fig-flatness-ctc1"/> plus four other distinct
+parts.  There are currently a total of fifty-five test cases: fifty of
+them atomic and five of them complex. An Atomic Test Case (ATC)
+highlights an individual PMI concept to be tested, called the
+measurand. The ATC is not a complete specification of the part’s PMI,
+but rather contains only the PMI needed to specify enough context
+information to understand the measurand. The machined bar part in
+<xref linkend="fig-flatness-ctc1"/> includes multiple ATCs.  A Complex
+Test Case (CTC) is a test case whose PMI is a superset of the PMI of
+all ATCs associated with that part. Each CTC specifies one of the five
+distinct parts. Thus, <xref linkend="fig-flatness-ctc1"/> is one of
+five CTCs.
+
+      </para><para>
+
+<xref linkend="fig-testcase"/> presents a UML conceptual model of the
+PMI conformance test suite. A <code>TestCase</code> is an abstract
+(non-instantiable) class whose <code>drawing</code> attribute points
+to the location of a 2D PMI-annotated part model. A
+<code>ComplexTestCase</code> is a <code>TestCase</code> with an
+additional attribute <code>units</code> specifying whether dimensions
+are in metric or English units. An <code>AtomicTestCase</code> is a
+<code>TestCase</code> with additional attributes identifying its PMI
+<code>category</code>, the PMI <code>specification</code> being tested
+(with PMI symbols represented as Unicode characters), and a prose
+description of the <code>measurand</code>. Every
+<code>ComplexTestCase</code> is associated with many
+<code>AtomicTestCase</code>s. Every <code>AtomicTestCase</code> is
+associated with a single <code>ComplexTestCase</code><footnote xreflabel="*"><para>An ATC's PMI specification corresponds to
+a particular annotation from the ATC's CTC. Therefore, the PMI
+specification's dimensions use the same units as those specified by
+the CTC's <code>units</code> attribute.</para></footnote>.
+
+      </para><figure xml:id="fig-testcase"><mediaobject><imageobject><imagedata fileref="../../../vol13/graphics/Lubell01/Lubell01-003.png"/></imageobject></mediaobject><caption><para>Test case browser conceptual model.</para></caption></figure><para>
+
+The PMI subject matter expert who created the test cases provided two
+spreadsheets to document test suite metadata, examples of which
+include the association links and attribute values shown in <xref linkend="fig-testcase"/>. The first spreadsheet provided metadata for
+each CTC as shown in <xref linkend="table-ctc"/>. Each row corresponds
+to one of the five CTCs. The first row provides metadata for the
+machined bar CTC whose drawing was shown in <xref linkend="fig-flatness-ctc1"/>. The second spreadsheet provides
+metadata for each of the fifty ATCs. <xref linkend="table-atc"/> shows
+an example row from this spreadsheet, which contains the metadata for
+the ATC corresponding to the flatness tolerance from the machined bar
+CTC.
+
+      </para><table xml:id="table-ctc" frame="box" rules="all"><caption><para>Metadata for CTCs</para></caption><thead><tr><td><para><emphasis role="bold">ID</emphasis>
+</para></td><td><para><emphasis role="bold">Description</emphasis></para></td><td><para><emphasis role="bold">Units</emphasis></para></td><td><para><emphasis role="bold">Comments</emphasis></para></td><td><para><emphasis role="bold">Atomic Test Cases</emphasis></para></td></tr></thead><tbody><tr><td><para>1</para></td><td><para>Bar with Simple Features</para></td><td><para>Metric</para></td><td><para>Updated model: replaced hex hole with hex boss for manufacturability</para></td><td><para>1  2  3  4  7  8  17  21  33  48</para></td></tr><tr><td><para>2</para></td><td><para>Cast Part</para></td><td><para>Metric</para></td><td><para>Most surfaces have draft. Various angles.</para></td><td><para>26  28  29  31  34  35  41  43  47  50</para></td></tr><tr><td><para>3</para></td><td><para>Sheet Metal Part 2</para></td><td><para>Inch</para></td><td><para>Created new sheet metal model for this test case</para></td><td><para>6  13  14  20  27  32  36  39  45  46</para></td></tr><tr><td><para>4</para></td><td><para>Machined Part 1 - Simplistic</para></td><td><para>Metric</para></td><td><para>Two views created</para></td><td><para>5  9  10  12  15  16  22  30  40  49</para></td></tr><tr><td><para>5</para></td><td><para>Machined Part 2 - Round</para></td><td><para>Metric</para></td><td><para>Two views created</para></td><td><para>11  18  19  23  24  25  37  38  42  44</para></td></tr></tbody></table><table xml:id="table-atc" frame="box" rules="all"><caption><para>Metadata for the ATC testing for conformance to the
+	  ASME definition of flatness tolerance applied to a surface.</para></caption><thead><tr><td><para><emphasis role="bold">ID</emphasis>
+</para></td><td><para><emphasis role="bold">Description</emphasis></para></td><td><para><emphasis role="bold">Complex Test Case</emphasis></para></td><td><para><emphasis role="bold">Specification</emphasis></para></td><td><para><emphasis role="bold">Measurand</emphasis></para></td></tr></thead><tbody><tr><td><para>17</para></td><td><para>Feature Control Frame Directed to Surface - Flatness</para></td><td><para>1</para></td><td><para>▱|0.2</para></td><td><para>Leader-directed feature control frame - Flatness.</para></td></tr></tbody></table><para>
+
+The test case browser UI I authored with XForms provides access to the
+2D presentations of all of the test cases. The browser has three tabs
+(patterned after the tabbed browsing example in Steven Pemberton's
+XForms tutorial [<xref linkend="pemberton"/>]), each providing a
+different way to browse the test cases and view their corresponding
+images. One tab enables users to browse by CTC, drilling down to the
+ATCs associated with the CTC. Another tab lets users select from a
+list of all ATCs. The third tab allows users to browse by PMI
+category. <xref linkend="fig-tc-browser"/> shows a screen shot of the
+UI. To get to the state shown in the screen shot, the user first
+selected the machined bar part (<quote>Bar with Simple
+Features</quote>) CTC using the Complex Test Cases tab. This
+interaction caused the UI to generate a list of radio buttons
+representing each of this CTC's ATCs. Next, the user selected the
+<quote>Feature Control Frame Directed to Surface - Flatness</quote>
+ATC from the auto-generated list of ATCs, resulting in this ATC's PMI
+category, specification, and measurand appearing at the bottom of the
+screen. The user then clicked on the <quote>View Image</quote> button,
+causing the ATC's 2D image to appear.
+
+      </para><figure xml:id="fig-tc-browser"><mediaobject><imageobject><imagedata format="png" fileref="../../../vol13/graphics/Lubell01/Lubell01-004.png"/></imageobject></mediaobject><caption><para>Test case browser screen shot.</para></caption></figure><para>
+
+The test case browser UI's XForms processor is XSLTForms<footnote xreflabel="†"><para>Mention of third-party or commercial
+products or services in this paper does not imply approval or
+endorsement by the National Institute of Standards and Technology, nor
+does it imply that such products or services are necessarily the best
+available for the purpose.  </para></footnote> [<xref linkend="xsltforms"/>], which is implemented as an Extensible
+Stylesheet Language Transformation (XSLT) [<xref linkend="xslt"/>]
+that runs natively in common Internet browser clients without the need
+for plugins. I chose XSLTForms both to ensure cross-platform support
+and to eliminate the need to install any specialized software on the
+server. Anyone with a typical online desktop computing environment can
+access the UI. All that is needed is for the browser client to be able
+to retrieve the files, either from a server or from the local file
+system.
+
+      </para><para>
+
+The source document defining the test case browser UI is an XML
+document I authored using Leigh Klotz's XHTML+XForms schema [<xref linkend="klotz"/>]. The source document's XForms <code>model</code>
+element contains static instances extracted from the spreadsheet data
+shown in <xref linkend="table-ctc"/> and <xref linkend="table-atc"/>. The source document is approximately 500 lines
+long, excluding the static instance data, which resides in separate
+files. The <code>model</code> element also specifies dynamic instances
+corresponding to each tab in the UI. The dynamic instance data changes
+as the user interacts with the form. For example, the instance data
+associated with the Complex Test Cases tab after the user selected the
+machined bar CTC and the ATC for flatness tolerance as shown in <xref linkend="fig-tc-browser"/> is as follows:
+
+      </para><programlisting xml:space="preserve">&lt;data&gt; 
+  &lt;ctcNumber&gt;1&lt;/ctcNumber&gt; 
+  &lt;ctcURL&gt;TestCases/CTC/1.pdf&lt;/ctcURL&gt;
+  &lt;ctcThumbnailURL&gt;TestCases/CTC/thumbnails/1.jpg&lt;/ctcThumbnailURL&gt;
+  &lt;atcNumber&gt;17&lt;/atcNumber&gt;
+  &lt;atcFileName&gt;nist_atc_017_asme1_rc&lt;/atcFileName&gt;
+  &lt;atcURL&gt;TestCases/ATC/PNG/nist_atc_017_asme1_rc.png&lt;/atcURL&gt;
+  &lt;ctcCount&gt;5&lt;/ctcCount&gt; 
+  &lt;atcCount&gt;10&lt;/atcCount&gt; 
+&lt;/data&gt;</programlisting></section><section><title>NIST SP 800-53 Security Control Catalog User
+      Interface</title><para>
+
+NIST Special Publication 800-53 Revision 4 is a widely-used standard
+that provides a comprehensive catalog of tailorable security controls
+for organizations to manage cyber-risk. The controls are organized
+into eighteen families shown in <xref linkend="table-families"/>. SP
+800-53 specifies three security control baselines (low, moderate, and
+high-impact), as well as guidance for customizing the appropriate
+baseline to meet an organization's specific requirements. In addition
+to customizing a baseline, an organization or a group of organizations
+sharing common concerns can create an <emphasis role="ital">overlay</emphasis> customizing a set of controls with
+additional enhancements and supplemental guidance. One overlay
+recently developed is for Industrial Control Systems (ICS),
+which are prevalent in the utility, transportation, chemical,
+pharmaceutical, process, and durable goods manufacturing
+industries. ICS are increasingly adopting the characteristics of
+traditional information systems such as Internet connectivity and use
+of standard communication protocols. As a result, ICS are vulnerable
+to many of the same security threats that affect traditional
+information systems, yet ICS have unique needs requiring additional
+guidance beyond that offered by NIST SP 800-53 [<xref linkend="sp800-82"/>].
+
+      </para><table xml:id="table-families" frame="box" rules="all"><caption><para>NIST SP 800-53 security control identifiers and family
+	  names.</para></caption><thead><tr><td><para><emphasis role="bold">ID</emphasis></para></td><td><para><emphasis role="bold">FAMILY</emphasis></para></td><td><para><emphasis role="bold">ID</emphasis></para></td><td><para><emphasis role="bold">FAMILY</emphasis></para></td></tr></thead><tbody><tr><td><para>AC</para></td><td><para>Access Control</para></td><td><para>MP</para></td><td><para>Media Protection</para></td></tr><tr><td><para>AT</para></td><td><para>Awareness and Training</para></td><td><para>PE</para></td><td><para>Physical and Environmental Protection</para></td></tr><tr><td><para>AU</para></td><td><para>Audit and Accountability</para></td><td><para>PL</para></td><td><para>Planning</para></td></tr><tr><td><para>CA</para></td><td><para>Security Assessment and Authorization</para></td><td><para>PS</para></td><td><para>Personnel Security</para></td></tr><tr><td><para>CM</para></td><td><para>Configuration Management</para></td><td><para>RA</para></td><td><para>Risk Assessment</para></td></tr><tr><td><para>CP</para></td><td><para>Contingency Planning</para></td><td><para>SA</para></td><td><para>System and Services Acquisition</para></td></tr><tr><td><para>IA</para></td><td><para>Identification and Authentication</para></td><td><para>SC</para></td><td><para>System and Communications Protection</para></td></tr><tr><td><para>IR</para></td><td><para>Incident Response</para></td><td><para>SI</para></td><td><para>System and Information Integrity</para></td></tr><tr><td><para>MA</para></td><td><para>Maintenance</para></td><td><para>PM</para></td><td><para>Program Management</para></td></tr></tbody></table><para>
+
+Multiple overlays can be applied simultaneously. For example, a consortium of automobile manufacturers might want to develop their own overlay addressing security concerns specific to their industry. They would then apply both the ICS overlay and the automotive-specific overlay to the NIST SP 800-53 security control baselines.
+
+      </para><para>
+
+<xref linkend="fig-control"/> shows a UML conceptual model of the NIST SP 800-53 security control catalog. A <code>Control</code> has the following
+attributes:
+
+      </para><variablelist><varlistentry><term><code>family</code></term><listitem><para>The ID of the family to which the control
+	    belongs.</para></listitem></varlistentry><varlistentry><term><code>priority</code></term><listitem><para>A designation recommending the order in which the
+	    control should be implemented relative to other controls
+	    in a baseline. Controls with priority <code>P1</code>
+	    should be implemented first, followed by <code>P2</code>
+	    controls, and finally <code>P3</code>
+	    controls. <code>P0</code> controls are not selected in any
+	    baseline.</para></listitem></varlistentry><varlistentry><term><code>baseline-impact</code></term><listitem><para>Specifies whether the control is included in the
+	    baseline for low-impact, moderate-impact, or high-impact
+	    systems. A low-impact system is a system where the adverse
+	    effects from loss of information confidentiality,
+	    integrity, or availability would be minimal. For a
+	    moderate-impact, system, the consequences would be
+	    moderate. For a high-impact system, the consequences would
+	    be severe. Consequently, the moderate-impact baseline is a
+	    superset of the low-impact baseline, and the high-impact
+	    baseline is a superset of the moderate-impact
+	    baseline.</para></listitem></varlistentry></variablelist><para>
+
+A <code>Control</code> also contains zero or more
+<code>ControlEnhancement</code>s and
+<code>SupplementalGuidance</code>s. Each of the <code>Control</code>'s
+<code>ControlEnhancement</code>s has a <code>baseline-impact</code>
+attribute specifying whether the enhancement applies to low, moderate,
+or high-impact systems. Each of the <code>Control</code>'s
+<code>SupplementalGuidance</code>s includes zero or more associations
+to other controls.
+
+      </para><figure xml:id="fig-control"><mediaobject><imageobject><imagedata fileref="../../../vol13/graphics/Lubell01/Lubell01-005.png"/></imageobject></mediaobject><caption><para>Security control conceptual model.</para></caption></figure><para>
+
+NIST SP 800-53 provides the security control catalog, baselines, and
+impacts as document appendices. This information totals over 280 pages
+of text and tables, more than half the page count of the publication
+as a whole. <xref linkend="fig-au-3"/> shows the SP 800-53 definition
+for the CONTENT OF AUDIT RECORDS control. This control is a member of
+the Audit and Accountability (AU) family, has a unique ID of
+<code>AU-3</code>, a priority of <code>P1</code> (i.e., implementation
+of this control should be a top priority), a baseline impact of
+<code>LOW</code> (i.e., this control is included in all three SP
+800-53 baselines), and has supplemental guidance specifying
+associations with three other controls in the AU family and one
+control in the System and Information Integrity (SI) family.
+
+      </para><para>
+
+The CONTENT OF AUDIT RECORDS control definition includes two
+enhancements: (1) ADDITIONAL AUDIT INFORMATION and (2) CENTRALIZED
+MANAGEMENT OF PLANNED AUDIT RECORD CONTENT. Enhancement 1 has a
+baseline impact of <code>MODERATE</code> (i.e., additional information
+is required for audit records of moderate and high-impact
+systems). Enhancement 2 has a baseline impact of <code>HIGH</code>
+(i.e., generation of audit records must be centrally managed for high-impact systems), and is associated two other controls in the AU
+family.
+
+      </para><figure xml:id="fig-au-3"><mediaobject><imageobject><imagedata fileref="../../../vol13/graphics/Lubell01/Lubell01-006.png"/></imageobject></mediaobject><caption><para>A control as presented in the NIST SP 800-53
+	  document.</para></caption></figure><para>
+
+As an aid to implementers of NIST SP 800-53, the United States
+government's National Vulnerability Database (NVD) [<xref linkend="nvd"/>] provides the security control catalog information in
+an XML format. The following shows a simplified version of the NVD
+data representing the CONTENT OF AUDIT RECORDS control shown in <xref linkend="fig-au-3"/> (with prose text suppressed to shorten the
+listing).
+
+      </para><programlisting xml:space="preserve">&lt;control&gt;
+  &lt;family&gt;AUDIT AND ACCOUNTABILITY&lt;/family&gt;&lt;number&gt;AU-3&lt;/number&gt;
+  &lt;title&gt;CONTENT OF AUDIT RECORDS&lt;/title&gt;
+  &lt;priority&gt;P1&lt;/priority&gt;&lt;baseline-impact&gt;LOW&lt;/baseline-impact&gt;
+   &lt;supplemental-guidance&gt;
+    &lt;related&gt;AU-2&lt;/related&gt;&lt;related&gt;AU-8&lt;/related&gt;
+    &lt;related&gt;AU-12&lt;/related&gt;&lt;related&gt;SI-11&lt;/related&gt;
+  &lt;/supplemental-guidance&gt;
+  &lt;control-enhancement&gt;
+    &lt;number&gt;AU-3 (1)&lt;/number&gt;&lt;title&gt;ADDITIONAL AUDIT INFORMATION&lt;/title&gt;
+    &lt;baseline-impact&gt;MODERATE&lt;/baseline-impact&gt;
+    &lt;supplemental-guidance/&gt;
+  &lt;/control-enhancement&gt;
+  &lt;control-enhancement&gt;
+    &lt;number&gt;AU-3 (2)&lt;/number&gt;
+    &lt;title&gt;CENTRALIZED MANAGEMENT OF PLANNED AUDIT RECORD CONTENT&lt;/title&gt;
+    &lt;baseline-impact&gt;HIGH&lt;/baseline-impact&gt;
+    &lt;supplemental-guidance&gt;
+      &lt;related&gt;AU-6&lt;/related&gt;&lt;related&gt;AU-7&lt;/related&gt;
+    &lt;/supplemental-guidance&gt;
+  &lt;/control-enhancement&gt;
+&lt;/control&gt;</programlisting><para>
+
+User interfaces for navigating the NIST SP 800-53 security controls
+already exist. These implementations [<xref linkend="nvd-800-53"/>,<xref linkend="cryptsoft"/>] contain
+hyperlinked web pages generated from the SP 800-53 XML data. However,
+software support for creating and browsing SP 800-53 overlays does not
+yet exist. XForms is well-suited for authoring overlays for the
+following reasons:
+
+      </para><itemizedlist><listitem><para>
+
+NIST SP 800-53 catalog data is already available in XML, so an XForms
+document can readily use this data as a model instance.
+	    
+	  </para></listitem><listitem><para>
+
+The conceptual model in <xref linkend="fig-control"/> is a good fit for XML and XForms. XML naturally represents the composition
+relationships (connectors with solid diamonds) as element
+containment. An XForms document can use XPath to retrieve sets of
+controls based on family, impact, priority, or supplemental guidance.
+
+	  </para></listitem><listitem><para>
+
+
+The forms in an XForms document are instance data-driven, allowing the
+author to specify a complex UI as declarative mark-up without the need
+for a scripting language [<xref linkend="pohja"/>]. This reduces the
+effort needed to create and maintain SP 800-53 overlay software.
+
+	  </para></listitem></itemizedlist><para>
+
+A UI for browsing the security controls catalog and creating overlays can be implemented in a manner similar to that of the PMI test
+case browser, with static model instances corresponding to XML data
+from the NVD, the information in <xref linkend="table-families"/>, the
+data sorted by priority, and the data sorted by impact. The latter
+three instances can easily be generated from the first instance using
+XSLT.
+
+      </para><para>
+
+Although a standardized XML vocabulary for representing overlays does not exist, XML's namespace mechanism provides a handy way to augment the NVD's NIST SP 800-53 XML data with overlay information. As an example, let us revisit the CONTENT OF AUDIT RECORDS control (<code>AU-3</code>) shown in <xref linkend="fig-au-3"/>. The ICS overlay in the draft second revision to NIST SP 800-82 [<xref linkend="sp800-82"/>] adds additional guidance to this control stating that, if a particular ICS information system lacks the ability to generate and maintain audit records, a separate information system could provide the required auditing capability instead. Now suppose a subset of the ICS community were to create its own sector-specific overlay to be used in addition to the NIST SP 800-82 ICS overlay, and that this sector-specific overlay changes the baseline impact of Enhancement 1 of <code>AU-3</code> from <code>MODERATE</code> to <code>LOW</code>.
+
+      </para><para>
+
+The following XML represents the original <code>AU-3</code> data augmented with the modifications provided in both the ICS and sector-specific overlays. Each overlay has its own namespace, and the overlay modifications are shown in boldface for readability. XML data not in an overlay namespace is identical to the NVD data for <code>AU-3</code> shown previously. The <code>ics:supplemental-guidance</code> element contains the additional guidance for <code>AU-3</code> as specified in the ICS overlay. The <code>s:baseline-impact</code> element contains the change to Enhancement 1's baseline impact as specified in the sector-specific overlay. The <code>s:rationale</code> element contains the rationale (prose text not shown) for increasing the scope of the low-impact baseline to include Enhancement 1.
+
+      </para><programlisting xml:space="preserve">&lt;control <emphasis role="bold">xmlns:ics="http://www.nist.gov/ics-overlay" 
+      xmlns:s="http://www.example.com/sector-specific-overlay"</emphasis>&gt;
+  &lt;family&gt;AUDIT AND ACCOUNTABILITY&lt;/family&gt;
+  &lt;number&gt;AU-3&lt;/number&gt;
+  &lt;title&gt;CONTENT OF AUDIT RECORDS&lt;/title&gt;
+  &lt;priority&gt;P1&lt;/priority&gt;
+  &lt;baseline-impact&gt;LOW&lt;/baseline-impact&gt;
+   &lt;supplemental-guidance&gt;...&lt;/supplemental-guidance&gt;
+  <emphasis role="bold">&lt;ics:supplemental-guidance&gt;Example compensating controls include 
+providing an auditing capability on a separate information
+system.&lt;/ics:supplemental-guidance&gt;</emphasis>
+    &lt;control-enhancement&gt;
+      &lt;number&gt;AU-3 (1)&lt;/number&gt;
+      &lt;title&gt;ADDITIONAL AUDIT INFORMATION&lt;/title&gt;
+      &lt;baseline-impact&gt;MODERATE&lt;/baseline-impact&gt;
+      <emphasis role="bold">&lt;s:baseline-impact&gt;LOW&lt;/s:baseline-impact&gt;
+      &lt;s:rationale&gt;...&lt;/s.rationale&gt;</emphasis>
+      &lt;supplemental-guidance/&gt;
+    &lt;/control-enhancement&gt;
+    &lt;control-enhancement&gt;...&lt;/control-enhancement&gt;
+&lt;/control&gt;</programlisting></section></section><section><title>Conclusions and Final Thoughts</title><para>
+
+At the beginning of this paper, I introduced the term <emphasis role="ital">SAND</emphasis>, an acronym for <quote>Small Arcane
+Nontrivial Dataset.</quote> Positing a dearth of good user interfaces
+for accessing SANDs, I then examined the suitability of XForms for
+creating user interfaces for two SANDs: a PMI test suite and the NIST
+SP 800-53 catalog of security controls. For both SANDs, I demonstrated
+a mismatch between (my understanding of) the SAND's underlying
+conceptual model and the spreadsheets and text documents users of the
+SAND typically peruse to view the data. For the PMI test suite SAND, I
+presented a test case browser application I built using XForms. For
+the security controls SAND, I observed that the dataset is already
+available in XML, and that its underlying model is highly compatible
+with XML. I concluded that XForms, with its MVC paradigm, is
+well-suited for creating specialized applications for tailoring and
+navigating the catalog. I also demonstrated how a security control's XML data can be augmented to include information from one or more overlays.
+
+    </para><para>
+
+SANDs exist under the radar, yet are important because they provide infrastructure essential for deploying larger, more visible data standards used for systems integration. To better understand the role of SANDs in data exchange and interoperability, consider McGilvray's taxonomy of data categories
+[<xref linkend="mcgilvray"/>]. McGilvray defines <emphasis role="ital">reference data</emphasis> as <quote>sets of values or
+classification schemas that are referred to by systems, applications,
+data stores, processes, and reports, as well as by transactional and
+master records.</quote> The NIST SP 800-53 security controls are
+reference data in that they define and classify a set of security
+procedures and are referred to by security professionals and
+software applications. Reference data is distinct from the other,
+more widely-understood <emphasis role="ital">master data</emphasis>
+— data describing tangible objects — and <emphasis role="ital">transactional data</emphasis> — data associated
+with an event or business process — categories. The PMI test suite falls into a category distinct from reference data,
+but with some similarities. According to Kindrick [<xref linkend="kindrick"/>], a conformance test suite is a <quote>carefully
+constructed set of tests designed to maximize coverage of the most
+significant inputs,</quote> where each test case <quote>specifies
+purpose, operating conditions, inputs, and expected outputs.</quote>
+
+    </para><para>
+
+Both the NIST SP 800-53 security controls catalog reference data and
+the PMI test suite play important roles in systems integration and
+interoperability. As such, both datasets are part of the
+often-hidden infrastructure relied upon by systems that read and write
+master or transactional data. The Security Content Automation Protocol (SCAP), a collection of XML specifications standardizing the exchange of software flaw and security configuration information, includes mappings between Windows 7 system settings and the NIST SP 800-53 security controls. SCAP-conforming
+tools use these mappings to monitor and verify a system's compliance with an organization's security policies [<xref linkend="sp800-117"/>]. 
+
+    </para><para>
+
+Data exchange standards for PMI define a machine-readable PMI syntax, but they do not provide a machine-readable representation of PMI semantics. PMI semantics are defined using natural language text and pictures such as the flatness tolerance definition shown in <xref linkend="fig-flatness"/>. However, reliable and high-fidelity CAD data exchange requires not only that CAD software applications interpret  PMI syntax, but also that their algorithms correctly implement PMI semantics [<xref linkend="barnard"/>]. Each test case in the PMI conformance test suite illustrates correct usage of a PMI concept as specified in the ASME standards. Therefore, by reproducing a test case using a CAD software application's authoring environment and comparing the result to the original, a conformance testing system can measure how well the software captures the syntax and semantics of that test case's PMI concepts.
+
+    </para></section><section><title>Acknowledgments</title><para>
+
+I am grateful to Tom Hedberg, Harold Booth, and KC Morris for their meticulous and helpful reviews of earlier drafts of this paper. I also wish to thank the Balisage peer reviewers for their astute comments. Any remaining mistakes are my sole responsibility. Finally, I acknowledge my <quote>PMI Validation and Conformance Testing</quote>[<xref linkend="pmitest"/>] colleagues — particularly Bryan Fischer (the <quote>PMI subject matter expert</quote> mentioned in the <xref linkend="sec-pmi"/>) — for many insightful discussions about PMI and PMI test case metadata requirements. These discussions were the genesis of my idea of using XForms to implement user
+interfaces for SANDs.
+
+    </para></section><bibliography><title>References</title><bibliomixed xml:id="xforms" xreflabel="1"><emphasis role="ital">XForms 1.1,</emphasis> W3C Recommendation,
+    20-Oct-2009.  <link xlink:href="http://www.w3.org/TR/xforms" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/xforms</link>.</bibliomixed><bibliomixed xml:id="mvc" xreflabel="2">G. E. Krasner and
+    S. T. Pope, <emphasis role="ital">A description of the
+    model-view-controller user interface paradigm in the smalltalk-80
+    system,</emphasis> Journal of object-oriented programming,
+    vol. 1.3,  1988.</bibliomixed><bibliomixed xml:id="pmitest" xreflabel="3">MBE PMI Validation and
+    Conformance Testing, National Institute of Standards and
+    Technology. [Online]. Available: <link xlink:href="http://www.nist.gov/el/msid/infotest/mbe-pmi-validation.cfm" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.nist.gov/el/msid/infotest/mbe-pmi-validation.cfm</link>.</bibliomixed><bibliomixed xml:id="sp800-53" xreflabel="4">Joint Task Force
+    Transformation Initiative, <emphasis role="ital">Security and
+    Privacy Controls for Federal Information Systems and
+    Organizations,</emphasis> NIST Special Publication 800-53,
+    Revision 4, April 2013, doi:<biblioid class="doi">10.6028/NIST.SP.800-53r4</biblioid>.</bibliomixed><bibliomixed xml:id="uml" xreflabel="5"><emphasis role="ital">OMG
+    Unified Modeling Language (OMG UML),</emphasis> Version 2.4.1,
+    2011.</bibliomixed><bibliomixed xml:id="frechette" xreflabel="6">S.P. Frechette,
+    A.T. Jones, B.R. Fischer, <emphasis role="ital">Strategy for
+    Testing Conformance to Geometric Dimensioning &amp; Tolerancing
+    Standards,</emphasis> Procedia CIRP, Volume 10, 2013, Pages
+    211-215, ISSN 2212-8271, doi:<biblioid class="doi">10.1016/j.procir.2013.08.033</biblioid>.</bibliomixed><bibliomixed xml:id="y14.5" xreflabel="7">ASME Y14.5-2009
+    <emphasis role="ital">Dimensioning and Tolerancing,</emphasis>
+    American Society of Mechanical Engineers.</bibliomixed><bibliomixed xml:id="y14.41" xreflabel="8">ASME Y14.41-2012,
+    <emphasis role="ital">Digital Product Definition Data
+    Practices,</emphasis> American Society of Mechanical
+    Engineers.</bibliomixed><bibliomixed xml:id="aberdeen" xreflabel="9"><emphasis role="ital">The Transition from 2D Drafting to 3D Modeling
+    Benchmark Report,</emphasis> Aberdeen Group, 2006. Available:
+    <link xlink:href="http://images.autodesk.com/adsk/files/transition_from_2d_to_3d_modeling_report.pdf" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://images.autodesk.com/adsk/files/transition_from_2d_to_3d_modeling_report.pdf</link>.</bibliomixed><bibliomixed xml:id="iso1101" xreflabel="10">ISO 1101:2012,
+    <emphasis role="ital">Geometrical product specifications (GPS)
+    — Geometrical tolerancing — Tolerances of form,
+    orientation, location and run-out,</emphasis> International
+    Organization for Standardization.</bibliomixed><bibliomixed xml:id="pemberton" xreflabel="11">S. Pemberton,
+    <emphasis role="ital">XForms for HTML Authors, Part 2,</emphasis>
+    27-Aug-2010. [Online]. Available: <link xlink:href="http://www.w3.org/MarkUp/Forms/2010/xforms11-for-html-authors/part2.html" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/MarkUp/Forms/2010/xforms11-for-html-authors/part2.html</link>.</bibliomixed><bibliomixed xml:id="xsltforms" xreflabel="12">XSLTForms -
+    agenceXML. [Online]. Available: <link xlink:href="http://www.agencexml.com/xsltforms" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.agencexml.com/xsltforms</link>.</bibliomixed><bibliomixed xml:id="xslt" xreflabel="13"><emphasis role="ital">XSL Transformations (XSLT) Version 1.0,</emphasis> W3C
+    Recommendation, 16 November 1999.  <link xlink:href="http://www.w3.org/TR/xslt" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/xslt</link>.</bibliomixed><bibliomixed xml:id="klotz" xreflabel="14">XForms 1.1 and
+    XHTML+XForms1.1 RelaxNG Schemas from Klotz, Leigh on 2010-01-15
+    (public-forms@w3.org from January 2010). [Online]. Available:
+    <link xlink:href="http://lists.w3.org/Archives/Public/public-forms/2010Jan/0019.html" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://lists.w3.org/Archives/Public/public-forms/2010Jan/0019.html</link>.</bibliomixed><bibliomixed xml:id="sp800-82" xreflabel="15">Keith Stouffer,
+    Suzanne Lightman, Victoria Pillitteri, Marshall Abrams, Adam Hahn,
+    <emphasis role="ital">Guide to Industrial Control Systems (ICS)
+    Security,</emphasis> NIST Special Publication 800-82, Revision 2
+    Initial Public Draft, May 2014. <link xlink:href="http://csrc.nist.gov/publications/PubsDrafts.html#SP-800-82-Rev.2" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://csrc.nist.gov/publications/PubsDrafts.html#SP-800-82-Rev.2</link>.</bibliomixed><bibliomixed xml:id="nvd" xreflabel="16">National Vulnerability
+    Database. [Online]. Available: <link xlink:href="http://nvd.nist.gov" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://nvd.nist.gov</link>.</bibliomixed><bibliomixed xml:id="nvd-800-53" xreflabel="17">NIST Special
+    Publication 800-53. [Online]. Available: <link xlink:href="http://web.nvd.nist.gov/view/800-53/home" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://web.nvd.nist.gov/view/800-53/home</link>.</bibliomixed><bibliomixed xml:id="cryptsoft" xreflabel="18">Cryptsoft: SP
+    800-53. [Online]. Available: <link xlink:href="http://www.cryptsoft.com/sp800-53" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.cryptsoft.com/sp800-53</link>.</bibliomixed><bibliomixed xml:id="pohja" xreflabel="19">M. Pohja, <emphasis role="ital">Comparison of common XML-based web user interface
+    languages,</emphasis> J. Web Eng., vol. 9, no. 2, pp. 95–115,
+    2010.</bibliomixed><bibliomixed xml:id="mcgilvray" xreflabel="20">D. McGilvray,
+    <emphasis role="ital">Executing data quality projects: Ten steps
+    to quality data and trusted information,</emphasis> Morgan
+    Kaufmann, 2010.</bibliomixed><bibliomixed xml:id="kindrick" xreflabel="21">J. D. Kindrick,
+    J. A. Sauter, and R. S. Matthews, <emphasis role="ital">Improving
+    conformance and interoperability testing,</emphasis> StandardView,
+    vol. 4, pp. 61–68, 1996, doi:<biblioid class="doi">10.1145/230871.230883</biblioid>.</bibliomixed><bibliomixed xml:id="sp800-117" xreflabel="22">Stephen Quinn, Karen Scarfone, David Waltermire, <emphasis role="ital">Guide to Adopting and Using the Security Content Automation Protocol (SCAP) Version 1.2 (Draft),</emphasis> NIST Special Publication 800-117, Revision 1 (Draft), January 2012. <link xlink:href="http://csrc.nist.gov/publications/PubsDrafts.html#SP-800-117-Rev.%201" xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://csrc.nist.gov/publications/PubsDrafts.html#SP-800-117-Rev.%201</link>.</bibliomixed><bibliomixed xml:id="barnard" xreflabel="23">A. Barnard Feeney, S. P. Frechette, and V. Srinivasan, <emphasis role="ital">A portrait of an ISO STEP tolerancing standard as an enabler of smart manufacturing systems,</emphasis> 13th CIRP Conference on Computer Aided Tolerancing, Hangzhou, China, May 2014.</bibliomixed></bibliography></article>

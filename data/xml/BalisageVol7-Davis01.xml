@@ -1,0 +1,805 @@
+<?xml version="1.0" encoding="UTF-8"?><article xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink" version="5.0-subset Balisage-1.3"><title>Programming Application Logic for RESTful Services Using XML Technologies</title><info><confgroup><conftitle>Balisage: The Markup Conference 2011</conftitle><confdates>August 2 - 5, 2011</confdates></confgroup><abstract><para>XRX, XForms on the client, RESTful services and XQuery on the server, introduced a
+                development paradigm that could avoid the use to procedural code in the
+                implementation of RESTful services.  With the standardization of XProc, the XML
+                pipelining language, and the availability of several XProc engines, we have an even
+                more powerful mechanism for RESTful services construction. In this paper we briefly
+                introduce an XML REST Framework that allows a developer to define resources and
+                provide an XML-centric implementation.  Then the main focus of the paper is on how
+                XQuery, XSLT and XProc together form a powerful set of tools with which RESTful
+                services can be developed, effectively redifining XRX to stand for XForms, RESTful
+                services and XProc on the server. We illustrate the benefits each technology brings
+                to this service construction by incrementally building up a RESTful service for a
+                patient medical records registry.</para></abstract><author><personname><firstname>Cornelia</firstname><surname>Davis</surname></personname><personblurb><para>Cornelia Davis is a Senior Technologist in the Architecture group of the
+                    Office of the CTO, focusing RESTful Service Oriented Architectures. Areas of
+                    expertise include XML and Atom, and she frequent speaker on RESTful SOA.
+                    Cornelia holds a B.S. and an M.S. in Computer Science from California State
+                    University, Northridge.</para></personblurb><affiliation><jobtitle>Senior Technologist</jobtitle><orgname>EMC Corporation</orgname></affiliation><email>cornelia.davis@emc.com</email></author><legalnotice><para>Copyright © 2011 EMC Corporation.  All rights reserved.</para></legalnotice><keywordset role="author"><keyword>REST</keyword><keyword>XML</keyword><keyword>XProc</keyword><keyword>XQuery</keyword><keyword>XSLT</keyword><keyword>XML Database</keyword><keyword>XRX</keyword><keyword>HATEOAS</keyword></keywordset></info><section><title>Introduction</title><para>The term XRX <xref linkend="XRX"/> , stands for XForms <xref linkend="XForms"/> on the client, RESTful services and XQuery <xref linkend="XQuery"/>
+            on the server. At its core it is a design approach that uses XML as the model for the
+            application entities, and other XML technologies, specifically XForms and XQuery, for
+            the application UI and for interface to the persistence layer, respectively. At the
+            extreme, XRX can be seen as a no-transformation approach, where resource representations
+            accepted and served by RESTful services closely match the form stored in an XML
+            database; that is, there is no difference between the logical model for entities and the
+            physical one. While our work has been inspired by XRX, and we embrace the notion of
+            XML-centric implementations, we have found that RESTful services require transformations
+            and other sophisticated operations that are not particularly well suited to an XQuery
+            implementation alone. </para><para>First, RESTful services must serve resource representations that are hyperlink rich,
+            containing links to related resources as well as to URLs that can drive application
+            state.  These links are generated only when the resource representation is served and
+            they reflect runtime and deployment contexts such as host names.  As such, these links
+            must be added to the content that is retrieved from the XML database, and while XQuery
+            is clearly the right technology for database access, it is, at best, awkward when used
+            to insert these hyperlinks.  </para><para>Another key tenet of the REST architectural style is content negotiation, the ability
+            for a service to accommodate various formats for the data they serve.  For example, a
+            resource representation may be served in some simple XML format (that may indeed closely
+            resemble that which is stored in the database), and it may alternatively serve an Atom <xref linkend="Atom"/>
+            entry.  Those well versed in the XML-technology stack would likely agree that this is a
+            task ideally suited to XSLT <xref linkend="XSLT"/>.</para><para>When we begin to address the implementation details of our RESTful services we see
+            common patterns, such as the need to assign identifiers to new resources and the need to
+            return from the service values beyond the resource representation.  We have found it
+            rather easy to implement these patterns using XProc <xref linkend="XProc"/>.  </para><para>It is these RESTful services requirements that have driven us to an interpretation of
+            XRX that stands for XForms on the client, RESTful services and XProc on the server.  Our
+            work has focused on the RESTful services implementation with little attention given to
+            the XForms or other consumer-side user interface. </para><para>In this paper we will show the value that various XML technologies bring to the
+            implementation of RESTful services, with a focus on XProc, XQuery and XSLT.  We will
+            demonstrate each of their strengths by incrementally building up a simple service
+            implementation that is a part of a larger set of services that implement a patient
+            medical records registry.  This implementation was taken to the IHE Connectathon <xref linkend="IHEConnect"/> event in January 2011 where EMC received certification.  That
+            is, the use case presented in this paper is real.  </para><para>After briefly introducing the IHE XDS <xref linkend="IHEXDS"/>  registry usecase,
+            outlining the key principles of REST and also briefly introducing an XML REST Framework
+            we have constructed, we spend the bulk of the remainder of the paper squarely in the XML
+            space.  We begin by establishing the base implementation which uses XQuery to write
+            resource data to the persistence layer, an XML database.  We then address the hyperlink
+            constraint of RESTful services with the construction of an XSLT and build a simple XProc
+            pipeline to sequence these operations.  This solution does not yet address the
+            generation of identifiers or construction of data elements beyond the resource
+            representation, which we then add.  Finally we bind all of the pieces together within
+            Spring Framework <xref linkend="Spring"/> configurations.</para><para>While we have found some prior work on XML-centric application development <xref linkend="Wilde"/>, we have found little that addresses how the XML technology stack
+            addresses the unique needs of RESTful service construction.  This is the focus of this
+            piece. </para></section><section><title>Integrated Health Exchange</title><para>Integrating the Healthcare Enterprise (IHE) <xref linkend="IHE"/> is a consortium that
+            develops interoperability standards for health care delivery systems.  They publish
+            specifications that address how a wide range of devices and systems should communicate,
+            allowing them to be easily connected in a variety of settings. It is in one of these
+            specifications that they define interfaces that medical records registries and
+            repositories must provide in order to be easily connected to document suppliers and
+            consumers. A Cross-Enterprise Document Sharing (XDS) repository stores documents that
+            make up a patient medical record including such things as images (e.g. x-rays, CT
+            scans), text files (e.g. doctors notes) and documents of any other format. An XDS
+            registry augments this content both by associating metadata with the documents stored in
+            the repository and by establishing additional organizational structures, such as folder
+            hierarchies, around that content. The solution we describe in this paper is a portion of
+            the document registry implementation which earned EMC a certification at the IHE
+            Connectathon event in January 2011.</para><para>The abstractions defined by the IHE for an XDS registry include the
+            following:</para><itemizedlist><listitem><para>A <emphasis role="ital">document entry</emphasis> holds metadata for a
+                    single document.</para></listitem><listitem><para>A <emphasis role="ital">folder</emphasis> is a container that may hold
+                    multiple document entries.</para></listitem><listitem><para>An <emphasis role="ital">association</emphasis> captures a binary,
+                    unidirectional relationship between document entries, folders, submission sets
+                    and other associations.</para></listitem><listitem><para>A <emphasis role="ital">submission set</emphasis> represents a
+                    collection of document entries, folders and associations that together form a
+                    set that, when written to the registry, must be handled atomically.</para></listitem></itemizedlist><para>While submission sets are written as a whole, the individual parts of a submission
+            set may be consumed in different combinations.  For example, within a single submission
+            set, a folder may have been created and a document entry placed therein, however, the
+            document entry may be accessed independently or even in combination with other document
+            entries that arrived in different submission sets.  </para><para>It is the atomicity requirements on the writing of submission sets, and the
+            granular consumption model, that contribute to making the XDS registry RESTful services
+            an interesting case-study.  We will examine the implementation of the service for
+            creating submission sets in detail in the subsequent sections of this paper.  This is
+            relatively complex operation that may involve the assignment of identifiers,
+            necessitates validation of some of the input XML against both other portions of the
+            submission set as well as to content already existing in the database, and requires that
+            the submission set be decomposed for storage in the database.</para></section><section><title>The REST Architectural Style</title><para>Roy Fielding was one of a group of individuals who developed the architecture of the
+            World Wide Web and in 2000 he formalized the key architectural principles in his PhD
+            dissertation <xref linkend="REST"/>, coining the term REpresentational State Transfer
+            (REST). The REST architectural style is characterized by the following four key
+            tenets:</para><itemizedlist><listitem><para><emphasis role="bold">Identification and addressability of
+                        resources</emphasis>: All interesting bits of information are identified
+                    with URIs and are usually accessed via URL.</para></listitem><listitem><para><emphasis role="bold">The uniform interface</emphasis>: Interaction with
+                    resources is through a standardized set of operations, with well understood and
+                    agreed upon semantics.</para></listitem><listitem><para><emphasis role="bold">Manipulation of resources through
+                        representations</emphasis>: Clients are not operating directly on resources,
+                    rather resource representations are transfered between the server and the
+                    client.</para></listitem><listitem><para><emphasis role="bold">Hypermedia constraint</emphasis>: Resource
+                    representations include hyperlinks that can be used to drive application state
+                    transitions.</para></listitem></itemizedlist><para>Each of these principles has played an important role in the success of the World Wide
+            Web. Resource centricity and the hierarchical, global address space of URLs provides for
+            limitless scale by allowing resources to be continually added to the domain of discourse
+            while maintaining linear scale through the use of DNS and a cache-rich infrastructure.
+            Having a uniform interface allows the layered web to perform optimizations as a part of
+            a resource operation. For example, because the HTTP PUT operation is idempotent (meaning
+            it can be executed 1 or more times with the same result), an actor in the web
+            infrastructure may perform automatic retries on PUT operations that <emphasis role="under">may</emphasis> have failed to complete. The transfer of resource
+            representations between the client and server allows those interactions to be entirely
+            stateless, further providing scale-out characteristics. And having hyperlink-rich
+            resource representations not only provides a means for relationships between resources
+            to be presented, it also supports the construction of less-brittle interfaces and looser
+            coupling between clients and servers.</para></section><section><title>The XML REST Framework</title><para>We have produced a framework that allows a developer to create a set of RESTful
+            services with most of the implementation achieved using XML-based technologies. We have
+            found these technologies to be very effective at addressing many requirements specific
+            to RESTful services. XQuery is used to persist resource state into an XML database.
+            Content negotiation is straight-forward via the declarative, XSLT programming model, and
+            resource hyperlinks are generated using the same declarative approach. Common patterns
+            for resource operations are effectively captured in XProc pipelines and processing of
+            composite resources is also well accomplished using this XML pipelining approach. </para><para>The only portion of the implementation not done with an XML-based technology is the
+            interface to the RESTful service. Here we have elected to use Plain Old Java Objects
+            (POJOs), annotated with information about resource URLs and the uniform interface. We
+            chose to keep this part of a RESTful service implementation in Java primarily for two
+            reasons. First, while there is a technology, Servlex <xref linkend="Servlex"/>, that
+            does provide a capability for producing web applications with only XML technologies, we
+            were concerned that the uptake of the EXPath Webapp <xref linkend="XPWebapp"/> approach
+            has been slow and the community activity is marginal. And more importantly, having
+            RESTful services executing within an environment such as the Spring Framework allows
+            additional services (such as security) to be wrapped around the core RESTful services we
+            implement; it was unclear how the Servlex technology could be leveraged within
+            Spring.</para><para>Figure 1 depicts the basic construction of RESTful services using our
+            framework.</para><figure xml:id="fig1"><mediaobject><imageobject><imagedata format="jpg" fileref="../../../vol7/graphics/Davis01/Davis01-001.jpg"/></imageobject></mediaobject><caption><para>XML-Centric Services Implementation</para></caption></figure><para> In the next sections I cover each of the blocks shown in this figure.</para></section><section><title>The RESTful Service Interface</title><para>Because we are specifically addressing RESTful services implementations, we must
+            address more than just the construction and delivery of XML data.  In particular, we
+            must be able to accept HTTP requests <footnote xml:id="http1"><para>Note that while REST is an architectural style that does not require HTTP, in
+                    practice most RESTful services are offered over HTTP and we will focus on those
+                    here.</para></footnote> , parse URLs, read and write headers and return errors appropriately. 
+            Because several frameworks addressing these HTTP-specific needs, such as Spring MVC
+                <xref linkend="MVC"/>, Apache CXF <xref linkend="CXF"/> and Jersey <xref linkend="Jersey"/>, are already in widespread use, we embrace those and offer an
+            extended framework that allows an XML-centric implementation to be wired in.  These
+            RESTful services frameworks share common development paradigms where REST resources are
+            implemented as Java classes, operations on the resource are implemented with class
+            methods, and annotations are used to express RESTful service specifics such as URI
+            templates and uniform interface operations.  The following code snippet shows the
+            skeleton Java class for the submission sets resource, with a method that will fulfill
+            the POST operation; this is the operation we will use to create new submission sets.
+            <programlisting xml:space="preserve">package com.emc.cto.healthcare;
+            
+    // … imports omitted for brevity
+            
+    @Controller
+    @RequestMapping("/submissionsets")
+    public class SubmissionSets {
+            
+    @RequestMapping(method = RequestMethod.POST)
+    @ResponseStatus(HttpStatus.CREATED)
+    public String addPatient(HttpServletRequest request, 
+                             HttpServletResponse response, 
+                             Model model) throws XProcException, IOException, URISyntaxException, TransformerException {
+            
+        …
+            
+    }
+            
+    public SubmissionSets() {		
+    }
+            
+}</programlisting>
+        </para><para>It is within this method that we will invoke the XML-based services implementation. 
+            In a later section we will see exactly how the XProc pipeline, which forms the core of
+            the implementation, is bound into this service dispatcher class.</para></section><section><title>Starting with XQuery</title><para> XQuery serves the role of interfacing with the solution’s persistence layer, the XML
+            database.  Each resource operation of the RESTful service will require one or more
+            XQueries to map the logical to the physical model.  Figure 2 shows a table representing
+            the logical model at left, a pictorial view of the physical database model on the right
+            and shading that indicates how the logical resources are mapped to physical ones.</para><figure xml:id="fig2"><mediaobject><imageobject><imagedata format="jpg" fileref="../../../vol7/graphics/Davis01/Davis01-002.jpg"/></imageobject></mediaobject><caption><para>Logical to Physical Mapping</para></caption></figure><para>The darker shaded objects in the tree structure represent folders and the lighter
+            shaded objects represent XML documents.  The yellow and blue shadings show a
+            correspondence between entities in the logical model and the physical model. Note that
+            the submission set resource maps to many entities in the physical model, whereas
+            document entry resource mappings are far more constrained.</para><para>For this first stage of the implementation we will assume that the submission set
+            coming in is entirely valid and has identifiers properly set for each of the elements
+            within it.  The following shows an excerpt of the resource representation supplied to a
+            POST operation.
+        <programlisting xml:space="preserve">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;CompoundSubmissionSet&gt;
+    &lt;SubmissionSet&gt;
+        &lt;comments&gt;
+            &lt;lang&gt;en-US&lt;/lang&gt;
+            &lt;charset&gt;UTF-8&lt;/charset&gt;
+            &lt;value&gt;Annual physical&lt;/value&gt;
+        &lt;/comments&gt;
+        &lt;entryUuid&gt;0324990a-00a4-4b3f-be6d-0a98267d1d28&lt;/entryUuid&gt;
+        &lt;patientId&gt;
+            &lt;id&gt;RED7020&lt;/id&gt;
+            &lt;assigningAuthority&gt;
+                &lt;universalId&gt;1.3.6.1.4.1.21367.13.20.1000&lt;/universalId&gt;
+                &lt;universalIdType&gt;ISO&lt;/universalIdType&gt;
+            &lt;/assigningAuthority&gt;
+        &lt;/patientId&gt;
+        &lt;title&gt;
+            &lt;lang&gt;en-US&lt;/lang&gt;
+            &lt;charset&gt;UTF-8&lt;/charset&gt;
+            &lt;value&gt;Physical&lt;/value&gt;
+        &lt;/title&gt;
+        ... additional submission set fields
+    &lt;/SubmissionSet&gt;
+    &lt;folders /&gt;
+    &lt;documentEntries&gt;
+        &lt;DocumentEntry&gt;
+            &lt;entryUuid&gt;788ccf31-f9fe-409a-91c4-8983e1c8ae14&lt;/entryUuid&gt;
+            &lt;patientId&gt;
+                &lt;id&gt;RED7020&lt;/id&gt;
+                &lt;assigningAuthority&gt;
+                    &lt;universalId&gt;1.3.6.1.4.1.21367.13.20.1000&lt;/universalId&gt;
+                    &lt;universalIdType&gt;ISO&lt;/universalIdType&gt;
+                &lt;/assigningAuthority&gt;
+            &lt;/patientId&gt;
+            &lt;title&gt;
+                &lt;lang&gt;en-US&lt;/lang&gt;
+                &lt;charset&gt;UTF-8&lt;/charset&gt;
+                &lt;value&gt;Physical&lt;/value&gt;
+            &lt;/title&gt;
+            ... additional document entry fields
+        &lt;/DocumentEntry&gt;
+    &lt;/documentEntries&gt;
+    &lt;associations&gt;
+        &lt;Association&gt;
+            &lt;targetUuid&gt;788ccf31-f9fe-409a-91c4-8983e1c8ae14&lt;/targetUuid&gt;
+            &lt;sourceUuid&gt;0324990a-00a4-4b3f-be6d-0a98267d1d28&lt;/sourceUuid&gt;
+            &lt;associationType&gt;HAS_MEMBER&lt;/associationType&gt;
+            &lt;label&gt;ORIGINAL&lt;/label&gt;
+            &lt;entryUuid&gt;cb297ac4-22f7-4303-81f5-76bb0befd8cc&lt;/entryUuid&gt;
+        &lt;/Association&gt;
+    &lt;/associations&gt;
+&lt;/CompoundSubmissionSet&gt;
+        </programlisting></para><para>In the XQuery, then, we fundamentally do two things: we split this larger XML document
+            into several smaller ones and write each of those to the database. The following XQuery
+            code shows this implementation.
+            <programlisting xml:space="preserve">declare variable $input external;
+
+declare updating function local:storeSubmissionset($elem as element()) {
+    let $docFileName := concat("/SubmissionSets/", data($elem/entryUuid), ".xml")
+    return if (doc-available($docFileName))
+           then replace node doc($docFileName)/SubmissionSet with $elem
+           else xhive:insert-document($docFileName, document{$elem})
+};
+
+declare updating function local:updateTime($folder as element()) {
+        let $time := replace(substring-before(xs:string(adjust-dateTime-to-timezone(current-dateTime(),xs:dayTimeDuration("-PT0H"))),"."), "[-:T]", "")
+        return &lt;Folder&gt;{$folder/*[name() != "lastUpdateTime"]} &lt;lastUpdateTime&gt;{$time}&lt;/lastUpdateTime&gt;&lt;/Folder&gt;
+};
+declare updating function local:storeFolders($elem as element()) {
+        for $folderRaw in $elem/Folder
+                                    let $folder := local:updateTime($folderRaw)
+        let $docFileName := concat("/Folders/", data($folder/entryUuid), ".xml")        
+        return if (doc-available($docFileName))
+                 then replace node doc($docFileName)/Folder with $folder
+                else xhive:insert-document($docFileName, document{$folder})
+};
+
+declare updating function local:storeDocEntries($elem as element(), $assocs as element()) {
+        for $entry in $elem/DocumentEntry
+        let $entryUuid := normalize-space(data($entry/entryUuid))
+        let $docFileName := concat("/DocumentEntries/", $entryUuid, ".xml")
+        let $assoc := $assocs/Association[sourceUuid = $entryUuid and (associationType='TRANSFORM_AND_REPLACE' or associationType='REPLACE') ]
+        let $oldDocUuid := normalize-space(data($assoc/targetUuid))
+        return  if (doc-available($docFileName))
+               then replace node doc($docFileName)/DocumentEntry with $entry
+               else (
+                      xhive:insert-document($docFileName, document{$entry}),
+                      if ($oldDocUuid) 
+                      then
+                            replace value of node doc("DocumentEntries")/DocumentEntry[entryUuid=$oldDocUuid]/availabilityStatus
+                            with "DEPRECATED"
+                         else ())
+};
+
+declare updating function local:storeAssociations($elem as element()) {
+        let $time := replace(substring-before(xs:string(adjust-dateTime-to-timezone(current-dateTime(),xs:dayTimeDuration("-PT0H"))),"."), "[-:T]", "")
+        let $res := for $association in $elem/Association
+        let $docFileName := concat("/Associations/", data($association/entryUuid), ".xml")
+        let $sourceFileName := concat(normalize-space(data($association/sourceUuid)),".xml")
+        return (if (doc-available($docFileName))
+               then replace node doc($docFileName)/Association with $association
+               else xhive:insert-document($docFileName, document{$association}),
+               (: if new doc placed into existing folder, update the lastUpdateTime of that folder :)
+               if (doc-available(concat("/Folders/", $sourceFileName)))
+               then replace value of node doc(concat("/Folders/", $sourceFileName))/Folder/lastUpdateTime with $time
+               else (),
+               (: if the new doc replaces another we need to create an assoc between the new doc and all of the folders
+                  that the orignal doc is in :)
+               if ($association/associationType = "REPLACE")
+               then local:addAssocsForReplacementDocToFolders($association)
+               else ()
+               )
+return $res
+};
+
+declare updating function local:addAssocsForReplacementDocToFolders($association as element()) {
+    let $orgDocUuid := normalize-space(data($association/targetUuid))
+    let $newDocUuid := normalize-space(data($association/sourceUuid))
+    let $newAssocs := for $assoc in doc("Associations")/Association[targetUuid=$orgDocUuid and associationType = "HAS_MEMBER"]
+                          let $folder := doc("Folders")/Folder[entryUuid=$assoc/sourceUuid]
+                          let $newAssoc := if ($folder)
+                               then &lt;Association&gt;&lt;targetUuid&gt;{$newDocUuid}&lt;/targetUuid&gt;
+                               &lt;sourceUuid&gt;{normalize-space(data($folder/entryUuid))}&lt;/sourceUuid&gt;
+                               &lt;associationType&gt;HAS_MEMBER&lt;/associationType&gt;
+                               &lt;entryUuid&gt;{xs:string(uuid:random-uuid())}&lt;/entryUuid&gt;&lt;/Association&gt;
+                               else ()
+                       return $newAssoc
+return local:storeAssociations(&lt;associations&gt;{$newAssocs}&lt;/associations&gt;)
+};
+
+let $compoundsubmissionset := if (not(empty(.)))
+              then .
+              else xhive:parse($input)
+return (local:storeSubmissionset($compoundsubmissionset/CompoundSubmissionSet/SubmissionSet),
+        local:storeFolders($compoundsubmissionset/CompoundSubmissionSet/folders),
+        local:storeDocEntries($compoundsubmissionset/CompoundSubmissionSet/documentEntries,$compoundsubmissionset/CompoundSubmissionSet/associations),
+        local:storeAssociations($compoundsubmissionset/CompoundSubmissionSet/associations), 
+        $compoundsubmissionset/CompoundSubmissionSet)</programlisting></para><para>This implementation is relatively crisp and XQuery serves the needs rather well,
+            however there are RESTful service requirements that this implementation has not yet
+            met.</para><para>Notice that the XQuery responds with XML that represents the resource that has been
+            newly created.  This forms the basis of the resource representation that will be
+            returned by the RESTful service, however, it is not yet complete.  The hypermedia
+            constraint in RESTful services <xref linkend="Hypermedia"/> requires that resource
+            representations contain hyperlinks to other resources, as well as hyperlinks that can
+            otherwise drive the state of the application.  In the case of a submission set, for
+            example, the representation should contain links to the documents and folders comprising
+            it. </para><para>While it is possible to achieve this augmentation of the XML using XQuery, we prefer
+            XSLT for two primary reasons. First, implementations of RESTful services using the
+            approaches described in this piece, follow a Model-View-Controller pattern and we
+            intentionally have the XML returned from the XQuery represent the application model
+            objects. The hyperlinks presented in a resource representation are the responsibility of
+            the controller portion of the implementation, so having hyperlinks inserted as a part of
+            the XQuery that interacts with the database would conflate the responsibilities of the
+            model and the controller. Of course, a separate XQuery could be used for hyperlink
+            insertion, yet this brings us to the second reason for a different choice, and that is
+            simply that we prefer the declarative approach that XSLT affords.</para></section><section><title>XSLT</title><para>Inserting hyperlinks into an XML document involves two things; one must define the
+                points of insertion and then express what is to be inserted, and the
+            &lt;xsl:template&gt; is ideally suited to the task.  Our XML REST Framework aims to make
+            this task easy, even for the non-XSLT expert, by providing a simple XSLT template that
+            traverses the document tree seeking those points of insertion, and by providing samples
+            of the &lt;xsl:template&gt; definitions that insert links.</para><para>The following code snippet shows the simple recursive template that simply copies
+                each of the source nodes into the result tree and applies a template with an
+                “insert-here” mode at each element node.
+            <programlisting xml:space="preserve">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;xsl:stylesheet version="2.0"
+    xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns:xs="http://www.w3.org/2001/XMLSchema"
+    xmlns:fn="http://www.w3.org/2005/xpath-functions" xmlns:xdt="http://www.w3.org/2005/xpath-datatypes"
+    xmlns:pat="http://www.emc.com/cto/PMR" xmlns:atom="http://www.w3.org/2005/Atom"&gt;
+    &lt;xsl:output method="xml" version="1.0" encoding="UTF-8" indent="yes" /&gt;
+
+    &lt;!-- 
+        The templates in this xslt simply traverse the input XML and for each element apply any insertion templates 
+        that are defined for the particular type of object
+     --&gt;
+
+    &lt;xsl:template match="*"&gt;
+        &lt;xsl:copy&gt;
+            &lt;!-- bring all attributes over --&gt;
+            &lt;xsl:apply-templates select="@*" /&gt;
+            &lt;!-- insert any hyperlinks --&gt;
+            &lt;xsl:apply-templates select="." mode="inserthere" /&gt;
+            &lt;xsl:apply-templates select="node()" /&gt;
+        &lt;/xsl:copy&gt;
+    &lt;/xsl:template&gt;
+
+    &lt;xsl:template match="@*"&gt;
+        &lt;xsl:copy /&gt;
+    &lt;/xsl:template&gt;
+
+    &lt;xsl:template match="text()" mode="inserthere" /&gt;
+
+&lt;/xsl:stylesheet&gt;</programlisting></para><para>The RESTful services developer then need only define the <code>&lt;xsl:template&gt;</code> definitions for the elements that 
+            should have child link nodes inserted.  The following stylesheet inserts hyperlinks into the submission 
+            set resource representation that is returned from the creation (POST) operation.<programlisting xml:space="preserve">&lt;xsl:stylesheet version="2.0"
+    xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns:xs="http://www.w3.org/2001/XMLSchema"
+    xmlns:fn="http://www.w3.org/2005/xpath-functions" xmlns:xdt="http://www.w3.org/2005/xpath-datatypes"
+    xmlns:atom="http://www.w3.org/2005/Atom"
+    xmlns:functx="http://www.functx.com" exclude-result-prefixes="xs xsl fn xdt functx"&gt;
+    &lt;xsl:import href="classpath:insertHyperlinks.xslt" /&gt;
+    &lt;xsl:import href="classpath:utils.xslt" /&gt;
+    &lt;xsl:output method="xml" version="1.0" encoding="UTF-8"    indent="yes" /&gt;
+
+    &lt;xsl:param name="baseURL" /&gt;
+    
+    &lt;!--
+        This XSLT defines insertion templates that will be driven by the
+        imported stylesheet
+    --&gt;
+
+    &lt;xsl:template match="SubmissionSet" mode="inserthere"&gt;
+        &lt;atom:link rel="self"&gt;
+            &lt;xsl:attribute name="href"&gt;&lt;xsl:value-of
+                select="concat($baseURL,'/',entryUuid)" /&gt;&lt;/xsl:attribute&gt;
+        &lt;/atom:link&gt;
+        &lt;xsl:apply-templates select="/CompoundSubmissionSet/documentEntries/DocumentEntry" mode="inserthere" /&gt;
+        &lt;xsl:apply-templates select="/CompoundSubmissionSet/folders/Folder" mode="inserthere" /&gt;
+    &lt;/xsl:template&gt;
+
+    &lt;xsl:template match="DocumentEntry" mode="inserthere"&gt;
+        &lt;atom:link rel="document"&gt;
+            &lt;xsl:attribute name="href"&gt;&lt;xsl:value-of
+                select="concat(functx:substring-before-last($baseURL,'/'),'/documents/',entryUuid)" /&gt;&lt;/xsl:attribute&gt;
+        &lt;/atom:link&gt;
+    &lt;/xsl:template&gt;
+    
+    &lt;xsl:template match="Folder" mode="inserthere"&gt;
+        &lt;atom:link rel="folder"&gt;
+            &lt;xsl:attribute name="href"&gt;&lt;xsl:value-of
+                select="concat(functx:substring-before-last($baseURL,'/'),'/folders/',entryUuid)" /&gt;&lt;/xsl:attribute&gt;
+        &lt;/atom:link&gt;
+    &lt;/xsl:template&gt;
+    
+    &lt;xsl:template match="CompoundSubmissionSet"&gt;
+        &lt;xsl:apply-templates select="SubmissionSet"/&gt;
+    &lt;/xsl:template&gt;
+    
+    &lt;xsl:template match="folders"/&gt;
+    &lt;xsl:template match="documentEntries"/&gt;
+    &lt;xsl:template match="associations"/&gt;
+    
+&lt;/xsl:stylesheet&gt;</programlisting>
+        </para><para>Another type of translation that is often needed for RESTful services provides support
+            for additional media types.  In general, the media type for the content returned from an
+            XQuery will be application/xml or text/xml, and this may be directly returned by the
+            RESTful service. Other XML formats, such as application/atom+xml, are also in widespread
+            use and therefore a RESTful services framework that makes it easy to perform such a
+            transformation is valuable.  Just as with the insertion of hyperlinks, such
+            transformations are well executed with an XSLT stylesheet.  Note that JSON is gaining
+            popularity as a media type for resource representations.  Our recommendation is to keep
+            the application model entities in XML and perform the transformation to JSON, again, via
+            XSLT transformation, at the outer edge of that implementation.</para><para>At this point we have seen the value in XQuery to interface with the underlying XML
+            database, and XSLT for the insertion of hyperlinks and support for alternate media
+            types.  The next question to answer, then, is how to tie these two things
+            together.</para></section><section><title>XProc – the XML Pipelining Language</title><para>In May 2010 the XML Processing Model Working Group of the World Wide Web
+            Consortium standardized XProc, an XML Pipelining language.  XProc is a high-level
+            programming language in which XML processing steps are wired together in such a way that
+            the outputs of one step are routed to the inputs of another step; all content flowing
+            between steps is XML.  An XProc Engine executes a pipeline, accepting external inputs
+            and producing zero or more outputs. The XProc language includes several dozen processing
+            steps that when used together allow for sophisticated capabilities to be implemented
+            with very few lines of code.</para><para>Before looking at some of these more complex examples, let us first look at a very
+                simple pipeline that ties together the two solution components we previously
+                discussed – the XQuery for database access and the XSLT for hyperlink insertion. 
+                Figure 3 shows a pictorial representation of this pipeline.  </para><figure xml:id="fig3"><mediaobject><imageobject><imagedata format="jpg" fileref="../../../vol7/graphics/Davis01/Davis01-003.jpg"/></imageobject></mediaobject><caption><para>Base Resource-creation Pipeline</para></caption></figure><para>In this case where we are creating a submission set, the source document passed into
+            the pipeline is the submission set representation.  A second input to the pipeline is
+            the base URL, a parameter that reflects the deployment particulars of the service (such
+            as hostname), is used in the later XSLT step.  The source document is passed into the
+            XQuery, which, as we saw above, splits the input document and writes several XML
+            documents to the XML database; the XQuery step produces an XML document as the
+            response.  The XSLT step then accepts the result from the XQuery, as well as the base
+            URL that was passed into the pipeline, and generates a hyperlink rich XML document on
+            the output.</para><section><title>Getting More Sophisticated</title><para>Recall that earlier we made some simplifying assumptions; one being that the XML
+                document supplied to the XQuery would be valid, including having identifiers already
+                assigned to the various portions of the submission set. While the IHE specifications
+                do require that all recorded document entries, folders, submission sets and
+                associations have UUIDs assigned, they allow for a case where the registry receives
+                a submission set containing only locally scoped identifiers (within the submission
+                set). In this case, the registry implementation responsible for assigning UUIDs. The
+                following shows and example of such a resource
+                representation.<programlisting xml:space="preserve">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;CompoundSubmissionSet&gt;
+    &lt;SubmissionSet&gt;
+        &lt;comments&gt;
+            &lt;lang&gt;en-US&lt;/lang&gt;
+            &lt;charset&gt;UTF-8&lt;/charset&gt;
+            &lt;value&gt;Annual physical&lt;/value&gt;
+        &lt;/comments&gt;
+        &lt;entryUuid&gt;SubmissionSet01&lt;/entryUuid&gt;
+        ... additional submission set fields
+    &lt;/SubmissionSet&gt;
+    &lt;folders /&gt;
+    &lt;documentEntries&gt;
+        &lt;DocumentEntry&gt;
+            &lt;entryUuid&gt;Document01&lt;/entryUuid&gt;
+            ... additional document entry fields
+        &lt;/DocumentEntry&gt;
+    &lt;/documentEntries&gt;
+    &lt;associations&gt;
+        &lt;Association&gt;
+            &lt;targetUuid&gt;Document01&lt;/targetUuid&gt;
+            &lt;sourceUuid&gt;SubmissionSet01&lt;/sourceUuid&gt;
+            &lt;associationType&gt;HAS_MEMBER&lt;/associationType&gt;
+            &lt;label&gt;ORIGINAL&lt;/label&gt;
+            &lt;entryUuid&gt;Association01&lt;/entryUuid&gt;
+        &lt;/Association&gt;
+    &lt;/associations&gt;
+&lt;/CompoundSubmissionSet&gt;
+                </programlisting></para><para>In our implementation we use XProc to replace the local identifiers with UUIDs and
+                to do so we need only loop over each of the non-UUID identifiers and invoke the UUID
+                XProc step. Our main XProc pipeline will now include a step which performs this
+                insertion, and the output, which fulfills that validity constraint, will be wired to
+                the XQuery step. The following XProc step definition shows the recursive application
+                of the UUID step.
+                <programlisting xml:space="preserve">&lt;p:declare-step name="main"
+    xmlns:p="http://www.w3.org/ns/xproc" 
+    xmlns:c="http://www.w3.org/ns/xproc-step" 
+    xmlns:emc="http://www.emc.com/cto/xds"
+    type="emc:replaceNonUuids"
+    version="1.0"&gt;
+  &lt;p:input port='source'/&gt;
+  &lt;p:output port='result' primary='true'/&gt;
+
+  &lt;p:choose name="processUuids"&gt;
+      &lt;p:xpath-context&gt;
+          &lt;p:pipe step="main" port="source"/&gt;
+      &lt;/p:xpath-context&gt;
+      &lt;p:variable name="nonUuid" select="//entryUuid[not(contains(.,'-')) and (position() = 1)]/text()"&gt;
+          &lt;p:pipe step="main" port="source"/&gt;
+      &lt;/p:variable&gt;
+      &lt;p:when test="$nonUuid"&gt;
+          &lt;p:uuid name="uuid"&gt;
+              &lt;p:with-option 
+                  name="match" 
+                  select='concat("//*[(name(.)='entryUuid' or name(.)='targetUuid' or name(.)='sourceUuid')and .='",
+                                 $nonUuid,
+                                 "']/text()")'/&gt;
+              &lt;p:input port="source"&gt;
+                  &lt;p:pipe step="main" port="source"/&gt;
+              &lt;/p:input&gt;
+          &lt;/p:uuid&gt;
+          &lt;emc:replaceNonUuids&gt;
+              &lt;p:input port="source"&gt;
+                  &lt;p:pipe step="uuid" port="result"/&gt;
+              &lt;/p:input&gt;
+          &lt;/emc:replaceNonUuids&gt;
+      &lt;/p:when&gt;
+      &lt;p:otherwise&gt;
+          &lt;p:identity&gt;
+              &lt;p:input port="source"&gt;
+                  &lt;p:pipe step="main" port="source"/&gt;
+              &lt;/p:input&gt;
+          &lt;/p:identity&gt;
+    &lt;/p:otherwise&gt;
+  &lt;/p:choose&gt;
+&lt;/p:declare-step&gt;</programlisting></para><para>Figure 4 shows how this step is wired into the original pipeline.</para><figure xml:id="fig4"><mediaobject><imageobject><imagedata format="jpg" fileref="../../../vol7/graphics/Davis01/Davis01-004.jpg"/></imageobject></mediaobject><caption><para>Pipeline Augmented with Content Enrichment Step</para></caption></figure><para>To complete the pipeline for the submission set creation operation we also include
+                some additional validation steps (which, for brevity, we will not show here), as
+                well as some steps that produce a multi-part response.</para></section><section><title>Multi-part Responses</title><para>Because we are implementing our RESTful services almost exclusively in XProc pipelines, those
+                pipelines must accommodate the need to generate more than just a single result. For
+                example, a best practice in RESTful services is that resource creation operations
+                return not only the resource representation, but also a URL to the newly created
+                resource; this URL is to be returned in the HTTP Location header.  Furthermore,
+                RESTful services MUST respond with a status code indicating success or failure, and
+                since that outcome is largely determined in the XProc pipeline, that status
+                information must similarly be returned.</para><para>Fortunately, XProc provides for multi-part responses with multiple output ports,
+                where any output port can carry more than one value.  We implement the pipelines for
+                our RESTful services in a consistent manner, providing three output ports: the
+                primary contains the resource representation, another called “headers” contains
+                key/value pairs and one called “error” outputs an XML document that carries
+                information on any errors that occurred during the processing of the pipeline.  The
+                following is the final implementation of our submission set creation pipeline,
+                including error handling and the creation of the location
+                header.<programlisting xml:space="preserve">&lt;p:declare-step name="main" 
+    xmlns:p="http://www.w3.org/ns/xproc"
+    xmlns:c="http://www.w3.org/ns/xproc-step"
+    xmlns:emc="http://www.emc.com/cto/xds" 
+    version="1.0"&gt;
+    &lt;p:input port="source"/&gt;
+    &lt;p:input port='xqueryscript' /&gt;
+    &lt;p:input port="stylesheet"/&gt;
+    &lt;p:input port="stylesheetParameters" kind="parameter"/&gt;
+    &lt;p:input port="xqueryParameters" kind="parameter"/&gt;
+    &lt;p:output port='result' sequence='true' primary='true'&gt;
+        &lt;p:pipe step='checkXquery' port='result'/&gt;
+    &lt;/p:output&gt;
+    &lt;p:output port='error' sequence="true"&gt;
+        &lt;p:pipe step='checkXquery' port='error' /&gt;
+    &lt;/p:output&gt;
+    &lt;p:output port='headers' sequence="true"&gt;
+        &lt;p:pipe step='checkXquery' port='headers' /&gt;
+    &lt;/p:output&gt;
+    &lt;p:import href="classpath:replaceNonUuids.xpl"/&gt;
+    
+    &lt;!-- This pipeline will assign identifiers whereever needed and then will
+         execute the xquery against the source passed in.  Finally, it will
+         take the result and enhance it with hyperlinks to related resources. 
+         The xquery and xslt are both passed into the pipeline. --&gt;
+
+    &lt;!-- Replace local identifiers with uuids. --&gt;
+    &lt;emc:replaceNonUuids name="replaceNonUuids"&gt;
+        &lt;p:input port="source"&gt;
+            &lt;p:pipe step="main" port="source"/&gt;
+        &lt;/p:input&gt;
+    &lt;/emc:replaceNonUuids&gt;
+
+    &lt;!-- execute xQuery against the input source --&gt;
+    &lt;p:xquery name="xquery"&gt;
+        &lt;p:input port='source'&gt;
+            &lt;p:pipe step="replaceNonUuids" port="result" /&gt;
+        &lt;/p:input&gt;
+        &lt;p:input port="query"&gt;
+            &lt;p:pipe step="main" port="xqueryscript" /&gt;
+        &lt;/p:input&gt;
+        &lt;p:input port="parameters"&gt;
+            &lt;p:pipe step='main' port='xqueryParameters'/&gt;
+        &lt;/p:input&gt;
+    &lt;/p:xquery&gt;
+
+    &lt;!-- check the result of the xQuery to make sure there was no error --&gt;
+    &lt;p:choose name="checkXquery"&gt;
+        &lt;p:variable name="error" select="/error/code"&gt;
+            &lt;p:pipe step="xquery" port="result" /&gt;
+        &lt;/p:variable&gt;
+        &lt;!-- in case of error, return error xml out of pipeline --&gt;
+        &lt;p:when test="$error"&gt;
+            &lt;p:output port="error"&gt;
+                &lt;p:pipe step="genError" port="result" /&gt;
+            &lt;/p:output&gt;
+            &lt;p:output port="result" sequence='true' primary="true"&gt;
+                &lt;p:empty /&gt;
+            &lt;/p:output&gt;
+            &lt;p:output port="headers" sequence='true'&gt;
+                &lt;p:empty/&gt;
+            &lt;/p:output&gt;
+            &lt;p:string-replace name="genError" match="/error/code/text()"&gt;
+                &lt;p:input port="source"&gt;
+                    &lt;p:inline&gt;
+                        &lt;error&gt;&lt;code&gt;err&lt;/code&gt;&lt;description&gt;description&lt;/description&gt;&lt;/error&gt;
+                    &lt;/p:inline&gt;
+                &lt;/p:input&gt;
+                &lt;p:with-option name='replace' select="$error" /&gt;
+            &lt;/p:string-replace&gt;
+        &lt;/p:when&gt;
+        &lt;p:otherwise&gt;
+            &lt;p:output port="error" sequence="true"&gt;
+                &lt;p:empty /&gt;
+            &lt;/p:output&gt;
+            &lt;p:output port="result" sequence='true' primary="true"&gt;
+                &lt;p:pipe step="xslt" port="result"/&gt;
+            &lt;/p:output&gt;
+            &lt;p:output port="headers" sequence='true'&gt;
+                &lt;p:pipe step="locXML" port="result"/&gt;
+            &lt;/p:output&gt;
+            &lt;!-- insert hyperlinks --&gt;
+            &lt;p:xslt name="xslt"&gt;
+                &lt;p:input port='source'&gt;
+                    &lt;p:pipe step='xquery' port='result'/&gt;
+                &lt;/p:input&gt;
+                &lt;p:input port='stylesheet'&gt;
+                    &lt;p:pipe step='main' port='stylesheet'/&gt;
+                &lt;/p:input&gt;
+                &lt;p:input port='parameters'&gt;
+                    &lt;p:pipe step='main' port='stylesheetParameters'/&gt;
+                &lt;/p:input&gt;
+            &lt;/p:xslt&gt;
+
+            &lt;!-- generate the URL for the newly created resource --&gt;
+            &lt;p:variable name="baseU" select="/c:param-set/c:param[@name='baseURL']/@value"&gt;
+                &lt;p:pipe step="main" port="stylesheetParameters"/&gt;
+            &lt;/p:variable&gt;
+            &lt;p:string-replace name="locXML" match="/Location/text()"&gt;
+                &lt;p:input port="source"&gt;
+                    &lt;p:inline&gt;
+                        &lt;Location&gt;here&lt;/Location&gt;
+                    &lt;/p:inline&gt;
+                &lt;/p:input&gt;
+                &lt;p:with-option name='replace' select="concat('"',$baseU, '/', //entryUuid/text(),'"')"&gt;
+                    &lt;p:pipe step='xslt' port='result'/&gt;
+                &lt;/p:with-option&gt;        
+            &lt;/p:string-replace&gt;
+
+        &lt;/p:otherwise&gt;
+    &lt;/p:choose&gt;
+&lt;/p:declare-step&gt;</programlisting></para><para>XProc’s support for multiple outputs is a good fit for the requirements of RESTful
+                services and avoids having the developer design a multi-part model
+                themselves.</para></section><section><title>XProc and Transactions</title><para>One might note that while in our current implementation we have split our
+                submission set into more fine-grained parts within the XQuery, that we could also
+                have done so in the XProc pipeline. Doing the split as a step in the XProc pipeline
+                could result in greater reuse of portions of the implementation and code that is
+                easier to produce and maintain.  But then what would come of our requirement for
+                atomicity in the construction of the submission set, if pipeline were to execute
+                several updating XQuery steps?</para><para>Fortunately, the Xproc engine that we are using in house provides transaction
+                boundaries at the start and end of a pipeline.   This allows us to construct
+                pipelines that execute multiple XQueries, yet have them succeed or fail as one
+                single unit.  This powerful capability is quite welcome in the construction of
+                RESTful services where compound resources are common.</para></section></section><section><title>Binding HTTP Processing to the XML-Centric Implementation </title><para>At this point we’ve seen how an XProc pipeline allows us wire up a set of steps to
+            provide the core implementation of our RESTful services.  The XProc pipeline accepts
+            inputs and returns a multi-part response, including what can be thought of as a body,
+            headers and error/status information.  What remains is how an XProc pipeline is bound to
+            the Java classes we’ve created for each of our resources, as well as how to bind
+            portions of the HTTP request/response to the pipeline inputs/outputs.</para><para>To bind an XProc pipeline to a resource (Java) method we inject the XProc pipeline
+            into the method via a Spring configuration.  Each method in the Java class will have an
+            XMLProcessingContext object associated with it, which encapsulates the pipeline as well
+            as any design time bindings to the pipeline.  To understand why design time bindings are
+            valuable, consider that the pipeline for most GET operations will be very similar; an
+            XQuery will be used to obtain XML from the database and an XSLT will be applied to those
+            results.  The only thing that differs from one GET operation to another is the specific
+            XQuery and the specific XSLT stylesheet; hence, we will parameterize a single GET
+            pipeline with those values and reuse that pipeline over many resource implementations. 
+            The following excerpt from a Spring configuration file shows the injection of XQueries
+            and XSLTs into the XMLProcessingContext for the createSubmissionSet operation, and the
+            injection of that XMLProcessingContext into the resource
+            class.<programlisting xml:space="preserve">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;beans xmlns="http://www.springframework.org/schema/beans"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xs="http://www.w3.org/2001/XMLSchema"
+    xmlns:context="http://www.springframework.org/schema/context"
+    xsi:schemaLocation="http://www.springframework.org/schema/beans 
+                        http://www.springframework.org/schema/beans/spring-beans.xsd
+                        http://www.springframework.org/schema/context
+                        http://www.springframework.org/schema/context/spring-context-3.0.xsd"&gt;
+
+    &lt;!-- other bean definitions omitted for brevity --&gt;
+
+    &lt;!-- Patients and Patient Resource --&gt;
+    &lt;bean id="Patients" class="com.emc.cto.healthcare.SubmissionSets"&gt;
+        &lt;property name="addSubmissionSet" ref="addSubmissionSetXMLProcessingContext" /&gt;
+    &lt;/bean&gt;
+
+    &lt;bean id="addSubmissionSetXMLProcessingContext" class="com.emc.cto.xproc.XProcXMLProcessingContext"&gt;
+        &lt;property name="xprocPool" ref="xprocPool" /&gt;
+        &lt;property name="pipelineSource"&gt;&lt;value&gt;classpath:xqueryXsltUuid.xpl&lt;/value&gt;&lt;/property&gt;
+        &lt;property name="inputs"&gt;
+            &lt;map&gt;
+                &lt;entry key="xqueryscript" value="classpath:registerObjectsMinimal.xq" /&gt;
+                &lt;entry key="stylesheet" value="classpath:hyperlinksSubmissionSet.xslt" /&gt;
+            &lt;/map&gt;
+        &lt;/property&gt;
+        &lt;property name="options"&gt;&lt;map/&gt;&lt;/property&gt;
+        &lt;property name="parameters"&gt;&lt;map/&gt;&lt;/property&gt;
+    &lt;/bean&gt;
+
+&lt;/beans&gt;</programlisting></para><para>Finally, we must bind additional XProc parameters at run time, using the Java-based
+            framework to access parts of the HTTP request and supplying those values to the pipeline
+            in the Java method.  Following the execution of the pipeline the results are mapped back
+            to the HTTP response.  This is done by our framework in a Spring MVC view that knows how
+            to convert the multi-part pipeline output into an HTTP response; this relieves the
+            services developer of these concerns.  The following code shows the full implementation
+            of the method corresponding to the POST operation on the submission sets
+            resource.<programlisting xml:space="preserve">@RequestMapping(method = RequestMethod.POST)
+@ResponseStatus(HttpStatus.CREATED)
+public String addPatient(HttpServletRequest request, 
+                         HttpServletResponse response, 
+                         Model model) throws XProcException, IOException, URISyntaxException, TransformerException {
+    try {
+        PipelineInputCache pi = new PipelineInputCache();
+
+        // supply http body as the source for the resource Create pipeline
+        pi.setInputPort("source", request.getInputStream());
+            
+        // supply current resource URL as the base URL to craft hyperlinks
+        String baseUrl = request.getRequestURL().toString();
+        if (baseUrl.endsWith("/"))
+            baseUrl = baseUrl.substring(0, baseUrl.length()-2);
+        pi.addParameter("stylesheetParameters", new QName("baseURL"), baseUrl);
+
+        PipelineOutput output = m_addSubmissionSet.executeOn(pi);
+
+        model.addAttribute("pipelineOutput", output);
+        return "pipelineOutput";
+    } finally {
+        ; 
+    }
+}</programlisting></para></section><section><title>Conclusions</title><para>Our experience implementing an XDS Registry using the XML REST Framework shows that
+            the XML Technology stack not only provides capabilities adequate for implementation of
+            sophisticated RESTful web services, but also results in an elegant solution that is
+            arguably easier to construct and maintain than a purely Java-based counterpart. We have
+            not done any quantitative analysis comparing developer productivity between the two
+            approaches, or comparing the use of our framework to other XRX-based approaches, however
+            we do have some anecdotal evidence that supports this claim. In one instance, a
+            development team was able to complete the work for two project sprints within the time
+            frame of a single sprint; they credited the XML-centric approach to RESTful services
+            construction for that acceleration. Some work has been done by Syntactica to quantify
+            the productivity gains of an XRX-based approach <xref linkend="XRXVal"/>.  </para><para>While there is clearly some overlap between the capabilities in XQuery, XSLT and
+            XProc, there is a clean mapping from requirements on RESTful services to the tools that
+            best address them.  Limiting an XQuery to interactions with the database results in
+            queries that are simple to write and unit test, and effectively encapsulates the logic
+            that creates application model objects (XML structures). The controller portion of our
+            implementation is implemented with XProc pipelines and XSLT stylesheets.  With its
+            mechanism for identifying insertion points, and a powerful language for expressing what
+            should be inserted, XSLT is ideally suited to perform hyperlink insertion.  It is also
+            the de facto standard for doing XML to XML<footnote><para>Note that JSON resource representations are increasingly popular.  The
+                    approach we describe in this paper does not preclude such representations and
+                    XSLT is also an excellent choice for XML to JSON transformations.</para></footnote> transformations.  The new XProc standard which defines a high level language
+            for wiring together a set of XML-centric steps, provides a means for addressing many of
+            the requirements presented by RESTful services: implementations of compound resources, a
+            multi-part data model and a large set of out of the box XML processing steps.</para><para>One of the most significant, positive results of our work has been that with the
+                availability of our XML REST Framework we have enabled developers to more readily
+                understand the important elements of RESTful services.  Rather than simply providing
+                guidance in the form of a reference architecture, providing a set of tools and
+                samples along with that guidance has proven very effective.</para><section><title>Limitations</title><para>We have employed our XML REST Framework in several projects within EMC with a good
+                deal of success.  The biggest barrier, however, continues to be a reluctance by
+                developers to embrace XML as the development model.  The XML-based approach that we
+                espouse in this paper, while quite powerful, still suffers from a lack of tooling and,
+                even more importantly, a learning curve issue.  Most developers are quite familiar with
+                Java programming approaches, IDEs, testing frameworks, and so on, and have limited
+                experience with the XQuery and XSLT.  Most have never heard of XProc.  While the XProc
+                processing model is powerful and conceptually allows pipelines to be easily expressed,
+                the syntax is unwieldy and will turn most developers completely off.  It would behoove
+                us in the XML community to address these issues to expand the utilization of XML
+                technologies in such development scenarios.</para><para>One of the things we have found most useful in this XML-centric approach to RESTful
+                service construction is the use of XProc to operate on compound resources.  We noted in
+                a section above that the XProc implementation we are using in our work creates
+                transaction boundaries at the beginning and end of a pipeline.  This feature does not
+                exist in all XProc engines, limiting the generality of the approach we describe
+                here.</para></section><section><title>Future Work</title><para>Our work in this area continues.  We are exploring the use of XProc as the core engine in
+                the View portion of a Spring MVC implementation.  We are exploring the use of finite
+                state machines (FSM) to model application flows and are building an engine that
+                interprets these FSMs, inserting hyperlinks in the resource representations. We are also
+                investigating how other elements of RESTful service implementations (such as feed paging
+                and eTag <xref linkend="eTags"/> support) can be integrated into the framework so as to
+                continue lessening the load on the services developer.</para></section><section><title/><para>The XML REST Framework is available, along with a sample application, from the EMC
+        Developer Network <xref linkend="XMLRESTFW"/>.  The distribution includes
+        all source code.</para></section></section><bibliography><title>Bibliography</title><bibliomixed xml:id="XRX" xreflabel="XRX">McCreary, Dan. XRX: Simple, Elegant, Disruptive. May 2008. <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.oreillynet.com/xml/blog/2008/05/xrx_a_simple_elegant_disruptiv_1.html</link>.</bibliomixed><bibliomixed xml:id="XForms" xreflabel="XForms">Boyer, John M., XForms 1.1. October 2009.  <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/xforms11/</link>.</bibliomixed><bibliomixed xml:id="XQuery" xreflabel="XQuery">Boag, Scott, et. al.  XQuery 1.0: An XML Query Language (Second Edition). December 2010. <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/xquery/</link>.</bibliomixed><bibliomixed xml:id="XSLT" xreflabel="XSLT">Kay, Michael. XSL Transforamtions (XSLT) Version 2.0. January 2007. <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/xslt20/</link>.</bibliomixed><bibliomixed xml:id="Atom" xreflabel="Atom">Nottingham, M. and R. Sayre. The Atom Syndication Format. December 2005. <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://tools.ietf.org/html/rfc4287</link>.</bibliomixed><bibliomixed xml:id="XProc" xreflabel="XProc">Walsh, Norman, Alex Milowski and Henry S. Tompson. XProc: An XML Pipeline Language. May 2010. <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/TR/xproc/</link>.</bibliomixed><bibliomixed xml:id="IHEConnect" xreflabel="IHEConnect">IHE Connectathon. <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.ihe.net/Connectathon/</link>.</bibliomixed><bibliomixed xml:id="IHEXDS" xreflabel="IHEXDS">IHE Cross Enterprise Document Sharing (XDS). <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.ihe.net/Profiles/index.cfm#IT</link>.</bibliomixed><bibliomixed xml:id="Spring" xreflabel="Spring">Johnson, R., et. al.  Spring Framework Reference Documentation 3.0. 2004-2010.  <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://static.springsource.org/spring/docs/3.0.x/spring-framework-reference/html/</link>.</bibliomixed><bibliomixed xml:id="Wilde" xreflabel="Wilde">Wilde, Erik.  XML-Centric Application Development. February 2006. <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://dret.net/netdret/docs/wilde-tikrep242.pdf</link>.</bibliomixed><bibliomixed xml:id="IHE" xreflabel="IHE">Integrating the Healthcare Enterprise Technical Frameworks. <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.ihe.net/Technical_Framework/</link>.</bibliomixed><bibliomixed xml:id="REST" xreflabel="IHE">Fielding, Roy Thomas, Architectural Styles and the Design of Network-based Software Architectures. 2000. <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.ics.uci.edu/~fielding/pubs/dissertation/top.htm</link>.</bibliomixed><bibliomixed xml:id="Servlex" xreflabel="Servlex">Servlex: an implementation of the EXPath Webapps framework<link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://code.google.com/p/servlex/</link>.</bibliomixed><bibliomixed xml:id="XPWebapp" xreflabel="EXPath Webapp">EXPath Webapp. <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://expath.org/wiki/Webapp</link>.</bibliomixed><bibliomixed xml:id="MVC" xreflabel="Spring MVC">Haines, Steven. Mastering Spring MVC. April 2009. <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.javaworld.com/javaworld/jw-04-2009/jw-04-springmvc.html</link>.</bibliomixed><bibliomixed xml:id="CXF" xreflabel="Apache CXF">Apache CXF: An Open Source Services Framework. <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://cxf.apache.org/</link>.</bibliomixed><bibliomixed xml:id="Jersey" xreflabel="Jersey">Glassfish: Jersey.  <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://jersey.java.net/</link>.</bibliomixed><bibliomixed xml:id="Hypermedia" xreflabel="Hypermedia Constraint">Fielding, Roy. REST APIs must be hypertext-driven.  Blog post, October 2008. <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://roy.gbiv.com/untangled/2008/rest-apis-must-be-hypertext-driven</link>.</bibliomixed><bibliomixed xml:id="eTags" xreflabel="eTags">Hypertext Transfer Protocol -- HTTP/1.1 - ETag Section.  June 1999. <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.19</link>.</bibliomixed><bibliomixed xml:id="XRXVal" xreflabel="XRX Value">Syntactica Solutions for XRX Developers. <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">http://www.syntactica.com/solutions/xrx.xq</link>.</bibliomixed><bibliomixed xml:id="XMLRESTFW" xreflabel="XMLRESTFW">Davis, Cornelia, XML REST Framework: Spring MVC and XProc. <link xlink:type="simple" xlink:show="new" xlink:actuate="onRequest">https://community.emc.com/docs/DOC-10494</link>.</bibliomixed></bibliography></article>

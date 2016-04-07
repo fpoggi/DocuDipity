@@ -1,0 +1,577 @@
+<?xml version="1.0" encoding="UTF-8"?><article xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink" version="5.0-subset Balisage-1.3"><title>Leveraging XML Technology for Web Applications</title><info><confgroup><conftitle>Balisage: The Markup Conference 2012</conftitle><confdates>August 7 - 10, 2012</confdates></confgroup><abstract><para>As eBooks evolve into interactive applications, our vision at Electronic Publishing
+            Group (EPT) is to empower authors to write and deploy not only documents and eBooks but
+            whole Web applications using widely available tools without system lock-in. We envision
+            XML technology as open, accessible, well supported technology to be leveraged for Web
+            applications: Information is represented and manipulated with XML technology. Data and
+            programs are deployed on a Web server, stored in an XML database, run by XML processors
+            (XSLT, XQuery, XProc) and accessed from XML-aware Web clients (XForms) via the HTTP
+            protocol.</para><para>We document a calendar system, CalendarX, as a case study. We illustrate our use of
+            XML technology and the methodology we employed, drawing on ideas from Domain-Driven
+            Design and Abstract State Machines.</para></abstract><author><personname><firstname>Anne</firstname><surname>Brüggemann-Klein</surname></personname><personblurb><para/></personblurb><affiliation><orgname>Fakultät für Informatik, Technische Universität München</orgname></affiliation></author><author><personname><firstname>Jose Tomas</firstname><surname>Robles Hahn</surname></personname><personblurb><para/></personblurb><affiliation><orgname>Fakultät für Informatik, Technische Universität München</orgname></affiliation></author><author><personname><firstname>Marouane</firstname><surname>Sayih</surname></personname><personblurb><para/></personblurb><affiliation><orgname>Fakultät für Informatik, Technische Universität München</orgname></affiliation></author><legalnotice><para>Copyright © 2012 by the authors. Used with permission.</para></legalnotice></info><section xml:id="sec.Introduction"><title>Introduction</title><para>As eBooks evolve into interactive applications, our vision at Electronic Publishing
+         Group (EPT) is to empower authors to write and deploy not only documents and eBooks but
+         whole Web applications using widely available tools without system lock-in. Our work brings
+         ideas of end-user development [<xref linkend="FloydParadigmChange"/>] [<xref linkend="EndUserDevelopmentManifesto"/> ] to the area of Web applications. </para><para>XML technology is our technology of choice. Historically, the nature of the entities
+         that are encoded with XML and related standards (XML Namespaces, XLink, XML Schema, RDF,
+         Docbook, MathML, ePUB, XML syntaxes of HTML including HTML5) has evolved over time.
+         Originally, XML encoding was applied to textual documents to support single-source,
+         cross-media publishing. Then textual documents expanded their scope, to act as databases
+         that can be semantically processed, and data collections were represented as (collections
+         of) documents, to be queried or data mined. Finally, we also have snippets of data encoded
+         with XML technology, to configure applications or to exchange messages between
+         systems</para><para>Together with the nature of the entities to be encoded in XML and related languages,
+         further XML technologies evolved that support these entities and their use cases: CSS, XSL
+         with XSLT and XSL-FO, XQuery, XForms, XProc.</para><para>We intend to leverage XML technology for Web applications, looking for a methodology
+         that lets domain experts be involved into the software development process from start to
+         finish, even empowers them to do their own software development. We envision XML technology
+         as open, accessible, well supported technology to be leveraged for Web applications:
+         Information is represented and manipulated with XML technology. Data and programs are
+         deployed on a Web server, stored in an XML database, run by XML processors (XSLT, XQuery,
+         XProc) and accessed from XML-aware Web clients (XForms) via the HTTP protocol.</para><para>The required XML technology, such as XML processors and systems to support the various
+         XML languages, is in place and accessible to end users. The XRX architecture provides a
+         point of reference, how to make use of standard Web servers, Web browsers and the HTTP
+         protocol as the plattform on which to run components of XML-based Web applications without
+         system locck-in.</para><para>It has been argued by Baumann [<xref linkend="BaumanBalisage2009"/>], among others,
+         that XML technology is implementation technology. Hence, the missing pieces, as far as we
+         can see, are methodology, reference architectures, proven practices, case studies. That is
+         the topic of this paper.</para><para>By way of methodology, we draw on the principles of Domain-Driven Design [<xref linkend="EvansDDD"/>] and Domain-Specific Languages  [<xref linkend="FowlerDSLs"/>]
+         to empower domain experts to develop Web applications. For requirement specification and
+         design, we adapt Abstract State Machines (ASMs) [<xref linkend="ASMBook"/>] that are
+         refined into XML code.</para><para>We illustrate our methodology with a case study, a calendar system that we call
+         CalendarX. Robles Hahn [<xref linkend="RoblesHahnBTh"/>] designed and implemented a
+         calendar system with XML technology using principles of Domain-Driven Design and employing
+         Domain-Specific Languages. In this paper, we propose an extended methodology that is based
+         on Abstract State Machines (ASMs): We formally describe requirement specification and
+         design by a so-called ASM ground model. We envision use the ASM concept of refinement to
+         derive an implementation in terms of XML technology.</para><para>This paper is organized into six further sections. First, we briefly discuss the
+         application CalendarX with which we demonstrate our methodology. Then we introduce the main
+         building blocks of our methodology, namely Domain-Driven Design, Abstract State Machines
+         and XML technology. Finally, we discuss the CalendarX domain model, its formal
+         specification as an ASM ground model and the CalendarX implementation. We finish with
+         conclusions and discussion of further work.</para></section><section xml:id="sec.CalendarXIntro"><title>CalendarX: Motivation and Description</title><para>We illustrate our approach with a small case study or feasibility study, the calendar
+         system CalendarX. We demonstrate how to leverage XML technology for Web applications while
+         working towards a methodology that lets domain experts be involved into the software
+         development process from start to finish, even empowers them to do their own software
+         development.</para><para>One may well question our choice of domain, arguing that anybody is a domain expert in
+         calendars. That is precisely our reason for choosing this domain: Since this study started
+         out as students' work in a lab course and a thesis, there were no independent, external
+         domain experts. Students and supervisors had to be able to fill in the roles of domain
+         experts and software developers. We feel that we can demonstrate the value of Domain-Driven
+         Design nevertheless.</para><para>Furthermore, we have found from personal experience that migrating from one calendar
+         system to another is troublesome when access to the calendar data is mitigated by software.
+         Hence, we have found it worth our while to design and implement a calendar system that
+         exposes its data in XML format, applying lessons learnt in the field of document
+         processing.</para><para>As to the specific data model, the first author has always found the limitations of
+         existing calendar systems irritating. Hence, we have taken the chance to add a few special
+         requirements for CalendarX [<xref linkend="RoblesHahnBTh"/>]. Foremost, we require
+         CalendarX to support a rich domain model, going beyond state-of-the-art calendar systems
+         such as Microsoft Outlook or Google Calendar and calendar languages such as
+            iCalendar [<xref linkend="iCalendar"/>] and xCal [<xref linkend="xCal"/>].</para><para><emphasis role="bold">Rich event model</emphasis> CalendarX is capable of expressing a
+         relationship between events that do not follow a single repetition pattern. For example, an
+         event that takes place on a Monday from 10 to 11 am and on a Wednesday from 2 to 4 pm can
+         be represented as a single event, that holds information common to both instances, such as
+         event description, category and location.</para><para><emphasis role="bold">Rich recurrence pattern model</emphasis> CalendarX supports the
+         usual recurrence patterns, but also combinations of patterns, including exception patterns.
+         For example, we can specify that an event recurs every first Monday and every third Tuesday
+         of the month, but not during school holidays.</para><para>To summarize, we consider CalendarX a good case study and we have taken the chance to
+         design and implement a calendar system with extended functionality that we personally wish
+         to use.</para></section><section xml:id="sec.Methodologies"><title>Methodology and Technology</title><section xml:id="subSec.DDD"><title>Domain-Driven Design and Domain-Specific Languages</title><para>Domain-Driven Design (DDD) [<xref linkend="EvansDDD"/>] is a design philosophy
+            originally aimed at dealing with complex software projects. Primary focus is on the
+            concepts and the functionality of the domain of the software; that is, the subject area
+            to which the user applies the program. Concepts and functionality are captured in a
+            model; that is, a rigorously organized and selective abstraction of the subset of domain
+            knowledge that is relevant to the software.</para><para>One of the key points of DDD is ubiquitious language: Domain experts and software
+            engineers use a common core subset of the domain language for communication, model
+               <emphasis role="ital">and</emphasis> implementation, thus intimately connecting these
+            two concerns.</para><para>DDD extends a design methodology that was propagated in the 1980s: Participatory
+               Design [<xref linkend="FloydParadigmChange"/>] [<xref linkend="PDPrinciplesPractice"/>]. It does not only involve domain experts in
+            requirement elicitation and system design but lets the domain model drive the whole
+            software development process, up to the point that the implementation
+            “becomes” the model. DDD enables domain experts to become more deeply
+            involved into the software development process and eventually to develop their own
+            software.</para><para>Domain-Specific Languages (DSLs) are programming or descriptional languages of
+            limited expressiveness that target a specific domain. In the context of XML technology,
+            schema-constrained sets of documents form DSLs that work particularly well within a DDD
+            design philosophy, since their semantics are embodied in the domain model and their
+            syntax can be derived from the domain model [<xref linkend="EPTatEML2007"/>].</para></section><section xml:id="subSec.ASMs"><title>Abstract State Machines</title><para>The DDD design philosophy is open with respect to mechanisms with which to express
+            the domain model and the connections to system articfacts. We wish for a more formal,
+            precise specification of the domain model and the linking between the domain model and
+            the implementation that is able to let the domain model shine through, in the spirit of
+            DDD. Our methodology for these issues is inspired by Abstract State Machines
+               (ASMs) [<xref linkend="ASMBook"/>]. ASMs are suited because of their notational
+            flexibility, formal semantics, low protocol overhead and concept of step-wise refinement
+            for linking levels of abstraction from high-level specification to low-level
+            implementation.</para><para>ASMs are best described as abstract software systems (machines) written in pseudo
+            code that operate on abstract data (state). ASMs are homogeneously used to formally
+            represent artifacts on all levels of software development, from requirements (ground
+            model) to implementation. The ASMs of the different levels are linked by so-called
+            refinement steps.</para><para>The notion of abstract data and a pseudo code operational model make ASMs a natural
+            tool for domain experts. Their precise semantics and notion of refinement make ASMs a
+            great tool for formal specification of software systems and their development process
+            that works well within the DDD design philosophy.</para></section><section xml:id="subSec.ImplementationTechnology"><title>Implementation Technology</title><para>We employ a basic set of XML technologies to implement CalendarX: XML for
+            representing data, XML Schema for constraining data, XQuery for querying and processing
+            data, and XForms embedded into XHTML with CSS for the user interface.</para><para>We build Web applications from these technologies using the XRX architectural style,
+            based on XForms on the client, RESTful communication and XQuery on the
+               server. [<xref linkend="XRXIntro"/>] [<xref linkend="XRXExplained"/>]. The
+            greatest advantage of XRX lies in the use of a single data model (XML) on the server and
+            on the client, eliminating the translation complexity of other architectures (<emphasis role="bold">zero translation</emphasis>). Other benefits of the XRX architecture
+            include:</para><itemizedlist><listitem><para>XML technology everywhere: The zero-translation architecture enables the use of
+                  XML technologies throughout the application. XML technologies suffice for all
+                  programming tasks on the client and on the server.</para></listitem><listitem><para>Declarative language on the client: The effort required to implement the client
+                  user interface is greatly reduced thanks to the declarative nature of XForms. The
+                  developer does not have to spend time programming complex scripts for user
+                  interface widgets and input validation. XForms just needs to be told what
+                  functionality is desired and the XForms engine will deal with buttons, text boxes,
+                  getting data to and from the server, and so on.</para></listitem><listitem><para>Separation of concers: The XRX architecture encourages separation of concerns
+                  in multiple ways. On the client, XForms keeps the user interface code separate
+                  from the data model. The REST interface keeps the server separate from the client,
+                  as both communicate with each other only through the interface.</para></listitem></itemizedlist><para>The use of XML in all layers of a Web application makes use of the full potential of
+            the XML family of technologies.</para><para>We deploy CalendarX on a software platform that consists of the following
+            components:</para><itemizedlist><listitem><para>Orbeon XForms processor: It runs within an Apache Tomcat Server and compiles
+                  XForms documents into XHTML and Javascript code that can be handled by any modern
+                  browser. We have tested it with Firefox and Chrome.</para></listitem><listitem><para>eXist XML database with XQuery support, running also within Tomcat.</para></listitem><listitem><para>Communication between these components and the browser via a REST
+                  protocol.</para></listitem></itemizedlist><para>All CalendarX code is XML technology (XML, XML Schema, XForms, XHTML, and XQuery)
+            that is linked to the domain model with ASM methods. No Web application frameworks,
+            other object representations or programming languages are used. The CalendarX code
+            truely expresses the domain model.</para></section></section><section xml:id="sec.CalenderXDomainModel"><title>The CalendarX Domain Model</title><section xml:id="subSec.CalendarXConceptualModel"><title>Modeling the calendar data</title><para>We start modeling CalendarX with concepts in the calendar domain that need to be
+            represented as data in the system, and their relations.</para><para>Our first stab at a conceptual model is a UML class diagram that captures calendar
+            concepts, as pictured in <xref linkend="fig.CMinUML"/>.</para><figure xml:id="fig.CMinUML"><title>Modeling calendar concepts</title><mediaobject><imageobject><imagedata width="15cm" format="png" fileref="../../../vol8/graphics/Bruggemann-Klein01/Bruggemann-Klein01-001.png"/></imageobject></mediaobject></figure><para>CalendarX has a top-level concept, <code>CalendarX</code>. A <code>CalendarX</code>
+            object contains collections of <code>Calendar</code>, <code>User</code>,
+               <code>Pattern</code>, <code>Location</code> and <code>Contact</code> objects that
+            participate in relationships as indicated in the conceptual model.</para><para>In order to satisfy the richness requirements, the CalendarX conceptual model
+            features a novel kind of concept that is not present in other calendar models:
+               <code>SuperEvent</code>. A <code>SuperEvent</code> object defines a potentially
+            infinite series of <code>Event</code> objects via recurrence patterns. More precisely,
+            the series of <code>Event</code> objects is generated on demand from
+               <code>EventRule</code> objects, with each <code>EventRule</code> object being related
+            to a <code>Pattern</code> object. The <code>Pattern</code> object defines a set of dates
+            for <code>Event</code> objects, while the associated <code>EventRule</code> object
+            defines common attribute settings that are shared by the <code>Event</code> objects
+            generated by the <code>EventRule</code> object, such as <code>startTime</code>,
+               <code>endTime</code> or <code>location</code>. A <code>SuperEvent</code> object may
+            contain several <code>EventRule</code> objects, one for each combination of attribute
+            settings that need to be represented.</para><para>The UML class diagram leaves room for interpretation regarding relationships between
+            concepts. Hence, a few words to clarify our intentions: Associations (simple line
+            symbols) carry explicit navigational arrows, specifying which objects in a relationship
+            should be accessible from other objects. Further types of relationships are composition
+            (“owns-a”, closed diamond symbol) and aggregation (“has-a”,
+            open-diamond symbol). We require that composition relationships can be navigated in both
+            directions, aggregation relationships just in one. The star occurrence operator always
+            indicates unordered collections in our diagram.</para><para>In earlier work [<xref linkend="EPTatEML2007"/>][<xref linkend="EPTatBalisage2009"/>] we have discussed how to translate the constraints of
+            a UML class diagram into XML Schema so that related objects that instantiate the class
+            diagram correspond exactly to instances of the schema, as illustrated in <xref linkend="fig.UML2SchemaDiagram"/>:</para><figure xml:id="fig.UML2SchemaDiagram"><title>Correspondence between UML class diagram and XML Schema</title><mediaobject><imageobject><imagedata width="15cm" format="png" fileref="../../../vol8/graphics/Bruggemann-Klein01/Bruggemann-Klein01-002.png"/></imageobject></mediaobject></figure><para>We have extended this method of translation by ensuring referential integrity of
+            relationships with XML Schema key constraints. More importantly, following ideas
+            presented in earlier work [<xref linkend="EPTatBalisage2010"/>], we are developing
+            a meta model for the subset of XML Schema that we need, including a formal ASM
+            specification of its validation rules and a DSL for representing the instances as XML
+               documents [<xref linkend="EPTGoldenBraidXMLT"/>]. The resulting XML Schema for
+            CalendarX and an instance document are referenced in the supporting-materials
+            section.</para><para>The XML Schema incorporates the principles of DDD. It is a direct representation of
+            the calendar data model, as part of the CalendarX domain model.</para><para>This finalizes the modeling of calendar data as part of the CalendarX domain
+            model.</para></section><section xml:id="subSec.CalendarXUI"><title>Modeling CalendarX Functionality and User Interface</title><para>Our starting point for modeling the dynamics of CalendarX is the user interface. We
+            model the views and activities that are available from the views. We continue to use
+            class diagrams, now including methods, as a first modeling language.</para><section><title>Views</title><para>CalendarX is accessed via a number of pages or screens that offer information and
+               choices of interaction.</para><para>The four main pages are <code>DayView</code>, <code>WeekView</code>,
+                  <code>MonthView</code> and <code>RangeView</code>. These four view pages display a
+               calendar's event data for a specific date, for the seven consecutive dates starting
+               from a specific date, for a specific month in a specific year and for an arbitrary
+               range of dates, respectively. Note that we leave open the start date for a week
+               (often Monday or Sunday) at this point; we leave details such as these for further
+               refinement of the domain model. Pages <code>DayView</code>, <code>WeekView</code> and
+                  <code>MonthView</code> are specific cases of <code>RangeView</code>. Page
+                  <code>RangeView</code> references the (finitely many) <code>Event</code> objects
+               that are to be displayed by a specific view.</para><para>Note that we describe the information that is needed to build the page and the
+               information that is displayed on a page in a purely logical form for now. Questions
+               of layout and methods of interaction are left to further stages of refinement.</para><para>In addition to the view pages, the full version of CalendarX has <code>Edit</code>
+               pages that are capable of displaying calendar data and their relations for editing
+               purposes. We leave modeling of <code>Edit</code> pages to future refinements.
+               Questions of data representation will be addressed below.</para><para>We abstract page <code>RangeView</code> and indirectly the other view pages to an
+               abstract page <code>View</code> that holds information and offers choices of
+               interaction that are common to all view pages of CalendarX: A <code>View</code>
+               object provides a status message and holds information about the current calendar,
+               date info and further filter info. The date info is a combination
+                  <code>dateInfo</code> of day, month and year information that may be partial but
+               must be consistent; it is used as potentially partial information to compute specific
+               date info for specific types of view. The filter info <code>filterInfo</code>
+               constrains the events that are to be displayed, for example according to category or
+               venue.</para><para>Questions of authentification and authorization are left to further refinements of
+               the domain model.</para><para>Hence, we need to extend our conceptual model with page types, as demonstrated in
+                  <xref linkend="fig.CMPages"/>.</para><figure xml:id="fig.CMPages"><title>Modeling pages</title><mediaobject><imageobject><imagedata width="15cm" format="png" fileref="../../../vol8/graphics/Bruggemann-Klein01/Bruggemann-Klein01-003.png"/></imageobject></mediaobject></figure></section><section><title>Interaction</title><para>The state of the system CalendarX comprises an object <code>currentPage</code> of
+               type <code>View</code>, carrying page-specific information as indicated above. A
+                  <code>Page</code> object offers user selections: the next page type to be visited
+               and which <code>calendar</code>, <code>dateInfo</code> and <code>filterInfo</code>
+               values to use for the next page. These choices are stored in global attributes that
+               we name <code>nextPage</code>, <code>nextCalendar</code>, <code>nextDateInfo</code>
+               and <code>nextFilterInfo</code>.</para><para>Hence, we envision CalendarX to move, under user control, between control states
+               that we label <code>dayView</code>, <code>weekView</code>, <code>monthView</code>,
+                  <code>rangeView</code> and <code>view</code>, according to the page types; we also
+               have states <code>start</code> and <code>quit</code>. The choice of state is stored
+               in <code>nextPage</code>.</para><para>When CalendarX enters the control state that is indicated by the current value of
+                  <code>nextPage</code>, information items <code>nextCalendar</code>,
+                  <code>nextDateInfo</code> and <code>nextFilterInfo</code> are also available.
+               CalendarX uses this information to create a new <code>View</code> object of
+               appropriate type, setting view attributes, computing specific date information from
+                  <code>nextDateInfo</code>, and computing specific <code>Event</code> objects from
+               date information, <code>nextCalendar</code> and <code>nextFilterInfo</code>. It also
+               computes a status message.</para><para>The system assigns the newly constructed page to <code>currentPage</code>,
+               displays that page and awaits user input for user selections, which are initialized
+               with their current values.</para><para>The user enters data and signals completion of selection, and the system responds
+               with a new iteration. Alternatively, the user may signal the intention to exit the
+               system by setting <code>nextPage</code> to <code>quit</code>, prompting CalendarX to
+               quit operation.</para><para>Creating view pages involves computing the associated events. For example, the
+               method <code>events()</code> for <code>DayView</code> uses the <code>date</code>
+               attribute of type <code>Date</code>, the <code>calendar</code> attribute of type
+                  <code>Calendar</code> and the <code>filterInfo</code> of type
+                  <code>FilterInfo</code> of the object that it operates on. It calls a method
+                  <code>getEventsForDay(date: Date): Event*</code> on <code>Calendar</code> object
+                  <code>calendar</code>, filters them according to <code>filterInfo</code> and
+               returns the result. The methods <code>events()</code> for <code>WeekView</code>,
+                  <code>MonthView</code> and <code>RangeView</code> delegate to
+                  <code>events()</code> for <code>DayView</code>, calling it repeatedly for each
+                  <code>Date</code> that is returned by general methods
+                  <code>datesForWeek(startDate:Date): Date*</code> and
+                  <code>datesForMonth(monthYear:MonthYear): Date*</code>, gathering the filtered
+               return values of these calls into the result sequence of <code>Event</code>
+               objects.</para><para>Getting the events for the week that starts at <code>firstDay</code> for
+                  <code>Calendar</code> object <code>c</code> filtered by <code>filterInfo</code> of
+               type <code>FilterInfo</code> entails the following steps:</para><itemizedlist><listitem><para>Look for all <code>SuperEvent</code> objects <code>se</code> that are part
+                     of <code>c</code>.</para></listitem><listitem><para>Compute all days <code>d</code> in the week that starts at
+                        <code>firstDay</code>.</para></listitem><listitem><para>For each of these <code>se</code> objects apply
+                        <code>getEventsForWeek(d)</code>.</para></listitem><listitem><para>Filter the union of all the resulting sets of events according to
+                        <code>filterInfo</code>.</para></listitem><listitem><para>Return the result.</para></listitem></itemizedlist><para>If we complete this specification, we notice that we need a method
+                  <code>matches(date:Date)</code> for <code>Pattern</code> that tests if a
+                  <code>Pattern</code> object covers <code>date</code>.</para><para>We list below the methods that we have mentioned above, grouped by types:</para><itemizedlist><listitem><para><code>DayView</code></para><itemizedlist><listitem><para>Constructor <code>DayView(c: Calendar, dI: DateInfo, fI:
+                              FilterInfo)</code></para></listitem><listitem><para><code>setDate()</code></para></listitem><listitem><para><code>events(): Event*</code></para></listitem></itemizedlist></listitem><listitem><para><code>WeekView</code></para><itemizedlist><listitem><para>Constructor <code>WeekView(c: Calendar, dI: DateInfo, fI:
+                              FilterInfo)</code></para></listitem><listitem><para><code>setFirstDate()</code></para></listitem><listitem><para><code>events(): Event*</code></para></listitem></itemizedlist></listitem><listitem><para><code>MonthView</code></para><itemizedlist><listitem><para>Constructor <code>MonthView(c: Calendar, dI: DateInfo, fI:
+                              FilterInfo)</code></para></listitem><listitem><para><code>setMonthYear()</code></para></listitem><listitem><para><code>events(): Event*</code></para></listitem></itemizedlist></listitem><listitem><para><code>RangeView</code></para><itemizedlist><listitem><para>Constructor <code>RangeView(c: Calendar, dI: DateInfo, fI:
+                              FilterInfo)</code></para></listitem><listitem><para><code>setFirstDate()</code></para></listitem><listitem><para><code>setLastDate()</code></para></listitem><listitem><para><code>events(): Event*</code></para></listitem></itemizedlist></listitem><listitem><para><code>View</code></para><itemizedlist><listitem><para>Constructor <code>View(c: Calendar, dI: DateInfo, fI:
+                              FilterInfo)</code></para></listitem><listitem><para><code>setStatusMessage()</code></para></listitem></itemizedlist></listitem><listitem><para><code>Calendar</code>, <code>SuperEvent</code>,
+                     <code>EventRule</code></para><itemizedlist><listitem><para><code>getEventsForDay(date: Date): Event*</code></para></listitem></itemizedlist></listitem><listitem><para><code>Pattern</code></para><itemizedlist><listitem><para><code>matches(date: Date): Boolean</code></para></listitem></itemizedlist></listitem><listitem><para><code>Event</code></para><itemizedlist><listitem><para><code>filter(filterInfo: FilterInfo): P(Event)</code>, where the
+                           returned set of <code>Event</code> objects <code>P(Event)</code> has at
+                           most one element</para></listitem></itemizedlist></listitem><listitem><para>Global</para><itemizedlist><listitem><para><code>datesForWeek(startDate: Date): Date*</code></para></listitem><listitem><para><code>datesForMonth(month: Month, year: Year): Date*</code></para></listitem></itemizedlist></listitem></itemizedlist></section><section><title>Interim summary</title><para>What have we achieved so far? We have created a domain model for CalendarX that
+               captures data and functionality, including abstract user interface, navigation and
+               data access. We are now going to formalize the domain model with the goal of deriving
+               an implementation for CalendarX based on XML technology.</para></section></section></section><section xml:id="sec.ASMGroundModel"><title>Formalizing the CalendarX domain model as an ASM</title><para>We are looking for a methodology that embodies the DDD design philosophy in the target
+         area of Web applications that are solely built with XML technology. We wish to formalize
+         the domain model while keeping to the ubiquitious language that the domain model
+         establishes.</para><para>We have recently become acquainted with the method of Abstract State Machines
+            (ASMs) [<xref linkend="ASMBook"/>] that seems to be highly suitable, as explained
+         above. So we have decided to explore this method for this project.</para><para>ASMs are virtual machines that capture state in the form of algebras. This means that an
+         ASM defines a vocabulary of set and function symbols and that it specifies functions and
+         constraints with the help of algebraic expressions over this vocabulary.</para><para>It is straightforward to translate our conceptual and page models into an algebraic
+         vocabulary with type and identity constraints. For example, we will have set symbols
+            <code>Calendar</code>, <code>SuperEvent</code> and <code>String</code> that denote
+         pairwise disjoint sets. There is a function named <code>Calendar.description</code> with
+         domain <code>Calendar</code> and range <code>String</code>. We use the standard
+         object-oriented notation <code>c.description()</code> for
+            <code>Calendar.description(c)</code>. Setting the value for <code>description</code> at
+         argument <code>c</code> in <code>Calendar</code> as “Anne's private calendar”
+         is achieved by setting <code>c.description()="Anne's private calendar"</code>, using
+         standard object-oriented notation. This is called an update expression in ASM terminology.
+         Updates are used to redefine functions at runtime and so change system state. Of course, we
+         can reuse the function name <code>description</code> for other domains, including
+            <code>SuperEvent</code>, since the sets that represent concepts are considered to be
+         pairwise disjoint as long as they are not related by inheritance. In case of inheritance we
+         employ the object-oriented semantics of overwriting methods and polymorphy.</para><para>The composition relationship between <code>Calendar</code> and <code>SuperEvent</code>
+         is modeled by a function <code>superEvents</code> with domain <code>Calendar</code> and
+         range <code>P(SuperEvent)</code>, the power set of <code>SuperEvent</code>, that is
+         reversible in the following sense: For any <code>SuperEvent</code> object <code>se</code>
+         there is exactly one <code>Calendar</code> object <code>c</code> so that <code>se</code> is
+         in <code>superEvents(c)</code>. With this constraint, <code>superEvents</code> models
+         precisely the composition relation that can be navigated in both directions.</para><para>The full translation of the conceptual and page models into an ASM vocabulary with
+         constraints is referenced in the supporting-materials section. This section also specifies
+         the constructor functions, methods and auxilliary functions that are listed above. These
+         functions are static; that is, they are independent of system state. The ASM methodology
+         considers static functions as part of the initial state and leaves open how and at what
+         level of abstraction they are specified.</para><para>We note already, even before we have specified any changes of state, that the ASM
+         notation is more precise than the UML class diagram notation, which required us to define
+         constraints outside of the diagram that can be covered explicitly by the ASM notation. We
+         will reap the full benefits of ASMs when specifying CalendarX functionality and user
+         interface.</para><para>An ASM program is designated as an initial state. It is a collection of statements of
+         the form</para><blockquote><para><emphasis role="bold">if</emphasis>
+            <emphasis role="ital">condition</emphasis>
+            <emphasis role="bold">then</emphasis>
+            <emphasis role="ital">updates</emphasis></para></blockquote><para>The semantics of such a statement are straightforward: If the Boolean condition
+            <emphasis role="ital">condition</emphasis> is met, then state updates <emphasis role="ital">updates</emphasis> are performed.</para><para>Updates are changes in the ASMs algebra; that is, additions or deletions of elements to
+         or from a set or changes in the definition of a function. For example, if we wish to add a
+         new <code>SuperEvent</code> object <code>se</code> to a Calendar object <code>c</code>, we
+         would redefine <code>c.superEvents()</code> as <code>c.superEvents() ∪ {se}</code>,
+         writing this as an update statement</para><blockquote><para><code>c.superEvents()=c.superEvents() ∪ {se}</code></para></blockquote><para>In ASMs, all updates of all statements whose condition is true are performed
+         simultaneously (or not at all if the update instructions are inconsistens).</para><para>Before the next round of computations is performed, the ASM accepts user input: that is,
+         specifically designated input variables are set from the outside.</para><para>Hence, the modus operandi of an ASM is in repeating phases. The machine starts in the
+         initial state, with input variables set.</para><para>During each phase, it first executes the updates specified that apply in the current
+         state and moves into a new state. Then, second, it accepts changes of the input variables
+         from outside.</para><para>In the CalendarX ASM, we have input states <code>nextPage</code> with potential values
+            <code>start</code>, <code>dayView</code>, <code>weekView</code>, <code>monthView</code>,
+            <code>monthView</code>, <code>view</code> and <code>quit</code> as well as
+            <code>nextCalendar</code> of type <code>Calendar</code>, which must be a calendar in the
+         CalendarX database, <code>nextDateInfo</code> of type <code>PartialDate</code>, and
+            <code>nextFilterInfo</code> of type <code>FilterInfo</code>.</para><para>Each phase of the ASM CalendarX program corresponds to one navigation step from one page
+         to another. The input variable <code>nextPage</code> determines which type of page is to be
+         built. The input variables <code>nextDateInfo</code>, <code>nextCalendar</code> and
+            <code>nextFilterInfo</code> determine from what information it is built.</para><para>This is the CalendarX ASM:</para><blockquote><para><emphasis role="bold">if</emphasis>
+            <code>nextState==start</code>
+            <emphasis role="bold">then</emphasis></para><blockquote><para>
+               <code>currentPage=new View(nextCalendar,nextDateInfo, nextFilterInfo)</code>
+            </para></blockquote><para><emphasis role="bold">if</emphasis>
+            <code>nextState==dayView</code>
+            <emphasis role="bold">then</emphasis></para><blockquote><para>
+               <code>currentPage=new DayView(nextCalendar,nextDateInfo, nextFilterInfo)</code>
+            </para></blockquote><para><emphasis role="bold">if</emphasis>
+            <code>nextState==weekView</code>
+            <emphasis role="bold">then</emphasis></para><blockquote><para>
+               <code>currentPage=new WeekView(nextCalendar,nextDateInfo, nextFilterInfo)</code>
+            </para></blockquote><para><emphasis role="bold">if</emphasis>
+            <code>nextState==monthView</code>
+            <emphasis role="bold">then</emphasis></para><blockquote><para>
+               <code>currentPage=new MonthView(nextCalendar,nextDateInfo, nextFilterInfo)</code>
+            </para></blockquote><para><emphasis role="bold">if</emphasis>
+            <code>nextState==rangeView</code>
+            <emphasis role="bold">then</emphasis></para><blockquote><para>
+               <code>currentPage=new RangeView(nextCalendar,nextDateInfo, nextFilterInfo)</code>
+            </para></blockquote><para><emphasis role="bold">if</emphasis>
+            <code>nextState==quit</code>
+            <emphasis role="bold">then</emphasis></para><blockquote><para> stop operation </para></blockquote></blockquote><para>The CalendarX ASM makes use of static constructor functions <code>new DayView()</code>,
+            <code>new WeekView()</code>, <code>new MonthView()</code>, <code>new RangeView()</code>
+         and <code>new View()</code> that we have already specified.</para><section><title>Interim Summary</title><para>What have we achieved so far? We have created a domain model for CalendarX that
+            captures data and functionality. And we have fully formalized the CalendarX domain model
+            as an Abstract State Machine (ASM) while staying within the realm of the domain
+            language. The result is what in the ASM world is called a ground model, an ASM that
+            formally captures the requirements of a system.</para></section></section><section xml:id="sec.implementation"><title>The CalendarX Implementation</title><para>Robles Hahn as part of his Bachelor Thesis [<xref linkend="RoblesHahnBTh"/>] and a
+         number of groups of students as work in the lab courses “XML Technology” in the
+         academic year 2011/2012 have implemented CalendarX as a Web application, on the basis of a
+         domain model, using only XML technology as indicated above.</para><para>Currently, we are exploring the ASM concept of refinement that derives the
+         implementation in a more systematic way from the specification, in accord with the DDD
+         philosophy. This involves mapping objects to XML represenations, methods to XQuery
+         functions, and function calls and return values to HTTP request and response
+         entities.</para><para>We are going to relate our experiences with this approach in an expanded version of this
+         paper.</para></section><section xml:id="sec.Conclusion"><title>Conclusions and further work</title><itemizedlist><listitem><para>The principle of Domain-Driven Design has been fully validated for this
+               project.</para></listitem><listitem><para>Formal specification and systematic derivation of implementation make building
+               CalendarX straightforward.</para></listitem><listitem><para>The implementations of CalendarX are largely platform independent, as far as XML
+               technology is used. For example, Orbeon Forms and XSLTForms can be used
+               interchangably as XForms processors. However, there are some areas where platform
+               dependencies still exist, particularly in access to HTTP data via eXist extension
+               modules to XQuery. We plan to address these issues with another standardized XML
+               technology, namely XProc. With XProc, we can then also derive in a declarative way
+               the orchestration of server-side functions from the ASM model, replacing some clumsy
+               XQuery functions or Orbeon flowscripts.</para></listitem><listitem><para>ASMs have been useful for clarification but so far not mission-critical. We need
+               to explore them further for step-wise refinement from ground model to implementation.
+            </para></listitem><listitem><para>There is some functionality we want to add: First of all, editing of calendar
+               data, which we expect to be mostly an XForms challenge. Next, printing of calendar
+               data; student solutions use SVG, generated with XSLT; our idea is to make this
+               technology accessible to domain experts via a higher-level graphics DSL. Finally,
+               access control, concurrent access, safety and liveness requirements; the quickest
+               route seems to recur to Web application frameworks as suggested by Davis [<xref linkend="DavisOnREST"/>].</para></listitem><listitem><para>Our methodology might be best suited to smaller projects that are amenable to
+               end-user computing. This is OK. After all, large publishing projects such as
+               producing an electronic Oxford English Dictionary have not been exercises in personal
+               publishing, either. Boundaries might be pushed a bit further with other case studies,
+               though.</para></listitem></itemizedlist><!-- 
+      <para>Some points, in no particular order yet: On evolution of electronic publishing. Discuss
+         XProc (papers from Balisage 2011) as a way to orchestrate server-side computations (not
+         needed for CalendarX but for more complex systems). Discuss End-User
+            Development&#x00A0;[<xref linkend="EndUserDevelopmentManifesto"/>] and leveraging XML
+         technology for end user development.</para>
+      <para>GUI</para>
+      <para>Illustrate claim "no system lock-in": Replace Orbeon Forms with XSLTForms.</para>
+      <para>XML technology for Web applications feasible, methodology is topic of this paper.
+         Benefit of DDD approach already apparent. ASMs as a formal method that is compatible with
+         DDD seems promising. XML Schema for calendar data as a DSL; further examples to be given in
+         final version of this paper.</para>
+      <para>How to handle non-functional requirements: Security issues. Authentification and
+         Authorization. Exception handling and error messages. Performance. Scalability.</para>
+      <para>Design your own DSL. Or provide them to encapsulate platform dependencies and facilitate
+         deeper involvement of domain experts into implementation.</para>
+      <para>Scope of methodology: Small projects?</para>
+      <para>Novel use of ASMs, beyond verification. Cite Börger paper.</para>
+      <para>Discuss Model-Driven Architecture (MDA): In DDD, domain experts stay involved in all
+         phases of the development. In MDA, the model gets translated into a target language /
+         implementation that is no longer accessible to domain experts. DDD uses the idea of
+         refinement, which is carried out systematically, unter the control of the development team
+         that includes domain experts. In that process, there is a role for DSLs and ASMs.</para>
+      <para>DSL for graphic, to be implemented with SVG.</para>
+      <para>Experiences with ASMs: <itemizedlist>
+            <listitem>
+               <para>need to be used in conjunction with visuals for models</para>
+            </listitem>
+            <listitem>
+               <para>excellent for "small print" in model and specification of functionality</para>
+            </listitem>
+            <listitem>
+               <para>facilitate clearer, better reasonded, more rational architecture</para>
+            </listitem>
+            <listitem>
+               <para>easy to translate into XQuery and XML Schema</para>
+            </listitem>
+         </itemizedlist></para>
+          --></section><appendix><title>Supporting materials</title><para>Please visit http://www11.in.tum.de/lehrstuhl/personen/sayih/2012BalisageVol8-Bruggemann-Klein01-documents for supporting materials,
+         particularly<itemizedlist><listitem><para>XML Schema document for CalendarX plus an instance.</para></listitem><listitem><para>ASM model for CalendarX.</para></listitem></itemizedlist></para></appendix><bibliography><title>Literature</title><!-- 
+         TODO
+           Add references on Modelling of Hypertext Applications.
+           Add citations to Cagle and Davis papers.
+         </listitem>
+         --><!-- <bibliomixed xml:id="AbiteboulEtAlDataOnTheWeb " xreflabel="AS1999">S.
+         Abiteboul, D. Suciu: <emphasis role="ital">Data on the Web: From Relations to
+         Semistructured Data and XML.</emphasis> Morgan Kaufmann 1999.</bibliomixed> --><!-- 
+      <bibliomixed xml:id="BernauerXMLSchemaUML" xreflabel="BKK04">M.
+         Bernauer,G. Kappel, G. Kramler: <emphasis> Representing XML Schema in
+            UML&#x2014;A Comparison of Approaches</emphasis>. Technical
+         Report Business Infomatics Group at TU Wien 2004. Available from
+         http://www.big.tuwien.ac.at/research/publications/2004/0304.pdf.</bibliomixed>
+      --><bibliomixed xml:id="BaumanBalisage2009" xreflabel="B09">B.T. Bauman: <emphasis>Prying Apart
+            Semantics and Implementation: Generating XML Schemata directly from ontologically sound
+            conceptual models.</emphasis> Balisage 2009. Available from
+         http://www.balisage.net/Proceedings/. doi:<biblioid class="doi">10.4242/BalisageVol3.Bauman01</biblioid>.</bibliomixed><bibliomixed xml:id="BrüggeEtAlsOOSWE" xreflabel="BD04">B. Brügge and A.H. Dutoit. <emphasis role="ital">Object-Oriented Software Engineering: Using UML, Patterns and
+            Java.</emphasis> Second Edition, Prentice Hall 2004. </bibliomixed><bibliomixed xml:id="EPTatBalisage2010" xreflabel="BDPT10"> Brüggemann-Klein A, Demirel T,
+         Pagano D und Tai A: <emphasis role="ital">Reverse Modeling for Domain-Driven Engineering of
+            Publishing Technology.</emphasis> Balisage Series on Markup Technologies 2010. Available
+         from http://www.balisage.net/Proceedings/. doi:<biblioid class="doi">10.4242/BalisageVol5.Bruggemann-Klein01</biblioid>.</bibliomixed><bibliomixed xml:id="ASMBook" xreflabel="BS03">E. Börger and R. Stärk: <emphasis>Abstract
+            State Machines. A Method for High-Level System Design and Analysis</emphasis>.
+         Springer-Verlag 2003. </bibliomixed><bibliomixed xml:id="EPTatBalisage2008" xreflabel="BS08">A. Brüggemann-Klein, L. Singer:
+            <emphasis role="ital">Hypertext Links and Relationships in XML Databases.</emphasis>
+         Presented at Balisage: The Markup Conference 2008, Montréal, Canada, 2008,
+         http://www.balisage.net/. Available from
+         http://hyquery.ls-softworks.de/HyperDataSystemsBalisage2008.pdf. doi:<biblioid class="doi">10.4242/BalisageVol1.Bruggemann-Klein01</biblioid>.</bibliomixed><bibliomixed xml:id="EPTGoldenBraidXMLT" xreflabel="BS12">A. Brüggemann-Klein and M. Sayih:
+            <emphasis>Metamodels for XML Schema</emphasis>. Work in Progress 2012.</bibliomixed><bibliomixed xml:id="EPTatEML2007" xreflabel="BST07">A. Brüggemann-Klein, Th. Schöpf, K. Toni:
+            <emphasis role="ital">Principles, Patterns and Procedures of XML Schema Design —
+            Reporting from the XBlog Project.</emphasis> Extreme Markup Languages 2007. Available
+         from http://conferences.idealliance.org/extreme/.</bibliomixed><bibliomixed xml:id="CagleOnREST" xreflabel="C08">K. Cagle.
+         <emphasis>REST-Oriented Architectures.</emphasis>. Balisage 2008. Available from
+         http://www.balisage.net/Proceedings/. doi:<biblioid class="doi">10.4242/BalisageVol1.Cagle01</biblioid>.</bibliomixed><bibliomixed xml:id="xCal" xreflabel="DDL09">C. Daboo, M. Douglass, and St. Lees.
+            <emphasis>xCal: The XML format for iCalendar.</emphasis> May 2011. Available from
+         http://tools.ietf.org/pdf/draft-daboo-et-al-icalendar-in-xml-09.pdf.</bibliomixed><bibliomixed xml:id="DavisOnREST" xreflabel="D11">C. Davis.
+         <emphasis>Programming Application Logic for RESTful Services Using XML
+            Technologies.</emphasis>. Balisage 2011. Available from
+         http://www.balisage.net/Proceedings/. doi:<biblioid class="doi">10.4242/BalisageVol7.Davis01</biblioid>.</bibliomixed><bibliomixed xml:id="iCalendar" xreflabel="D09">B. Desruisseaux, ed. <emphasis>Internet
+            Calendaring and Scheduling Core Object Specification (iCalendar)</emphasis>. September
+         2009. Available from http://tools.ietf.org/pdf/rfc5545.pdf. </bibliomixed><bibliomixed xml:id="EvansDDD" xreflabel="E04">E. Evans: <emphasis role="ital">Domain-Driven
+            Design. Tackling Complexity in the Heart of Software</emphasis>. Addison-Wesley
+         2004.</bibliomixed><bibliomixed xml:id="EndUserDevelopmentManifesto" xreflabel="FGSM04">G. Fischer, E. Giaccardi,
+         Y. Ye, A.G. Sutcliffe, N. Mehandijev: <emphasis role="ital">Meta-Design: A Manifesto for
+            End-User Development.</emphasis> CACM Vol 47 No 9, 2004. </bibliomixed><bibliomixed xml:id="FloydParadigmChange" xreflabel="F88">Ch. Floyd: <emphasis role="ital">Outline of a Paradigm Change in Software Engineering.</emphasis> ACM SIGSOFT Vol 13 NO
+         2, 1988.</bibliomixed><bibliomixed xml:id="FowlerDSLs" xreflabel="F11">M. Fowler: <emphasis role="ital">Domain-Specific Languages.</emphasis> Addison-Wesley 2011.</bibliomixed><bibliomixed xml:id="XRXIntro" xreflabel="McC07">D. McCreary: <emphasis role="ital">Introducing the XRX Architecture: XForms/REST/XQuery.</emphasis> Available from
+         http://datadictionary.blogspot.de/2007/12/introducing-xrx-architecture.html
+         2007.</bibliomixed><bibliomixed xml:id="XRXExplained" xreflabel="Mc08">D. McCreary: <emphasis role="ital">XRX:
+            Simple, Elegant, Disruptive.</emphasis> Available from
+         http://www.oreillynet.com/xml/blog/2008/05/xrx_a_simple_elegant_disruptiv_1.html
+         2008.</bibliomixed><bibliomixed xml:id="EPTatBalisage2009" xreflabel="PB09">D. Pagano and A. Brüggemann-Klein.
+            <emphasis>Engineering Document Applications — From UML Models to XML Schemas</emphasis>.
+         Balisage 2009. Available from http://www.balisage.net/Proceedings/. doi:<biblioid class="doi">10.4242/BalisageVol3.Bruggemann-Klein01</biblioid>.</bibliomixed><bibliomixed xml:id="RoblesHahnBTh" xreflabel="RH11">J.T. Robles Hahn: <emphasis role="ital">An XML Application for a Calendar System using Domain-Driven Design.</emphasis>
+         Bachelor Thesis. Technische Universität München 2011.</bibliomixed><bibliomixed xml:id="PDPrinciplesPractice" xreflabel="SchN93"> D. Schuler, A. Namioka (Eds):
+            <emphasis role="ital">Participatory Design: Principles and Practices.</emphasis>
+         Lawrence Erlbaum Associates, Hillsdale, NJ, 1993. </bibliomixed><!--
+      <bibliomixed xml:id="C01" xreflabel="CarlsonXMLAppsUML">D. Carlson:
+            <emphasis role="ital">Modeling XML Applications with UML: Practical
+            E-Business Applications.</emphasis> Redwood City, Addison Wesley
+         Longman Publishing, 2001.</bibliomixed>
+      <bibliomixed xml:id="ConradEtAlXMLConceptualModeling" xreflabel="CSF00">R.
+         Conrad, D. Scheffner, J.-C. Freytag. XML Conceptual Modeling Using UML.
+         In A.H.F. Laender, S.W. Liddle, V.C. Storey (eds), <emphasis
+            role="ital">International Conference on Conceptual Modeling (ER
+            2000)</emphasis>. LNCS 1920, pp. 558&#x2014;571. Springer-Verlag
+         2000.</bibliomixed>
+      <bibliomixed xml:id="DemirelDA" xreflabel="D10">T. Demirel. <emphasis
+            role="ital">Grundsatzuntersuchung zur Übernahme von
+            nicht-semantischen XML-Druckerdaten in semantisches XML auf Basis
+            eines XSD-Schemas.</emphasis> Diploma Thesis, Technische Universität
+         München, 2010.</bibliomixed>
+      <bibliomixed xml:id="HyTimeBook" xreflabel="DD84">S.J. DeRose and D.G.
+         Durand: <emphasis>Making Hypermedia Work: A User's Guide to
+            HyTime</emphasis>. Kluwer Academic Publishers 1984.</bibliomixed>
+      <bibliomixed xml:id="EcksteinEtAlXMLDatenmodellierung" xreflabel="EE04">R.
+         Eckstein, S. Eckstein. <emphasis role="ital">XML und
+            Datenmodellierung.</emphasis> DPunkt-Verlag 2004.</bibliomixed>
+      <bibliomixed xml:id="GuizzardiUFO" xreflabel="G05">G. Guizzardi:
+            <emphasis>Ontological Foundations for Structural Conceptual
+            Models</emphasis>. Ph.D. Thesis, University of Twente, The
+         Netherlands, 2005. Available from
+         https://doc.telin.nl/dsweb/Get/Document-55835/Ontological%20Foundations%20for%20Structural%20Conceptual%20Models.pdf.</bibliomixed>
+      <bibliomixed xml:id="GammaEtAlDesignPatterns" xreflabel="GHJV95">E. Gamma,
+         R. Helm, R. Johnson, J. Vlissides. <emphasis>Design
+         Patterns</emphasis>. Addison-Wesley 1995. </bibliomixed>
+      <bibliomixed xml:id="KimberEtAlUML2DTD" xreflabel="KH00">W.E. Kimber, J.D.
+         Heintz: <emphasis role="ital">Using UML To Define XML Document
+            Types.</emphasis> Presentation at Extreme Markup Languages 2000.
+         Available from
+         http://www.gca.org/attend/2000_conferences/Extreme_2000/.</bibliomixed>
+      <bibliomixed xml:id="KhanEtAlSchemaDesignPatterns" xreflabel="KS06">A.
+         Khan, M. Sum. <emphasis role="ital">Introducing Design Patterns in XML
+            Schemata</emphasis>. Sun Developer Network 2006.</bibliomixed>
+      <bibliomixed xml:id="LainevoolXMLPatterns" xreflabel="L10">T. Lainevool.
+            <emphasis role="ital">Develop Effective XML Documents Using
+            Structural Design Patterns.</emphasis>
+         http://www.LainevoolXMLPatterns.com/.</bibliomixed>
+      <bibliomixed xml:id="MalerEtAlDTDModeling" xreflabel="MA95">E. Maler, J.
+         El Andaloussi. <emphasis role="ital">Developing SGML DTDs: From Text to
+            Model to Markup.</emphasis> Prentice Hall 1995.</bibliomixed>
+      <bibliomixed xml:id="MellorMDADistilled" xreflabel="MSUW04">S.J. Mellor,
+         K. Scott, A. Uhl, D. Weise: <emphasis>MDA Distilled.</emphasis>
+         Addison-Wesley 2004.</bibliomixed>
+      <bibliomixed xml:id="NecaskyConceptualModeling" xreflabel="N06">M.
+         Nečaský: <emphasis>Conceptual Modeling for XML: A Survey</emphasis>.
+         Proceedings of the Dateso Annual International Workshop on Databases,
+         Texts, Specifications and Objects 2006. Available from
+         http://ftp.informatik.rwth-aachen.de/Publications/CEUR-WS/Vol-176/</bibliomixed>
+      <bibliomixed xml:id="OMGMOF" xreflabel="OMGMOF">Object Management Group: <emphasis role="ital"
+            >Meta Object Facility (MOF) Specification.</emphasis> Version 1.4.1, July 2005.
+         http://www.omg.org/docs/formal/05-05-05.pdf </bibliomixed>
+      <bibliomixed xml:id="OMGMOFCore" xreflabel="OMGMOFCore">Object Management Group: <emphasis
+            role="ital">Meta Object Facility (MOF) Core Specification.</emphasis> Version 2.0,
+         January 2006. http://www.omg.org/docs/formal/06-01-01.pdf </bibliomixed>
+      <bibliomixed xml:id="OMGXMIMapping" xreflabel="OMGXMIMapping">Object Management Group:
+            <emphasis role="ital">MOF 2.0/XMI Mapping.</emphasis> Version 2.1.1. December 2007.
+         http://www.omg.org/docs/formal/07-12-01.pdf</bibliomixed>
+      <bibliomixed xml:id="OMGUMLInfrastructure" xreflabel="OMGUMLInfrastructure">Object Management
+         Group: <emphasis role="ital">OMG Unified Modeling Language (OMG UML).</emphasis>
+         Infrastructure, V2.1.2. November 2007. http://www.omg.org/docs/
+         formal/07-11-04.pdf</bibliomixed>
+            <bibliomixed xml:id="PaganoDA" xreflabel="P08">D. Pagano. <emphasis
+            role="ital">Modeling and Defining XML Applications with UML and XML
+            Schema.</emphasis> Diploma Thesis, Technische Universität München,
+         2008.</bibliomixed>
+      <bibliomixed xml:id="StephensonBestPractices" xreflabel="S04">D.
+         Stephenson. <emphasis role="ital">XML Schema Best Practices</emphasis>.
+         HP Dev Resource 2004.
+         http://devresource.hp.com/drc/resources/vdVlistXMLSchemaBestPractices.jsp.</bibliomixed>
+      <bibliomixed xml:id="SimsionDataModeling" xreflabel="S07">G. Simsion:
+            <emphasis>Data Modeling Theory and Practice</emphasis>. Technics
+         Publications 2007. </bibliomixed>
+      <bibliomixed xml:id="SMPTE335M" xreflabel="SMPTE01">Society of Motion
+         Picture and Television Engineers: SMPTE 335M-2001- Metadata Dictionary
+         Structure. SMPTE Standard for Telivision, 2001. </bibliomixed>
+      <bibliomixed xml:id="SMPTE395M" xreflabel="SMPTE03">Society of Motion
+         Picture and Television Engineers: SMPTE 395M-2003 - Metadata Groups
+         Registry Structure. SMPTE Standard for Telivision, 2003. </bibliomixed>
+      <bibliomixed xml:id="SMPTERP210" xreflabel="SMPTE08">Society of Motion
+         Picture and Television Engineers: RP210-11-2008 - Data Element
+         Dictionary. SMPTE Recommended Practice, 2008.</bibliomixed>
+      <bibliomixed xml:id="TaiMTh" xreflabel="T09">A. Tai:
+            <emphasis>Requirements analysis, conception and implementation of a
+            BMF-Generator on the basis of the BMF-XML Schema.</emphasis>
+         Master's Thesis. Technische Universität München, 2009.</bibliomixed>
+      <bibliomixed xml:id="WildeMichelSpath1" xreflabel="WM07a">E. Wilde und F.
+         Michel: <emphasis role="ital">SPath: a path language for XML
+            schema.</emphasis> In: WWW ’07: Proceedings of the 16th
+         international conference on World Wide Web, S. 1343–1344. ACM,
+         2007.</bibliomixed>
+      <bibliomixed xml:id="WildeMichelSpath2" xreflabel="WM07b">E. Wilde und F.
+         Michel: <emphasis role="ital">SPath: A Path Language for XML
+            Schema.</emphasis> In: Paper 2007-001 . School of Information, 2007.
+         Available from
+         http://dret.net/netdret/docs/wilde-irep07-001-spath.pdf.</bibliomixed>
+      <bibliomixed xml:id="WildeMichelXMLbased" xreflabel="WM07c">E. Wilde und
+         F. Michel: <emphasis role="ital">XML-based XML schema
+            access.</emphasis> In: WWW ’07: Proceedings of the 16th
+         international conference on World Wide Web, S. 1351–1352. ACM,
+         2007.</bibliomixed>
+      <bibliomixed xml:id="vdVlistSchemaTechnologies" xreflabel="vdVlistSchemaTechnologies">E. van
+         der Vlist. <emphasis role="ital">Comparing XML Schema Languages.</emphasis> XML.com 2001.
+         http://www.xml.com/lpt/a/884.</bibliomixed>
+      <bibliomixed xml:id="vdVlistXMLSchema" xreflabel="vdVlistXMLSchema">E. van der Vlist.
+            <emphasis role="ital">XML Schema.</emphasis> O'Reilly 2002.</bibliomixed>
+      <bibliomixed xml:id="W3CRecXLink" xreflabel="W3CRecXLink">World Wide Web Consortium: <emphasis
+            role="ital">XML Linking Language (XLink).</emphasis> W3C Recommendation
+         27&#x00A0;June&#x00A0;2001. http://www.w3.org/TR/xlink/</bibliomixed>
+      <bibliomixed xml:id="W3CRecXMLSchemaStructures" xreflabel="W3CRecXMLSchemaStructures">World
+         Wide Web Consortium: <emphasis role="ital">XML Schema Part&#x00A0;1: Structures Second
+            Edition.</emphasis> W3C Recommendation 28&#x00A0;October&#x00A0;2004.
+         http://www.w3.org/TR/2004/REC-vdVlistXMLSchema-1-20041028/</bibliomixed>
+      --></bibliography></article>
